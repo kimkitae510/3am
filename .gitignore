@@ -1,0 +1,28 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### Environment / Secrets ###
+.env
+application-local.yml
+application-secret.yml
+
+### AI 작업 안내 / 로컬 전용 문서 (커밋 제외) ###
+CLAUDE.md
+PROGRESS.md
+gitc.sh
+
+### OS ###
+.DS_Store

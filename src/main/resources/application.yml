@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: 3am
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/threeam?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update        # 개발 단계: update / 운영: validate 권장
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+    show-sql: true
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+# JWT (실제 시크릿은 환경변수로 주입)
+jwt:
+  secret: ${JWT_SECRET:change-me-to-a-long-random-secret-key-at-least-256-bits}
+  access-token-validity-seconds: 1800       # 30분
+  refresh-token-validity-seconds: 1209600   # 14일
+
+# LLM (현재는 OpenAI 호환 RestTemplate 호출 기준. Claude로 바꿀 때 키/URL만 교체)
+llm:
+  api-key: ${LLM_API_KEY:}
+
+# 모니터링
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    com.threeam: debug

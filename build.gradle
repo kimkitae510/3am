@@ -1,0 +1,81 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.2.5'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.threeam'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// === Core ===
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// === Redis (AI 사용량 제한 / 비동기 task 저장 / 캐싱) ===
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.apache.commons:commons-pool2'  // Lettuce 커넥션 풀용
+
+	// === JWT ===
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+
+	// === DB ===
+	implementation 'mysql:mysql-connector-java:8.0.32'
+
+	// === Lombok ===
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// === QueryDSL ===
+	implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
+	annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'
+	annotationProcessor 'jakarta.annotation:jakarta.annotation-api:2.1.1'
+	annotationProcessor 'jakarta.persistence:jakarta.persistence-api:3.1.0'
+
+	// === 모니터링 ===
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+
+	// === 테스트 ===
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.mockito:mockito-inline:5.2.0'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// === LLM ===
+	// 현재 LLM 호출은 RestTemplate(spring-web 내장)로 처리하므로 별도 의존성 불필요.
+	// 추후 Spring AI(Anthropic)로 교체 시 아래 주석 해제 + 1.x BOM 추가:
+	// implementation 'org.springframework.ai:spring-ai-anthropic-spring-boot-starter:<버전>'
+}
+
+// === QueryDSL 생성 경로 설정 ===
+def querydslDir = "$buildDir/generated/querydsl"
+
+sourceSets {
+	main.java.srcDirs += [ querydslDir ]
+}
+
+tasks.withType(JavaCompile) {
+	options.getGeneratedSourceOutputDirectory().set(file(querydslDir))
+}
+
+clean {
+	delete file(querydslDir)
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
