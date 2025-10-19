@@ -1,5 +1,7 @@
 package com.threeam.global.config;
 
+import com.threeam.security.handler.JwtAccessDeniedHandler;
+import com.threeam.security.handler.JwtAuthenticationEntryPoint;
 import com.threeam.security.jwt.JwtAuthenticationFilter;
 import com.threeam.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final JwtAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -39,6 +43,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/signup", "/api/auth/login", "/api/auth/reissue").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
