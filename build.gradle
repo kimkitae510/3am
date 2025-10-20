@@ -51,8 +51,8 @@ dependencies {
 	implementation 'io.micrometer:micrometer-registry-prometheus'
 
 	// === 테스트 ===
+	// Mockito 5(스타터에 포함)는 inline 목킹이 기본 내장이라 mockito-inline 불필요.
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.mockito:mockito-inline:5.2.0'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
 	// === LLM ===
