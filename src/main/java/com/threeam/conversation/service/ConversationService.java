@@ -76,6 +76,13 @@ public class ConversationService {
         return messageRepository.findByConversationId(conversationId, pageable).map(MessageResponse::from);
     }
 
+    @Transactional
+    public void deleteConversation(Long userId, Long conversationId) {
+        Conversation conversation = findOwned(conversationId, userId);
+        messageRepository.deleteByConversationId(conversationId);
+        conversationRepository.delete(conversation);
+    }
+
     private Conversation findOwned(Long conversationId, Long userId) {
         return conversationRepository.findByIdAndUserId(conversationId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
