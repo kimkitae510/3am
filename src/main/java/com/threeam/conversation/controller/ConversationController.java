@@ -2,6 +2,8 @@ package com.threeam.conversation.controller;
 
 import com.threeam.conversation.dto.ConversationCreateRequest;
 import com.threeam.conversation.dto.ConversationResponse;
+import com.threeam.conversation.dto.MessageResponse;
+import com.threeam.conversation.dto.MessageSendRequest;
 import com.threeam.conversation.service.ConversationService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -10,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,5 +34,13 @@ public class ConversationController {
     @GetMapping
     public ResponseEntity<List<ConversationResponse>> getConversations(@AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(conversationService.getConversations(userId));
+    }
+
+    @PostMapping("/{conversationId}/messages")
+    public ResponseEntity<MessageResponse> sendMessage(@AuthenticationPrincipal Long userId,
+                                                       @PathVariable Long conversationId,
+                                                       @Valid @RequestBody MessageSendRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(conversationService.sendMessage(userId, conversationId, request));
     }
 }
