@@ -8,6 +8,10 @@ import com.threeam.conversation.service.ConversationService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -42,5 +46,13 @@ public class ConversationController {
                                                        @Valid @RequestBody MessageSendRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(conversationService.sendMessage(userId, conversationId, request));
+    }
+
+    @GetMapping("/{conversationId}/messages")
+    public ResponseEntity<Page<MessageResponse>> getMessages(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long conversationId,
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(conversationService.getMessages(userId, conversationId, pageable));
     }
 }
