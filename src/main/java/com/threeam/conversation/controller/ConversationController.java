@@ -2,16 +2,13 @@ package com.threeam.conversation.controller;
 
 import com.threeam.conversation.dto.ConversationCreateRequest;
 import com.threeam.conversation.dto.ConversationResponse;
+import com.threeam.conversation.dto.MessagePageResponse;
 import com.threeam.conversation.dto.MessageResponse;
 import com.threeam.conversation.dto.MessageSendRequest;
 import com.threeam.conversation.service.ConversationService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -50,11 +48,12 @@ public class ConversationController {
     }
 
     @GetMapping("/{conversationId}/messages")
-    public ResponseEntity<Page<MessageResponse>> getMessages(
+    public ResponseEntity<MessagePageResponse> getMessages(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long conversationId,
-            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(conversationService.getMessages(userId, conversationId, pageable));
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "30") int size) {
+        return ResponseEntity.ok(conversationService.getMessages(userId, conversationId, cursor, size));
     }
 
     @DeleteMapping("/{conversationId}")

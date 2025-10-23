@@ -8,6 +8,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -19,7 +20,10 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(name = "messages")
+// 커서 페이지네이션("이 대화방의 id < cursor 최신순 N개")을 인덱스 범위 스캔으로 처리하기 위한 복합 인덱스.
+@Table(name = "messages", indexes = {
+        @Index(name = "idx_messages_conversation_id", columnList = "conversation_id, id")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Message {
