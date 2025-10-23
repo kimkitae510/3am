@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 
 import com.threeam.conversation.dto.ConversationCreateRequest;
 import com.threeam.conversation.dto.ConversationResponse;
+import com.threeam.conversation.dto.MessagePageResponse;
 import com.threeam.conversation.dto.MessageResponse;
 import com.threeam.conversation.dto.MessageSendRequest;
 import com.threeam.conversation.entity.Conversation;
@@ -30,7 +31,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -87,8 +90,8 @@ class ConversationServiceTest {
         Conversation conversation = conversation(1L, "대화");
         given(conversationRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.of(conversation));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
-        given(messageRepository.findByConversationIdOrderByCreatedAtDesc(eq(10L), any(Pageable.class)))
-                .willReturn(List.of());
+        given(messageRepository.findByConversationIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(), PageRequest.of(0, 20), false));
         given(llmClient.generate(anyList())).willReturn("괜찮아요, 여기 있어요.");
 
         MessageResponse response = conversationService.sendMessage(1L, 10L, sendRequest("오늘 너무 힘들어"));
@@ -113,11 +116,30 @@ class ConversationServiceTest {
     }
 
     @Test
+    @DisplayName("메시지 조회 - 커서 없이 최신 페이지를 과거→현재 순으로 반환한다")
+    void getMessages_firstPage() {
+        Conversation conversation = conversation(1L, "대화");
+        given(conversationRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.of(conversation));
+        Message older = message(1L, MessageRole.USER, "안녕");
+        Message newer = message(2L, MessageRole.ASSISTANT, "안녕하세요");
+        // 조회는 id 역순(최신 먼저)으로 온다. hasNext=true(더 과거 있음)로 가정.
+        given(messageRepository.findByConversationIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(newer, older), PageRequest.of(0, 30), true));
+
+        MessagePageResponse response = conversationService.getMessages(1L, 10L, null, 30);
+
+        assertThat(response.getMessages()).extracting(MessageResponse::getContent)
+                .containsExactly("안녕", "안녕하세요"); // 과거→현재로 뒤집혀 나온다
+        assertThat(response.getNextCursor()).isEqualTo(1L); // 이번 배치에서 가장 오래된 id
+        assertThat(response.isHasNext()).isTrue();
+    }
+
+    @Test
     @DisplayName("메시지 조회 - 없거나 남의 대화면 CONVERSATION_NOT_FOUND")
     void getMessages_notFound() {
         given(conversationRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> conversationService.getMessages(1L, 10L, Pageable.ofSize(50)))
+        assertThatThrownBy(() -> conversationService.getMessages(1L, 10L, null, 30))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CONVERSATION_NOT_FOUND);
     }
@@ -149,6 +171,12 @@ class ConversationServiceTest {
 
     private Conversation conversation(Long userId, String title) {
         return Conversation.builder().userId(userId).title(title).build();
+    }
+
+    private Message message(Long id, MessageRole role, String content) {
+        Message message = Message.builder().role(role).content(content).build();
+        ReflectionTestUtils.setField(message, "id", id);
+        return message;
     }
 
     private ConversationCreateRequest createRequest(String title) {
