@@ -1,4 +1,4 @@
-package com.threeam.conversation.dto;
+package com.threeam.story.dto;
 
 import java.util.List;
 import lombok.Getter;

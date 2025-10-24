@@ -1,4 +1,4 @@
-package com.threeam.conversation.entity;
+package com.threeam.story.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,11 +13,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
+// 사연 = 한 사람(전 연인)에 대한 상담 스레드 전체. 밑에 메시지들이 달리고, 재회 확률도 여기에 귀속된다.
 @Entity
-@Table(name = "conversations")
+@Table(name = "stories")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Conversation {
+public class Story {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,13 +34,13 @@ public class Conversation {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // 새 메시지가 들어올 때 touch()로 직접 갱신한다. 대화방 목록을 최근 활동순으로 정렬하기 위함.
-    // (메시지는 별도 엔티티라 @UpdateTimestamp로는 대화방 갱신이 잡히지 않는다.)
+    // 새 메시지가 들어올 때 touch()로 직접 갱신한다. 사연 목록을 최근 활동순으로 정렬하기 위함.
+    // (메시지는 별도 엔티티라 @UpdateTimestamp로는 사연 갱신이 잡히지 않는다.)
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
     @Builder
-    private Conversation(Long userId, String title) {
+    private Story(Long userId, String title) {
         this.userId = userId;
         this.title = title;
         this.updatedAt = LocalDateTime.now();

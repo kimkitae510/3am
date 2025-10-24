@@ -1,19 +1,19 @@
-package com.threeam.conversation.service;
+package com.threeam.story.service;
 
-import com.threeam.conversation.dto.ConversationCreateRequest;
-import com.threeam.conversation.dto.ConversationResponse;
-import com.threeam.conversation.dto.MessagePageResponse;
-import com.threeam.conversation.dto.MessageResponse;
-import com.threeam.conversation.dto.MessageSendRequest;
-import com.threeam.conversation.entity.Conversation;
-import com.threeam.conversation.entity.Message;
-import com.threeam.conversation.entity.MessageRole;
-import com.threeam.conversation.repository.ConversationRepository;
-import com.threeam.conversation.repository.MessageRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
+import com.threeam.story.dto.MessagePageResponse;
+import com.threeam.story.dto.MessageResponse;
+import com.threeam.story.dto.MessageSendRequest;
+import com.threeam.story.dto.StoryCreateRequest;
+import com.threeam.story.dto.StoryResponse;
+import com.threeam.story.entity.Message;
+import com.threeam.story.entity.MessageRole;
+import com.threeam.story.entity.Story;
+import com.threeam.story.repository.MessageRepository;
+import com.threeam.story.repository.StoryRepository;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ConversationService {
+public class StoryService {
 
     private static final String DEFAULT_TITLE = "새 대화";
 
@@ -38,50 +38,49 @@ public class ConversationService {
     // 페르소나 실문구는 저장소 밖에서 관리한다(CLAUDE.md). 여기서는 자리표시자만 둔다.
     private static final String SYSTEM_PROMPT = "당신은 이별을 겪은 사람의 곁을 지키는 다정한 대화 상대입니다.";
 
-    private final ConversationRepository conversationRepository;
+    private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
     private final LlmClient llmClient;
 
     @Transactional
-    public ConversationResponse create(Long userId, ConversationCreateRequest request) {
+    public StoryResponse create(Long userId, StoryCreateRequest request) {
         String title = (request.getTitle() == null || request.getTitle().isBlank())
                 ? DEFAULT_TITLE
                 : request.getTitle().trim();
 
-        Conversation conversation = conversationRepository.save(
-                Conversation.builder().userId(userId).title(title).build());
+        Story story = storyRepository.save(Story.builder().userId(userId).title(title).build());
 
-        return ConversationResponse.from(conversation);
+        return StoryResponse.from(story);
     }
 
-    public List<ConversationResponse> getConversations(Long userId) {
-        return conversationRepository.findByUserIdOrderByUpdatedAtDesc(userId).stream()
-                .map(ConversationResponse::from)
+    public List<StoryResponse> getStories(Long userId) {
+        return storyRepository.findByUserIdOrderByUpdatedAtDesc(userId).stream()
+                .map(StoryResponse::from)
                 .toList();
     }
 
     @Transactional
-    public MessageResponse sendMessage(Long userId, Long conversationId, MessageSendRequest request) {
-        Conversation conversation = findOwned(conversationId, userId);
+    public MessageResponse sendMessage(Long userId, Long storyId, MessageSendRequest request) {
+        Story story = findOwned(storyId, userId);
 
-        messageRepository.save(Message.user(conversation, request.getContent()));
+        messageRepository.save(Message.user(story, request.getContent()));
 
-        String reply = llmClient.generate(buildPrompt(conversationId));
+        String reply = llmClient.generate(buildPrompt(storyId));
 
-        Message answer = messageRepository.save(Message.assistant(conversation, reply));
-        conversation.touch();
+        Message answer = messageRepository.save(Message.assistant(story, reply));
+        story.touch();
 
         return MessageResponse.from(answer);
     }
 
-    public MessagePageResponse getMessages(Long userId, Long conversationId, Long cursor, int size) {
-        findOwned(conversationId, userId);
+    public MessagePageResponse getMessages(Long userId, Long storyId, Long cursor, int size) {
+        findOwned(storyId, userId);
 
         int limit = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         PageRequest page = PageRequest.of(0, limit);
         Slice<Message> slice = (cursor == null)
-                ? messageRepository.findByConversationIdOrderByIdDesc(conversationId, page)
-                : messageRepository.findByConversationIdAndIdLessThanOrderByIdDesc(conversationId, cursor, page);
+                ? messageRepository.findByStoryIdOrderByIdDesc(storyId, page)
+                : messageRepository.findByStoryIdAndIdLessThanOrderByIdDesc(storyId, cursor, page);
 
         // 조회는 최신→과거(id desc)로 오지만, 화면 표시용으로 과거→현재로 뒤집는다.
         List<Message> content = slice.getContent();
@@ -96,21 +95,21 @@ public class ConversationService {
     }
 
     @Transactional
-    public void deleteConversation(Long userId, Long conversationId) {
-        Conversation conversation = findOwned(conversationId, userId);
-        messageRepository.deleteByConversationId(conversationId);
-        conversationRepository.delete(conversation);
+    public void deleteStory(Long userId, Long storyId) {
+        Story story = findOwned(storyId, userId);
+        messageRepository.deleteByStoryId(storyId);
+        storyRepository.delete(story);
     }
 
-    private Conversation findOwned(Long conversationId, Long userId) {
-        return conversationRepository.findByIdAndUserId(conversationId, userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
+    private Story findOwned(Long storyId, Long userId) {
+        return storyRepository.findByIdAndUserId(storyId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
     }
 
-    private List<ChatMessage> buildPrompt(Long conversationId) {
+    private List<ChatMessage> buildPrompt(Long storyId) {
         // 방금 저장한 유저 메시지까지 포함해 최신순 N개를 가져온 뒤, 시간순으로 뒤집어 대화 순서를 복원한다.
         List<Message> recent = messageRepository
-                .findByConversationIdOrderByIdDesc(conversationId, PageRequest.of(0, HISTORY_WINDOW))
+                .findByStoryIdOrderByIdDesc(storyId, PageRequest.of(0, HISTORY_WINDOW))
                 .getContent();
 
         List<ChatMessage> prompt = new ArrayList<>();

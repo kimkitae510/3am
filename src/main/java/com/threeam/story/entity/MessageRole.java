@@ -1,4 +1,4 @@
-package com.threeam.conversation.entity;
+package com.threeam.story.entity;
 
 public enum MessageRole {
     USER,

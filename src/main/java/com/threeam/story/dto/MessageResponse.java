@@ -1,7 +1,7 @@
-package com.threeam.conversation.dto;
+package com.threeam.story.dto;
 
-import com.threeam.conversation.entity.Message;
-import com.threeam.conversation.entity.MessageRole;
+import com.threeam.story.entity.Message;
+import com.threeam.story.entity.MessageRole;
 import java.time.LocalDateTime;
 import lombok.Getter;
 

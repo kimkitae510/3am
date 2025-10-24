@@ -23,8 +23,8 @@ public enum ErrorCode {
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "A003", "인증이 필요합니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "A004", "접근 권한이 없습니다."),
 
-    // 대화
-    CONVERSATION_NOT_FOUND(HttpStatus.NOT_FOUND, "V001", "대화를 찾을 수 없습니다."),
+    // 사연
+    STORY_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "사연을 찾을 수 없습니다."),
 
     // LLM
     LLM_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "L001", "AI 응답 생성에 실패했습니다.");
