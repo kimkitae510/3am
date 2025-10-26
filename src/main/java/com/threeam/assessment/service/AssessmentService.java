@@ -35,6 +35,14 @@ public class AssessmentService {
                 .myBreakupType(result.breakupType())
                 .partnerType(result.partnerType())
                 .reason(result.reason())
+                // 점수 근거가 된 신호값을 스냅샷으로 함께 남긴다.
+                .whoEnded(request.getWhoEnded())
+                .contactStatus(request.getContactStatus())
+                .breakupReason(request.getBreakupReason())
+                .partnerNewPerson(request.isPartnerNewPerson())
+                .relationshipMonths(request.getRelationshipMonths())
+                .pastReunionFailed(request.isPastReunionFailed())
+                .daysSinceBreakup(request.getDaysSinceBreakup())
                 .build());
 
         return AssessmentResponse.from(saved);

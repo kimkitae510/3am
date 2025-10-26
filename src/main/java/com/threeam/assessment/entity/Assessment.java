@@ -48,18 +48,53 @@ public class Assessment {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
 
+    // 점수의 근거가 된 신호값 스냅샷. LLM/폼이 뽑은 입력을 그대로 남겨 투명성·재계산에 쓴다.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Initiator whoEnded;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ContactStatus contactStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private BreakupReason breakupReason;
+
+    @Column(nullable = false)
+    private boolean partnerNewPerson;
+
+    @Column(nullable = false)
+    private int relationshipMonths;
+
+    @Column(nullable = false)
+    private boolean pastReunionFailed;
+
+    @Column(nullable = false)
+    private int daysSinceBreakup;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
-                       BreakupType myBreakupType, PartnerType partnerType, String reason) {
+                       BreakupType myBreakupType, PartnerType partnerType, String reason,
+                       Initiator whoEnded, ContactStatus contactStatus, BreakupReason breakupReason,
+                       boolean partnerNewPerson, int relationshipMonths, boolean pastReunionFailed,
+                       int daysSinceBreakup) {
         this.storyId = storyId;
         this.verdict = verdict;
         this.probability = probability;
         this.myBreakupType = myBreakupType;
         this.partnerType = partnerType;
         this.reason = reason;
+        this.whoEnded = whoEnded;
+        this.contactStatus = contactStatus;
+        this.breakupReason = breakupReason;
+        this.partnerNewPerson = partnerNewPerson;
+        this.relationshipMonths = relationshipMonths;
+        this.pastReunionFailed = pastReunionFailed;
+        this.daysSinceBreakup = daysSinceBreakup;
     }
 }
