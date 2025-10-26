@@ -1,4 +1,4 @@
-package com.threeam.assessment.dto;
+package com.threeam.assessment.entity;
 
 // 누가 이별을 통보했는지.
 public enum Initiator {

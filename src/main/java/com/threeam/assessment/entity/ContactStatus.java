@@ -1,4 +1,4 @@
-package com.threeam.assessment.dto;
+package com.threeam.assessment.entity;
 
 // 이별 후 현재 연락 상태.
 public enum ContactStatus {

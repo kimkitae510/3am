@@ -1,5 +1,8 @@
 package com.threeam.assessment.dto;
 
+import com.threeam.assessment.entity.BreakupReason;
+import com.threeam.assessment.entity.ContactStatus;
+import com.threeam.assessment.entity.Initiator;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;

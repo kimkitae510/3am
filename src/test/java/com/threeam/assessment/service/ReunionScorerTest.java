@@ -3,10 +3,10 @@ package com.threeam.assessment.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.threeam.assessment.dto.AssessmentRequest;
-import com.threeam.assessment.dto.BreakupReason;
-import com.threeam.assessment.dto.ContactStatus;
-import com.threeam.assessment.dto.Initiator;
+import com.threeam.assessment.entity.BreakupReason;
 import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.ContactStatus;
+import com.threeam.assessment.entity.Initiator;
 import com.threeam.assessment.entity.PartnerType;
 import com.threeam.assessment.entity.ReunionVerdict;
 import org.junit.jupiter.api.DisplayName;

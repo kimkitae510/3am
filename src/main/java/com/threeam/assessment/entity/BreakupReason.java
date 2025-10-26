@@ -1,4 +1,4 @@
-package com.threeam.assessment.dto;
+package com.threeam.assessment.entity;
 
 // 이별 사유. CHEATING(신뢰 붕괴)은 졸업 판정 트리거.
 public enum BreakupReason {

@@ -9,9 +9,6 @@ import static org.mockito.Mockito.verify;
 
 import com.threeam.assessment.dto.AssessmentRequest;
 import com.threeam.assessment.dto.AssessmentResponse;
-import com.threeam.assessment.dto.BreakupReason;
-import com.threeam.assessment.dto.ContactStatus;
-import com.threeam.assessment.dto.Initiator;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.BreakupType;
 import com.threeam.assessment.entity.PartnerType;
