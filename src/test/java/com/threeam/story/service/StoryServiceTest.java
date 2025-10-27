@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.threeam.global.exception.ErrorCode;
@@ -25,6 +24,7 @@ import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +44,9 @@ class StoryServiceTest {
 
     @Mock
     private MessageRepository messageRepository;
+
+    @Mock
+    private MessageTxService messageTxService;
 
     @Mock
     private LlmClient llmClient;
@@ -85,33 +88,33 @@ class StoryServiceTest {
     }
 
     @Test
-    @DisplayName("메시지 전송 - 유저/어시스턴트 메시지를 저장하고 LLM 응답을 반환한다")
+    @DisplayName("메시지 전송 - 유저 저장→LLM(논블로킹)→어시스턴트 저장 순으로 오케스트레이션한다")
     void sendMessage_success() {
-        Story story = story(1L, "사연");
-        given(storyRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.of(story));
-        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
-        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(), PageRequest.of(0, 20), false));
-        given(llmClient.generate(anyList())).willReturn("괜찮아요, 여기 있어요.");
+        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 너무 힘들어"))
+                .willReturn(List.of());
+        given(llmClient.generate(anyList()))
+                .willReturn(CompletableFuture.completedFuture("괜찮아요, 여기 있어요."));
+        Message answer = message(2L, MessageRole.ASSISTANT, "괜찮아요, 여기 있어요.");
+        given(messageTxService.appendAssistantReply(10L, "괜찮아요, 여기 있어요."))
+                .willReturn(MessageResponse.from(answer));
 
-        MessageResponse response = storyService.sendMessage(1L, 10L, sendRequest("오늘 너무 힘들어"));
+        MessageResponse response = storyService.sendMessage(1L, 10L, sendRequest("오늘 너무 힘들어")).join();
 
         assertThat(response.getRole()).isEqualTo(MessageRole.ASSISTANT);
         assertThat(response.getContent()).isEqualTo("괜찮아요, 여기 있어요.");
-        verify(messageRepository, times(2)).save(any(Message.class)); // 유저 + 어시스턴트
         verify(llmClient).generate(anyList());
     }
 
     @Test
     @DisplayName("메시지 전송 - 없거나 남의 사연이면 STORY_NOT_FOUND, LLM을 호출하지 않는다")
     void sendMessage_notFound() {
-        given(storyRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.empty());
+        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi"))
+                .willThrow(new BusinessException(ErrorCode.STORY_NOT_FOUND));
 
         assertThatThrownBy(() -> storyService.sendMessage(1L, 10L, sendRequest("hi")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORY_NOT_FOUND);
 
-        verify(messageRepository, never()).save(any(Message.class));
         verify(llmClient, never()).generate(anyList());
     }
 
