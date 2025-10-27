@@ -10,16 +10,17 @@ import com.threeam.story.dto.MessageSendRequest;
 import com.threeam.story.dto.StoryCreateRequest;
 import com.threeam.story.dto.StoryResponse;
 import com.threeam.story.entity.Message;
-import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -29,17 +30,12 @@ public class StoryService {
 
     private static final String DEFAULT_TITLE = "새 대화";
 
-    // LLM에 실어 보낼 직전 맥락의 크기(메시지 수). 토큰·비용을 제한하기 위한 window.
-    private static final int HISTORY_WINDOW = 20;
-
     // 조회 한 번에 내려줄 메시지 수 상한. 클라가 큰 size를 넘겨도 여기서 자른다.
     private static final int MAX_PAGE_SIZE = 100;
 
-    // 페르소나 실문구는 저장소 밖에서 관리한다(CLAUDE.md). 여기서는 자리표시자만 둔다.
-    private static final String SYSTEM_PROMPT = "당신은 이별을 겪은 사람의 곁을 지키는 다정한 대화 상대입니다.";
-
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
+    private final MessageTxService messageTxService;
     private final LlmClient llmClient;
 
     @Transactional
@@ -59,18 +55,16 @@ public class StoryService {
                 .toList();
     }
 
-    @Transactional
-    public MessageResponse sendMessage(Long userId, Long storyId, MessageSendRequest request) {
-        Story story = findOwned(storyId, userId);
+    // 트랜잭션 밖(NOT_SUPPORTED)에서 오케스트레이션한다.
+    // DB 저장은 messageTxService의 짧은 트랜잭션으로, 느린 LLM 호출은 그 사이에서 논블로킹으로.
+    // → LLM 응답을 기다리는 동안 DB 커넥션도 서블릿 스레드도 점유하지 않는다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public CompletableFuture<MessageResponse> sendMessage(Long userId, Long storyId, MessageSendRequest request) {
+        List<ChatMessage> prompt =
+                messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
 
-        messageRepository.save(Message.user(story, request.getContent()));
-
-        String reply = llmClient.generate(buildPrompt(storyId));
-
-        Message answer = messageRepository.save(Message.assistant(story, reply));
-        story.touch();
-
-        return MessageResponse.from(answer);
+        return llmClient.generate(prompt)
+                .thenApply(reply -> messageTxService.appendAssistantReply(storyId, reply));
     }
 
     public MessagePageResponse getMessages(Long userId, Long storyId, Long cursor, int size) {
@@ -104,22 +98,5 @@ public class StoryService {
     private Story findOwned(Long storyId, Long userId) {
         return storyRepository.findByIdAndUserId(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
-    }
-
-    private List<ChatMessage> buildPrompt(Long storyId) {
-        // 방금 저장한 유저 메시지까지 포함해 최신순 N개를 가져온 뒤, 시간순으로 뒤집어 대화 순서를 복원한다.
-        List<Message> recent = messageRepository
-                .findByStoryIdOrderByIdDesc(storyId, PageRequest.of(0, HISTORY_WINDOW))
-                .getContent();
-
-        List<ChatMessage> prompt = new ArrayList<>();
-        prompt.add(ChatMessage.system(SYSTEM_PROMPT));
-        for (int i = recent.size() - 1; i >= 0; i--) {
-            Message message = recent.get(i);
-            prompt.add(message.getRole() == MessageRole.USER
-                    ? ChatMessage.user(message.getContent())
-                    : ChatMessage.assistant(message.getContent()));
-        }
-        return prompt;
     }
 }

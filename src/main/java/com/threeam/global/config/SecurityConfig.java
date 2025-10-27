@@ -1,5 +1,6 @@
 package com.threeam.global.config;
 
+import com.threeam.llm.GeminiProperties;
 import com.threeam.security.handler.JwtAccessDeniedHandler;
 import com.threeam.security.handler.JwtAuthenticationEntryPoint;
 import com.threeam.security.jwt.JwtAuthenticationFilter;
@@ -18,7 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, GeminiProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 

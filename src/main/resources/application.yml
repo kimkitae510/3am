@@ -29,9 +29,13 @@ jwt:
   access-token-validity-seconds: 1800       # 30분
   refresh-token-validity-seconds: 1209600   # 14일
 
-# LLM (현재는 OpenAI 호환 RestTemplate 호출 기준. Claude로 바꿀 때 키/URL만 교체)
+# LLM — 기본은 mock(무료·키 불필요). 실연동 시 LLM_PROVIDER=gemini + LLM_API_KEY 주입.
 llm:
-  api-key: ${LLM_API_KEY:}
+  provider: ${LLM_PROVIDER:mock}   # mock | gemini
+  gemini:
+    api-key: ${LLM_API_KEY:}
+    model: gemini-2.5-flash-lite
+    base-url: https://generativelanguage.googleapis.com/v1beta
 
 # 모니터링
 management:

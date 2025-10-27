@@ -8,6 +8,7 @@ import com.threeam.story.dto.StoryResponse;
 import com.threeam.story.service.StoryService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,11 +41,13 @@ public class StoryController {
     }
 
     @PostMapping("/{storyId}/messages")
-    public ResponseEntity<MessageResponse> sendMessage(@AuthenticationPrincipal Long userId,
-                                                       @PathVariable Long storyId,
-                                                       @Valid @RequestBody MessageSendRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(storyService.sendMessage(userId, storyId, request));
+    public CompletableFuture<ResponseEntity<MessageResponse>> sendMessage(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long storyId,
+            @Valid @RequestBody MessageSendRequest request) {
+        // 논블로킹: CompletableFuture를 반환하면 LLM 응답을 기다리는 동안 서블릿 스레드가 반납된다.
+        return storyService.sendMessage(userId, storyId, request)
+                .thenApply(message -> ResponseEntity.status(HttpStatus.CREATED).body(message));
     }
 
     @GetMapping("/{storyId}/messages")
