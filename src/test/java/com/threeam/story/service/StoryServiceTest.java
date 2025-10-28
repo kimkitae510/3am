@@ -21,7 +21,6 @@ import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.MessageRepository;
-import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.List;
 import java.util.Optional;
@@ -45,9 +44,6 @@ class StoryServiceTest {
 
     @Mock
     private MessageRepository messageRepository;
-
-    @Mock
-    private StoryMemoryRepository storyMemoryRepository;
 
     @Mock
     private MessageTxService messageTxService;
@@ -82,7 +78,7 @@ class StoryServiceTest {
     @Test
     @DisplayName("사연 목록 - 유저의 사연을 최근 활동순으로 반환한다")
     void getStories_success() {
-        given(storyRepository.findByUserIdOrderByUpdatedAtDesc(1L))
+        given(storyRepository.findByUserIdAndDeletedAtIsNullOrderByUpdatedAtDesc(1L))
                 .willReturn(List.of(story(1L, "첫 사연"), story(1L, "둘째 사연")));
 
         List<StoryResponse> responses = storyService.getStories(1L);
@@ -126,7 +122,7 @@ class StoryServiceTest {
     @DisplayName("메시지 조회 - 커서 없이 최신 페이지를 과거→현재 순으로 반환한다")
     void getMessages_firstPage() {
         Story story = story(1L, "사연");
-        given(storyRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.of(story));
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         Message older = message(1L, MessageRole.USER, "안녕");
         Message newer = message(2L, MessageRole.ASSISTANT, "안녕하세요");
         // 조회는 id 역순(최신 먼저)으로 온다. hasNext=true(더 과거 있음)로 가정.
@@ -144,7 +140,7 @@ class StoryServiceTest {
     @Test
     @DisplayName("메시지 조회 - 없거나 남의 사연이면 STORY_NOT_FOUND")
     void getMessages_notFound() {
-        given(storyRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.empty());
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> storyService.getMessages(1L, 10L, null, 30))
                 .isInstanceOf(BusinessException.class)
@@ -152,27 +148,27 @@ class StoryServiceTest {
     }
 
     @Test
-    @DisplayName("사연 삭제 - 메시지를 먼저 지우고 사연을 삭제한다")
+    @DisplayName("사연 삭제 - 물리 삭제하지 않고 소프트 딜리트(시각 마킹)한다. 대화·진단은 남긴다")
     void deleteStory_success() {
         Story story = story(1L, "사연");
-        given(storyRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.of(story));
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
 
         storyService.deleteStory(1L, 10L);
 
-        verify(messageRepository).deleteByStoryId(10L);
-        verify(storyRepository).delete(story);
+        assertThat(story.isDeleted()).isTrue();
+        verify(messageRepository, never()).deleteByStoryId(any());
+        verify(storyRepository, never()).delete(any(Story.class));
     }
 
     @Test
-    @DisplayName("사연 삭제 - 없거나 남의 사연이면 STORY_NOT_FOUND, 삭제하지 않는다")
+    @DisplayName("사연 삭제 - 없거나 남의(이미 삭제된) 사연이면 STORY_NOT_FOUND")
     void deleteStory_notFound() {
-        given(storyRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.empty());
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> storyService.deleteStory(1L, 10L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORY_NOT_FOUND);
 
-        verify(messageRepository, never()).deleteByStoryId(any());
         verify(storyRepository, never()).delete(any(Story.class));
     }
 

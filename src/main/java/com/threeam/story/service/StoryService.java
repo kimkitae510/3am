@@ -12,7 +12,6 @@ import com.threeam.story.dto.StoryResponse;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.MessageRepository;
-import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +35,6 @@ public class StoryService {
 
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
-    private final StoryMemoryRepository storyMemoryRepository;
     private final MessageTxService messageTxService;
     private final LlmClient llmClient;
 
@@ -52,7 +50,7 @@ public class StoryService {
     }
 
     public List<StoryResponse> getStories(Long userId) {
-        return storyRepository.findByUserIdOrderByUpdatedAtDesc(userId).stream()
+        return storyRepository.findByUserIdAndDeletedAtIsNullOrderByUpdatedAtDesc(userId).stream()
                 .map(StoryResponse::from)
                 .toList();
     }
@@ -90,16 +88,15 @@ public class StoryService {
         return new MessagePageResponse(messages, nextCursor, slice.hasNext());
     }
 
+    // 소프트 딜리트: 대화·기억·진단은 남길 기록이라 물리 삭제하지 않고 사연에 삭제 시각만 찍는다.
     @Transactional
     public void deleteStory(Long userId, Long storyId) {
         Story story = findOwned(storyId, userId);
-        messageRepository.deleteByStoryId(storyId);
-        storyMemoryRepository.deleteByStoryId(storyId);
-        storyRepository.delete(story);
+        story.softDelete();
     }
 
     private Story findOwned(Long storyId, Long userId) {
-        return storyRepository.findByIdAndUserId(storyId, userId)
+        return storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
     }
 }

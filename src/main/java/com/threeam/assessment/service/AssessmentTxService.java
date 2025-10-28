@@ -36,14 +36,14 @@ public class AssessmentTxService {
     // 히스토리 조회 전 소유권만 확인한다.
     @Transactional(readOnly = true)
     public void loadOwnership(Long userId, Long storyId) {
-        storyRepository.findByIdAndUserId(storyId, userId)
+        storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
     }
 
     // tx1: 소유권 확인 + 최근 대화 + 기억 요약을 모아 온다. 짧게 끝난다.
     @Transactional(readOnly = true)
     public AssessmentContext loadContext(Long userId, Long storyId) {
-        storyRepository.findByIdAndUserId(storyId, userId)
+        storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
 
         List<Message> recent = messageRepository

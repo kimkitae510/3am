@@ -51,7 +51,7 @@ class MessageTxServiceTest {
     @DisplayName("유저 메시지 저장 - 저장 후 시스템프롬프트 + 최근 맥락으로 프롬프트를 조립한다")
     void appendUser_success() {
         Story story = story(10L);
-        given(storyRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.of(story));
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 힘들어")),
@@ -68,7 +68,7 @@ class MessageTxServiceTest {
     @Test
     @DisplayName("유저 메시지 저장 - 없거나 남의 사연이면 STORY_NOT_FOUND, 저장하지 않는다")
     void appendUser_notFound() {
-        given(storyRepository.findByIdAndUserId(10L, 1L)).willReturn(Optional.empty());
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi"))
                 .isInstanceOf(BusinessException.class)

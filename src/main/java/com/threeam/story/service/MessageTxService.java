@@ -37,7 +37,7 @@ public class MessageTxService {
     // tx1: 소유권 확인 + 유저 메시지 저장 + LLM에 보낼 프롬프트 조립. 짧게 끝난다.
     @Transactional
     public List<ChatMessage> appendUserMessageAndBuildPrompt(Long userId, Long storyId, String content) {
-        Story story = storyRepository.findByIdAndUserId(storyId, userId)
+        Story story = storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
         messageRepository.save(Message.user(story, content));
         return buildPrompt(storyId);
