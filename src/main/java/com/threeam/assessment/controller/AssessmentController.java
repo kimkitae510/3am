@@ -1,10 +1,9 @@
 package com.threeam.assessment.controller;
 
-import com.threeam.assessment.dto.AssessmentRequest;
 import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.service.AssessmentService;
-import jakarta.validation.Valid;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +11,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,12 +21,13 @@ public class AssessmentController {
 
     private final AssessmentService assessmentService;
 
+    // 입력 폼 없이 사연의 대화를 읽어 진단한다. LLM 호출이 끼므로 논블로킹으로 반환한다.
     @PostMapping
-    public ResponseEntity<AssessmentResponse> assess(@AuthenticationPrincipal Long userId,
-                                                     @PathVariable Long storyId,
-                                                     @Valid @RequestBody AssessmentRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(assessmentService.assess(userId, storyId, request));
+    public CompletableFuture<ResponseEntity<AssessmentResponse>> assess(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long storyId) {
+        return assessmentService.assess(userId, storyId)
+                .thenApply(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
     }
 
     @GetMapping

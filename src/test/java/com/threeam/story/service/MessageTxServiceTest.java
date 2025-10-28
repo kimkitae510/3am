@@ -17,6 +17,7 @@ import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.MessageRepository;
+import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +40,9 @@ class MessageTxServiceTest {
 
     @Mock
     private MessageRepository messageRepository;
+
+    @Mock
+    private StoryMemoryRepository storyMemoryRepository;
 
     @InjectMocks
     private MessageTxService messageTxService;

@@ -7,7 +7,9 @@ import com.threeam.story.dto.MessageResponse;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
+import com.threeam.story.entity.StoryMemory;
 import com.threeam.story.repository.MessageRepository;
+import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +32,7 @@ public class MessageTxService {
 
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
+    private final StoryMemoryRepository storyMemoryRepository;
 
     // tx1: 소유권 확인 + 유저 메시지 저장 + LLM에 보낼 프롬프트 조립. 짧게 끝난다.
     @Transactional
@@ -58,6 +61,11 @@ public class MessageTxService {
 
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(SYSTEM_PROMPT));
+        // 창(window) 밖으로 밀려난 오래된 사실을 기억 요약으로 보충한다.
+        storyMemoryRepository.findByStoryId(storyId)
+                .map(StoryMemory::getSummary)
+                .filter(summary -> !summary.isBlank())
+                .ifPresent(summary -> prompt.add(ChatMessage.system("지금까지 요약: " + summary)));
         for (int i = recent.size() - 1; i >= 0; i--) {
             Message message = recent.get(i);
             prompt.add(message.getRole() == MessageRole.USER

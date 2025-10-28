@@ -34,12 +34,20 @@ public class GeminiLlmClient implements LlmClient {
 
     @Override
     public CompletableFuture<String> generate(List<ChatMessage> messages) {
-        HttpRequest request = buildRequest(messages);
+        return send(buildRequest(messages, false));
+    }
+
+    @Override
+    public CompletableFuture<String> generateJson(List<ChatMessage> messages) {
+        return send(buildRequest(messages, true));
+    }
+
+    private CompletableFuture<String> send(HttpRequest request) {
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenApply(this::extractText);
     }
 
-    private HttpRequest buildRequest(List<ChatMessage> messages) {
+    private HttpRequest buildRequest(List<ChatMessage> messages, boolean json) {
         // Gemini는 system은 system_instruction으로, 대화는 contents(user/model)로 나눠 받는다.
         StringBuilder system = new StringBuilder();
         List<Map<String, Object>> contents = new ArrayList<>();
@@ -57,6 +65,10 @@ public class GeminiLlmClient implements LlmClient {
             body.put("system_instruction", Map.of("parts", List.of(Map.of("text", system.toString().trim()))));
         }
         body.put("contents", contents);
+        // JSON 모드: 모델이 코드펜스·잡설 없이 순수 JSON만 뱉도록 강제한다.
+        if (json) {
+            body.put("generationConfig", Map.of("responseMimeType", "application/json"));
+        }
 
         String url = properties.getBaseUrl() + "/models/" + properties.getModel()
                 + ":generateContent?key=" + properties.getApiKey();

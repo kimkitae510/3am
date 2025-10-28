@@ -1,0 +1,36 @@
+package com.threeam.assessment.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+// 진단 점수에서 깎인 한 항목. LLM이 대화에서 짚어 내려준다.
+// "왜 이 확률?"에 조목조목 답하려고 사유·감점폭·근거를 통째로 남긴다.
+@Embeddable
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Deduction {
+
+    @Column(nullable = false, length = 100)
+    private String signal;   // "읽씹당하는 중"
+
+    // 깎인 값(음수). BASE에서 이 값들을 더해 최종 점수를 낸다.
+    @Column(nullable = false)
+    private int delta;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String evidence; // 대화 속 근거
+
+    private Deduction(String signal, int delta, String evidence) {
+        this.signal = signal;
+        this.delta = delta;
+        this.evidence = evidence;
+    }
+
+    // points = LLM이 "이만큼 깎으세요"로 준 양수. 저장은 음수 delta로 통일한다.
+    public static Deduction of(String signal, int points, String evidence) {
+        return new Deduction(signal, -Math.abs(points), evidence);
+    }
+}

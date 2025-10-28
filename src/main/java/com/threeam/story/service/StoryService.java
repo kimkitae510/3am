@@ -12,6 +12,7 @@ import com.threeam.story.dto.StoryResponse;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.MessageRepository;
+import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +36,7 @@ public class StoryService {
 
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
+    private final StoryMemoryRepository storyMemoryRepository;
     private final MessageTxService messageTxService;
     private final LlmClient llmClient;
 
@@ -92,6 +94,7 @@ public class StoryService {
     public void deleteStory(Long userId, Long storyId) {
         Story story = findOwned(storyId, userId);
         messageRepository.deleteByStoryId(storyId);
+        storyMemoryRepository.deleteByStoryId(storyId);
         storyRepository.delete(story);
     }
 

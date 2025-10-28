@@ -17,4 +17,22 @@ public class MockLlmClient implements LlmClient {
                 "지금은 많이 힘든 시간일 거예요. 여기서는 천천히, 하고 싶은 만큼 이야기해도 괜찮아요. "
                         + "(개발용 임시 응답 — 실제 LLM 연동 전 고정 메시지입니다.)");
     }
+
+    // 진단 흐름 검증용 고정 JSON. 실제 판단은 Gemini가 한다.
+    @Override
+    public CompletableFuture<String> generateJson(List<ChatMessage> messages) {
+        return CompletableFuture.completedFuture("""
+                {
+                  "verdict": "POSSIBLE",
+                  "breakupType": "REGRETTER",
+                  "partnerType": "AMBIVALENT",
+                  "deductions": [
+                    {"signal": "상대가 먼저 이별을 통보", "points": 15, "evidence": "(개발용 임시 근거)"},
+                    {"signal": "연락이 뜸해진 상태", "points": 5, "evidence": "(개발용 임시 근거)"}
+                  ],
+                  "reason": "개발용 임시 진단 — 실제 LLM 연동 전 고정 응답입니다.",
+                  "summary": "개발용 임시 요약."
+                }
+                """);
+    }
 }
