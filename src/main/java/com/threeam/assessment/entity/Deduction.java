@@ -13,7 +13,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Deduction {
 
-    @Column(nullable = false, length = 100)
+    // signal은 MySQL 예약어라 컬럼명을 signal_name으로 매핑한다.
+    @Column(name = "signal_name", nullable = false, length = 100)
     private String signal;   // "읽씹당하는 중"
 
     // 깎인 값(음수). BASE에서 이 값들을 더해 최종 점수를 낸다.
