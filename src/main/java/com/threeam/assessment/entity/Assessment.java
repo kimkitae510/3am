@@ -41,11 +41,11 @@ public class Assessment {
     @Column(nullable = false, length = 20)
     private ReunionVerdict verdict;
 
-    // POSSIBLE이 아닐 땐(LET_GO/DANGER) null. 숫자를 주면 그 숫자에 매달리므로 일부러 안 준다.
+    // 졸업 판정(LET_GO)일 땐 null. 숫자를 주면 그 숫자에 매달리므로 일부러 안 준다.
     @Column
     private Integer probability;
 
-    // 유형 라벨은 LLM이 매긴다. DANGER처럼 진단을 건너뛴 경우 null일 수 있다.
+    // 유형 라벨은 LLM이 매긴다. LLM이 비우면 null일 수 있다.
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private BreakupType myBreakupType;

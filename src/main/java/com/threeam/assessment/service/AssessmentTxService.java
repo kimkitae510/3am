@@ -69,7 +69,7 @@ public class AssessmentTxService {
         return new AssessmentContext(summary, conversation);
     }
 
-    // tx2: 진단 결과 저장 + 기억 갱신. newSummary가 null이면 기억은 건드리지 않는다(예: DANGER 단락).
+    // tx2: 진단 결과 저장 + 기억 갱신. newSummary가 null/blank면 기억은 건드리지 않는다.
     @Transactional
     public AssessmentResponse save(Long storyId, Assessment assessment, String newSummary) {
         Assessment saved = assessmentRepository.save(assessment);
