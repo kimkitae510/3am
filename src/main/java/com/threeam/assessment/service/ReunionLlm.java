@@ -36,7 +36,7 @@ public class ReunionLlm {
 
             아래 JSON 스키마로만 답하라(다른 텍스트 금지):
             {
-              "verdict": "POSSIBLE" | "LET_GO" | "DANGER",
+              "verdict": "POSSIBLE" | "LET_GO",
               "breakupType": "CLINGER" | "REGRETTER" | "SELF_BLAMER",
               "partnerType": "DECISIVE" | "AMBIVALENT" | "COLD",
               "deductions": [ { "signal": "짧은 신호명", "points": 정수, "evidence": "대화 속 근거" } ],
@@ -46,7 +46,6 @@ public class ReunionLlm {
 
             판정 기준:
             - LET_GO: 상대가 새 사람을 만나거나 신뢰가 회복 불가하게 무너진 경우. 확률 대신 놓아주라는 판정.
-            - DANGER: 폭력·자해·자살 등 안전 위기 신호. 이때는 확률·감점을 논하지 말고 verdict만 DANGER로.
             - POSSIBLE: 그 외. 감점 항목을 채워라.
 
             감점 앵커(권장 범위, 강할수록 크게):

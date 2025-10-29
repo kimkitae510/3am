@@ -19,13 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AssessmentService {
 
-    // 위기 판정 시 확률 대신 내려주는 고정 안내. 안전은 확률 놀이의 대상이 아니다.
-    private static final String SAFETY_MESSAGE =
-            "지금은 재회보다 네 안전이 먼저야. 혼자 감당하지 말고 주변에 도움을 청해줘. "
-                    + "자살예방 상담전화 109, 정신건강 상담전화 1577-0199로 언제든 연락할 수 있어.";
-
     private final AssessmentTxService txService;
-    private final SafetyScanner safetyScanner;
     private final ReunionLlm reunionLlm;
     private final ReunionScorer scorer;
     private final AssessmentRepository assessmentRepository;
@@ -35,13 +29,6 @@ public class AssessmentService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CompletableFuture<AssessmentResponse> assess(Long userId, Long storyId) {
         AssessmentContext context = txService.loadContext(userId, storyId);
-
-        // 안전 우선: 위기 키워드가 걸리면 LLM에 묻지 않고 곧장 DANGER로 단락한다.
-        if (safetyScanner.isDanger(context.rawTexts())) {
-            return CompletableFuture.completedFuture(
-                    txService.save(storyId, dangerAssessment(storyId), null));
-        }
-
         return reunionLlm.diagnose(context.memorySummary(), context.conversation())
                 .thenApply(diagnosis -> persist(storyId, diagnosis));
     }
@@ -54,11 +41,6 @@ public class AssessmentService {
     }
 
     private AssessmentResponse persist(Long storyId, ReunionDiagnosis diagnosis) {
-        // LLM이 뒤늦게 위기를 짚었어도 안전 경로로 합류시킨다(확률·감점 무시).
-        if (diagnosis.verdict() == ReunionVerdict.DANGER) {
-            return txService.save(storyId, dangerAssessment(storyId), null);
-        }
-
         List<Deduction> deductions = diagnosis.deductions().stream()
                 .map(this::toDeduction)
                 .toList();
@@ -83,13 +65,5 @@ public class AssessmentService {
 
     private Deduction toDeduction(DeductionItem item) {
         return Deduction.of(item.signal(), item.points(), item.evidence());
-    }
-
-    private Assessment dangerAssessment(Long storyId) {
-        return Assessment.builder()
-                .storyId(storyId)
-                .verdict(ReunionVerdict.DANGER)
-                .reason(SAFETY_MESSAGE)
-                .build();
     }
 }

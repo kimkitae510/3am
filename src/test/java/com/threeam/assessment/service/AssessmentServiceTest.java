@@ -37,9 +37,6 @@ class AssessmentServiceTest {
     private AssessmentTxService txService;
 
     @Mock
-    private SafetyScanner safetyScanner;
-
-    @Mock
     private ReunionLlm reunionLlm;
 
     @Mock
@@ -58,7 +55,6 @@ class AssessmentServiceTest {
     @DisplayName("진단 - POSSIBLE이면 LLM 감점을 백엔드가 합산해 확률을 낸다")
     void assess_possible() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(safetyScanner.isDanger(anyList())).willReturn(false);
         given(reunionLlm.diagnose(eq("요약"), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.POSSIBLE, BreakupType.REGRETTER, PartnerType.AMBIVALENT,
                         List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")), "총평", "갱신요약")));
@@ -76,26 +72,9 @@ class AssessmentServiceTest {
     }
 
     @Test
-    @DisplayName("진단 - 위기 키워드가 걸리면 LLM을 호출하지 않고 DANGER로 단락한다")
-    void assess_dangerShortCircuit() {
-        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(safetyScanner.isDanger(anyList())).willReturn(true);
-        given(txService.save(eq(10L), any(Assessment.class), any()))
-                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
-
-        AssessmentResponse response = assessmentService.assess(1L, 10L).join();
-
-        assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.DANGER);
-        assertThat(response.getProbability()).isNull();
-        verify(reunionLlm, never()).diagnose(any(), anyList());
-        verify(scorer, never()).apply(anyList());
-    }
-
-    @Test
     @DisplayName("진단 - LET_GO(졸업)면 확률 없이 저장하고 합산하지 않는다")
     void assess_letGo() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(safetyScanner.isDanger(anyList())).willReturn(false);
         given(reunionLlm.diagnose(eq("요약"), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.LET_GO, BreakupType.SELF_BLAMER, PartnerType.DECISIVE,
                         List.of(), "놓아줄 때야", "갱신요약")));
