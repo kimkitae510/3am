@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update        # 개발 단계: update / 운영: validate 권장
+      ddl-auto: validate      # 자동 생성/변경 금지. 스키마는 수동 DDL로 관리(불일치만 검증)
     properties:
       hibernate:
         format_sql: true
