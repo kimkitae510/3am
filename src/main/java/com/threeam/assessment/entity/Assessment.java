@@ -21,6 +21,8 @@ import lombok.NoArgsConstructor;
 import lombok.Singular;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 // 한 시점의 재회 진단 결과. 사연(storyId)별로 쌓여 시간에 따른 확률 변화 히스토리가 된다.
 // 감점 항목(deductions)을 통째로 남겨 "왜 이 확률?"에 조목조목 답한다.
@@ -37,7 +39,9 @@ public class Assessment {
     @Column(nullable = false)
     private Long storyId;
 
+    // Hibernate 6.x가 STRING enum을 MySQL 네이티브 ENUM으로 매핑하는 걸 막고 varchar로 고정.
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
     private ReunionVerdict verdict;
 
@@ -47,10 +51,12 @@ public class Assessment {
 
     // 유형 라벨은 LLM이 매긴다. LLM이 비우면 null일 수 있다.
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(length = 20)
     private BreakupType myBreakupType;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(length = 20)
     private PartnerType partnerType;
 
