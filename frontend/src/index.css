@@ -1,0 +1,38 @@
+:root {
+  --bg: #100e14;
+  --surface: #17151b;
+  --card: #211f27;
+  --border: #302e38;
+  --frame-border: #2a2833;
+  --accent: #b89dd1;
+  --on-accent: #1b1720;
+  --text: #eceaf0;
+  --text-sub: #9b98a3;
+  --text-muted: #6e6b76;
+
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, 'Segoe UI', sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100vh;
+}
+
+body {
+  background: var(--bg);
+}
+
+button,
+input {
+  font-family: inherit;
+}
