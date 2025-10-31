@@ -1,0 +1,122 @@
+.body {
+  padding: 0 34px 40px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  margin-top: 96px;
+}
+
+.logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+
+.title {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.4px;
+}
+
+.subtitle {
+  color: var(--text-sub);
+  font-size: 15px;
+  margin-top: 10px;
+  line-height: 1.55;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field {
+  height: 54px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+}
+
+.input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.eyeButton {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.error {
+  color: #e2857f;
+  font-size: 13px;
+  margin-top: 12px;
+  min-height: 16px;
+  line-height: 1.4;
+}
+
+.primary {
+  margin-top: 18px;
+  height: 54px;
+  border: none;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.secondary {
+  margin-top: 10px;
+  height: 54px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 26px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
