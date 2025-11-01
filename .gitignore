@@ -24,5 +24,8 @@ CLAUDE.md
 PROGRESS.md
 gitc.sh
 
+### 디자인 목업 (대용량, 커밋 제외) ###
+src/새벽세시 목업.html
+
 ### OS ###
 .DS_Store
