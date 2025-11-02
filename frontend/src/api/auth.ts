@@ -34,3 +34,12 @@ export async function signup(body: SignupRequest): Promise<SignupResponse> {
   const { data } = await api.post<SignupResponse>('/api/users/signup', body);
   return data;
 }
+
+export async function logout(): Promise<void> {
+  try {
+    await api.post('/api/auth/logout');
+  } finally {
+    // 서버 응답과 무관하게 클라이언트 토큰은 반드시 비운다.
+    tokenStore.clear();
+  }
+}
