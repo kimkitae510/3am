@@ -22,7 +22,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await login({ email: email.trim(), password });
-      navigate('/rooms');
+      navigate('/stories');
     } catch (err) {
       setError(extractErrorMessage(err, '로그인에 실패했어요. 이메일과 비밀번호를 확인해 주세요.'));
     } finally {

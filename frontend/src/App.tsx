@@ -1,7 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
-import { RoomsPage } from './pages/RoomsPage';
+import { StoryListPage } from './pages/StoryListPage';
+import { ChatPage } from './pages/ChatPage';
 
 export default function App() {
   return (
@@ -9,7 +10,8 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route path="/rooms" element={<RoomsPage />} />
+      <Route path="/stories" element={<StoryListPage />} />
+      <Route path="/stories/:storyId" element={<ChatPage />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
