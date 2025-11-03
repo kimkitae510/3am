@@ -15,14 +15,15 @@ import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -32,6 +33,10 @@ public class StoryService {
 
     // 조회 한 번에 내려줄 메시지 수 상한. 클라가 큰 size를 넘겨도 여기서 자른다.
     private static final int MAX_PAGE_SIZE = 100;
+
+    // LLM 호출 실패 시 답을 빈 채로 두지 않고 대화체로 저장한다. 폴링이 이 메시지를 받고 정상 종료한다.
+    private static final String LLM_FALLBACK =
+            "지금은 답을 정리하기가 어렵네요. 잠시 후 다시 한 번 보내줄래요?";
 
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
@@ -55,16 +60,32 @@ public class StoryService {
                 .toList();
     }
 
-    // 트랜잭션 밖(NOT_SUPPORTED)에서 오케스트레이션한다.
-    // DB 저장은 messageTxService의 짧은 트랜잭션으로, 느린 LLM 호출은 그 사이에서 논블로킹으로.
-    // → LLM 응답을 기다리는 동안 DB 커넥션도 서블릿 스레드도 점유하지 않는다.
+    // 폴링 방식: 유저 메시지를 저장하고 즉시 반환한다. 어시스턴트 답은 백그라운드에서 생성·저장되고,
+    // 클라이언트는 GET .../messages/since?after=<유저메시지id>로 폴링해 답이 붙는지 확인한다.
+    // 트랜잭션 밖(NOT_SUPPORTED)에서 오케스트레이션 — 느린 LLM 호출이 DB 커넥션을 잡지 않게.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public CompletableFuture<MessageResponse> sendMessage(Long userId, Long storyId, MessageSendRequest request) {
-        List<ChatMessage> prompt =
+    public MessageResponse sendMessage(Long userId, Long storyId, MessageSendRequest request) {
+        MessageTxService.PreparedSend prepared =
                 messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
 
-        return llmClient.generate(prompt)
-                .thenApply(reply -> messageTxService.appendAssistantReply(storyId, reply));
+        // fire-and-forget: 응답을 기다리지 않는다. 완료되면 어시스턴트 메시지로 저장, 실패하면 폴백 저장.
+        llmClient.generate(prepared.prompt())
+                .thenAccept(reply -> messageTxService.appendAssistantReply(storyId, reply))
+                .exceptionally(ex -> {
+                    log.error("LLM 응답 생성 실패 storyId={}", storyId, ex);
+                    messageTxService.appendAssistantReply(storyId, LLM_FALLBACK);
+                    return null;
+                });
+
+        return prepared.userMessage();
+    }
+
+    // 폴링: 방금 보낸 메시지(afterId) 이후 새로 생긴 메시지(주로 어시스턴트 답)를 시간순으로 반환.
+    public List<MessageResponse> getMessagesSince(Long userId, Long storyId, Long afterId) {
+        findOwned(storyId, userId);
+        return messageRepository.findByStoryIdAndIdGreaterThanOrderByIdAsc(storyId, afterId).stream()
+                .map(MessageResponse::from)
+                .toList();
     }
 
     public MessagePageResponse getMessages(Long userId, Long storyId, Long cursor, int size) {

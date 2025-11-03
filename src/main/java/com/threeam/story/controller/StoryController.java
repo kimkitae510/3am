@@ -8,7 +8,6 @@ import com.threeam.story.dto.StoryResponse;
 import com.threeam.story.service.StoryService;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,14 +39,15 @@ public class StoryController {
         return ResponseEntity.ok(storyService.getStories(userId));
     }
 
+    // 폴링 방식: 유저 메시지만 저장하고 즉시 202로 반환한다. 어시스턴트 답은 백그라운드 생성 →
+    // 클라이언트가 GET .../messages/since?after=<반환된 id>로 폴링해 받아간다.
     @PostMapping("/{storyId}/messages")
-    public CompletableFuture<ResponseEntity<MessageResponse>> sendMessage(
+    public ResponseEntity<MessageResponse> sendMessage(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long storyId,
             @Valid @RequestBody MessageSendRequest request) {
-        // 논블로킹: CompletableFuture를 반환하면 LLM 응답을 기다리는 동안 서블릿 스레드가 반납된다.
-        return storyService.sendMessage(userId, storyId, request)
-                .thenApply(message -> ResponseEntity.status(HttpStatus.CREATED).body(message));
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(storyService.sendMessage(userId, storyId, request));
     }
 
     @GetMapping("/{storyId}/messages")
@@ -57,6 +57,14 @@ public class StoryController {
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "30") int size) {
         return ResponseEntity.ok(storyService.getMessages(userId, storyId, cursor, size));
+    }
+
+    @GetMapping("/{storyId}/messages/since")
+    public ResponseEntity<List<MessageResponse>> getMessagesSince(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long storyId,
+            @RequestParam Long after) {
+        return ResponseEntity.ok(storyService.getMessagesSince(userId, storyId, after));
     }
 
     @DeleteMapping("/{storyId}")

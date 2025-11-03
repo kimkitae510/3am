@@ -35,13 +35,17 @@ public class MessageTxService {
     private final StoryMemoryRepository storyMemoryRepository;
 
     // tx1: 소유권 확인 + 유저 메시지 저장 + LLM에 보낼 프롬프트 조립. 짧게 끝난다.
+    // 폴링 전환 후: 저장한 유저 메시지(즉시 응답용)와 프롬프트(백그라운드 LLM용)를 함께 돌려준다.
     @Transactional
-    public List<ChatMessage> appendUserMessageAndBuildPrompt(Long userId, Long storyId, String content) {
+    public PreparedSend appendUserMessageAndBuildPrompt(Long userId, Long storyId, String content) {
         Story story = storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
-        messageRepository.save(Message.user(story, content));
-        return buildPrompt(storyId);
+        Message userMessage = messageRepository.save(Message.user(story, content));
+        return new PreparedSend(MessageResponse.from(userMessage), buildPrompt(storyId));
     }
+
+    // 즉시 반환할 유저 메시지 + 백그라운드 LLM 호출에 쓸 프롬프트.
+    public record PreparedSend(MessageResponse userMessage, List<ChatMessage> prompt) {}
 
     // tx2: LLM 응답을 어시스턴트 메시지로 저장 + 사연 활동시각 갱신.
     @Transactional

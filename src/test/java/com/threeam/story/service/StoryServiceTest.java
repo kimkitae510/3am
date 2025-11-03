@@ -88,21 +88,24 @@ class StoryServiceTest {
     }
 
     @Test
-    @DisplayName("메시지 전송 - 유저 저장→LLM(논블로킹)→어시스턴트 저장 순으로 오케스트레이션한다")
+    @DisplayName("메시지 전송 - 유저 메시지를 즉시 반환하고, 어시스턴트 답은 백그라운드로 저장한다")
     void sendMessage_success() {
+        MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, "오늘 너무 힘들어"));
         given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 너무 힘들어"))
-                .willReturn(List.of());
+                .willReturn(new MessageTxService.PreparedSend(userMessage, List.of()));
         given(llmClient.generate(anyList()))
                 .willReturn(CompletableFuture.completedFuture("괜찮아요, 여기 있어요."));
-        Message answer = message(2L, MessageRole.ASSISTANT, "괜찮아요, 여기 있어요.");
         given(messageTxService.appendAssistantReply(10L, "괜찮아요, 여기 있어요."))
-                .willReturn(MessageResponse.from(answer));
+                .willReturn(MessageResponse.from(message(2L, MessageRole.ASSISTANT, "괜찮아요, 여기 있어요.")));
 
-        MessageResponse response = storyService.sendMessage(1L, 10L, sendRequest("오늘 너무 힘들어")).join();
+        MessageResponse response = storyService.sendMessage(1L, 10L, sendRequest("오늘 너무 힘들어"));
 
-        assertThat(response.getRole()).isEqualTo(MessageRole.ASSISTANT);
-        assertThat(response.getContent()).isEqualTo("괜찮아요, 여기 있어요.");
+        // 즉시 반환값은 '내 메시지'
+        assertThat(response.getRole()).isEqualTo(MessageRole.USER);
+        assertThat(response.getContent()).isEqualTo("오늘 너무 힘들어");
         verify(llmClient).generate(anyList());
+        // completedFuture라 thenAccept가 동기 실행 → 어시스턴트 저장까지 이뤄진다
+        verify(messageTxService).appendAssistantReply(10L, "괜찮아요, 여기 있어요.");
     }
 
     @Test

@@ -57,7 +57,7 @@ class MessageTxServiceTest {
                 .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 힘들어")),
                         PageRequest.of(0, 20), false));
 
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 힘들어");
+        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 힘들어").prompt();
 
         assertThat(prompt.get(0).role()).isEqualTo(LlmRole.SYSTEM); // 맨 앞은 페르소나
         assertThat(prompt).extracting(ChatMessage::role)
