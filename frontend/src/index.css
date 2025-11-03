@@ -33,6 +33,19 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font-family: inherit;
+}
+
+/* 채팅 타이핑 인디케이터 점 깜빡임 */
+@keyframes sc-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 0.9;
+  }
 }
