@@ -36,7 +36,7 @@ public class ReunionLlm {
 
             아래 JSON 스키마로만 답하라(다른 텍스트 금지):
             {
-              "verdict": "POSSIBLE" | "LET_GO",
+              "verdict": "POSSIBLE" | "LET_GO" | "INSUFFICIENT",
               "breakupType": "CLINGER" | "REGRETTER" | "SELF_BLAMER",
               "partnerType": "DECISIVE" | "AMBIVALENT" | "COLD",
               "deductions": [ { "signal": "짧은 신호명", "points": 정수, "evidence": "대화 속 근거" } ],
@@ -45,8 +45,11 @@ public class ReunionLlm {
             }
 
             판정 기준:
+            - INSUFFICIENT: 대화에 이별·관계 정보가 거의 없어 판단 근거가 부족할 때. 억지로 확률을 내지 마라.
+              이때 breakupType·partnerType·deductions는 비우고, reason에는 무엇을 더 이야기하면 좋을지
+              부드러운 가이드를 담아라(예: 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일).
             - LET_GO: 상대가 새 사람을 만나거나 신뢰가 회복 불가하게 무너진 경우. 확률 대신 놓아주라는 판정.
-            - POSSIBLE: 그 외. 감점 항목을 채워라.
+            - POSSIBLE: 판단할 근거가 충분한 그 외의 경우. 감점 항목을 채워라.
 
             감점 앵커(권장 범위, 강할수록 크게):
             - 차단/강한 거절: 25~30

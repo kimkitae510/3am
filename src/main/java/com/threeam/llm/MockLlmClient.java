@@ -19,8 +19,19 @@ public class MockLlmClient implements LlmClient {
     }
 
     // 진단 흐름 검증용 고정 JSON. 실제 판단은 Gemini가 한다.
+    // 유저 발화가 적으면 INSUFFICIENT(데이터 부족)를, 충분하면 POSSIBLE을 돌려줘 두 흐름을 다 확인할 수 있게 한다.
     @Override
     public CompletableFuture<String> generateJson(List<ChatMessage> messages) {
+        long userTurns = messages.stream().filter(m -> m.role() == LlmRole.USER).count();
+        if (userTurns < 3) {
+            return CompletableFuture.completedFuture("""
+                    {
+                      "verdict": "INSUFFICIENT",
+                      "reason": "아직 진단하기엔 이야기가 부족해요. 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일을 조금만 더 들려줄래요?",
+                      "summary": ""
+                    }
+                    """);
+        }
         return CompletableFuture.completedFuture("""
                 {
                   "verdict": "POSSIBLE",

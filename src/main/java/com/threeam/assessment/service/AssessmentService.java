@@ -41,6 +41,21 @@ public class AssessmentService {
     }
 
     private AssessmentResponse persist(Long storyId, ReunionDiagnosis diagnosis) {
+        // 근거 부족은 진단이 아니라 "대화를 더 해달라"는 안내다. 히스토리(확률 추이)를 오염시키지 않도록 저장하지 않고,
+        // reason에 담긴 가이드만 임시 응답으로 돌려준다.
+        if (diagnosis.verdict() == ReunionVerdict.INSUFFICIENT) {
+            String guide = (diagnosis.reason() == null || diagnosis.reason().isBlank())
+                    ? "아직 진단하기엔 이야기가 부족해요. 어쩌다 헤어졌는지, 지금 연락은 되는지, "
+                    + "상대와 최근 있었던 일을 조금만 더 들려줄래요?"
+                    : diagnosis.reason();
+            Assessment transientResult = Assessment.builder()
+                    .storyId(storyId)
+                    .verdict(ReunionVerdict.INSUFFICIENT)
+                    .reason(guide)
+                    .build();
+            return AssessmentResponse.from(transientResult);
+        }
+
         List<Deduction> deductions = diagnosis.deductions().stream()
                 .map(this::toDeduction)
                 .toList();
