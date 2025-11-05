@@ -127,50 +127,6 @@ export function AssessmentPage() {
     );
   }
 
-  // 놓아주기
-  if (result.verdict === 'LET_GO') {
-    return (
-      <PhoneFrame>
-        <div className={styles.wrap}>
-          <BackBar onBack={toChat} />
-          <div className={styles.centerBody}>
-            <div className={styles.meta}>{meta}</div>
-            <div className={styles.icon}>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                <path d="M7 11c0-2.5 2-4 5-4s5 1.5 5 4" stroke="#9B98A3" strokeWidth="1.6" strokeLinecap="round" />
-                <path d="M5 16c1.6-.8 3.2.8 4.8 0C11.4 15.2 13 16.8 14.6 16c1.2-.6 2.6.3 3.4-.2" stroke="#9B98A3" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div className={styles.kicker}>놓아주기</div>
-            <div className={styles.bigMsg}>
-              이번엔 놓아주는 게
-              <br />
-              나을 것 같아요.
-            </div>
-            <div className={styles.subMsg}>{result.reason}</div>
-            {(result.myBreakupType || result.partnerType) && (
-              <div className={styles.typeRow}>
-                <div className={styles.typeCard}>
-                  <div className={styles.typeKey}>나</div>
-                  <div className={styles.typeName}>{result.myBreakupType ?? '—'}</div>
-                </div>
-                <div className={styles.typeCard}>
-                  <div className={styles.typeKey}>상대</div>
-                  <div className={styles.typeName}>{result.partnerType ?? '—'}</div>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className={styles.footer}>
-            <button className={styles.btnPrimary} onClick={toChat}>
-              대화로 돌아가기
-            </button>
-          </div>
-        </div>
-      </PhoneFrame>
-    );
-  }
-
   // POSSIBLE — 확률
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
