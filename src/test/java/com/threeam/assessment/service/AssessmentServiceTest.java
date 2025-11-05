@@ -72,20 +72,20 @@ class AssessmentServiceTest {
     }
 
     @Test
-    @DisplayName("진단 - LET_GO(졸업)면 확률 없이 저장하고 합산하지 않는다")
-    void assess_letGo() {
+    @DisplayName("진단 - INSUFFICIENT(근거 부족)면 저장하지 않고 가이드만 돌려준다")
+    void assess_insufficient() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList())).willReturn(CompletableFuture.completedFuture(
-                new ReunionDiagnosis(ReunionVerdict.LET_GO, BreakupType.SELF_BLAMER, PartnerType.DECISIVE,
-                        List.of(), "놓아줄 때야", "갱신요약")));
-        given(txService.save(eq(10L), any(Assessment.class), any()))
-                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null,
+                        List.of(), "조금 더 들려줄래요?", "")));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
-        assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.LET_GO);
+        assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
         assertThat(response.getProbability()).isNull();
+        assertThat(response.getReason()).isEqualTo("조금 더 들려줄래요?");
         verify(scorer, never()).apply(anyList());
+        verify(txService, never()).save(any(), any(), any()); // 히스토리에 저장 안 함
     }
 
     @Test
