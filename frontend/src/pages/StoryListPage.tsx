@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
-import { listStories, createStory, type StoryResponse } from '../api/story';
+import { listStories, createStory, deleteStory, type StoryResponse } from '../api/story';
 import { logout } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import styles from './StoryListPage.module.css';
+
+const LONG_PRESS_MS = 450;
 
 export function StoryListPage() {
   const navigate = useNavigate();
@@ -13,6 +15,11 @@ export function StoryListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<StoryResponse | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const pressTimer = useRef<number | null>(null);
+  const longPressed = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -46,6 +53,45 @@ export function StoryListPage() {
   async function handleLogout() {
     await logout();
     navigate('/login');
+  }
+
+  // 길게 누르면 짧은 진동(발견성) + 삭제 확인. 짧게 누르면 대화로 진입.
+  function startPress(story: StoryResponse) {
+    longPressed.current = false;
+    pressTimer.current = window.setTimeout(() => {
+      longPressed.current = true;
+      navigator.vibrate?.(20); // iOS Safari는 미지원 — 있으면만 울린다
+      setDeleteTarget(story);
+    }, LONG_PRESS_MS);
+  }
+
+  function cancelPress() {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }
+
+  function handleItemClick(story: StoryResponse) {
+    if (longPressed.current) {
+      longPressed.current = false;
+      return; // 길게 누른 경우 진입 막기
+    }
+    navigate(`/stories/${story.id}`);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteStory(deleteTarget.id);
+      setStories((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (e) {
+      setError(extractErrorMessage(e, '삭제하지 못했어요.'));
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -86,8 +132,12 @@ export function StoryListPage() {
             {stories.map((s) => (
               <button
                 key={s.id}
-                className={styles.item}
-                onClick={() => navigate(`/stories/${s.id}`)}
+                className={`${styles.item} ${deleteTarget?.id === s.id ? styles.itemActive : ''}`}
+                onClick={() => handleItemClick(s)}
+                onPointerDown={() => startPress(s)}
+                onPointerUp={cancelPress}
+                onPointerLeave={cancelPress}
+                onContextMenu={(e) => e.preventDefault()}
               >
                 <div className={styles.avatar}>{s.title?.trim()?.[0] ?? '새'}</div>
                 <div className={styles.itemBody}>
@@ -107,6 +157,27 @@ export function StoryListPage() {
           </svg>
           {creating ? '시작하는 중…' : '새 대화'}
         </button>
+
+        {deleteTarget && (
+          <div className={styles.overlay} onClick={() => !deleting && setDeleteTarget(null)}>
+            <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.dialogTitle}>이 대화를 삭제할까요?</div>
+              <div className={styles.dialogText}>
+                {deleteTarget.title || '이 대화'}과 나눈 대화랑 진단 기록이
+                <br />
+                모두 지워져요. 되돌릴 수 없어요.
+              </div>
+              <div className={styles.dialogButtons}>
+                <button className={styles.cancelBtn} onClick={() => setDeleteTarget(null)} disabled={deleting}>
+                  취소
+                </button>
+                <button className={styles.deleteBtn} onClick={confirmDelete} disabled={deleting}>
+                  {deleting ? '삭제 중…' : '삭제'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PhoneFrame>
   );
