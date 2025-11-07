@@ -125,18 +125,42 @@
   flex-direction: column;
 }
 
+/* 스와이프 컨테이너: 뒤에 삭제 버튼, 앞의 .item이 좌로 밀리며 드러난다(카톡식) */
+.swipeRow {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.swipeDelete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 84px;
+  border: none;
+  background: #7a3a3a;
+  color: #f4e9e9;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .item {
+  position: relative;
   display: flex;
   gap: 14px;
   padding: 16px 12px;
   border-radius: 16px;
   border: none;
-  background: transparent;
+  background: var(--surface); /* 뒤 삭제 버튼을 덮어야 밀 때만 보인다 */
   cursor: pointer;
   text-align: left;
   width: 100%;
   user-select: none;
   -webkit-touch-callout: none;
+  touch-action: pan-y; /* 세로 스크롤은 살리고 가로 드래그는 우리가 처리 */
+  transition: transform 0.18s ease;
 }
 
 .item:hover {

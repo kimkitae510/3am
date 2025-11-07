@@ -8,6 +8,8 @@ import { formatListTime } from '../utils/datetime';
 import styles from './StoryListPage.module.css';
 
 const LONG_PRESS_MS = 450;
+const SWIPE_WIDTH = 84; // 드러나는 삭제 버튼 폭
+const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
 export function StoryListPage() {
   const navigate = useNavigate();
@@ -18,8 +20,15 @@ export function StoryListPage() {
   const [deleteTarget, setDeleteTarget] = useState<StoryResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const pressTimer = useRef<number | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null); // 스와이프로 열린 행
+  const [dragId, setDragId] = useState<number | null>(null); // 지금 드래그 중인 행
+  const [dragX, setDragX] = useState(0);
+
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const moved = useRef(false);
   const longPressed = useRef(false);
+  const longTimer = useRef<number | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -55,29 +64,61 @@ export function StoryListPage() {
     navigate('/login');
   }
 
-  // 길게 누르면 짧은 진동(발견성) + 삭제 확인. 짧게 누르면 대화로 진입.
-  function startPress(story: StoryResponse) {
+  function clearLong() {
+    if (longTimer.current) {
+      clearTimeout(longTimer.current);
+      longTimer.current = null;
+    }
+  }
+
+  function askDelete(story: StoryResponse) {
+    setOpenId(null);
+    setDeleteTarget(story);
+  }
+
+  function onPointerDown(e: React.PointerEvent, s: StoryResponse) {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    startX.current = e.clientX;
+    startY.current = e.clientY;
+    moved.current = false;
     longPressed.current = false;
-    pressTimer.current = window.setTimeout(() => {
+    if (openId != null && openId !== s.id) setOpenId(null); // 다른 열린 행 닫기
+    longTimer.current = window.setTimeout(() => {
       longPressed.current = true;
-      navigator.vibrate?.(20); // iOS Safari는 미지원 — 있으면만 울린다
-      setDeleteTarget(story);
+      navigator.vibrate?.(20); // iOS 사파리는 미지원 — 되는 기기에서만
+      askDelete(s);
     }, LONG_PRESS_MS);
   }
 
-  function cancelPress() {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
+  function onPointerMove(e: React.PointerEvent, s: StoryResponse) {
+    const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
+    if (!moved.current && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      moved.current = true;
+      clearLong();
+    }
+    if (moved.current && Math.abs(dx) > Math.abs(dy)) {
+      const base = openId === s.id ? -SWIPE_WIDTH : 0;
+      setDragId(s.id);
+      setDragX(clamp(base + dx, -SWIPE_WIDTH, 0));
     }
   }
 
-  function handleItemClick(story: StoryResponse) {
-    if (longPressed.current) {
-      longPressed.current = false;
-      return; // 길게 누른 경우 진입 막기
+  function onPointerUp(e: React.PointerEvent, s: StoryResponse) {
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    clearLong();
+    if (dragId === s.id) {
+      setOpenId(dragX < -SWIPE_WIDTH / 2 ? s.id : null);
+      setDragId(null);
+      setDragX(0);
+      return;
     }
-    navigate(`/stories/${story.id}`);
+    if (moved.current || longPressed.current) return;
+    if (openId === s.id) {
+      setOpenId(null); // 열린 행을 탭하면 닫기
+      return;
+    }
+    navigate(`/stories/${s.id}`);
   }
 
   async function confirmDelete() {
@@ -92,6 +133,11 @@ export function StoryListPage() {
     } finally {
       setDeleting(false);
     }
+  }
+
+  function offsetFor(id: number): number {
+    if (dragId === id) return dragX;
+    return openId === id ? -SWIPE_WIDTH : 0;
   }
 
   return (
@@ -130,23 +176,31 @@ export function StoryListPage() {
         ) : (
           <div className={styles.list}>
             {stories.map((s) => (
-              <button
-                key={s.id}
-                className={`${styles.item} ${deleteTarget?.id === s.id ? styles.itemActive : ''}`}
-                onClick={() => handleItemClick(s)}
-                onPointerDown={() => startPress(s)}
-                onPointerUp={cancelPress}
-                onPointerLeave={cancelPress}
-                onContextMenu={(e) => e.preventDefault()}
-              >
-                <div className={styles.avatar}>{s.title?.trim()?.[0] ?? '새'}</div>
-                <div className={styles.itemBody}>
-                  <div className={styles.itemTop}>
-                    <span className={styles.itemName}>{s.title || '제목 없음'}</span>
-                    <span className={styles.itemTime}>{formatListTime(s.updatedAt)}</span>
+              <div className={styles.swipeRow} key={s.id}>
+                <button className={styles.swipeDelete} onClick={() => askDelete(s)}>
+                  삭제
+                </button>
+                <button
+                  className={styles.item}
+                  style={{
+                    transform: `translateX(${offsetFor(s.id)}px)`,
+                    transition: dragId === s.id ? 'none' : undefined,
+                  }}
+                  onClick={(e) => e.preventDefault()}
+                  onPointerDown={(e) => onPointerDown(e, s)}
+                  onPointerMove={(e) => onPointerMove(e, s)}
+                  onPointerUp={(e) => onPointerUp(e, s)}
+                  onContextMenu={(e) => e.preventDefault()}
+                >
+                  <div className={styles.avatar}>{s.title?.trim()?.[0] ?? '새'}</div>
+                  <div className={styles.itemBody}>
+                    <div className={styles.itemTop}>
+                      <span className={styles.itemName}>{s.title || '제목 없음'}</span>
+                      <span className={styles.itemTime}>{formatListTime(s.updatedAt)}</span>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              </div>
             ))}
           </div>
         )}
