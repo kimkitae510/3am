@@ -1,6 +1,7 @@
 package com.threeam.global.config;
 
 import com.threeam.llm.GeminiProperties;
+import com.threeam.usage.UsageProperties;
 import com.threeam.security.handler.JwtAccessDeniedHandler;
 import com.threeam.security.handler.JwtAuthenticationEntryPoint;
 import com.threeam.security.jwt.JwtAuthenticationFilter;
@@ -26,7 +27,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties({JwtProperties.class, GeminiProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, GeminiProperties.class, UsageProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 

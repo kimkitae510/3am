@@ -30,7 +30,11 @@ public enum ErrorCode {
     ASSESSMENT_NO_MESSAGES(HttpStatus.BAD_REQUEST, "AS001", "진단할 대화 내용이 없습니다."),
 
     // LLM
-    LLM_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "L001", "AI 응답 생성에 실패했습니다.");
+    LLM_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "L001", "AI 응답 생성에 실패했습니다."),
+
+    // 사용량 제한
+    QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Q001", "오늘 이야기할 수 있는 횟수를 모두 썼어요. 내일 다시 만나요."),
+    GENERATION_IN_PROGRESS(HttpStatus.TOO_MANY_REQUESTS, "Q002", "아직 이전 답변을 만드는 중이에요. 잠시만 기다려 주세요.");
 
     private final HttpStatus status;
     private final String code;
