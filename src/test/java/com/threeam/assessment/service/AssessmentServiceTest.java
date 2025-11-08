@@ -21,6 +21,8 @@ import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
+import com.threeam.usage.UsageKind;
+import com.threeam.usage.UsageLimiter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +46,9 @@ class AssessmentServiceTest {
 
     @Mock
     private AssessmentRepository assessmentRepository;
+
+    @Mock
+    private UsageLimiter usageLimiter;
 
     @InjectMocks
     private AssessmentService assessmentService;
@@ -89,7 +94,7 @@ class AssessmentServiceTest {
     }
 
     @Test
-    @DisplayName("진단 - 없거나 남의 사연이면 STORY_NOT_FOUND (LLM 호출 없음)")
+    @DisplayName("진단 - 없거나 남의 사연이면 STORY_NOT_FOUND, LLM 호출 없이 차감을 되돌린다")
     void assess_storyNotFound() {
         given(txService.loadContext(1L, 10L))
                 .willThrow(new BusinessException(ErrorCode.STORY_NOT_FOUND));
@@ -99,6 +104,52 @@ class AssessmentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORY_NOT_FOUND);
 
         verify(reunionLlm, never()).diagnose(any(), anyList());
+        // LLM 비용이 나가기 전 실패 → 쿼터 환급 + 잠금 해제
+        verify(usageLimiter).refundDaily(UsageKind.ASSESSMENT, 1L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
+    }
+
+    @Test
+    @DisplayName("진단 - 같은 사연의 진단이 진행 중이면 접수를 거부한다(연타 차단)")
+    void assess_inFlightRejected() {
+        org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.GENERATION_IN_PROGRESS))
+                .given(usageLimiter).acquireInFlight(UsageKind.ASSESSMENT, 10L);
+
+        assertThatThrownBy(() -> assessmentService.assess(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENERATION_IN_PROGRESS);
+
+        verify(usageLimiter, never()).consumeDaily(any(), any());
+        verify(reunionLlm, never()).diagnose(any(), anyList());
+    }
+
+    @Test
+    @DisplayName("진단 - 일일 한도를 넘으면 QUOTA_EXCEEDED, 잠금을 해제하고 LLM을 호출하지 않는다")
+    void assess_quotaExceeded() {
+        org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.QUOTA_EXCEEDED))
+                .given(usageLimiter).consumeDaily(UsageKind.ASSESSMENT, 1L);
+
+        assertThatThrownBy(() -> assessmentService.assess(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
+
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
+        verify(reunionLlm, never()).diagnose(any(), anyList());
+    }
+
+    @Test
+    @DisplayName("진단 - 완료(성공) 시 in-flight 잠금이 해제된다")
+    void assess_releasesLockOnCompletion() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(reunionLlm.diagnose(eq("요약"), anyList())).willReturn(CompletableFuture.completedFuture(
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), "가이드", "")));
+
+        assessmentService.assess(1L, 10L).join();
+
+        verify(usageLimiter).consumeDaily(UsageKind.ASSESSMENT, 1L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
+        // INSUFFICIENT여도 LLM 비용은 이미 나갔으므로 환급하지 않는다
+        verify(usageLimiter, never()).refundDaily(any(), any());
     }
 
     @Test
