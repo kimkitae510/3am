@@ -13,6 +13,8 @@ import com.threeam.story.entity.Message;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryRepository;
+import com.threeam.usage.UsageKind;
+import com.threeam.usage.UsageLimiter;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,7 @@ public class StoryService {
     private final MessageRepository messageRepository;
     private final MessageTxService messageTxService;
     private final LlmClient llmClient;
+    private final UsageLimiter usageLimiter;
 
     @Transactional
     public StoryResponse create(Long userId, StoryCreateRequest request) {
@@ -65,19 +68,36 @@ public class StoryService {
     // 트랜잭션 밖(NOT_SUPPORTED)에서 오케스트레이션 — 느린 LLM 호출이 DB 커넥션을 잡지 않게.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public MessageResponse sendMessage(Long userId, Long storyId, MessageSendRequest request) {
-        MessageTxService.PreparedSend prepared =
-                messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
+        // 이 사연에서 답변 생성이 진행 중이면 접수 자체를 거부한다(연타·중복요청 차단).
+        usageLimiter.acquireInFlight(UsageKind.CHAT, storyId);
+        try {
+            usageLimiter.consumeDaily(UsageKind.CHAT, userId);
+        } catch (RuntimeException e) {
+            usageLimiter.releaseInFlight(UsageKind.CHAT, storyId);
+            throw e;
+        }
 
-        // fire-and-forget: 응답을 기다리지 않는다. 완료되면 어시스턴트 메시지로 저장, 실패하면 폴백 저장.
-        llmClient.generate(prepared.prompt())
-                .thenAccept(reply -> messageTxService.appendAssistantReply(storyId, reply))
-                .exceptionally(ex -> {
-                    log.error("LLM 응답 생성 실패 storyId={}", storyId, ex);
-                    messageTxService.appendAssistantReply(storyId, LLM_FALLBACK);
-                    return null;
-                });
+        try {
+            MessageTxService.PreparedSend prepared =
+                    messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
 
-        return prepared.userMessage();
+            // fire-and-forget: 응답을 기다리지 않는다. 완료되면 어시스턴트 메시지로 저장, 실패하면 폴백 저장.
+            llmClient.generate(prepared.prompt())
+                    .thenAccept(reply -> messageTxService.appendAssistantReply(storyId, reply))
+                    .exceptionally(ex -> {
+                        log.error("LLM 응답 생성 실패 storyId={}", storyId, ex);
+                        messageTxService.appendAssistantReply(storyId, LLM_FALLBACK);
+                        return null;
+                    })
+                    .whenComplete((ignored, ex) -> usageLimiter.releaseInFlight(UsageKind.CHAT, storyId));
+
+            return prepared.userMessage();
+        } catch (RuntimeException e) {
+            // LLM 비용이 나가기 전에 실패(소유권 없음, 요청 조립 실패 등) → 차감을 되돌리고 잠금 해제.
+            usageLimiter.refundDaily(UsageKind.CHAT, userId);
+            usageLimiter.releaseInFlight(UsageKind.CHAT, storyId);
+            throw e;
+        }
     }
 
     // 폴링: 방금 보낸 메시지(afterId) 이후 새로 생긴 메시지(주로 어시스턴트 답)를 시간순으로 반환.
