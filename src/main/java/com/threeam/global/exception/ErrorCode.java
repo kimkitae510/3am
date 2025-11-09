@@ -34,7 +34,8 @@ public enum ErrorCode {
 
     // 사용량 제한
     QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Q001", "오늘 이야기할 수 있는 횟수를 모두 썼어요. 내일 다시 만나요."),
-    GENERATION_IN_PROGRESS(HttpStatus.TOO_MANY_REQUESTS, "Q002", "아직 이전 답변을 만드는 중이에요. 잠시만 기다려 주세요.");
+    GENERATION_IN_PROGRESS(HttpStatus.TOO_MANY_REQUESTS, "Q002", "아직 이전 답변을 만드는 중이에요. 잠시만 기다려 주세요."),
+    RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Q003", "요청이 너무 잦아요. 잠시 후 다시 시도해 주세요.");
 
     private final HttpStatus status;
     private final String code;
