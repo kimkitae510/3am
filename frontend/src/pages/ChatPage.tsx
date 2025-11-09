@@ -180,21 +180,29 @@ export function ChatPage() {
         <div className={styles.inputBar}>
           <textarea
             className={styles.input}
-            placeholder="메시지 입력"
+            placeholder={waiting ? '답변을 기다리는 중…' : '메시지 입력'}
             rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
+            disabled={waiting}
           />
           <button
             className={styles.send}
             onClick={handleSend}
             disabled={!input.trim() || waiting}
-            aria-label="보내기"
+            aria-label={waiting ? '답변 생성 중' : '보내기'}
           >
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-              <path d="M12 19V6M6 12l6-6 6 6" stroke="#1B1720" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            {waiting ? (
+              // 생성 중 표시(정지 아님 — 서버가 fire-and-forget이라 중단 API는 아직 없다)
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+                <rect x="7" y="7" width="10" height="10" rx="2" fill="#1B1720" />
+              </svg>
+            ) : (
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+                <path d="M12 19V6M6 12l6-6 6 6" stroke="#1B1720" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </button>
         </div>
       </div>
