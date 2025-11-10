@@ -7,6 +7,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,13 +24,17 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "llm.provider", havingValue = "gemini")
 public class GeminiLlmClient implements LlmClient {
 
+    // 연결 수립 대기 상한. 응답 대기(timeoutSeconds)와 별개로, 네트워크 단절을 빨리 알아챈다.
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+
     private final GeminiProperties properties;
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final HttpClient httpClient;
 
     public GeminiLlmClient(GeminiProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.httpClient = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
     }
 
     @Override
@@ -76,6 +81,8 @@ public class GeminiLlmClient implements LlmClient {
             return HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
+                    // 타임아웃 없이는 LLM이 매달릴 때 future가 영원히 미완 → 답도 폴백도 저장되지 않는다.
+                    .timeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
                     .build();
         } catch (Exception e) {
