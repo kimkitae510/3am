@@ -38,16 +38,11 @@ llm:
     base-url: https://generativelanguage.googleapis.com/v1beta
 
 # 사용량 제한 — LLM 비용 어뷰징 방지. 한도는 실제 비용 추이를 보고 조정한다.
+# (일반 API의 공통 빈도 제한은 앱이 아니라 인프라 층(nginx 등)에서 건다 — 운영 전환 시.)
 usage:
   chat-daily-limit: 50
   assessment-daily-limit: 3
   in-flight-ttl-seconds: 120   # 생성 중 잠금이 해제 유실돼도 이 시간 뒤 자동으로 풀린다
-  api:                         # LLM 외 일반 API의 분당 빈도 제한
-    login-per-minute: 5        # IP 기준 — 비밀번호 무차별 시도 차단
-    signup-per-minute: 3       # IP 기준 — 계정 양산 억제
-    reissue-per-minute: 10     # IP 기준
-    write-per-minute: 20       # 유저 기준 — 방 생성/삭제/로그아웃
-    read-per-minute: 120       # 유저 기준 — 목록/대화 조회/폴링
 
 # CORS — 프론트(개발 서버) origin. 콤마로 여러 개 허용. 운영 도메인은 환경변수로 주입.
 cors:
