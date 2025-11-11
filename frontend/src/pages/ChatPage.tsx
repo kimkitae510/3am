@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import {
   getMessages,
@@ -22,6 +22,7 @@ export function ChatPage() {
   const { storyId: storyIdParam } = useParams();
   const storyId = Number(storyIdParam);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [title, setTitle] = useState('대화');
   const [messages, setMessages] = useState<MessageResponse[]>([]);
@@ -34,6 +35,13 @@ export function ChatPage() {
 
   const aliveRef = useRef(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // 진단 화면의 "대화로 물어보기"로 넘어온 경우 질문을 입력창에 미리 채워준다.
+  useEffect(() => {
+    const prefill = (location.state as { prefill?: string } | null)?.prefill;
+    if (prefill) setInput(prefill);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     aliveRef.current = true;

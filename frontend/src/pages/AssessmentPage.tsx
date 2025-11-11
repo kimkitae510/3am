@@ -221,6 +221,17 @@ export function AssessmentPage() {
           )}
 
           <div className={styles.hint}>대화를 더 나눌수록 진단이 정교해져요 · 새 진단은 하루 3회까지</div>
+
+          <button
+            className={styles.askChat}
+            onClick={() =>
+              navigate(`/stories/${storyId}`, {
+                state: { prefill: '진단 결과가 왜 이렇게 나온 건지 설명해줄래?' },
+              })
+            }
+          >
+            왜 이 결과인지 대화로 물어보기
+          </button>
         </div>
 
         <div className={styles.footer}>
