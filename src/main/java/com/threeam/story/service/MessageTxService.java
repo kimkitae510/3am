@@ -1,5 +1,8 @@
 package com.threeam.story.service;
 
+import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.Deduction;
+import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
@@ -33,6 +36,7 @@ public class MessageTxService {
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
     private final StoryMemoryRepository storyMemoryRepository;
+    private final AssessmentRepository assessmentRepository;
 
     // tx1: 소유권 확인 + 유저 메시지 저장 + LLM에 보낼 프롬프트 조립. 짧게 끝난다.
     // 폴링 전환 후: 저장한 유저 메시지(즉시 응답용)와 프롬프트(백그라운드 LLM용)를 함께 돌려준다.
@@ -70,6 +74,9 @@ public class MessageTxService {
                 .map(StoryMemory::getSummary)
                 .filter(summary -> !summary.isBlank())
                 .ifPresent(summary -> prompt.add(ChatMessage.system("지금까지 요약: " + summary)));
+        // 최신 진단을 실어, 유저가 "왜 이 진단이야?" 같은 후속 질문을 하면 근거를 들어 설명할 수 있게 한다.
+        assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .ifPresent(assessment -> prompt.add(ChatMessage.system(describeAssessment(assessment))));
         for (int i = recent.size() - 1; i >= 0; i--) {
             Message message = recent.get(i);
             prompt.add(message.getRole() == MessageRole.USER
@@ -77,5 +84,33 @@ public class MessageTxService {
                     : ChatMessage.assistant(message.getContent()));
         }
         return prompt;
+    }
+
+    // 진단 결과를 설명용 데이터 블록으로 만든다. 재계산·창작을 막는 지시를 함께 싣는다.
+    private String describeAssessment(Assessment assessment) {
+        StringBuilder block = new StringBuilder(
+                "최근 재회 진단 결과 데이터(유저가 진단의 이유를 물으면 이 데이터만 근거로 설명하라. "
+                        + "확률을 다시 계산하거나 여기 없는 진단 내용을 지어내지 마라):\n");
+        block.append("- 진단일: ").append(assessment.getCreatedAt().toLocalDate()).append('\n');
+        if (assessment.getProbability() != null) {
+            block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
+        }
+        if (assessment.getMyBreakupType() != null) {
+            block.append("- 유저 유형: ").append(assessment.getMyBreakupType().getLabel()).append('\n');
+        }
+        if (assessment.getPartnerType() != null) {
+            block.append("- 상대 유형: ").append(assessment.getPartnerType().getLabel()).append('\n');
+        }
+        for (Deduction deduction : assessment.getDeductions()) {
+            block.append("- 감점 ").append(deduction.getDelta()).append(": ").append(deduction.getSignal());
+            if (deduction.getEvidence() != null && !deduction.getEvidence().isBlank()) {
+                block.append(" (근거: ").append(deduction.getEvidence()).append(')');
+            }
+            block.append('\n');
+        }
+        if (assessment.getReason() != null && !assessment.getReason().isBlank()) {
+            block.append("- 총평: ").append(assessment.getReason());
+        }
+        return block.toString().trim();
     }
 }

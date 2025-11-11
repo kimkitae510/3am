@@ -8,6 +8,10 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.Deduction;
+import com.threeam.assessment.entity.ReunionVerdict;
+import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
@@ -44,6 +48,9 @@ class MessageTxServiceTest {
     @Mock
     private StoryMemoryRepository storyMemoryRepository;
 
+    @Mock
+    private AssessmentRepository assessmentRepository;
+
     @InjectMocks
     private MessageTxService messageTxService;
 
@@ -63,6 +70,37 @@ class MessageTxServiceTest {
         assertThat(prompt).extracting(ChatMessage::role)
                 .containsExactly(LlmRole.SYSTEM, LlmRole.USER);
         verify(messageRepository).save(any(Message.class)); // 유저 메시지 저장됨
+    }
+
+    @Test
+    @DisplayName("프롬프트 조립 - 최신 진단이 있으면 설명용 데이터 블록(확률·감점·근거)을 시스템 메시지로 싣는다")
+    void buildPrompt_includesLatestAssessment() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "왜 이 진단이야?")),
+                        PageRequest.of(0, 20), false));
+        Assessment assessment = Assessment.builder()
+                .storyId(10L)
+                .verdict(ReunionVerdict.POSSIBLE)
+                .probability(20)
+                .reason("솔직히 쉽지 않아.")
+                .deduction(Deduction.of("읽씹당하는 중", 15, "메시지를 계속 안 읽는다고 함"))
+                .build();
+        ReflectionTestUtils.setField(assessment, "createdAt", java.time.LocalDateTime.now());
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
+                .willReturn(Optional.of(assessment));
+
+        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "왜 이 진단이야?").prompt();
+
+        // 시스템(페르소나) + 시스템(진단 데이터) + 유저
+        assertThat(prompt).extracting(ChatMessage::role)
+                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER);
+        assertThat(prompt.get(1).content())
+                .contains("20%")
+                .contains("읽씹당하는 중")
+                .contains("메시지를 계속 안 읽는다고 함");
     }
 
     @Test
