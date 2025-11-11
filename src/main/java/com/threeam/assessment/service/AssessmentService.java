@@ -55,6 +55,9 @@ public class AssessmentService {
         }
     }
 
+    // 감점 목록(@ElementCollection, LAZY)을 매핑에서 읽으므로 트랜잭션 안이어야 한다.
+    // (open-in-view: false — 트랜잭션 밖에서 접근하면 LazyInitializationException → 500)
+    @Transactional(readOnly = true)
     public List<AssessmentResponse> getHistory(Long userId, Long storyId) {
         txService.loadOwnership(userId, storyId);
         return assessmentRepository.findByStoryIdOrderByCreatedAtDesc(storyId).stream()
