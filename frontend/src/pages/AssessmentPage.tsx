@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
-import { runAssessment, type AssessmentResponse } from '../api/assessment';
+import { getAssessments, runAssessment, type AssessmentResponse } from '../api/assessment';
 import { listStories } from '../api/story';
 import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
@@ -35,12 +35,14 @@ export function AssessmentPage() {
 
   const [title, setTitle] = useState('');
   const [result, setResult] = useState<AssessmentResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // 진입 시 저장된 기록 조회(공짜 GET)
+  const [diagnosing, setDiagnosing] = useState(false); // 새 진단(LLM 호출, 쿼터 차감) 실행 중
   const [error, setError] = useState('');
   const aliveRef = useRef(true);
 
+  // 새 진단은 버튼으로만 실행한다 — 페이지 진입만으로 일일 쿼터(하루 3회)가 닳지 않게.
   async function diagnose() {
-    setLoading(true);
+    setDiagnosing(true);
     setError('');
     try {
       const res = await runAssessment(storyId);
@@ -48,7 +50,7 @@ export function AssessmentPage() {
     } catch (e) {
       if (aliveRef.current) setError(extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'));
     } finally {
-      if (aliveRef.current) setLoading(false);
+      if (aliveRef.current) setDiagnosing(false);
     }
   }
 
@@ -57,7 +59,11 @@ export function AssessmentPage() {
     listStories()
       .then((ss) => aliveRef.current && setTitle(ss.find((s) => s.id === storyId)?.title ?? ''))
       .catch(() => {});
-    diagnose();
+    // 진입 시엔 저장된 최신 진단만 보여준다. LLM 호출 없음.
+    getAssessments(storyId)
+      .then((all) => aliveRef.current && setResult(all[0] ?? null))
+      .catch((e) => aliveRef.current && setError(extractErrorMessage(e, '진단 기록을 불러오지 못했어요.')))
+      .finally(() => aliveRef.current && setLoading(false));
     return () => {
       aliveRef.current = false;
     };
@@ -66,26 +72,52 @@ export function AssessmentPage() {
 
   const toChat = () => navigate(`/stories/${storyId}`);
 
-  if (loading) {
+  if (loading || diagnosing) {
     return (
       <PhoneFrame>
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
-          <div className={styles.state}>대화를 읽고 진단하는 중…</div>
+          <div className={styles.state}>{diagnosing ? '대화를 읽고 진단하는 중…' : '불러오는 중…'}</div>
         </div>
       </PhoneFrame>
     );
   }
 
-  if (error || !result) {
+  if (error) {
     return (
       <PhoneFrame>
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
-          <div className={styles.state}>{error || '결과를 불러오지 못했어요.'}</div>
+          <div className={styles.state}>{error}</div>
+          <div className={styles.footer}>
+            <button className={styles.btnGhost} onClick={toChat}>
+              대화로
+            </button>
+            <button className={styles.btnPrimary} onClick={diagnose}>
+              다시 진단
+            </button>
+          </div>
+        </div>
+      </PhoneFrame>
+    );
+  }
+
+  // 진단 기록이 아직 없음 — 여기서만 첫 진단을 시작한다.
+  if (!result) {
+    return (
+      <PhoneFrame>
+        <div className={styles.wrap}>
+          <BackBar onBack={toChat} />
+          <div className={styles.state}>
+            아직 진단 기록이 없어요.
+            <br />
+            지금까지의 대화를 읽고 재회 가능성을 진단해요.
+            <br />
+            대화를 충분히 나눌수록 정확해져요.
+          </div>
           <div className={styles.footer}>
             <button className={styles.btnPrimary} onClick={diagnose}>
-              다시 시도
+              진단 받기
             </button>
           </div>
         </div>
@@ -188,7 +220,7 @@ export function AssessmentPage() {
             </>
           )}
 
-          <div className={styles.hint}>대화를 더 나눌수록 진단이 정교해져요.</div>
+          <div className={styles.hint}>대화를 더 나눌수록 진단이 정교해져요 · 새 진단은 하루 3회까지</div>
         </div>
 
         <div className={styles.footer}>
