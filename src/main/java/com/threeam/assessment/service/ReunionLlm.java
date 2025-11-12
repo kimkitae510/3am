@@ -10,6 +10,7 @@ import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
 import com.threeam.llm.LlmException;
+import com.threeam.story.entity.StoryFact;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -41,8 +42,14 @@ public class ReunionLlm {
               "partnerType": "DECISIVE" | "AMBIVALENT" | "COLD",
               "deductions": [ { "signal": "짧은 신호명", "points": 정수, "evidence": "대화 속 근거" } ],
               "reason": "한두 문장 총평(반말, 다정하되 솔직하게)",
-              "summary": "다음 대화에서 기억해야 할 핵심 사실 요약(바람/먼저 이별/싸움/연락상태 등)"
+              "summary": "감정 흐름과 현재 상태 중심의 한두 문장. 사실 나열은 여기 하지 마라(사실은 newFacts로).",
+              "newFacts": [ "이번 대화에서 새로 드러난 사실. 한 줄씩, 최대 5개." ]
             }
+
+            newFacts 규칙:
+            - '이미 기록된 사실' 목록에 있는 내용은 절대 다시 넣지 마라. 표현만 바꾼 중복도 금지.
+            - 사건·사실만(바람/이별 통보 주체/싸움/연락 상태 변화/만남/새 애인 등). 감정·해석은 넣지 마라.
+            - 시점이 나오면 문장에 포함하라(예: "일주일 전 상대에게서 연락 옴"). 새 사실이 없으면 빈 배열.
 
             판정 기준:
             - INSUFFICIENT: 대화에 이별·관계 정보가 거의 없어 판단 근거가 부족할 때. 억지로 확률을 내지 마라.
@@ -61,9 +68,14 @@ public class ReunionLlm {
             항목별 상한은 없다. 정직하게 깎아라. 긍정 요소는 감점을 '덜' 하는 식으로만 반영하고, 점수를 직접 올리지 마라.
             """;
 
-    public CompletableFuture<ReunionDiagnosis> diagnose(String memorySummary, List<ChatMessage> conversation) {
+    public CompletableFuture<ReunionDiagnosis> diagnose(String memorySummary, List<String> knownFactLines,
+                                                        List<ChatMessage> conversation) {
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(SYSTEM_PROMPT));
+        if (knownFactLines != null && !knownFactLines.isEmpty()) {
+            prompt.add(ChatMessage.system("이미 기록된 사실(괄호는 기록일):\n- "
+                    + String.join("\n- ", knownFactLines)));
+        }
         if (memorySummary != null && !memorySummary.isBlank()) {
             prompt.add(ChatMessage.system("지금까지 요약: " + memorySummary));
         }
@@ -89,8 +101,20 @@ public class ReunionLlm {
                 deductions.add(new DeductionItem(signal, points, node.path("evidence").asText("")));
             }
 
+            // 새 사실은 최대 5개, 원장 컬럼 길이에 맞춰 자른다.
+            List<String> newFacts = new ArrayList<>();
+            for (JsonNode node : root.path("newFacts")) {
+                String fact = node.asText("").trim();
+                if (fact.isBlank() || newFacts.size() >= 5) {
+                    continue;
+                }
+                newFacts.add(fact.length() > StoryFact.MAX_LENGTH
+                        ? fact.substring(0, StoryFact.MAX_LENGTH)
+                        : fact);
+            }
+
             return new ReunionDiagnosis(verdict, breakupType, partnerType, deductions,
-                    root.path("reason").asText(""), root.path("summary").asText(""));
+                    root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
             log.error("재회 진단 JSON 파싱 실패: {}", json, e);
             throw new LlmException();

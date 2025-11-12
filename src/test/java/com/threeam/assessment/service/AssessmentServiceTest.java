@@ -54,17 +54,17 @@ class AssessmentServiceTest {
     private AssessmentService assessmentService;
 
     private static final AssessmentContext CONTEXT =
-            new AssessmentContext("요약", List.of(ChatMessage.user("걔가 먼저 헤어지자 했어")));
+            new AssessmentContext("요약", List.of(), List.of(ChatMessage.user("걔가 먼저 헤어지자 했어")));
 
     @Test
     @DisplayName("진단 - POSSIBLE이면 LLM 감점을 백엔드가 합산해 확률을 낸다")
     void assess_possible() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(eq("요약"), anyList())).willReturn(CompletableFuture.completedFuture(
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.POSSIBLE, BreakupType.REGRETTER, PartnerType.AMBIVALENT,
-                        List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")), "총평", "갱신요약")));
+                        List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")), "총평", "갱신요약", List.of("상대가 먼저 통보함"))));
         given(scorer.apply(anyList())).willReturn(20);
-        given(txService.save(eq(10L), any(Assessment.class), any()))
+        given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
                 .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
@@ -80,9 +80,9 @@ class AssessmentServiceTest {
     @DisplayName("진단 - INSUFFICIENT(근거 부족)면 저장하지 않고 가이드만 돌려준다")
     void assess_insufficient() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(eq("요약"), anyList())).willReturn(CompletableFuture.completedFuture(
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null,
-                        List.of(), "조금 더 들려줄래요?", "")));
+                        List.of(), "조금 더 들려줄래요?", "", List.of())));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
@@ -90,7 +90,7 @@ class AssessmentServiceTest {
         assertThat(response.getProbability()).isNull();
         assertThat(response.getReason()).isEqualTo("조금 더 들려줄래요?");
         verify(scorer, never()).apply(anyList());
-        verify(txService, never()).save(any(), any(), any()); // 히스토리에 저장 안 함
+        verify(txService, never()).save(any(), any(), any(), anyList()); // 히스토리에 저장 안 함
     }
 
     @Test
@@ -103,7 +103,7 @@ class AssessmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORY_NOT_FOUND);
 
-        verify(reunionLlm, never()).diagnose(any(), anyList());
+        verify(reunionLlm, never()).diagnose(any(), anyList(), anyList());
         // LLM 비용이 나가기 전 실패 → 쿼터 환급 + 잠금 해제
         verify(usageLimiter).refundDaily(UsageKind.ASSESSMENT, 1L);
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
@@ -120,7 +120,7 @@ class AssessmentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENERATION_IN_PROGRESS);
 
         verify(usageLimiter, never()).consumeDaily(any(), any());
-        verify(reunionLlm, never()).diagnose(any(), anyList());
+        verify(reunionLlm, never()).diagnose(any(), anyList(), anyList());
     }
 
     @Test
@@ -134,15 +134,15 @@ class AssessmentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
 
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
-        verify(reunionLlm, never()).diagnose(any(), anyList());
+        verify(reunionLlm, never()).diagnose(any(), anyList(), anyList());
     }
 
     @Test
     @DisplayName("진단 - 완료(성공) 시 in-flight 잠금이 해제된다")
     void assess_releasesLockOnCompletion() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(eq("요약"), anyList())).willReturn(CompletableFuture.completedFuture(
-                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), "가이드", "")));
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), "가이드", "", List.of())));
 
         assessmentService.assess(1L, 10L).join();
 

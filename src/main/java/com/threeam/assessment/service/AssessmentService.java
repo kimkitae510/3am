@@ -43,7 +43,7 @@ public class AssessmentService {
 
         try {
             AssessmentContext context = txService.loadContext(userId, storyId);
-            return reunionLlm.diagnose(context.memorySummary(), context.conversation())
+            return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(), context.conversation())
                     .thenApply(diagnosis -> persist(storyId, diagnosis))
                     .whenComplete((ignored, ex) ->
                             usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId));
@@ -100,7 +100,7 @@ public class AssessmentService {
                 .deductions(deductions)
                 .build();
 
-        return txService.save(storyId, assessment, diagnosis.summary());
+        return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts());
     }
 
     private Deduction toDeduction(DeductionItem item) {

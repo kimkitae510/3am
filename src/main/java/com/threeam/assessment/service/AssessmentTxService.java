@@ -9,12 +9,17 @@ import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
+import com.threeam.story.entity.StoryFact;
 import com.threeam.story.entity.StoryMemory;
 import com.threeam.story.repository.MessageRepository;
+import com.threeam.story.repository.StoryFactRepository;
 import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -28,9 +33,15 @@ public class AssessmentTxService {
 
     private static final int HISTORY_WINDOW = 20;
 
+    // 사실 원장 상한. 넘치면 오래된 것부터 지운다(프롬프트 무한 성장 방지).
+    private static final int MAX_FACTS = 50;
+
+    private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
+
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
     private final StoryMemoryRepository storyMemoryRepository;
+    private final StoryFactRepository storyFactRepository;
     private final AssessmentRepository assessmentRepository;
 
     // 히스토리 조회 전 소유권만 확인한다.
@@ -66,17 +77,52 @@ public class AssessmentTxService {
                 .map(StoryMemory::getSummary)
                 .orElse(null);
 
-        return new AssessmentContext(summary, conversation);
+        return new AssessmentContext(summary, factLines(storyId), conversation);
     }
 
-    // tx2: 진단 결과 저장 + 기억 갱신. newSummary가 null/blank면 기억은 건드리지 않는다.
+    // tx2: 진단 결과 저장 + 기억(감정 요약) 갱신 + 새 사실 원장 append.
     @Transactional
-    public AssessmentResponse save(Long storyId, Assessment assessment, String newSummary) {
+    public AssessmentResponse save(Long storyId, Assessment assessment, String newSummary,
+                                   List<String> newFacts) {
         Assessment saved = assessmentRepository.save(assessment);
         if (newSummary != null && !newSummary.isBlank()) {
             upsertMemory(storyId, newSummary);
         }
+        if (newFacts != null && !newFacts.isEmpty()) {
+            appendFacts(storyId, saved.getId(), newFacts);
+        }
         return AssessmentResponse.from(saved);
+    }
+
+    // 프롬프트용: "(11/10) 상대가 먼저 이별 통보" — 상대 시점 표현("일주일 전")을 기록일로 보정할 수 있게.
+    private List<String> factLines(Long storyId) {
+        return storyFactRepository.findByStoryIdOrderByIdAsc(storyId).stream()
+                .map(fact -> "(" + FACT_DATE.format(fact.getCreatedAt()) + ") " + fact.getFact())
+                .toList();
+    }
+
+    // 동일 문장은 건너뛰고(프롬프트의 중복 금지 지시가 1차, 여기가 2차 방어), 상한을 넘으면 오래된 것부터 지운다.
+    private void appendFacts(Long storyId, Long assessmentId, List<String> newFacts) {
+        List<StoryFact> existing = storyFactRepository.findByStoryIdOrderByIdAsc(storyId);
+        Set<String> known = new HashSet<>();
+        existing.forEach(fact -> known.add(normalize(fact.getFact())));
+
+        List<StoryFact> toSave = new ArrayList<>();
+        for (String fact : newFacts) {
+            if (known.add(normalize(fact))) {
+                toSave.add(StoryFact.of(storyId, fact, assessmentId));
+            }
+        }
+        storyFactRepository.saveAll(toSave);
+
+        int overflow = existing.size() + toSave.size() - MAX_FACTS;
+        if (overflow > 0) {
+            storyFactRepository.deleteAll(existing.subList(0, overflow));
+        }
+    }
+
+    private String normalize(String fact) {
+        return fact.replaceAll("\\s+", " ").trim();
     }
 
     private void upsertMemory(Long storyId, String summary) {

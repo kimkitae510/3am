@@ -13,7 +13,8 @@ public record ReunionDiagnosis(
         PartnerType partnerType,
         List<DeductionItem> deductions,
         String reason,
-        String summary) {   // 갱신된 사연 요약 → StoryMemory에 반영
+        String summary,           // 감정 흐름·현재 상태 요약 → StoryMemory에 반영
+        List<String> newFacts) {  // 새로 드러난 사실 → StoryFact 원장에 append
 
     // points: 깎을 양(양수). 백엔드가 부호를 붙여 합산한다.
     public record DeductionItem(String signal, int points, String evidence) {

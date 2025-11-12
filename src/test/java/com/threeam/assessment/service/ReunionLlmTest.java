@@ -51,7 +51,7 @@ class ReunionLlmTest {
                 """;
         given(llmClient.generateJson(anyList())).willReturn(CompletableFuture.completedFuture(json));
 
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of()).join();
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE);
         assertThat(diagnosis.breakupType()).isEqualTo(BreakupType.CLINGER);
@@ -59,6 +59,20 @@ class ReunionLlmTest {
         assertThat(diagnosis.deductions()).hasSize(1); // points=0 항목은 버려진다
         assertThat(diagnosis.deductions().get(0).points()).isEqualTo(30);
         assertThat(diagnosis.summary()).isEqualTo("상대가 차단함");
+    }
+
+    @Test
+    @DisplayName("newFacts를 파싱한다 — 빈 문자열은 버리고 최대 5개까지만")
+    void parse_newFacts() {
+        String json = """
+                {"verdict": "POSSIBLE", "deductions": [], "reason": "", "summary": "",
+                 "newFacts": ["사실1", "", "사실2", "사실3", "사실4", "사실5", "사실6"]}
+                """;
+        given(llmClient.generateJson(anyList())).willReturn(CompletableFuture.completedFuture(json));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        assertThat(diagnosis.newFacts()).containsExactly("사실1", "사실2", "사실3", "사실4", "사실5");
     }
 
     @Test
@@ -70,7 +84,7 @@ class ReunionLlmTest {
                 """;
         given(llmClient.generateJson(anyList())).willReturn(CompletableFuture.completedFuture(json));
 
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of()).join();
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE); // 기본값
         assertThat(diagnosis.breakupType()).isNull();
@@ -83,7 +97,7 @@ class ReunionLlmTest {
         given(llmClient.generateJson(anyList()))
                 .willReturn(CompletableFuture.completedFuture("이건 JSON이 아니야"));
 
-        assertThatThrownBy(() -> reunionLlm().diagnose(null, List.of()).join())
+        assertThatThrownBy(() -> reunionLlm().diagnose(null, List.of(), List.of()).join())
                 .isInstanceOf(CompletionException.class)
                 .hasCauseInstanceOf(LlmException.class);
     }
