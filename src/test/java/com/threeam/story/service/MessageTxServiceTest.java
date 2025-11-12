@@ -20,7 +20,9 @@ import com.threeam.story.dto.MessageResponse;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
+import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.MessageRepository;
+import com.threeam.story.repository.StoryFactRepository;
 import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.List;
@@ -49,6 +51,9 @@ class MessageTxServiceTest {
     private StoryMemoryRepository storyMemoryRepository;
 
     @Mock
+    private StoryFactRepository storyFactRepository;
+
+    @Mock
     private AssessmentRepository assessmentRepository;
 
     @InjectMocks
@@ -70,6 +75,27 @@ class MessageTxServiceTest {
         assertThat(prompt).extracting(ChatMessage::role)
                 .containsExactly(LlmRole.SYSTEM, LlmRole.USER);
         verify(messageRepository).save(any(Message.class)); // 유저 메시지 저장됨
+    }
+
+    @Test
+    @DisplayName("프롬프트 조립 - 사실 원장이 있으면 기록일과 함께 시스템 메시지로 싣는다")
+    void buildPrompt_includesFactLedger() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "안녕")),
+                        PageRequest.of(0, 20), false));
+        StoryFact fact = StoryFact.of(10L, "상대가 먼저 이별을 통보함", 1L);
+        ReflectionTestUtils.setField(fact, "createdAt", java.time.LocalDateTime.of(2025, 11, 10, 3, 0));
+        given(storyFactRepository.findByStoryIdOrderByIdAsc(10L)).willReturn(List.of(fact));
+
+        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "안녕").prompt();
+
+        assertThat(prompt.get(1).role()).isEqualTo(LlmRole.SYSTEM);
+        assertThat(prompt.get(1).content())
+                .contains("기록된 사실")
+                .contains("(11/10) 상대가 먼저 이별을 통보함");
     }
 
     @Test

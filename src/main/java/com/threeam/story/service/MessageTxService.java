@@ -10,10 +10,13 @@ import com.threeam.story.dto.MessageResponse;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
+import com.threeam.story.entity.StoryFact;
 import com.threeam.story.entity.StoryMemory;
 import com.threeam.story.repository.MessageRepository;
+import com.threeam.story.repository.StoryFactRepository;
 import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -33,9 +36,12 @@ public class MessageTxService {
     // 페르소나 실문구는 저장소 밖에서 관리한다(CLAUDE.md). 여기서는 자리표시자만 둔다.
     private static final String SYSTEM_PROMPT = "당신은 이별을 겪은 사람의 곁을 지키는 다정한 대화 상대입니다.";
 
+    private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
+
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
     private final StoryMemoryRepository storyMemoryRepository;
+    private final StoryFactRepository storyFactRepository;
     private final AssessmentRepository assessmentRepository;
 
     // tx1: 소유권 확인 + 유저 메시지 저장 + LLM에 보낼 프롬프트 조립. 짧게 끝난다.
@@ -69,6 +75,16 @@ public class MessageTxService {
 
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(SYSTEM_PROMPT));
+        // 사실 원장: 창 밖으로 밀려나도 잊으면 안 되는 사건·사실들. 괄호는 기록일.
+        List<StoryFact> facts = storyFactRepository.findByStoryIdOrderByIdAsc(storyId);
+        if (!facts.isEmpty()) {
+            StringBuilder block = new StringBuilder("기록된 사실(괄호는 기록일):");
+            for (StoryFact fact : facts) {
+                block.append("\n- (").append(FACT_DATE.format(fact.getCreatedAt())).append(") ")
+                        .append(fact.getFact());
+            }
+            prompt.add(ChatMessage.system(block.toString()));
+        }
         // 창(window) 밖으로 밀려난 오래된 사실을 기억 요약으로 보충한다.
         storyMemoryRepository.findByStoryId(storyId)
                 .map(StoryMemory::getSummary)
