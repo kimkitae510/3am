@@ -10,7 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "usage")
 public class UsageProperties {
 
-    private int chatDailyLimit = 50;
+    private int chatDailyLimit = 30;
     private int assessmentDailyLimit = 3;
 
     // in-flight 잠금의 자동 만료. 서버가 죽어 해제가 유실돼도 이 시간이 지나면 풀린 것으로 본다.
