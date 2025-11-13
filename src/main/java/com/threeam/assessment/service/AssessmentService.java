@@ -13,10 +13,12 @@ import com.threeam.usage.UsageLimiter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AssessmentService {
@@ -34,24 +36,32 @@ public class AssessmentService {
         // 같은 사연의 진단 동시 실행 차단(연타 차단 + 기억 upsert 레이스 방지).
         usageLimiter.acquireInFlight(UsageKind.ASSESSMENT, storyId);
         try {
-            // INSUFFICIENT(근거 부족)로 끝나도 LLM 비용은 이미 나갔으므로 차감은 유지된다.
-            usageLimiter.consumeDaily(UsageKind.ASSESSMENT, userId);
-        } catch (RuntimeException e) {
-            usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId);
-            throw e;
-        }
+            // 후차감: 여기서는 한도 검사만. 기록은 진단이 정상 처리된 뒤에 한다(LLM 장애 시 미차감).
+            usageLimiter.checkDaily(UsageKind.ASSESSMENT, userId);
 
-        try {
             AssessmentContext context = txService.loadContext(userId, storyId);
             return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(), context.conversation())
-                    .thenApply(diagnosis -> persist(storyId, diagnosis))
+                    .thenApply(diagnosis -> {
+                        AssessmentResponse response = persist(storyId, diagnosis);
+                        // INSUFFICIENT(근거 부족)여도 LLM 비용은 나갔으므로 차감한다.
+                        recordUsageQuietly(userId);
+                        return response;
+                    })
                     .whenComplete((ignored, ex) ->
                             usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId));
         } catch (RuntimeException e) {
-            // LLM 비용이 나가기 전에 실패(소유권 없음, 대화 없음 등) → 차감을 되돌리고 잠금 해제.
-            usageLimiter.refundDaily(UsageKind.ASSESSMENT, userId);
+            // 후차감이라 되돌릴 차감이 없다. 잠금만 풀고 그대로 던진다.
             usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId);
             throw e;
+        }
+    }
+
+    // 쿼터 기록 실패가 이미 저장된 진단 응답을 500으로 오염시키지 않게 격리한다.
+    private void recordUsageQuietly(Long userId) {
+        try {
+            usageLimiter.recordDaily(UsageKind.ASSESSMENT, userId);
+        } catch (RuntimeException e) {
+            log.error("진단 쿼터 기록 실패 userId={}", userId, e);
         }
     }
 

@@ -91,10 +91,12 @@ class AssessmentServiceTest {
         assertThat(response.getReason()).isEqualTo("조금 더 들려줄래요?");
         verify(scorer, never()).apply(anyList());
         verify(txService, never()).save(any(), any(), any(), anyList()); // 히스토리에 저장 안 함
+        // 근거 부족이어도 LLM 비용은 나갔으므로 차감된다
+        verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L);
     }
 
     @Test
-    @DisplayName("진단 - 없거나 남의 사연이면 STORY_NOT_FOUND, LLM 호출 없이 차감을 되돌린다")
+    @DisplayName("진단 - 없거나 남의 사연이면 STORY_NOT_FOUND, LLM 호출도 쿼터 기록도 없다")
     void assess_storyNotFound() {
         given(txService.loadContext(1L, 10L))
                 .willThrow(new BusinessException(ErrorCode.STORY_NOT_FOUND));
@@ -104,8 +106,8 @@ class AssessmentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORY_NOT_FOUND);
 
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList());
-        // LLM 비용이 나가기 전 실패 → 쿼터 환급 + 잠금 해제
-        verify(usageLimiter).refundDaily(UsageKind.ASSESSMENT, 1L);
+        // 후차감이라 성공 전에 실패하면 기록할 것이 없다. 잠금만 해제.
+        verify(usageLimiter, never()).recordDaily(any(), any());
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
     }
 
@@ -119,7 +121,7 @@ class AssessmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENERATION_IN_PROGRESS);
 
-        verify(usageLimiter, never()).consumeDaily(any(), any());
+        verify(usageLimiter, never()).checkDaily(any(), any());
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList());
     }
 
@@ -127,7 +129,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - 일일 한도를 넘으면 QUOTA_EXCEEDED, 잠금을 해제하고 LLM을 호출하지 않는다")
     void assess_quotaExceeded() {
         org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.QUOTA_EXCEEDED))
-                .given(usageLimiter).consumeDaily(UsageKind.ASSESSMENT, 1L);
+                .given(usageLimiter).checkDaily(UsageKind.ASSESSMENT, 1L);
 
         assertThatThrownBy(() -> assessmentService.assess(1L, 10L))
                 .isInstanceOf(BusinessException.class)
@@ -146,10 +148,10 @@ class AssessmentServiceTest {
 
         assessmentService.assess(1L, 10L).join();
 
-        verify(usageLimiter).consumeDaily(UsageKind.ASSESSMENT, 1L);
+        verify(usageLimiter).checkDaily(UsageKind.ASSESSMENT, 1L);
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
-        // INSUFFICIENT여도 LLM 비용은 이미 나갔으므로 환급하지 않는다
-        verify(usageLimiter, never()).refundDaily(any(), any());
+        // 후차감: 처리 완료 시점에 1회 기록된다
+        verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L);
     }
 
     @Test

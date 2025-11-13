@@ -5,27 +5,25 @@ import com.threeam.global.exception.custom.BusinessException;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-// 임시 인메모리 구현. 단일 인스턴스 전제이고, 재시작하면 카운터가 리셋되는 한계가 있다.
-// 운영 전환 시 Redis(INCR+EXPIRE를 Lua로 원자화) 구현으로 교체한다.
+// 일일 쿼터는 DB(usage_quota 단일 행), in-flight 잠금은 인메모리.
+// 쿼터를 DB에 두는 이유: 재시작해도 유지되고 차감 기록이 서버 밖에 남는다.
+// 잠금은 수 초짜리 휘발 상태라 인메모리로 충분하다(재시작으로 날아가도 TTL 의미와 같다).
 @Component
 @RequiredArgsConstructor
-public class InMemoryUsageLimiter implements UsageLimiter {
+public class DbUsageLimiter implements UsageLimiter {
 
-    // 일일 쿼터의 하루 경계. DB 타임존과 동일하게 맞춘다.
+    // 일일 쿼터의 하루 경계. DB 타임존에 묶이지 않게 날짜는 항상 여기서 계산해 넘긴다.
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final UsageProperties properties;
+    private final UsageQuotaRepository quotaRepository;
 
     // 사연별 "생성 진행 중" 표시. 값은 만료 시각(epoch ms) — 지난 값은 풀린 것으로 취급한다.
     private final ConcurrentHashMap<String, Long> inFlight = new ConcurrentHashMap<>();
-
-    // 유저·종류별 오늘 사용량. 날짜가 바뀌면 통째로 비운다.
-    private final ConcurrentHashMap<String, AtomicInteger> daily = new ConcurrentHashMap<>();
-    private volatile LocalDate window = LocalDate.now(KST);
 
     @Override
     public void acquireInFlight(UsageKind kind, Long storyId) {
@@ -51,22 +49,21 @@ public class InMemoryUsageLimiter implements UsageLimiter {
     }
 
     @Override
-    public void consumeDaily(UsageKind kind, Long userId) {
-        rolloverIfNeeded();
-        AtomicInteger used = daily.computeIfAbsent(key(kind, userId), key -> new AtomicInteger());
-        // 선차감 후 초과분을 되돌린다 — 검사·차감 사이의 레이스로 한도를 뚫는 걸 막는다.
-        if (used.incrementAndGet() > limitOf(kind)) {
-            used.decrementAndGet();
-            throw new BusinessException(ErrorCode.QUOTA_EXCEEDED);
-        }
+    @Transactional(readOnly = true)
+    public void checkDaily(UsageKind kind, Long userId) {
+        LocalDate today = LocalDate.now(KST);
+        quotaRepository.findByUserIdAndKind(userId, kind)
+                .filter(quota -> today.equals(quota.getQuotaDate()))   // 지난 날짜 행은 리셋 대상 = 0회로 취급
+                .filter(quota -> quota.getUsedCount() >= limitOf(kind))
+                .ifPresent(quota -> {
+                    throw new BusinessException(ErrorCode.QUOTA_EXCEEDED);
+                });
     }
 
     @Override
-    public void refundDaily(UsageKind kind, Long userId) {
-        AtomicInteger used = daily.get(key(kind, userId));
-        if (used != null) {
-            used.updateAndGet(value -> Math.max(0, value - 1));
-        }
+    @Transactional
+    public void recordDaily(UsageKind kind, Long userId) {
+        quotaRepository.recordUsage(userId, kind.name(), LocalDate.now(KST));
     }
 
     private int limitOf(UsageKind kind) {
@@ -77,18 +74,5 @@ public class InMemoryUsageLimiter implements UsageLimiter {
 
     private String key(UsageKind kind, Long id) {
         return kind.name() + ":" + id;
-    }
-
-    // 스케줄러 없이, 요청이 들어온 시점에 날짜가 바뀌었으면 비우는 lazy 방식.
-    private void rolloverIfNeeded() {
-        LocalDate today = LocalDate.now(KST);
-        if (!today.equals(window)) {
-            synchronized (this) {
-                if (!today.equals(window)) {
-                    daily.clear();
-                    window = today;
-                }
-            }
-        }
     }
 }

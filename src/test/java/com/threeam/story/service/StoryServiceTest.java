@@ -111,12 +111,14 @@ class StoryServiceTest {
         verify(llmClient).generate(anyList());
         // completedFuture라 thenAccept가 동기 실행 → 어시스턴트 저장까지 이뤄진다
         verify(messageTxService).appendAssistantReply(10L, "괜찮아요, 여기 있어요.");
+        // 후차감: 답 저장이 성공했으니 이 시점에 1회 기록된다
+        verify(usageLimiter).recordDaily(UsageKind.CHAT, 1L);
         // 답 저장까지 끝났으니 in-flight 잠금도 해제된다
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 10L);
     }
 
     @Test
-    @DisplayName("메시지 전송 - 없거나 남의 사연이면 STORY_NOT_FOUND, LLM을 호출하지 않고 차감을 되돌린다")
+    @DisplayName("메시지 전송 - 없거나 남의 사연이면 STORY_NOT_FOUND, LLM 호출도 쿼터 기록도 없다")
     void sendMessage_notFound() {
         given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi"))
                 .willThrow(new BusinessException(ErrorCode.STORY_NOT_FOUND));
@@ -126,8 +128,8 @@ class StoryServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORY_NOT_FOUND);
 
         verify(llmClient, never()).generate(anyList());
-        // LLM 비용이 나가기 전 실패 → 쿼터 환급 + 잠금 해제
-        verify(usageLimiter).refundDaily(UsageKind.CHAT, 1L);
+        // 후차감이라 성공 전에 실패하면 기록할 것이 없다. 잠금만 해제.
+        verify(usageLimiter, never()).recordDaily(any(), any());
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 10L);
     }
 
@@ -141,8 +143,8 @@ class StoryServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENERATION_IN_PROGRESS);
 
-        // 접수 자체가 거부됐으니 쿼터 차감도, 메시지 저장도, LLM 호출도 없다
-        verify(usageLimiter, never()).consumeDaily(any(), any());
+        // 접수 자체가 거부됐으니 한도 검사도, 메시지 저장도, LLM 호출도 없다
+        verify(usageLimiter, never()).checkDaily(any(), any());
         verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any());
         verify(llmClient, never()).generate(anyList());
     }
@@ -151,7 +153,7 @@ class StoryServiceTest {
     @DisplayName("메시지 전송 - 일일 한도를 넘으면 QUOTA_EXCEEDED, 잠금을 해제하고 LLM을 호출하지 않는다")
     void sendMessage_quotaExceeded() {
         org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.QUOTA_EXCEEDED))
-                .given(usageLimiter).consumeDaily(UsageKind.CHAT, 1L);
+                .given(usageLimiter).checkDaily(UsageKind.CHAT, 1L);
 
         assertThatThrownBy(() -> storyService.sendMessage(1L, 10L, sendRequest("hi")))
                 .isInstanceOf(BusinessException.class)
@@ -176,8 +178,8 @@ class StoryServiceTest {
         // 실패 시 폴백 메시지가 저장되고(폴링 정상 종료), 잠금도 풀린다
         verify(messageTxService).appendAssistantReply(eq(10L), any(String.class));
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 10L);
-        // LLM 호출은 이미 접수된 뒤의 실패라 쿼터는 환급하지 않는다
-        verify(usageLimiter, never()).refundDaily(any(), any());
+        // 성공 시만 차감: LLM 장애로 폴백이 나간 턴은 유저 쿼터를 쓰지 않는다
+        verify(usageLimiter, never()).recordDaily(any(), any());
     }
 
     @Test

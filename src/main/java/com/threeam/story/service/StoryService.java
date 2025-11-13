@@ -71,19 +71,19 @@ public class StoryService {
         // 이 사연에서 답변 생성이 진행 중이면 접수 자체를 거부한다(연타·중복요청 차단).
         usageLimiter.acquireInFlight(UsageKind.CHAT, storyId);
         try {
-            usageLimiter.consumeDaily(UsageKind.CHAT, userId);
-        } catch (RuntimeException e) {
-            usageLimiter.releaseInFlight(UsageKind.CHAT, storyId);
-            throw e;
-        }
+            // 후차감: 여기서는 한도 검사만 하고, 기록은 답변 저장이 성공한 뒤에 한다.
+            // 유저가 폴링을 끊어도(중지) 서버는 끝까지 저장하므로 "기록 시점"은 반드시 도달한다.
+            usageLimiter.checkDaily(UsageKind.CHAT, userId);
 
-        try {
             MessageTxService.PreparedSend prepared =
                     messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
 
             // fire-and-forget: 응답을 기다리지 않는다. 완료되면 어시스턴트 메시지로 저장, 실패하면 폴백 저장.
             llmClient.generate(prepared.prompt())
-                    .thenAccept(reply -> messageTxService.appendAssistantReply(storyId, reply))
+                    .thenAccept(reply -> {
+                        messageTxService.appendAssistantReply(storyId, reply);
+                        recordUsageQuietly(userId);   // 성공 시만 차감. 폴백(LLM 장애)은 유저 잘못이 아니라 미차감.
+                    })
                     .exceptionally(ex -> {
                         log.error("LLM 응답 생성 실패 storyId={}", storyId, ex);
                         messageTxService.appendAssistantReply(storyId, LLM_FALLBACK);
@@ -93,10 +93,18 @@ public class StoryService {
 
             return prepared.userMessage();
         } catch (RuntimeException e) {
-            // LLM 비용이 나가기 전에 실패(소유권 없음, 요청 조립 실패 등) → 차감을 되돌리고 잠금 해제.
-            usageLimiter.refundDaily(UsageKind.CHAT, userId);
+            // 후차감이라 되돌릴 차감이 없다. 잠금만 풀고 그대로 던진다.
             usageLimiter.releaseInFlight(UsageKind.CHAT, storyId);
             throw e;
+        }
+    }
+
+    // 쿼터 기록 실패가 이미 저장된 답변을 실패 처리(폴백 중복 저장)로 오염시키지 않게 격리한다.
+    private void recordUsageQuietly(Long userId) {
+        try {
+            usageLimiter.recordDaily(UsageKind.CHAT, userId);
+        } catch (RuntimeException e) {
+            log.error("대화 쿼터 기록 실패 userId={}", userId, e);
         }
     }
 
