@@ -145,6 +145,23 @@ class AssessmentTxServiceTest {
     }
 
     @Test
+    @DisplayName("원장 적재 - 새 사실 배치가 상한을 통째로 넘겨도 예외 없이 처리된다(방어)")
+    void save_survivesOversizedBatch() {
+        given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));
+        given(storyFactRepository.findByStoryIdOrderByIdAsc(STORY_ID)).willReturn(List.of());
+
+        List<String> oversized = new ArrayList<>();
+        for (int i = 1; i <= 60; i++) {
+            oversized.add("사실" + i);
+        }
+
+        txService.save(STORY_ID, savedAssessment(null), null, oversized);
+
+        // 상한 초과 삭제는 '기존' 원장만 대상이라, 기존이 없으면 지울 것도 없다. 크래시만 막는다.
+        assertThat(capturedSaveAll()).hasSize(60);
+    }
+
+    @Test
     @DisplayName("원장 적재 - 새 사실과 요약이 없으면 원장·기억을 건드리지 않는다")
     void save_skipsWhenNothingNew() {
         given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));

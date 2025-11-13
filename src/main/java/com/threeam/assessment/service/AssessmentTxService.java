@@ -21,12 +21,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 // 진단의 DB 단계를 "짧은 트랜잭션"으로 분리한다.
 // 느린 LLM 호출은 이 트랜잭션 밖(AssessmentService)에서 일어나므로 커넥션을 점유하지 않는다.
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AssessmentTxService {
@@ -117,7 +119,9 @@ public class AssessmentTxService {
 
         int overflow = existing.size() + toSave.size() - MAX_FACTS;
         if (overflow > 0) {
-            storyFactRepository.deleteAll(existing.subList(0, overflow));
+            // 실서비스에서 닿기 어려운 상한. 실제로 찍히기 시작하면 병합/확대 정책을 다시 정한다.
+            log.warn("사실 원장 상한({}) 도달: storyId={}, 오래된 {}건 삭제", MAX_FACTS, storyId, overflow);
+            storyFactRepository.deleteAll(existing.subList(0, Math.min(overflow, existing.size())));
         }
     }
 
