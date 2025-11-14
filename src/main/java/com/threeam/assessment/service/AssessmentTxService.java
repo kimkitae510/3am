@@ -9,37 +9,27 @@ import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
-import com.threeam.story.entity.StoryFact;
 import com.threeam.story.entity.StoryMemory;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryFactRepository;
 import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
+import com.threeam.story.service.StoryFactService;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 // 진단의 DB 단계를 "짧은 트랜잭션"으로 분리한다.
 // 느린 LLM 호출은 이 트랜잭션 밖(AssessmentService)에서 일어나므로 커넥션을 점유하지 않는다.
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AssessmentTxService {
 
     private static final int HISTORY_WINDOW = 20;
-
-    // 원장 크기 관측 기준. 상한이 아니다 — 넘어도 지우지 않고 로그만 남긴다.
-    // 사건은 자연 포화되므로(한 이별 이야기의 사실은 유한) 여기 닿는 사연이 실제로 관측되면
-    // 그때 병합(압축) 정책을 설계한다. 오래된 사실부터 지우는 방식은 가장 근본적인 사실을
-    // 먼저 잃는 모순이 있어 폐기했다.
-    private static final int FACTS_WATCH_THRESHOLD = 100;
 
     private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
 
@@ -47,6 +37,7 @@ public class AssessmentTxService {
     private final MessageRepository messageRepository;
     private final StoryMemoryRepository storyMemoryRepository;
     private final StoryFactRepository storyFactRepository;
+    private final StoryFactService storyFactService;
     private final AssessmentRepository assessmentRepository;
 
     // 히스토리 조회 전 소유권만 확인한다.
@@ -93,9 +84,7 @@ public class AssessmentTxService {
         if (newSummary != null && !newSummary.isBlank()) {
             upsertMemory(storyId, newSummary);
         }
-        if (newFacts != null && !newFacts.isEmpty()) {
-            appendFacts(storyId, saved.getId(), newFacts);
-        }
+        storyFactService.appendFacts(storyId, saved.getId(), newFacts);
         return AssessmentResponse.from(saved);
     }
 
@@ -104,31 +93,6 @@ public class AssessmentTxService {
         return storyFactRepository.findByStoryIdOrderByIdAsc(storyId).stream()
                 .map(fact -> "(" + FACT_DATE.format(fact.getCreatedAt()) + ") " + fact.getFact())
                 .toList();
-    }
-
-    // 동일 문장은 건너뛴다(프롬프트의 중복 금지 지시가 1차, 여기가 2차 방어). 지우는 일은 없다.
-    private void appendFacts(Long storyId, Long assessmentId, List<String> newFacts) {
-        List<StoryFact> existing = storyFactRepository.findByStoryIdOrderByIdAsc(storyId);
-        Set<String> known = new HashSet<>();
-        existing.forEach(fact -> known.add(normalize(fact.getFact())));
-
-        List<StoryFact> toSave = new ArrayList<>();
-        for (String fact : newFacts) {
-            if (known.add(normalize(fact))) {
-                toSave.add(StoryFact.of(storyId, fact, assessmentId));
-            }
-        }
-        storyFactRepository.saveAll(toSave);
-
-        int total = existing.size() + toSave.size();
-        if (total > FACTS_WATCH_THRESHOLD) {
-            log.warn("사실 원장 관측 기준({}) 초과: storyId={}, 현재 {}건 — 병합 정책 검토 신호",
-                    FACTS_WATCH_THRESHOLD, storyId, total);
-        }
-    }
-
-    private String normalize(String fact) {
-        return fact.replaceAll("\\s+", " ").trim();
     }
 
     private void upsertMemory(Long storyId, String summary) {

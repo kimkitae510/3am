@@ -1,0 +1,58 @@
+package com.threeam.story.service;
+
+import com.threeam.story.entity.StoryFact;
+import com.threeam.story.repository.StoryFactRepository;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+// 사실 원장의 유일한 쓰기 창구. 진단(AssessmentTxService)과 채팅 추출이 함께 쓴다.
+// 원장은 append-only: 지우지 않고, 정정도 새 줄로 잇는다(프롬프트의 정정 기입 규칙).
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class StoryFactService {
+
+    // 원장 크기 관측 기준. 상한이 아니다 — 넘어도 지우지 않고 로그만 남긴다.
+    // 사건은 자연 포화되므로(한 이별 이야기의 사실은 유한) 여기 닿는 사연이 실제로 관측되면
+    // 그때 병합(압축) 정책을 설계한다. 오래된 사실부터 지우는 방식은 가장 근본적인 사실을
+    // 먼저 잃는 모순이 있어 폐기했다.
+    private static final int WATCH_THRESHOLD = 100;
+
+    private final StoryFactRepository storyFactRepository;
+
+    // 동일 문장은 건너뛴다(프롬프트의 중복 금지 지시가 1차, 여기가 2차 방어). 지우는 일은 없다.
+    // sourceAssessmentId는 진단 경로에서만 채워진다(채팅 추출은 null).
+    @Transactional
+    public void appendFacts(Long storyId, Long sourceAssessmentId, List<String> newFacts) {
+        if (newFacts == null || newFacts.isEmpty()) {
+            return;
+        }
+        List<StoryFact> existing = storyFactRepository.findByStoryIdOrderByIdAsc(storyId);
+        Set<String> known = new HashSet<>();
+        existing.forEach(fact -> known.add(normalize(fact.getFact())));
+
+        List<StoryFact> toSave = new ArrayList<>();
+        for (String fact : newFacts) {
+            if (known.add(normalize(fact))) {
+                toSave.add(StoryFact.of(storyId, fact, sourceAssessmentId));
+            }
+        }
+        storyFactRepository.saveAll(toSave);
+
+        int total = existing.size() + toSave.size();
+        if (total > WATCH_THRESHOLD) {
+            log.warn("사실 원장 관측 기준({}) 초과: storyId={}, 현재 {}건 — 병합 정책 검토 신호",
+                    WATCH_THRESHOLD, storyId, total);
+        }
+    }
+
+    private String normalize(String fact) {
+        return fact.replaceAll("\\s+", " ").trim();
+    }
+}
