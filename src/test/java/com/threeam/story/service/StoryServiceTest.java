@@ -51,6 +51,9 @@ class StoryServiceTest {
     private MessageTxService messageTxService;
 
     @Mock
+    private StoryFactExtractor factExtractor;
+
+    @Mock
     private LlmClient llmClient;
 
     @Mock
@@ -113,6 +116,8 @@ class StoryServiceTest {
         verify(messageTxService).appendAssistantReply(10L, "괜찮아요, 여기 있어요.");
         // 후차감: 답 저장이 성공했으니 이 시점에 1회 기록된다
         verify(usageLimiter).recordDaily(UsageKind.CHAT, 1L);
+        // 답이 저장된 턴만 사실 추출이 돈다(별도 호출, 쿼터 미차감)
+        verify(factExtractor).extractAsync(10L);
         // 답 저장까지 끝났으니 in-flight 잠금도 해제된다
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 10L);
     }
@@ -180,6 +185,8 @@ class StoryServiceTest {
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 10L);
         // 성공 시만 차감: LLM 장애로 폴백이 나간 턴은 유저 쿼터를 쓰지 않는다
         verify(usageLimiter, never()).recordDaily(any(), any());
+        // 답이 없는 턴은 추출할 것도 없다
+        verify(factExtractor, never()).extractAsync(any());
     }
 
     @Test

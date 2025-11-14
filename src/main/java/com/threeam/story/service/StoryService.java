@@ -43,6 +43,7 @@ public class StoryService {
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
     private final MessageTxService messageTxService;
+    private final StoryFactExtractor factExtractor;
     private final LlmClient llmClient;
     private final UsageLimiter usageLimiter;
 
@@ -83,6 +84,7 @@ public class StoryService {
                     .thenAccept(reply -> {
                         messageTxService.appendAssistantReply(storyId, reply);
                         recordUsageQuietly(userId);   // 성공 시만 차감. 폴백(LLM 장애)은 유저 잘못이 아니라 미차감.
+                        factExtractor.extractAsync(storyId);   // 원장 갱신. 실패해도 채팅에 영향 없음(내부에서 삼킴).
                     })
                     .exceptionally(ex -> {
                         log.error("LLM 응답 생성 실패 storyId={}", storyId, ex);
