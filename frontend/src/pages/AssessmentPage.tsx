@@ -83,7 +83,8 @@ export function AssessmentPage() {
     );
   }
 
-  if (error) {
+  // 결과가 아예 없을 때만 전체 화면 에러. 결과가 있으면 아래에서 배너로 보여준다(결과를 가리지 않게).
+  if (error && !result) {
     return (
       <PhoneFrame>
         <div className={styles.wrap}>
@@ -134,6 +135,7 @@ export function AssessmentPage() {
       <PhoneFrame>
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
+          {error && <div className={styles.errorBanner}>{error}</div>}
           <div className={styles.centerBody}>
             <div className={styles.icon}>
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
@@ -167,6 +169,7 @@ export function AssessmentPage() {
     <PhoneFrame>
       <div className={styles.wrap}>
         <BackBar onBack={toChat} />
+        {error && <div className={styles.errorBanner}>{error}</div>}
         <div className={styles.body}>
           <div className={styles.meta}>{meta}</div>
 

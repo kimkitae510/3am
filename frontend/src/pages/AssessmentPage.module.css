@@ -50,6 +50,19 @@
   line-height: 1.6;
 }
 
+/* 재진단 거부(새 근거 없음 등) 안내 — 기존 결과를 가리지 않고 위에 얹는다 */
+.errorBanner {
+  margin: 10px 18px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(184, 157, 209, 0.12);
+  border: 1px solid rgba(184, 157, 209, 0.35);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: center;
+}
+
 /* 게이지 */
 .gaugeWrap {
   position: relative;
