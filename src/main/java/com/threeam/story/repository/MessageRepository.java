@@ -1,6 +1,7 @@
 package com.threeam.story.repository;
 
 import com.threeam.story.entity.Message;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -17,6 +18,9 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     // 폴링: 방금 보낸 메시지(after) 이후에 새로 생긴 메시지(주로 어시스턴트 답)를 시간순으로 가져온다.
     List<Message> findByStoryIdAndIdGreaterThanOrderByIdAsc(Long storyId, Long after);
+
+    // 재진단 가드용: 마지막 진단 이후 새로 나눈 대화가 있는지.
+    boolean existsByStoryIdAndCreatedAtAfter(Long storyId, LocalDateTime createdAt);
 
     void deleteByStoryId(Long storyId);
 }

@@ -47,11 +47,16 @@ public class AssessmentTxService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
     }
 
-    // tx1: 소유권 확인 + 최근 대화 + 기억 요약을 모아 온다. 짧게 끝난다.
+    // tx1: 소유권 확인 + 재진단 가드 + 최근 대화 + 기억 요약을 모아 온다. 짧게 끝난다.
     @Transactional(readOnly = true)
     public AssessmentContext loadContext(Long userId, Long storyId) {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+
+        // 재진단 가드: 확률을 바꾸는 건 수다의 양이 아니라 '사건'이다. 같은 근거로 다시 진단해
+        // 확률이 출렁이는 것을 막고, LLM 쿼터도 아낀다. 첫 진단(기록 없음)은 그대로 통과.
+        assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .ifPresent(last -> assertNewBasisSince(storyId, last));
 
         List<Message> recent = messageRepository
                 .findByStoryIdOrderByIdDesc(storyId, PageRequest.of(0, HISTORY_WINDOW))
@@ -86,6 +91,17 @@ public class AssessmentTxService {
         }
         storyFactService.appendFacts(storyId, saved.getId(), newFacts);
         return AssessmentResponse.from(saved);
+    }
+
+    // 새 대화가 없으면 진단 근거 자체가 없고, 대화가 있어도 원장에 새 사실이 없으면
+    // "확률을 바꿀 사건"이 없다는 뜻이라 거부한다(채팅 추출이 대화에서 사실을 실시간으로 적재하는 전제).
+    private void assertNewBasisSince(Long storyId, Assessment last) {
+        if (!messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, last.getCreatedAt())) {
+            throw new BusinessException(ErrorCode.ASSESSMENT_NO_NEW_MESSAGES);
+        }
+        if (!storyFactRepository.existsNewFactSince(storyId, last.getCreatedAt(), last.getId())) {
+            throw new BusinessException(ErrorCode.ASSESSMENT_NO_NEW_FACTS);
+        }
     }
 
     // 프롬프트용: "(11/10) 상대가 먼저 이별 통보" — 상대 시점 표현("일주일 전")을 기록일로 보정할 수 있게.

@@ -28,6 +28,10 @@ public enum ErrorCode {
 
     // 진단
     ASSESSMENT_NO_MESSAGES(HttpStatus.BAD_REQUEST, "AS001", "진단할 대화 내용이 없습니다."),
+    ASSESSMENT_NO_NEW_MESSAGES(HttpStatus.CONFLICT, "AS002",
+            "마지막 진단 이후 새로운 대화가 없어요. 이야기를 나눈 뒤 다시 진단해 주세요."),
+    ASSESSMENT_NO_NEW_FACTS(HttpStatus.CONFLICT, "AS003",
+            "지난 진단과 비교해 확률을 바꿀 만한 새로운 사실이 없었어요. 어떤 일이 있었는지 들려주시면 다시 진단해 드릴게요."),
 
     // LLM
     LLM_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "L001", "AI 응답 생성에 실패했습니다."),
