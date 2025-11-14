@@ -62,7 +62,7 @@ class ReunionLlmTest {
     }
 
     @Test
-    @DisplayName("newFacts를 파싱한다 — 빈 문자열은 버리고 최대 5개까지만")
+    @DisplayName("newFacts를 파싱한다 — 빈 문자열은 버리고, 정상 범위의 개수는 자르지 않는다")
     void parse_newFacts() {
         String json = """
                 {"verdict": "POSSIBLE", "deductions": [], "reason": "", "summary": "",
@@ -72,7 +72,25 @@ class ReunionLlmTest {
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
-        assertThat(diagnosis.newFacts()).containsExactly("사실1", "사실2", "사실3", "사실4", "사실5");
+        // 중요한 사실을 개수로 자르지 않는다(빈 문자열만 제거) — 원장 무상한 정책과 한 몸
+        assertThat(diagnosis.newFacts())
+                .containsExactly("사실1", "사실2", "사실3", "사실4", "사실5", "사실6");
+    }
+
+    @Test
+    @DisplayName("newFacts 폭주 방어 — 안전핀(20개)을 넘는 이상 응답만 잘라낸다")
+    void parse_newFacts_runawayCapped() {
+        StringBuilder items = new StringBuilder();
+        for (int i = 1; i <= 30; i++) {
+            items.append(i > 1 ? "," : "").append("\"사실").append(i).append("\"");
+        }
+        String json = "{\"verdict\": \"POSSIBLE\", \"deductions\": [], \"reason\": \"\", \"summary\": \"\","
+                + " \"newFacts\": [" + items + "]}";
+        given(llmClient.generateJson(anyList())).willReturn(CompletableFuture.completedFuture(json));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        assertThat(diagnosis.newFacts()).hasSize(20).startsWith("사실1").endsWith("사실20");
     }
 
     @Test

@@ -26,6 +26,10 @@ public class StoryFact {
 
     public static final int MAX_LENGTH = 200;
 
+    // 한 번의 추출에서 받아주는 최대 개수. 정상 대화에선 닿지 않는 폭주 방어용 안전핀.
+    // 원장 자체에는 상한이 없다(중요한 사실은 자르지 않는다) — 대신 입구에서 이상 동작만 막는다.
+    public static final int MAX_PER_EXTRACT = 20;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

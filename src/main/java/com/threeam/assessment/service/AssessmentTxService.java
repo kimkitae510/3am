@@ -35,8 +35,11 @@ public class AssessmentTxService {
 
     private static final int HISTORY_WINDOW = 20;
 
-    // 사실 원장 상한. 넘치면 오래된 것부터 지운다(프롬프트 무한 성장 방지).
-    private static final int MAX_FACTS = 50;
+    // 원장 크기 관측 기준. 상한이 아니다 — 넘어도 지우지 않고 로그만 남긴다.
+    // 사건은 자연 포화되므로(한 이별 이야기의 사실은 유한) 여기 닿는 사연이 실제로 관측되면
+    // 그때 병합(압축) 정책을 설계한다. 오래된 사실부터 지우는 방식은 가장 근본적인 사실을
+    // 먼저 잃는 모순이 있어 폐기했다.
+    private static final int FACTS_WATCH_THRESHOLD = 100;
 
     private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
 
@@ -103,7 +106,7 @@ public class AssessmentTxService {
                 .toList();
     }
 
-    // 동일 문장은 건너뛰고(프롬프트의 중복 금지 지시가 1차, 여기가 2차 방어), 상한을 넘으면 오래된 것부터 지운다.
+    // 동일 문장은 건너뛴다(프롬프트의 중복 금지 지시가 1차, 여기가 2차 방어). 지우는 일은 없다.
     private void appendFacts(Long storyId, Long assessmentId, List<String> newFacts) {
         List<StoryFact> existing = storyFactRepository.findByStoryIdOrderByIdAsc(storyId);
         Set<String> known = new HashSet<>();
@@ -117,11 +120,10 @@ public class AssessmentTxService {
         }
         storyFactRepository.saveAll(toSave);
 
-        int overflow = existing.size() + toSave.size() - MAX_FACTS;
-        if (overflow > 0) {
-            // 실서비스에서 닿기 어려운 상한. 실제로 찍히기 시작하면 병합/확대 정책을 다시 정한다.
-            log.warn("사실 원장 상한({}) 도달: storyId={}, 오래된 {}건 삭제", MAX_FACTS, storyId, overflow);
-            storyFactRepository.deleteAll(existing.subList(0, Math.min(overflow, existing.size())));
+        int total = existing.size() + toSave.size();
+        if (total > FACTS_WATCH_THRESHOLD) {
+            log.warn("사실 원장 관측 기준({}) 초과: storyId={}, 현재 {}건 — 병합 정책 검토 신호",
+                    FACTS_WATCH_THRESHOLD, storyId, total);
         }
     }
 

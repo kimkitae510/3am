@@ -106,33 +106,11 @@ class AssessmentTxServiceTest {
     }
 
     @Test
-    @DisplayName("원장 적재 - 상한(50)을 넘으면 오래된 사실부터 넘친 만큼 지운다")
-    void save_evictsOldestOverCap() {
+    @DisplayName("원장 적재 - 원장에 상한이 없다. 많이 쌓인 사연에도 새 사실을 전부 받고 아무것도 지우지 않는다")
+    void save_neverEvicts() {
         given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));
-        String[] facts = new String[48];
-        for (int i = 0; i < 48; i++) {
-            facts[i] = "사실" + (i + 1);
-        }
-        given(storyFactRepository.findByStoryIdOrderByIdAsc(STORY_ID)).willReturn(existingFacts(facts));
-
-        txService.save(STORY_ID, savedAssessment(null), null,
-                List.of("새사실1", "새사실2", "새사실3", "새사실4", "새사실5"));
-
-        assertThat(capturedSaveAll()).hasSize(5);
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<StoryFact>> deleteCaptor = ArgumentCaptor.forClass(List.class);
-        verify(storyFactRepository).deleteAll(deleteCaptor.capture());
-        assertThat(deleteCaptor.getValue())
-                .extracting(StoryFact::getFact)
-                .containsExactly("사실1", "사실2", "사실3"); // 48 + 5 - 50 = 3건, 오래된 순
-    }
-
-    @Test
-    @DisplayName("원장 적재 - 상한에 딱 맞으면(50) 아무것도 지우지 않는다")
-    void save_keepsAllAtCap() {
-        given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));
-        String[] facts = new String[45];
-        for (int i = 0; i < 45; i++) {
+        String[] facts = new String[120];   // 관측 기준(100)을 이미 넘긴 사연
+        for (int i = 0; i < 120; i++) {
             facts[i] = "사실" + (i + 1);
         }
         given(storyFactRepository.findByStoryIdOrderByIdAsc(STORY_ID)).willReturn(existingFacts(facts));
@@ -142,23 +120,7 @@ class AssessmentTxServiceTest {
 
         assertThat(capturedSaveAll()).hasSize(5);
         verify(storyFactRepository, never()).deleteAll(anyList());
-    }
-
-    @Test
-    @DisplayName("원장 적재 - 새 사실 배치가 상한을 통째로 넘겨도 예외 없이 처리된다(방어)")
-    void save_survivesOversizedBatch() {
-        given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));
-        given(storyFactRepository.findByStoryIdOrderByIdAsc(STORY_ID)).willReturn(List.of());
-
-        List<String> oversized = new ArrayList<>();
-        for (int i = 1; i <= 60; i++) {
-            oversized.add("사실" + i);
-        }
-
-        txService.save(STORY_ID, savedAssessment(null), null, oversized);
-
-        // 상한 초과 삭제는 '기존' 원장만 대상이라, 기존이 없으면 지울 것도 없다. 크래시만 막는다.
-        assertThat(capturedSaveAll()).hasSize(60);
+        verify(storyFactRepository, never()).delete(any(StoryFact.class));
     }
 
     @Test
