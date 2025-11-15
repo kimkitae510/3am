@@ -12,7 +12,7 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
 function bandText(prob: number): string {
   const band = prob < 15 ? '아직은 낮아요' : prob < 40 ? '낮지도, 높지도 않아요' : '가능성이 보여요';
-  return `${band} · 최대 ${GAUGE_MAX}%까지만 봐요`;
+  return `${band} (최대 ${GAUGE_MAX}%까지만 봐요)`;
 }
 
 function BackBar({ onBack }: { onBack: () => void }) {
@@ -126,8 +126,9 @@ export function AssessmentPage() {
     );
   }
 
+  // "계속 대화하면 진단도 따라 갱신된다"는 오해가 있어, 이 결과가 언제 것인지 명시한다.
   const metaDate = result.createdAt ? formatListTime(result.createdAt) : '방금';
-  const meta = [title, metaDate].filter(Boolean).join(' · ');
+  const meta = [title, `마지막 진단 ${metaDate}`].filter(Boolean).join(' - ');
 
   // 데이터 부족
   if (result.verdict === 'INSUFFICIENT') {
@@ -223,7 +224,11 @@ export function AssessmentPage() {
             </>
           )}
 
-          <div className={styles.hint}>대화를 더 나눌수록 진단이 정교해져요 · 새 진단은 하루 3회까지</div>
+          <div className={styles.hint}>
+            진단은 대화한다고 저절로 바뀌지 않아요.
+            <br />
+            새로운 이야기를 나눈 뒤 아래 '다시 진단'을 눌러 주세요. (하루 3회)
+          </div>
 
           <button
             className={styles.askChat}
