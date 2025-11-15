@@ -9,7 +9,7 @@ import {
   type MessageResponse,
 } from '../api/story';
 import { extractErrorMessage } from '../api/client';
-import { formatClock } from '../utils/datetime';
+import { formatClock, formatDateDivider, isSameCalendarDate } from '../utils/datetime';
 import styles from './ChatPage.module.css';
 
 const POLL_INTERVAL = 1500;
@@ -64,7 +64,7 @@ export function ChatPage() {
     };
   }, [storyId]);
 
-  // 새 메시지·타이핑 표시 시 맨 아래로.
+  // 새 메시지, 타이핑 표시 시 맨 아래로.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [messages.length, waiting]);
@@ -166,14 +166,29 @@ export function ChatPage() {
                   잠 안 오는 밤, 여기 있을게요.
                 </div>
               )}
-              {messages.map((m, i) => (
-                <div key={m.id} style={{ display: 'contents' }}>
-                  {i === 0 && <div className={styles.divider}>{formatClock(m.createdAt)}</div>}
-                  <div className={`${styles.bubble} ${m.role === 'USER' ? styles.user : styles.assistant}`}>
-                    {m.content}
+              {messages.map((m, i) => {
+                const prev = messages[i - 1];
+                const next = messages[i + 1];
+                // 카톡식: 날짜가 바뀌는 첫 메시지 위에 "2026년 7월 3일 금요일" 구분선.
+                const newDay = !prev || !isSameCalendarDate(prev.createdAt, m.createdAt);
+                // 카톡식: 같은 사람이 같은 분(分)에 연달아 보낸 묶음은 마지막 말풍선에만 시각 표시.
+                const showTime =
+                  !next ||
+                  next.role !== m.role ||
+                  formatClock(next.createdAt) !== formatClock(m.createdAt) ||
+                  !isSameCalendarDate(next.createdAt, m.createdAt);
+                return (
+                  <div key={m.id} style={{ display: 'contents' }}>
+                    {newDay && <div className={styles.divider}>{formatDateDivider(m.createdAt)}</div>}
+                    <div className={`${styles.msgRow} ${m.role === 'USER' ? styles.msgRowUser : ''}`}>
+                      <div className={`${styles.bubble} ${m.role === 'USER' ? styles.user : styles.assistant}`}>
+                        {m.content}
+                      </div>
+                      {showTime && <span className={styles.msgTime}>{formatClock(m.createdAt)}</span>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {waiting && (
                 <div className={styles.typing}>
                   <span className={styles.dot} />

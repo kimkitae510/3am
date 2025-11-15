@@ -80,6 +80,24 @@
   line-height: 1.6;
 }
 
+/* 말풍선 + 시각 한 줄. 시각은 카톡처럼 말풍선 바깥 아래쪽에 붙는다 */
+.msgRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.msgRowUser {
+  flex-direction: row-reverse; /* 내 말풍선은 오른쪽, 시각은 그 왼쪽 */
+}
+
+.msgTime {
+  color: var(--text-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+  padding-bottom: 2px;
+}
+
 .bubble {
   max-width: 82%;
   padding: 13px 16px;
