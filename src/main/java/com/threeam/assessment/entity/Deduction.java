@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 // 진단 점수에서 깎인 한 항목. LLM이 대화에서 짚어 내려준다.
-// "왜 이 확률?"에 조목조목 답하려고 사유·감점폭·근거를 통째로 남긴다.
+// "왜 이 확률?"에 조목조목 답하려고 사유, 감점폭, 근거를 통째로 남긴다.
 @Embeddable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

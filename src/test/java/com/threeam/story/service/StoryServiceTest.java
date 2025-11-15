@@ -219,7 +219,7 @@ class StoryServiceTest {
     }
 
     @Test
-    @DisplayName("사연 삭제 - 물리 삭제하지 않고 소프트 딜리트(시각 마킹)한다. 대화·진단은 남긴다")
+    @DisplayName("사연 삭제 - 물리 삭제하지 않고 소프트 딜리트(시각 마킹)한다. 대화, 진단은 남긴다")
     void deleteStory_success() {
         Story story = story(1L, "사연");
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));

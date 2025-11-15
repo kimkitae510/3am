@@ -49,7 +49,7 @@ public class AuthService {
         RefreshToken stored = refreshTokenRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
 
-        // DB에 저장된 현재 토큰과 일치하고, 만료되지 않았을 때만 재발급 (탈취·구버전 차단)
+        // DB에 저장된 현재 토큰과 일치하고, 만료되지 않았을 때만 재발급 (탈취, 구버전 차단)
         if (stored.isExpired() || !stored.matches(refreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }

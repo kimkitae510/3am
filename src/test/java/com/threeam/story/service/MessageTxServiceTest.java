@@ -99,7 +99,7 @@ class MessageTxServiceTest {
     }
 
     @Test
-    @DisplayName("프롬프트 조립 - 최신 진단이 있으면 설명용 데이터 블록(확률·감점·근거)을 시스템 메시지로 싣는다")
+    @DisplayName("프롬프트 조립 - 최신 진단이 있으면 설명용 데이터 블록(확률, 감점, 근거)을 시스템 메시지로 싣는다")
     void buildPrompt_includesLatestAssessment() {
         Story story = story(10L);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));

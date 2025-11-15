@@ -54,7 +54,7 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 비동기(CompletableFuture) 응답의 ASYNC 재디스패치·에러 포워딩은 최초 REQUEST에서
+                        // 비동기(CompletableFuture) 응답의 ASYNC 재디스패치, 에러 포워딩은 최초 REQUEST에서
                         // 이미 인증을 통과한 내부 흐름 — Security 6은 기본으로 이것까지 검사해서,
                         // 면제하지 않으면 진단 API가 처리 완료 후 401로 떨어진다.
                         .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()

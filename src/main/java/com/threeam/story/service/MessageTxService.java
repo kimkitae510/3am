@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MessageTxService {
 
-    // LLM에 실어 보낼 직전 맥락의 크기(메시지 수). 토큰·비용을 제한하기 위한 window.
+    // LLM에 실어 보낼 직전 맥락의 크기(메시지 수). 토큰, 비용을 제한하기 위한 window.
     private static final int HISTORY_WINDOW = 20;
 
     // 페르소나 실문구는 저장소 밖에서 관리한다(CLAUDE.md). 여기서는 자리표시자만 둔다.
@@ -75,7 +75,7 @@ public class MessageTxService {
 
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(SYSTEM_PROMPT));
-        // 사실 원장: 창 밖으로 밀려나도 잊으면 안 되는 사건·사실들. 괄호는 기록일.
+        // 사실 원장: 창 밖으로 밀려나도 잊으면 안 되는 사건, 사실들. 괄호는 기록일.
         List<StoryFact> facts = storyFactRepository.findByStoryIdOrderByIdAsc(storyId);
         if (!facts.isEmpty()) {
             StringBuilder block = new StringBuilder("기록된 사실(괄호는 기록일):");
@@ -102,7 +102,7 @@ public class MessageTxService {
         return prompt;
     }
 
-    // 진단 결과를 설명용 데이터 블록으로 만든다. 재계산·창작을 막는 지시를 함께 싣는다.
+    // 진단 결과를 설명용 데이터 블록으로 만든다. 재계산, 창작을 막는 지시를 함께 싣는다.
     private String describeAssessment(Assessment assessment) {
         StringBuilder block = new StringBuilder(
                 "최근 재회 진단 결과 데이터(유저가 진단의 이유를 물으면 이 데이터만 근거로 설명하라. "

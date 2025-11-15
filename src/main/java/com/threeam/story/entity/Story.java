@@ -39,7 +39,7 @@ public class Story {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    // 소프트 딜리트: 물리 삭제 대신 시각만 찍는다. 대화·진단은 남겨둬야 할 기록이라 지우지 않는다.
+    // 소프트 딜리트: 물리 삭제 대신 시각만 찍는다. 대화, 진단은 남겨둬야 할 기록이라 지우지 않는다.
     // null이면 살아있는 사연. 조회 쿼리는 deletedAt IS NULL만 노출한다.
     @Column
     private LocalDateTime deletedAt;

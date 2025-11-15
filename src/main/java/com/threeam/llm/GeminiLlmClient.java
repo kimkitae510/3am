@@ -70,7 +70,7 @@ public class GeminiLlmClient implements LlmClient {
             body.put("system_instruction", Map.of("parts", List.of(Map.of("text", system.toString().trim()))));
         }
         body.put("contents", contents);
-        // JSON 모드: 모델이 코드펜스·잡설 없이 순수 JSON만 뱉도록 강제한다.
+        // JSON 모드: 모델이 코드펜스, 잡설 없이 순수 JSON만 뱉도록 강제한다.
         if (json) {
             body.put("generationConfig", Map.of("responseMimeType", "application/json"));
         }

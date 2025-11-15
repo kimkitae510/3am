@@ -64,12 +64,12 @@ public class StoryService {
                 .toList();
     }
 
-    // 폴링 방식: 유저 메시지를 저장하고 즉시 반환한다. 어시스턴트 답은 백그라운드에서 생성·저장되고,
+    // 폴링 방식: 유저 메시지를 저장하고 즉시 반환한다. 어시스턴트 답은 백그라운드에서 생성, 저장되고,
     // 클라이언트는 GET .../messages/since?after=<유저메시지id>로 폴링해 답이 붙는지 확인한다.
     // 트랜잭션 밖(NOT_SUPPORTED)에서 오케스트레이션 — 느린 LLM 호출이 DB 커넥션을 잡지 않게.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public MessageResponse sendMessage(Long userId, Long storyId, MessageSendRequest request) {
-        // 이 사연에서 답변 생성이 진행 중이면 접수 자체를 거부한다(연타·중복요청 차단).
+        // 이 사연에서 답변 생성이 진행 중이면 접수 자체를 거부한다(연타, 중복요청 차단).
         usageLimiter.acquireInFlight(UsageKind.CHAT, storyId);
         try {
             // 후차감: 여기서는 한도 검사만 하고, 기록은 답변 저장이 성공한 뒤에 한다.
@@ -139,7 +139,7 @@ public class StoryService {
         return new MessagePageResponse(messages, nextCursor, slice.hasNext());
     }
 
-    // 소프트 딜리트: 대화·기억·진단은 남길 기록이라 물리 삭제하지 않고 사연에 삭제 시각만 찍는다.
+    // 소프트 딜리트: 대화, 기억, 진단은 남길 기록이라 물리 삭제하지 않고 사연에 삭제 시각만 찍는다.
     @Transactional
     public void deleteStory(Long userId, Long storyId) {
         Story story = findOwned(storyId, userId);

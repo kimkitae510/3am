@@ -29,7 +29,7 @@ jwt:
   access-token-validity-seconds: 1800       # 30분
   refresh-token-validity-seconds: 1209600   # 14일
 
-# LLM — 기본은 mock(무료·키 불필요). 실연동 시 LLM_PROVIDER=gemini + LLM_API_KEY 주입.
+# LLM — 기본은 mock(무료, 키 불필요). 실연동 시 LLM_PROVIDER=gemini + LLM_API_KEY 주입.
 llm:
   provider: ${LLM_PROVIDER:mock}   # mock | gemini
   gemini:

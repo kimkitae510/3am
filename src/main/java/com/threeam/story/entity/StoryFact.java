@@ -14,8 +14,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 // 사연의 "사실 원장". 롤링 요약(StoryMemory)이 통째로 교체되며 사실을 잃는 것과 달리,
-// 결정적 사실(바람·이별 통보 주체·연락 상태 변화 등)은 여기 한 줄씩 append-only로 쌓인다.
-// 감정 흐름은 StoryMemory가, 사건·사실은 여기가 담당한다.
+// 결정적 사실(바람, 이별 통보 주체, 연락 상태 변화 등)은 여기 한 줄씩 append-only로 쌓인다.
+// 감정 흐름은 StoryMemory가, 사건, 사실은 여기가 담당한다.
 @Entity
 @Table(name = "story_facts", indexes = {
         @Index(name = "idx_story_facts_story", columnList = "story_id, id")

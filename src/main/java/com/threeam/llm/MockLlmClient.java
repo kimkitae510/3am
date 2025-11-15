@@ -5,7 +5,7 @@ import java.util.concurrent.CompletableFuture;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-// 실제 LLM 연동 전까지 사용하는 스텁. 고정 응답을 즉시 완료된 future로 돌려주어 API 키·비용 없이 전체 흐름을 검증한다.
+// 실제 LLM 연동 전까지 사용하는 스텁. 고정 응답을 즉시 완료된 future로 돌려주어 API 키, 비용 없이 전체 흐름을 검증한다.
 // 실 구현(Gemini)은 llm.provider=gemini 로 두고 별도 빈으로 갈아끼운다.
 @Component
 @ConditionalOnProperty(name = "llm.provider", havingValue = "mock", matchIfMissing = true)

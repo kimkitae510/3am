@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-// 유저·종류당 행 하나로 오늘 사용량을 센다(단일 행 lazy reset).
+// 유저, 종류당 행 하나로 오늘 사용량을 센다(단일 행 lazy reset).
 // 날짜별 행을 쌓지 않는다 — quotaDate가 오늘이 아니면 "리셋 대상"이라는 뜻이고,
 // 리셋과 증가는 리포지토리의 원자 upsert 한 문장에서 함께 처리된다(자정 레이스 방지).
 @Entity
