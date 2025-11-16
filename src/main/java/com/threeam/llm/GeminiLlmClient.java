@@ -75,12 +75,13 @@ public class GeminiLlmClient implements LlmClient {
             body.put("generationConfig", Map.of("responseMimeType", "application/json"));
         }
 
-        String url = properties.getBaseUrl() + "/models/" + properties.getModel()
-                + ":generateContent?key=" + properties.getApiKey();
+        String url = properties.getBaseUrl() + "/models/" + properties.getModel() + ":generateContent";
         try {
             return HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
+                    // 키를 쿼리스트링에 두면 접근 로그, 프록시에 남을 수 있어 헤더로 보낸다.
+                    .header("x-goog-api-key", properties.getApiKey())
                     // 타임아웃 없이는 LLM이 매달릴 때 future가 영원히 미완 → 답도 폴백도 저장되지 않는다.
                     .timeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
