@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -47,9 +48,26 @@ public class GeminiLlmClient implements LlmClient {
         return send(buildRequest(messages, true));
     }
 
+    // 503(혼잡) 재시도 대기. 폴링 여유(45초) 안에 "즉시 실패 + 대기 + 재시도(최대 30초)"가 들어간다.
+    private static final long RETRY_DELAY_SECONDS = 2;
+
     private CompletableFuture<String> send(HttpRequest request) {
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+                .thenCompose(this::retryOnceIfOverloaded)
                 .thenApply(this::extractText);
+    }
+
+    // 무료 티어의 503은 피크 시간대의 일상이라(실측) 짧게 기다렸다 1회 재시도한다.
+    // 429(한도 소진)나 4xx는 다시 보내도 같은 결과라 재시도하지 않는다.
+    private CompletableFuture<HttpResponse<String>> retryOnceIfOverloaded(HttpResponse<String> response) {
+        if (response.statusCode() != 503) {
+            return CompletableFuture.completedFuture(response);
+        }
+        log.warn("Gemini 503(혼잡) — {}초 뒤 1회 재시도", RETRY_DELAY_SECONDS);
+        return CompletableFuture.supplyAsync(() -> null,
+                        CompletableFuture.delayedExecutor(RETRY_DELAY_SECONDS, TimeUnit.SECONDS))
+                .thenCompose(ignored -> httpClient.sendAsync(
+                        response.request(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)));
     }
 
     private HttpRequest buildRequest(List<ChatMessage> messages, boolean json) {
