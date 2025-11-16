@@ -34,7 +34,8 @@ llm:
   provider: ${LLM_PROVIDER:mock}   # mock | gemini
   gemini:
     api-key: ${LLM_API_KEY:}
-    model: gemini-2.5-flash-lite
+    # 기본은 최저가 lite. 무료 티어 lite가 피크 시간대에 503을 내면 LLM_MODEL=gemini-2.5-flash로 전환.
+    model: ${LLM_MODEL:gemini-2.5-flash-lite}
     base-url: https://generativelanguage.googleapis.com/v1beta
     timeout-seconds: 30   # 응답 대기 상한. 초과 시 실패 처리 → 대화는 폴백 메시지 저장
 
