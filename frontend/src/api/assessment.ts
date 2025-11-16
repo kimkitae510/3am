@@ -1,6 +1,6 @@
 import { api } from './client';
 
-// LET_GO(놓아주기)는 폐기. 확률(POSSIBLE), 근거부족(INSUFFICIENT), 사귀는 중(DATING — 확률 잠금, 유형만),
+// LET_GO(놓아주기)는 폐기. 확률(POSSIBLE), 근거부족(INSUFFICIENT), 사귀는 중(DATING — 확률 잠금),
 // 재회 성공(REUNITED — 전용 축하 화면, 확률 없음).
 export type Verdict = 'POSSIBLE' | 'INSUFFICIENT' | 'DATING' | 'REUNITED';
 
@@ -10,15 +10,6 @@ export interface DeductionView {
   evidence: string; // 관찰된 사실
   rationale: string | null; // 이 사실이 왜 확률을 움직이는지(판독 이유). 과거 진단은 null
 }
-
-// 유형 판정에 실제로 쓰인 행동 근거 하나(감점 신호와 같은 문법)
-export interface AttachmentSignalView {
-  signal: string;
-  evidence: string;
-}
-
-// CONFIRMED = 근거가 여러 상황에 걸쳐 충분, TENTATIVE = 아직 추정("~로 보여요" 톤으로 표시)
-export type AttachmentConfidence = 'CONFIRMED' | 'TENTATIVE';
 
 // 행동 가이드 한 항목. DO = 지금 도움이 되는 것, DONT = 지금은 피할 것.
 export interface GuidanceView {
@@ -30,9 +21,6 @@ export interface GuidanceView {
 export interface AssessmentResponse {
   verdict: Verdict;
   probability: number | null; // POSSIBLE일 때만
-  partnerAttachment: string | null; // 상대 애착유형 라벨(한국어). 행동 근거 부족이면 null (내 유형은 폐기)
-  attachmentConfidence: AttachmentConfidence | null; // 유형이 null이면 null
-  attachmentSignals: AttachmentSignalView[]; // 유형 판정 근거 목록
   reason: string;
   deductions: DeductionView[];
   guidance: GuidanceView[]; // 행동 가이드. POSSIBLE 외에는 빈 목록
