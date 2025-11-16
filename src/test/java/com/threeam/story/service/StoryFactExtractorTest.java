@@ -14,7 +14,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.llm.LlmClient;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryFactRepository;
+import com.threeam.story.repository.StoryMemoryRepository;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,30 +40,50 @@ class StoryFactExtractorTest {
     private StoryFactRepository storyFactRepository;
 
     @Mock
+    private StoryMemoryRepository storyMemoryRepository;
+
+    @Mock
     private StoryFactService storyFactService;
 
+    @Mock
+    private StoryMemoryService storyMemoryService;
+
     private StoryFactExtractor extractor() {
-        return new StoryFactExtractor(llmClient, new ObjectMapper(),
-                messageRepository, storyFactRepository, storyFactService);
+        return new StoryFactExtractor(llmClient, new ObjectMapper(), messageRepository,
+                storyFactRepository, storyMemoryRepository, storyFactService, storyMemoryService);
     }
 
     private void givenEmptyContext() {
         given(storyFactRepository.findByStoryIdOrderByIdAsc(10L)).willReturn(List.of());
+        given(storyMemoryRepository.findByStoryId(10L)).willReturn(Optional.empty());
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(), PageRequest.of(0, 20), false));
     }
 
     @Test
-    @DisplayName("추출 - JSON의 newFacts를 출처 없이(null) 원장 서비스로 넘긴다")
-    void extract_appendsFacts() {
+    @DisplayName("추출 - newFacts는 출처 없이(null) 원장으로, summary는 기억으로 넘긴다")
+    void extract_appendsFactsAndSummary() {
         givenEmptyContext();
         given(llmClient.generateJson(anyList())).willReturn(CompletableFuture.completedFuture(
-                "{\"newFacts\": [\"일주일 전 상대에게서 연락 옴\"]}"));
+                "{\"newFacts\": [\"일주일 전 상대에게서 연락 옴\"], \"summary\": \"연락을 받고 마음이 흔들리는 중\"}"));
 
         extractor().extractAsync(10L);
 
         verify(storyFactService).appendFacts(eq(10L), isNull(),
                 eq(List.of("일주일 전 상대에게서 연락 옴")));
+        verify(storyMemoryService).upsert(10L, "연락을 받고 마음이 흔들리는 중");
+    }
+
+    @Test
+    @DisplayName("추출 - summary가 없으면 빈 문자열로 위임한다(기억 서비스가 무시해 기존 요약 유지)")
+    void extract_blankSummaryKeepsMemory() {
+        givenEmptyContext();
+        given(llmClient.generateJson(anyList())).willReturn(CompletableFuture.completedFuture(
+                "{\"newFacts\": []}"));
+
+        extractor().extractAsync(10L);
+
+        verify(storyMemoryService).upsert(10L, "");
     }
 
     @Test
