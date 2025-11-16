@@ -15,6 +15,7 @@ import com.threeam.story.repository.StoryFactRepository;
 import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import com.threeam.story.service.StoryFactService;
+import com.threeam.story.service.StoryMemoryService;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +37,7 @@ public class AssessmentTxService {
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
     private final StoryMemoryRepository storyMemoryRepository;
+    private final StoryMemoryService storyMemoryService;
     private final StoryFactRepository storyFactRepository;
     private final StoryFactService storyFactService;
     private final AssessmentRepository assessmentRepository;
@@ -86,9 +88,7 @@ public class AssessmentTxService {
     public AssessmentResponse save(Long storyId, Assessment assessment, String newSummary,
                                    List<String> newFacts) {
         Assessment saved = assessmentRepository.save(assessment);
-        if (newSummary != null && !newSummary.isBlank()) {
-            upsertMemory(storyId, newSummary);
-        }
+        storyMemoryService.upsert(storyId, newSummary);
         storyFactService.appendFacts(storyId, saved.getId(), newFacts);
         return AssessmentResponse.from(saved);
     }
@@ -111,11 +111,4 @@ public class AssessmentTxService {
                 .toList();
     }
 
-    private void upsertMemory(Long storyId, String summary) {
-        storyMemoryRepository.findByStoryId(storyId)
-                .ifPresentOrElse(
-                        memory -> memory.updateSummary(summary),
-                        () -> storyMemoryRepository.save(
-                                StoryMemory.builder().storyId(storyId).summary(summary).build()));
-    }
 }

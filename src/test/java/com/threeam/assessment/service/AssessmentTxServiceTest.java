@@ -21,6 +21,7 @@ import com.threeam.story.repository.StoryFactRepository;
 import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import com.threeam.story.service.StoryFactService;
+import com.threeam.story.service.StoryMemoryService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +49,9 @@ class AssessmentTxServiceTest {
 
     @Mock
     private StoryMemoryRepository storyMemoryRepository;
+
+    @Mock
+    private StoryMemoryService storyMemoryService;
 
     @Mock
     private StoryFactRepository storyFactRepository;
@@ -84,13 +88,14 @@ class AssessmentTxServiceTest {
     }
 
     @Test
-    @DisplayName("진단 저장 - 요약이 비어 있으면 기억(감정 요약)을 건드리지 않는다")
-    void save_skipsMemoryWhenSummaryBlank() {
+    @DisplayName("진단 저장 - 새 요약을 기억 서비스로 위임한다(빈 요약 처리는 서비스 책임)")
+    void save_delegatesSummary() {
         given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));
 
-        txService.save(STORY_ID, savedAssessment(null), "  ", null);
+        txService.save(STORY_ID, savedAssessment(null), "감정이 안정되어 가는 중", null);
 
-        verifyNoInteractions(storyMemoryRepository);
+        verify(storyMemoryService).upsert(STORY_ID, "감정이 안정되어 가는 중");
+        verifyNoInteractions(storyMemoryRepository);   // 쓰기는 서비스 경유, 직접 접근 없음
     }
 
     private Assessment lastAssessment() {
