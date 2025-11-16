@@ -98,7 +98,9 @@ public class GeminiLlmClient implements LlmClient {
             throw new LlmException();
         }
         try {
-            JsonNode text = objectMapper.readTree(response.body())
+            JsonNode root = objectMapper.readTree(response.body());
+            logUsage(root);
+            JsonNode text = root
                     .path("candidates").path(0).path("content").path("parts").path(0).path("text");
             if (text.isMissingNode()) {
                 log.error("Gemini 응답에 텍스트가 없음: {}", response.body());
@@ -111,5 +113,17 @@ public class GeminiLlmClient implements LlmClient {
             log.error("Gemini 응답 파싱 실패", e);
             throw new LlmException();
         }
+    }
+
+    // 호출당 실제 토큰량을 남긴다 — 비용 검증(프롬프트 창 크기, 추출 호출 비용)은 추정이 아니라 이 실측으로 한다.
+    private void logUsage(JsonNode root) {
+        JsonNode usage = root.path("usageMetadata");
+        if (usage.isMissingNode()) {
+            return;
+        }
+        log.info("Gemini 토큰 사용: input={}, output={}, total={}",
+                usage.path("promptTokenCount").asInt(0),
+                usage.path("candidatesTokenCount").asInt(0),
+                usage.path("totalTokenCount").asInt(0));
     }
 }
