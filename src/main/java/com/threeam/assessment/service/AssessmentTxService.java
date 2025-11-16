@@ -3,7 +3,6 @@ package com.threeam.assessment.service;
 import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.entity.Assessment;
-import com.threeam.assessment.entity.AttachmentConfidence;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -184,14 +183,7 @@ public class AssessmentTxService {
                 .map(StoryMemory::getSummary)
                 .orElse(null);
 
-        // 직전 진단의 유형을 프롬프트에 실어 판정 연속성을 준다 — 반증 없이 유형이 사라지는 것 방지.
-        String previousAttachment = lastAssessment
-                .filter(a -> a.getPartnerAttachment() != null)
-                .map(a -> a.getPartnerAttachment().getLabel()
-                        + (a.getAttachmentConfidence() == AttachmentConfidence.TENTATIVE ? "(추정)" : "(확정)"))
-                .orElse(null);
-
-        return new AssessmentContext(summary, factLines(storyId), conversation, previousAttachment);
+        return new AssessmentContext(summary, factLines(storyId), conversation);
     }
 
     // tx2: 진단 결과 저장 + 기억(감정 요약) 갱신 + 새 사실 원장 append.

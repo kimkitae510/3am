@@ -4,11 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.AssessmentProperties;
 import com.threeam.assessment.dto.ReunionDiagnosis;
-import com.threeam.assessment.dto.ReunionDiagnosis.AttachmentSignalItem;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
 import com.threeam.assessment.dto.ReunionDiagnosis.GuidanceEntry;
-import com.threeam.assessment.entity.AttachmentConfidence;
-import com.threeam.assessment.entity.AttachmentStyle;
 import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.ChatMessage;
@@ -40,12 +37,6 @@ public class ReunionLlm {
 
     public CompletableFuture<ReunionDiagnosis> diagnose(String memorySummary, List<String> knownFactLines,
                                                         List<ChatMessage> conversation) {
-        return diagnose(memorySummary, knownFactLines, conversation, null);
-    }
-
-    public CompletableFuture<ReunionDiagnosis> diagnose(String memorySummary, List<String> knownFactLines,
-                                                        List<ChatMessage> conversation,
-                                                        String previousAttachment) {
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(assessmentProperties.getRubric()));
         if (knownFactLines != null && !knownFactLines.isEmpty()) {
@@ -54,13 +45,6 @@ public class ReunionLlm {
         }
         if (memorySummary != null && !memorySummary.isBlank()) {
             prompt.add(ChatMessage.system("지금까지 요약: " + memorySummary));
-        }
-        // 유형 판정의 연속성 — 진단마다 백지에서 다시 판정하면 새 대화가 근거를 안 보태는 회차에
-        // 유형이 나타났다 사라진다(실측: 별 대화 없이 재진단했더니 유형이 미확정으로 후퇴).
-        if (previousAttachment != null && !previousAttachment.isBlank()) {
-            prompt.add(ChatMessage.system("직전 진단의 상대 애착유형: " + previousAttachment
-                    + ". 이번 대화에 이 판정을 뒤집는 행동 근거가 없으면 유형을 유지하고 확신도만 재평가해라. "
-                    + "새 근거가 안 쌓였다는 이유로 판정을 비우지 마라 — 비우는 건 반증이 나왔을 때만이다."));
         }
         prompt.addAll(conversation);
         // 루브릭 깊숙한 규칙은 긴 프롬프트에서 자주 무시된다(실측: 관점 뒤집힘, 같은 사건 쪼개기가
@@ -137,17 +121,6 @@ public class ReunionLlm {
             Map.entry("properties", Map.ofEntries(
                     Map.entry("verdict", Map.of("type", "STRING",
                             "enum", List.of("POSSIBLE", "INSUFFICIENT", "DATING", "REUNITED"))),
-                    Map.entry("partnerAttachment", Map.of("type", "STRING", "nullable", true,
-                            "enum", List.of("SECURE", "ANXIOUS", "AVOIDANT", "FEARFUL"))),
-                    Map.entry("attachmentConfidence", Map.of("type", "STRING", "nullable", true,
-                            "enum", List.of("CONFIRMED", "TENTATIVE"))),
-                    Map.entry("attachmentSignals", Map.of("type", "ARRAY", "items", Map.of(
-                            "type", "OBJECT",
-                            "properties", Map.of(
-                                    "signal", Map.of("type", "STRING"),
-                                    "evidence", Map.of("type", "STRING")),
-                            "required", List.of("signal", "evidence"),
-                            "propertyOrdering", List.of("signal", "evidence")))),
                     Map.entry("activeReunionOffer", Map.of("type", "BOOLEAN")),
                     Map.entry("deductions", Map.of("type", "ARRAY", "items", pointItemSchema())),
                     Map.entry("boosts", Map.of("type", "ARRAY", "items", pointItemSchema())),
@@ -163,9 +136,8 @@ public class ReunionLlm {
             // 배열류는 필수에서 뺀다 — DATING, REUNITED, INSUFFICIENT 판정은 루브릭이
             // deductions, boosts를 비우라고 지시하는데 필수로 걸면 억지로 채우게 된다.
             Map.entry("required", List.of("verdict", "activeReunionOffer", "reason", "summary")),
-            Map.entry("propertyOrdering", List.of("verdict", "partnerAttachment", "attachmentConfidence",
-                    "attachmentSignals", "activeReunionOffer", "deductions", "boosts", "guidance",
-                    "reason", "summary", "newFacts")));
+            Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "deductions", "boosts",
+                    "guidance", "reason", "summary", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
         try {
@@ -173,13 +145,6 @@ public class ReunionLlm {
             JsonNode root = objectMapper.readTree(LlmJson.salvage(json));
             ReunionVerdict verdict = enumValue(ReunionVerdict.class, root.path("verdict").asText(null),
                     ReunionVerdict.POSSIBLE);
-            AttachmentStyle partnerAttachment =
-                    enumValue(AttachmentStyle.class, root.path("partnerAttachment").asText(null), null);
-            // 확신도 누락/오타는 TENTATIVE로 — 행동 관찰만의 판정이라 과신 쪽보다 보수가 안전하다.
-            AttachmentConfidence attachmentConfidence = partnerAttachment == null ? null
-                    : enumValue(AttachmentConfidence.class,
-                            root.path("attachmentConfidence").asText(null), AttachmentConfidence.TENTATIVE);
-            List<AttachmentSignalItem> attachmentSignals = attachmentSignals(root, partnerAttachment);
             boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
 
             int[] dropped = {0};
@@ -211,8 +176,7 @@ public class ReunionLlm {
             appendGuidance(guidance, root, "do", GuidanceKind.DO);
             appendGuidance(guidance, root, "dont", GuidanceKind.DONT);
 
-            return new ReunionDiagnosis(verdict, partnerAttachment,
-                    attachmentConfidence, attachmentSignals, activeReunionOffer,
+            return new ReunionDiagnosis(verdict, activeReunionOffer,
                     deductions, boosts, guidance,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
@@ -288,31 +252,6 @@ public class ReunionLlm {
                     : basis.length() > GUIDANCE_BASIS_MAX ? basis.substring(0, GUIDANCE_BASIS_MAX) : basis));
             added++;
         }
-    }
-
-    // 유형 근거 개수 상한(폭주 방어). 루브릭은 2~4개를 지시한다.
-    private static final int MAX_ATTACHMENT_SIGNALS = 5;
-
-    // 신호명 저장 컬럼 길이(VARCHAR(100)) — 넘치면 잘라서 저장 실패를 막는다.
-    private static final int SIGNAL_NAME_MAX = 100;
-
-    // 근거는 유형이 판정된 경우에만 의미가 있다 — 유형 없는 근거는 버린다(스키마 일관성).
-    private List<AttachmentSignalItem> attachmentSignals(JsonNode root, AttachmentStyle attachment) {
-        List<AttachmentSignalItem> items = new ArrayList<>();
-        if (attachment == null) {
-            return items;
-        }
-        for (JsonNode node : root.path("attachmentSignals")) {
-            String signal = node.path("signal").asText("").trim();
-            String evidence = node.path("evidence").asText("").trim();
-            if (signal.isBlank() || evidence.isBlank() || items.size() >= MAX_ATTACHMENT_SIGNALS) {
-                continue;
-            }
-            items.add(new AttachmentSignalItem(
-                    signal.length() > SIGNAL_NAME_MAX ? signal.substring(0, SIGNAL_NAME_MAX) : signal,
-                    evidence));
-        }
-        return items;
     }
 
     private <E extends Enum<E>> E enumValue(Class<E> type, String raw, E fallback) {
