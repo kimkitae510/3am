@@ -20,6 +20,8 @@ import org.hibernate.annotations.CreationTimestamp;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Story {
 
+    public static final String DEFAULT_TITLE = "새 대화";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -57,6 +59,10 @@ public class Story {
 
     public void touch() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void rename(String title) {
+        this.title = title;
     }
 
     public void softDelete() {

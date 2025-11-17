@@ -31,8 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class StoryService {
 
-    private static final String DEFAULT_TITLE = "새 대화";
-
     // 조회 한 번에 내려줄 메시지 수 상한. 클라가 큰 size를 넘겨도 여기서 자른다.
     private static final int MAX_PAGE_SIZE = 100;
 
@@ -50,7 +48,7 @@ public class StoryService {
     @Transactional
     public StoryResponse create(Long userId, StoryCreateRequest request) {
         String title = (request.getTitle() == null || request.getTitle().isBlank())
-                ? DEFAULT_TITLE
+                ? Story.DEFAULT_TITLE
                 : request.getTitle().trim();
 
         Story story = storyRepository.save(Story.builder().userId(userId).title(title).build());

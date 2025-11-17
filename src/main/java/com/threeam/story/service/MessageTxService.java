@@ -54,7 +54,16 @@ public class MessageTxService {
         Story story = storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
         Message userMessage = messageRepository.save(Message.user(story, content));
+        // 제목이 기본값이면 첫 메시지로 바꿔준다 — 목록이 "새 대화"만 줄지어 구분이 안 가는 문제.
+        if (Story.DEFAULT_TITLE.equals(story.getTitle())) {
+            story.rename(titleFrom(content));
+        }
         return new PreparedSend(MessageResponse.from(userMessage), buildPrompt(storyId));
+    }
+
+    private String titleFrom(String content) {
+        String oneLine = content.strip().replaceAll("\\s+", " ");
+        return oneLine.length() <= 20 ? oneLine : oneLine.substring(0, 20) + "…";
     }
 
     // 즉시 반환할 유저 메시지 + 백그라운드 LLM 호출에 쓸 프롬프트.

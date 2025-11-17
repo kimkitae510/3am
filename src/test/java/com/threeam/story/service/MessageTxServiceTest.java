@@ -136,6 +136,37 @@ class MessageTxServiceTest {
     }
 
     @Test
+    @DisplayName("유저 메시지 저장 - 제목이 기본값이면 첫 메시지 내용으로 제목을 바꾼다")
+    void appendUser_renamesDefaultTitle() {
+        Story story = Story.builder().userId(1L).title(Story.DEFAULT_TITLE).build();
+        ReflectionTestUtils.setField(story, "id", 10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "긴 얘기")), PageRequest.of(0, 20), false));
+
+        messageTxService.appendUserMessageAndBuildPrompt(1L, 10L,
+                "3년 만난 남자친구랑 2주 전에 헤어졌어. 걔가 먼저 헤어지자고 했어.");
+
+        // 공백 정리 후 앞 20자 + 말줄임
+        assertThat(story.getTitle()).isEqualTo("3년 만난 남자친구랑 2주 전에 헤어…");
+    }
+
+    @Test
+    @DisplayName("유저 메시지 저장 - 제목을 이미 지정한 사연은 건드리지 않는다")
+    void appendUser_keepsCustomTitle() {
+        Story story = story(10L);   // 제목 "사연"
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "안녕")), PageRequest.of(0, 20), false));
+
+        messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "안녕");
+
+        assertThat(story.getTitle()).isEqualTo("사연");
+    }
+
+    @Test
     @DisplayName("유저 메시지 저장 - 없거나 남의 사연이면 STORY_NOT_FOUND, 저장하지 않는다")
     void appendUser_notFound() {
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.empty());
