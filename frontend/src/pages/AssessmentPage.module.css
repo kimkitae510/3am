@@ -41,6 +41,15 @@
   font-size: 12px;
 }
 
+/* 마지막 진단 일시 — 제목과 분리된 둘째 줄 */
+.metaSub {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 3px;
+  opacity: 0.85;
+}
+
 .state {
   margin: auto;
   color: var(--text-muted);

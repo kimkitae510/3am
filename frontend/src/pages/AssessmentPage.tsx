@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { getAssessments, runAssessment, type AssessmentResponse } from '../api/assessment';
 import { listStories } from '../api/story';
+import { getUsage } from '../api/usage';
 import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import styles from './AssessmentPage.module.css';
@@ -38,7 +39,14 @@ export function AssessmentPage() {
   const [loading, setLoading] = useState(true); // 진입 시 저장된 기록 조회(공짜 GET)
   const [diagnosing, setDiagnosing] = useState(false); // 새 진단(LLM 호출, 쿼터 차감) 실행 중
   const [error, setError] = useState('');
+  const [remaining, setRemaining] = useState<number | null>(null); // 오늘 남은 진단 횟수
   const aliveRef = useRef(true);
+
+  function refreshUsage() {
+    getUsage()
+      .then((u) => aliveRef.current && setRemaining(u.assessmentRemaining))
+      .catch(() => {});
+  }
 
   // 새 진단은 버튼으로만 실행한다 — 페이지 진입만으로 일일 쿼터(하루 3회)가 닳지 않게.
   async function diagnose() {
@@ -46,7 +54,10 @@ export function AssessmentPage() {
     setError('');
     try {
       const res = await runAssessment(storyId);
-      if (aliveRef.current) setResult(res);
+      if (aliveRef.current) {
+        setResult(res);
+        refreshUsage(); // 후차감이라 성공 시점에 갱신
+      }
     } catch (e) {
       if (aliveRef.current) setError(extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'));
     } finally {
@@ -59,6 +70,7 @@ export function AssessmentPage() {
     listStories()
       .then((ss) => aliveRef.current && setTitle(ss.find((s) => s.id === storyId)?.title ?? ''))
       .catch(() => {});
+    refreshUsage();
     // 진입 시엔 저장된 최신 진단만 보여준다. LLM 호출 없음.
     getAssessments(storyId)
       .then((all) => aliveRef.current && setResult(all[0] ?? null))
@@ -128,7 +140,6 @@ export function AssessmentPage() {
 
   // "계속 대화하면 진단도 따라 갱신된다"는 오해가 있어, 이 결과가 언제 것인지 명시한다.
   const metaDate = result.createdAt ? formatListTime(result.createdAt) : '방금';
-  const meta = [title, `마지막 진단 ${metaDate}`].filter(Boolean).join(' - ');
 
   // 데이터 부족
   if (result.verdict === 'INSUFFICIENT') {
@@ -172,7 +183,8 @@ export function AssessmentPage() {
         <BackBar onBack={toChat} />
         {error && <div className={styles.errorBanner}>{error}</div>}
         <div className={styles.body}>
-          <div className={styles.meta}>{meta}</div>
+          {title && <div className={styles.meta}>{title}</div>}
+          <div className={styles.metaSub}>마지막 진단 {metaDate}</div>
 
           <div className={styles.gaugeWrap}>
             <svg width="280" height="150" viewBox="0 0 280 150">
@@ -227,7 +239,8 @@ export function AssessmentPage() {
           <div className={styles.hint}>
             진단은 대화한다고 저절로 바뀌지 않아요.
             <br />
-            새로운 이야기를 나눈 뒤 아래 '다시 진단'을 눌러 주세요. (하루 3회)
+            새로운 이야기를 나눈 뒤 아래 '다시 진단'을 눌러 주세요.
+            {remaining != null ? ` (오늘 ${remaining}회 남음)` : ' (하루 3회)'}
           </div>
 
           <button
