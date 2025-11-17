@@ -1,5 +1,6 @@
 package com.threeam.global.config;
 
+import com.threeam.llm.ChatPersonaProperties;
 import com.threeam.llm.GeminiProperties;
 import com.threeam.usage.UsageProperties;
 import com.threeam.security.handler.JwtAccessDeniedHandler;
@@ -28,7 +29,8 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties({JwtProperties.class, GeminiProperties.class, UsageProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, GeminiProperties.class, ChatPersonaProperties.class,
+        UsageProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 

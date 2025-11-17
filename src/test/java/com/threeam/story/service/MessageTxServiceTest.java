@@ -15,6 +15,7 @@ import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
+import com.threeam.llm.ChatPersonaProperties;
 import com.threeam.llm.LlmRole;
 import com.threeam.story.dto.MessageResponse;
 import com.threeam.story.entity.Message;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +42,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class MessageTxServiceTest {
+
+    // 실문구는 로컬 설정으로 주입되므로, 테스트는 기본 자리표시자를 가진 실객체를 쓴다.
+    @Spy
+    private ChatPersonaProperties personaProperties = new ChatPersonaProperties();
 
     @Mock
     private StoryRepository storyRepository;

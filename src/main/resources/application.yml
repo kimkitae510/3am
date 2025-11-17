@@ -2,6 +2,10 @@ spring:
   application:
     name: 3am
 
+  config:
+    # 페르소나 실문구 등 저장소 밖에서 관리하는 설정. 파일이 없으면 조용히 무시된다.
+    import: optional:file:./persona.yml
+
   datasource:
     url: jdbc:mysql://localhost:3306/threeam?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: ${DB_USERNAME:root}
