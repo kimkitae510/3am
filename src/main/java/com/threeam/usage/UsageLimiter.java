@@ -19,4 +19,7 @@ public interface UsageLimiter {
 
     // 성공 시 호출: 오늘 사용량 1회 기록. 자정이 지나 있었다면 1부터 다시 센다.
     void recordDaily(UsageKind kind, Long userId);
+
+    // 오늘 남은 횟수(0 이상). 화면에 "오늘 N회 남음"을 보여주기 위한 조회 전용.
+    int remainingDaily(UsageKind kind, Long userId);
 }

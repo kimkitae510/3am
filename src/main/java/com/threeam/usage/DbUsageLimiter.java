@@ -66,6 +66,17 @@ public class DbUsageLimiter implements UsageLimiter {
         quotaRepository.recordUsage(userId, kind.name(), LocalDate.now(KST));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public int remainingDaily(UsageKind kind, Long userId) {
+        LocalDate today = LocalDate.now(KST);
+        int used = quotaRepository.findByUserIdAndKind(userId, kind)
+                .filter(quota -> today.equals(quota.getQuotaDate()))   // 지난 날짜 행은 0회로 취급
+                .map(UsageQuota::getUsedCount)
+                .orElse(0);
+        return Math.max(0, limitOf(kind) - used);
+    }
+
     private int limitOf(UsageKind kind) {
         return kind == UsageKind.CHAT
                 ? properties.getChatDailyLimit()

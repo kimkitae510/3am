@@ -102,6 +102,26 @@ class DbUsageLimiterTest {
     }
 
     @Test
+    @DisplayName("잔여 조회 - 오늘 쓴 만큼 뺀 값을, 행이 없거나 지난 날짜면 전체 한도를 돌려준다")
+    void remainingDaily_countsOnlyToday() {
+        given(quotaRepository.findByUserIdAndKind(1L, UsageKind.ASSESSMENT))
+                .willReturn(Optional.of(quota(TODAY, 2)));
+        assertThat(limiter.remainingDaily(UsageKind.ASSESSMENT, 1L)).isEqualTo(1);   // 3 - 2
+
+        given(quotaRepository.findByUserIdAndKind(2L, UsageKind.ASSESSMENT))
+                .willReturn(Optional.of(quota(TODAY.minusDays(1), 3)));
+        assertThat(limiter.remainingDaily(UsageKind.ASSESSMENT, 2L)).isEqualTo(3);   // 지난 날짜 = 리셋 대상
+
+        given(quotaRepository.findByUserIdAndKind(3L, UsageKind.CHAT))
+                .willReturn(Optional.empty());
+        assertThat(limiter.remainingDaily(UsageKind.CHAT, 3L)).isEqualTo(30);        // 첫 사용 전
+
+        given(quotaRepository.findByUserIdAndKind(4L, UsageKind.ASSESSMENT))
+                .willReturn(Optional.of(quota(TODAY, 5)));
+        assertThat(limiter.remainingDaily(UsageKind.ASSESSMENT, 4L)).isZero();       // 초과 기록도 음수 없이 0
+    }
+
+    @Test
     @DisplayName("in-flight - 동시 100 요청이 같은 사연 잠금을 다퉈도 1건만 획득한다")
     void acquireInFlight_concurrent() throws InterruptedException {
         int threads = 100;
