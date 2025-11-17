@@ -101,6 +101,15 @@
   margin-top: 3px;
 }
 
+/* "방 하나 = 이별 이야기 하나" 컨셉 안내 */
+.concept {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 0 18px 10px;
+  opacity: 0.85;
+}
+
 .headerActions {
   display: flex;
   align-items: center;

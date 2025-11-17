@@ -163,15 +163,19 @@ export function StoryListPage() {
           </div>
         </div>
 
+        <div className={styles.concept}>
+          방 하나에 한 사람과의 이별 이야기를 담아요. 진단과 기억은 방마다 따로 쌓여요.
+        </div>
+
         {loading ? (
           <div className={styles.state}>불러오는 중…</div>
         ) : error ? (
           <div className={styles.state}>{error}</div>
         ) : stories.length === 0 ? (
           <div className={styles.state}>
-            아직 대화가 없어요.
+            아직 이야기가 없어요.
             <br />
-            아래 버튼으로 첫 대화를 시작해요.
+            아래 버튼으로 그 사람 얘기를 시작해요.
           </div>
         ) : (
           <div className={styles.list}>
@@ -209,7 +213,7 @@ export function StoryListPage() {
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="#1B1720" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
-          {creating ? '시작하는 중…' : '새 대화'}
+          {creating ? '시작하는 중…' : '새 이야기'}
         </button>
 
         {deleteTarget && (
