@@ -9,6 +9,7 @@ import {
   type MessageResponse,
 } from '../api/story';
 import { extractErrorMessage } from '../api/client';
+import { getUsage } from '../api/usage';
 import { formatClock, formatDateDivider, isSameCalendarDate } from '../utils/datetime';
 import styles from './ChatPage.module.css';
 
@@ -32,6 +33,13 @@ export function ChatPage() {
   const [error, setError] = useState('');
   const [input, setInput] = useState('');
   const [waiting, setWaiting] = useState(false); // 어시스턴트 답 대기(타이핑)
+  const [chatRemaining, setChatRemaining] = useState<number | null>(null); // 오늘 남은 대화 횟수
+
+  function refreshUsage() {
+    getUsage()
+      .then((u) => aliveRef.current && setChatRemaining(u.chatRemaining))
+      .catch(() => {}); // 표시용 정보라 실패는 조용히 무시
+  }
 
   const aliveRef = useRef(true);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -53,6 +61,7 @@ export function ChatPage() {
         setCursor(page.nextCursor);
         setHasOlder(page.hasNext);
         setTitle(stories.find((s) => s.id === storyId)?.title ?? '대화');
+        refreshUsage();
       } catch (e) {
         if (aliveRef.current) setError(extractErrorMessage(e, '대화를 불러오지 못했어요.'));
       } finally {
@@ -91,6 +100,7 @@ export function ChatPage() {
         if (fresh.length > 0) {
           setMessages((prev) => [...prev, ...fresh]);
           setWaiting(false);
+          refreshUsage(); // 답이 저장된 턴만 차감되므로(후차감) 이 시점에 갱신
           return;
         }
       } catch {
@@ -202,6 +212,9 @@ export function ChatPage() {
           <div ref={bottomRef} />
         </div>
 
+        {chatRemaining != null && (
+          <div className={styles.usageHint}>오늘 남은 대화 {chatRemaining}회</div>
+        )}
         <div className={styles.inputBar}>
           <textarea
             className={styles.input}
