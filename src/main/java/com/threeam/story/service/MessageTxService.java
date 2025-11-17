@@ -36,6 +36,9 @@ public class MessageTxService {
 
     private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
 
+    // 진단 설명용: 유저가 "계속 대화하면 진단도 갱신된다"고 오해하기 쉬워, 이 결과가 언제 것인지 말하게 한다.
+    private static final DateTimeFormatter ASSESSED_AT = DateTimeFormatter.ofPattern("M월 d일 HH:mm");
+
     // 페르소나 실문구는 저장소 밖(persona.yml, gitignore)에서 주입된다. 코드에는 자리표시 기본값만 있다.
     private final ChatPersonaProperties personaProperties;
     private final StoryRepository storyRepository;
@@ -106,8 +109,10 @@ public class MessageTxService {
     private String describeAssessment(Assessment assessment) {
         StringBuilder block = new StringBuilder(
                 "최근 재회 진단 결과 데이터(유저가 진단의 이유를 물으면 이 데이터만 근거로 설명하라. "
+                        + "설명할 때 이 진단을 언제 한 것인지(진단 일시)를 꼭 함께 말하라 — "
+                        + "진단은 대화로 자동 갱신되지 않고 유저가 직접 실행한 시점의 결과다. "
                         + "확률을 다시 계산하거나 여기 없는 진단 내용을 지어내지 마라):\n");
-        block.append("- 진단일: ").append(assessment.getCreatedAt().toLocalDate()).append('\n');
+        block.append("- 진단 일시: ").append(ASSESSED_AT.format(assessment.getCreatedAt())).append('\n');
         if (assessment.getProbability() != null) {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
         }
