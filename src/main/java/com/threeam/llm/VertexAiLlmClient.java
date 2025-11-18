@@ -5,6 +5,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import java.io.IOException;
 import java.net.http.HttpRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,8 @@ public class VertexAiLlmClient extends GoogleGenerateContentClient {
     private final VertexAiProperties properties;
     private final GoogleCredentials credentials;
 
+    // 생성자가 둘(운영/테스트용)이라 Spring이 쓸 쪽을 명시해야 한다.
+    @Autowired
     public VertexAiLlmClient(VertexAiProperties properties, ObjectMapper objectMapper) {
         this(properties, objectMapper, loadCredentials());
     }
