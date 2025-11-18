@@ -35,7 +35,7 @@ jwt:
 
 # LLM — 기본은 mock(무료, 키 불필요). 실연동 시 LLM_PROVIDER=gemini + LLM_API_KEY 주입.
 llm:
-  provider: ${LLM_PROVIDER:mock}   # mock | gemini
+  provider: ${LLM_PROVIDER:mock}   # mock | gemini | vertex
   gemini:
     api-key: ${LLM_API_KEY:}
     # 개발 기본값은 flash. 최저가인 lite는 무료 티어에서 피크 503과 일일 한도 소진이 잦아
@@ -43,6 +43,13 @@ llm:
     model: ${LLM_MODEL:gemini-2.5-flash}
     base-url: https://generativelanguage.googleapis.com/v1beta
     timeout-seconds: 30   # 응답 대기 상한. 초과 시 실패 처리 → 대화는 폴백 메시지 저장
+  # Vertex AI — 같은 Gemini를 GCP 상품 경로로(크레딧 결제). 인증은 GOOGLE_APPLICATION_CREDENTIALS
+  # (서비스 계정 키 파일 경로) 표준 환경변수. 크레딧 소진/만료 시 LLM_PROVIDER=gemini로 복귀.
+  vertex:
+    project-id: ${GCP_PROJECT_ID:}
+    location: ${GCP_LOCATION:global}
+    model: ${LLM_MODEL:gemini-2.5-flash}
+    timeout-seconds: 30
 
 # 사용량 제한 — LLM 비용 어뷰징 방지. 한도는 실제 비용 추이를 보고 조정한다.
 # (일반 API의 공통 빈도 제한은 앱이 아니라 인프라 층(nginx 등)에서 건다 — 운영 전환 시.)
