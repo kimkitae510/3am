@@ -229,7 +229,8 @@ export function AssessmentPage() {
                       <div className={styles.dedSignal}>{d.signal}</div>
                       {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     </div>
-                    <div className={styles.dedDelta}>−{d.delta}</div>
+                    {/* 서버가 음수로 주므로 절대값으로 표기 — 부호는 앞의 − 기호가 담당 */}
+                    <div className={styles.dedDelta}>−{Math.abs(d.delta)}</div>
                   </div>
                 ))}
               </div>
