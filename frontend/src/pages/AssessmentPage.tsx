@@ -183,7 +183,7 @@ export function AssessmentPage() {
         <BackBar onBack={toChat} />
         {error && <div className={styles.errorBanner}>{error}</div>}
         <div className={styles.body}>
-          {title && <div className={styles.meta}>{title}</div>}
+          {title && <div className={styles.meta}>사연 "{title}"</div>}
           <div className={styles.metaSub}>마지막 진단 {metaDate}</div>
 
           <div className={styles.gaugeWrap}>
