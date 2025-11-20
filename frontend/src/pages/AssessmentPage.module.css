@@ -193,6 +193,13 @@
   flex-shrink: 0;
 }
 
+.boostDelta {
+  color: #b89dd1;
+  font-size: 15px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
 .hint {
   color: var(--text-muted);
   font-size: 12.5px;

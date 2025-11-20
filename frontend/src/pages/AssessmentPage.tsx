@@ -176,6 +176,8 @@ export function AssessmentPage() {
   // POSSIBLE — 확률
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
+  const minus = result.deductions.filter((d) => d.delta < 0);
+  const plus = result.deductions.filter((d) => d.delta > 0);
 
   return (
     <PhoneFrame>
@@ -219,18 +221,35 @@ export function AssessmentPage() {
             </div>
           </div>
 
-          {result.deductions.length > 0 && (
+          {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다 */}
+          {minus.length > 0 && (
             <>
               <div className={styles.dedTitle}>가능성을 낮춘 신호</div>
               <div className={styles.dedList}>
-                {result.deductions.map((d, i) => (
+                {minus.map((d, i) => (
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedMain}>
                       <div className={styles.dedSignal}>{d.signal}</div>
                       {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     </div>
-                    {/* 서버가 음수로 주므로 절대값으로 표기 — 부호는 앞의 − 기호가 담당 */}
                     <div className={styles.dedDelta}>−{Math.abs(d.delta)}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {plus.length > 0 && (
+            <>
+              <div className={styles.dedTitle}>가능성을 올린 신호</div>
+              <div className={styles.dedList}>
+                {plus.map((d, i) => (
+                  <div className={styles.dedItem} key={i}>
+                    <div className={styles.dedMain}>
+                      <div className={styles.dedSignal}>{d.signal}</div>
+                      {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
+                    </div>
+                    <div className={styles.boostDelta}>+{d.delta}</div>
                   </div>
                 ))}
               </div>
