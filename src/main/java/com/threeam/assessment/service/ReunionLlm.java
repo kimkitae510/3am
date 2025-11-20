@@ -42,7 +42,8 @@ public class ReunionLlm {
               "verdict": "POSSIBLE" | "INSUFFICIENT",
               "breakupType": "CLINGER" | "REGRETTER" | "SELF_BLAMER",
               "partnerType": "DECISIVE" | "AMBIVALENT" | "COLD",
-              "deductions": [ { "signal": "짧은 신호명", "points": 정수, "evidence": "대화 속 근거" } ],
+              "deductions": [ { "signal": "짧은 신호명", "points": 양수 정수, "evidence": "대화 속 근거" } ],
+              "boosts": [ { "signal": "짧은 신호명", "points": 양수 정수, "evidence": "대화 속 근거" } ],
               "reason": "한두 문장 총평(반말, 다정하되 솔직하게)",
               "summary": "감정 흐름과 현재 상태 중심의 한두 문장. 사실 나열은 여기 하지 마라(사실은 newFacts로).",
               "newFacts": [ "이번 대화에서 새로 드러난 사실. 한 줄씩." ]
@@ -60,7 +61,7 @@ public class ReunionLlm {
 
             판정 기준:
             - INSUFFICIENT: 대화에 이별, 관계 정보가 거의 없어 판단 근거가 부족할 때. 억지로 확률을 내지 마라.
-              이때 breakupType, partnerType, deductions는 비우고, reason에는 무엇을 더 이야기하면 좋을지
+              이때 breakupType, partnerType, deductions, boosts는 비우고, reason에는 무엇을 더 이야기하면 좋을지
               부드러운 가이드를 담아라(예: 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일).
             - POSSIBLE: 판단 근거가 충분한 그 외 모든 경우. 감점 항목을 채워라.
               ※ "놓아줘라"는 판정은 하지 마라. 상대가 새 사람이 있거나 신뢰가 크게 무너졌어도
@@ -72,7 +73,14 @@ public class ReunionLlm {
             - 상대가 먼저 이별 통보: 10~15
             - 권태, 성격차: 10~20
             - 오래 경과, 연락 두절: 5~10
-            항목별 상한은 없다. 정직하게 깎아라. 긍정 요소는 감점을 '덜' 하는 식으로만 반영하고, 점수를 직접 올리지 마라.
+            항목별 상한은 없다. 정직하게 깎아라.
+
+            가점(boosts) 앵커 — 상대의 '행동'으로 드러난 강한 긍정 신호에만:
+            - 상대가 먼저 재회 의사를 내비침: 15~20
+            - 상대가 먼저 만남을 제안: 10~15
+            - 상대가 먼저 안부/근황 연락: 5~10
+            가점 규칙: 유저의 추측이나 미련("아직 날 좋아하는 것 같아"), 예의상 답장, 소지품 반환 연락
+            같은 건 가점이 아니다. 확실한 행동이 없으면 빈 배열 — 억지로 채우지 마라.
             """;
 
     public CompletableFuture<ReunionDiagnosis> diagnose(String memorySummary, List<String> knownFactLines,
@@ -98,15 +106,8 @@ public class ReunionLlm {
             BreakupType breakupType = enumValue(BreakupType.class, root.path("breakupType").asText(null), null);
             PartnerType partnerType = enumValue(PartnerType.class, root.path("partnerType").asText(null), null);
 
-            List<DeductionItem> deductions = new ArrayList<>();
-            for (JsonNode node : root.path("deductions")) {
-                String signal = node.path("signal").asText("");
-                int points = node.path("points").asInt(0);
-                if (signal.isBlank() || points == 0) {
-                    continue;
-                }
-                deductions.add(new DeductionItem(signal, points, node.path("evidence").asText("")));
-            }
+            List<DeductionItem> deductions = parseItems(root, "deductions");
+            List<DeductionItem> boosts = parseItems(root, "boosts");
 
             // 개수 제한은 폭주 방어용 안전핀뿐(정상 진단에선 닿지 않는다). 길이는 원장 컬럼에 맞춰 자른다.
             List<String> newFacts = new ArrayList<>();
@@ -120,12 +121,25 @@ public class ReunionLlm {
                         : fact);
             }
 
-            return new ReunionDiagnosis(verdict, breakupType, partnerType, deductions,
+            return new ReunionDiagnosis(verdict, breakupType, partnerType, deductions, boosts,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
             log.error("재회 진단 JSON 파싱 실패: {}", json, e);
             throw new LlmException();
         }
+    }
+
+    private List<DeductionItem> parseItems(JsonNode root, String field) {
+        List<DeductionItem> items = new ArrayList<>();
+        for (JsonNode node : root.path(field)) {
+            String signal = node.path("signal").asText("");
+            int points = node.path("points").asInt(0);
+            if (signal.isBlank() || points == 0) {
+                continue;
+            }
+            items.add(new DeductionItem(signal, points, node.path("evidence").asText("")));
+        }
+        return items;
     }
 
     private <E extends Enum<E>> E enumValue(Class<E> type, String raw, E fallback) {

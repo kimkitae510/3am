@@ -62,7 +62,9 @@ class AssessmentServiceTest {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.POSSIBLE, BreakupType.REGRETTER, PartnerType.AMBIVALENT,
-                        List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")), "총평", "갱신요약", List.of("상대가 먼저 통보함"))));
+                        List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")),
+                        List.of(new DeductionItem("상대가 먼저 연락", 10, "근거2")),
+                        "총평", "갱신요약", List.of("상대가 먼저 통보함"))));
         given(scorer.apply(anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
                 .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
@@ -72,8 +74,9 @@ class AssessmentServiceTest {
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.POSSIBLE);
         assertThat(response.getProbability()).isEqualTo(20);
         assertThat(response.getMyBreakupType()).isEqualTo("후회형");
-        assertThat(response.getDeductions()).hasSize(1);
-        assertThat(response.getDeductions().get(0).getDelta()).isEqualTo(-15); // 양수 points → 음수 delta
+        assertThat(response.getDeductions()).hasSize(2);
+        assertThat(response.getDeductions().get(0).getDelta()).isEqualTo(-15); // 감점: 양수 points → 음수 delta
+        assertThat(response.getDeductions().get(1).getDelta()).isEqualTo(10);  // 가점: 양수 delta로 합류
     }
 
     @Test
@@ -82,7 +85,7 @@ class AssessmentServiceTest {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null,
-                        List.of(), "조금 더 들려줄래요?", "", List.of())));
+                        List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
@@ -144,7 +147,7 @@ class AssessmentServiceTest {
     void assess_releasesLockOnCompletion() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
-                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), "가이드", "", List.of())));
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), List.of(), "가이드", "", List.of())));
 
         assessmentService.assess(1L, 10L).join();
 

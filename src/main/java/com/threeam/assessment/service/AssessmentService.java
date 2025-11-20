@@ -10,6 +10,7 @@ import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.usage.UsageKind;
 import com.threeam.usage.UsageLimiter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -91,9 +92,13 @@ public class AssessmentService {
             return AssessmentResponse.from(transientResult);
         }
 
-        List<Deduction> deductions = diagnosis.deductions().stream()
+        // 감점(음수 delta)과 가점(양수 delta)을 한 컬렉션에 부호로 구분해 담는다.
+        List<Deduction> deductions = new ArrayList<>(diagnosis.deductions().stream()
                 .map(this::toDeduction)
-                .toList();
+                .toList());
+        diagnosis.boosts().stream()
+                .map(b -> Deduction.boostOf(b.signal(), b.points(), b.evidence()))
+                .forEach(deductions::add);
 
         // 확률은 POSSIBLE일 때만. 졸업(LET_GO)은 숫자 대신 놓아주라는 판정.
         Integer probability = diagnosis.verdict() == ReunionVerdict.POSSIBLE

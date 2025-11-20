@@ -41,6 +41,9 @@ public class MockLlmClient implements LlmClient {
                     {"signal": "상대가 먼저 이별을 통보", "points": 15, "evidence": "(개발용 임시 근거)"},
                     {"signal": "연락이 뜸해진 상태", "points": 5, "evidence": "(개발용 임시 근거)"}
                   ],
+                  "boosts": [
+                    {"signal": "상대가 먼저 안부 연락", "points": 5, "evidence": "(개발용 임시 근거)"}
+                  ],
                   "reason": "개발용 임시 진단 — 실제 LLM 연동 전 고정 응답입니다.",
                   "summary": "개발용 임시 요약.",
                   "newFacts": ["상대가 먼저 이별을 통보함 (개발용 임시 사실)"]
