@@ -48,7 +48,7 @@ export function AssessmentPage() {
       .catch(() => {});
   }
 
-  // 새 진단은 버튼으로만 실행한다 — 페이지 진입만으로 일일 쿼터(하루 3회)가 닳지 않게.
+  // 새 진단은 버튼으로만 실행한다 — 페이지 진입만으로 일일 쿼터가 닳지 않게.
   async function diagnose() {
     setDiagnosing(true);
     setError('');
@@ -260,7 +260,7 @@ export function AssessmentPage() {
             진단은 대화한다고 저절로 바뀌지 않아요.
             <br />
             새로운 이야기를 나눈 뒤 아래 '다시 진단'을 눌러 주세요.
-            {remaining != null ? ` (오늘 ${remaining}회 남음)` : ' (하루 3회)'}
+            {remaining != null ? ` (오늘 ${remaining}회 남음)` : ' (하루 2회)'}
           </div>
 
           <button
