@@ -68,10 +68,12 @@ class ReunionScorerTest {
     }
 
     @Test
-    @DisplayName("감점 없이 가점만 있어도 상한(70)을 넘지 못한다")
+    @DisplayName("가점은 BASE 위로도 올리지만 상한(80)을 넘지 못한다")
     void cappedAtMax() {
-        int score = scorer.apply(List.of(Deduction.boostOf("재회 의사", 20, "근거")));
+        int score = scorer.apply(List.of(
+                Deduction.boostOf("재회 의사", 20, "근거"),
+                Deduction.boostOf("만남 제안", 15, "근거")));
 
-        assertThat(score).isEqualTo(70);
+        assertThat(score).isEqualTo(80); // 70 + min(35, 20) = 90 → 상한 80
     }
 }

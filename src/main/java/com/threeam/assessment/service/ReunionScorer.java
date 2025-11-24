@@ -6,14 +6,14 @@ import org.springframework.stereotype.Component;
 
 // 최종 확률을 LLM이 아니라 백엔드가 합산한다.
 // LLM은 감점/가점 항목만 판단하고, 여기서 BASE에서 더해 클램프한다 → LLM이 "90%!" 하고 아부할 통로 자체가 없음.
-// BASE 70 = CAP: 아무 감점이 없을 때가 최선이고, 사연이 쌓일수록 깎인다.
+// BASE 70에서 감점으로 내려가고, 강한 긍정 신호(가점)가 있을 때만 CAP 80까지 올라간다.
 // (이전 BASE 25는 감점 앵커(10~30)보다 작아서 신호 하나면 바닥 5%에 닿았다 — 진단이 사실상 이분법이었다.)
 @Component
 public class ReunionScorer {
 
     private static final int BASE = 70;
     private static final int MIN = 5;
-    private static final int MAX = 70;
+    private static final int MAX = 80;
 
     // 가점 합산 상한. 강한 신호(상대가 먼저 재회 의사)는 점수를 되살리되,
     // 가점이 감점을 통째로 상쇄해 헛된 확신을 만들지 않게 총량을 자른다.
