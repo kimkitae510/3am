@@ -7,12 +7,14 @@ import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import styles from './AssessmentPage.module.css';
 
-const GAUGE_MAX = 70; // 확률 상한(정책). 게이지는 이 값을 만점으로 그린다.
+const GAUGE_MAX = 80; // 확률 상한(정책, 백엔드 클램프와 동일). 게이지는 이 값을 만점으로 그린다.
+const GAUGE_MIN = 5; // 확률 하한(정책)
+
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
 function bandText(prob: number): string {
   const band = prob < 15 ? '아직은 낮아요' : prob < 40 ? '낮지도, 높지도 않아요' : '가능성이 보여요';
-  return `${band} (최대 ${GAUGE_MAX}%까지만 봐요)`;
+  return `${band} (확률은 ${GAUGE_MIN}~${GAUGE_MAX}% 사이로만 봐요)`;
 }
 
 function BackBar({ onBack }: { onBack: () => void }) {
