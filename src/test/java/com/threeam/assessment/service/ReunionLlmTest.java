@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.threeam.assessment.AssessmentProperties;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.entity.AttachmentStyle;
 import com.threeam.assessment.entity.ReunionVerdict;
@@ -29,7 +30,7 @@ class ReunionLlmTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private ReunionLlm reunionLlm() {
-        return new ReunionLlm(llmClient, objectMapper);
+        return new ReunionLlm(llmClient, objectMapper, new AssessmentProperties());
     }
 
     @Test
