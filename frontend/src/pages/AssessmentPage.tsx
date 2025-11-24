@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { getAssessments, runAssessment, type AssessmentResponse } from '../api/assessment';
-import { listStories } from '../api/story';
 import { getUsage } from '../api/usage';
 import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
@@ -34,7 +33,6 @@ export function AssessmentPage() {
   const storyId = Number(storyIdParam);
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState('');
   const [result, setResult] = useState<AssessmentResponse | null>(null);
   const [loading, setLoading] = useState(true); // 진입 시 저장된 기록 조회(공짜 GET)
   const [diagnosing, setDiagnosing] = useState(false); // 새 진단(LLM 호출, 쿼터 차감) 실행 중
@@ -67,9 +65,6 @@ export function AssessmentPage() {
 
   useEffect(() => {
     aliveRef.current = true;
-    listStories()
-      .then((ss) => aliveRef.current && setTitle(ss.find((s) => s.id === storyId)?.title ?? ''))
-      .catch(() => {});
     refreshUsage();
     // 진입 시엔 저장된 최신 진단만 보여준다. LLM 호출 없음.
     getAssessments(storyId)
@@ -185,7 +180,7 @@ export function AssessmentPage() {
         <BackBar onBack={toChat} />
         {error && <div className={styles.errorBanner}>{error}</div>}
         <div className={styles.body}>
-          {title && <div className={styles.meta}>사연 "{title}"</div>}
+          <div className={styles.meta}>재회 확률은 이 대화방의 이야기 기준이에요</div>
           <div className={styles.metaSub}>마지막 진단 {metaDate}</div>
 
           <div className={styles.gaugeWrap}>
@@ -257,11 +252,11 @@ export function AssessmentPage() {
           )}
 
           <div className={styles.hint}>
-            진단은 대화한다고 저절로 바뀌지 않아요.
+            새로운 이야기를 나눈 뒤 '다시 진단'을 눌러 주세요.
             <br />
-            새로운 이야기를 나눈 뒤 아래 '다시 진단'을 눌러 주세요.
-            {remaining != null ? ` (오늘 ${remaining}회 남음)` : ' (하루 2회)'}
+            대화만으로는 저절로 바뀌지 않아요.
           </div>
+          <div className={styles.hintCount}>{remaining != null ? `오늘 ${remaining}회 남음` : '하루 2회'}</div>
 
           <button
             className={styles.askChat}

@@ -208,6 +208,18 @@
   line-height: 1.6;
 }
 
+/* 남은 횟수 — 안내 문장과 분리된 알약 배지. 문장 끝 괄호로 붙어 있던 걸 떼어냈다. */
+.hintCount {
+  align-self: center;
+  margin-top: 8px;
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text-sub);
+  font-size: 11.5px;
+}
+
 /* 하단 버튼 */
 .footer {
   flex-shrink: 0;
