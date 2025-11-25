@@ -114,12 +114,15 @@ public class MessageTxService {
         return prompt;
     }
 
-    // 진단 결과를 설명용 데이터 블록으로 만든다. 재계산, 창작을 막는 지시를 함께 싣는다.
+    // 진단 결과를 설명용 데이터 블록으로 만든다. 재계산, 창작, 그리고 "묻지 않은 확률 들이대기"를 막는 지시를 함께 싣는다.
     private String describeAssessment(Assessment assessment) {
         StringBuilder block = new StringBuilder(
-                "최근 재회 진단 결과 데이터(유저가 진단의 이유를 물으면 이 데이터만 근거로 설명하라. "
-                        + "설명할 때 이 진단을 언제 한 것인지(진단 일시)를 꼭 함께 말하라 — "
-                        + "진단은 대화로 자동 갱신되지 않고 유저가 직접 실행한 시점의 결과다. "
+                "최근 재회 진단 결과 데이터(사용 규칙: "
+                        + "유저가 이 진단의 이유나 점수를 '직접' 물을 때만 이 데이터를 근거로 설명하라. "
+                        + "유저가 상대 행동의 의미나 가능성을 일반적으로 물으면(예: 이거 재회 신호 아니야?) "
+                        + "이 확률 숫자를 꺼내지 말고 대화로만 답하라 — 묻지 않은 확률을 먼저 말하는 건 금지다. "
+                        + "진단 일시를 그대로 낭독하지 말고, 진단이 대화로 자동 갱신되지 않는다는 걸 전할 필요가 "
+                        + "있을 때만 '지난번 진단 기준'처럼 자연스럽게 짚어라. "
                         + "확률을 다시 계산하거나 여기 없는 진단 내용을 지어내지 마라):\n");
         block.append("- 진단 일시: ").append(ASSESSED_AT.format(assessment.getCreatedAt())).append('\n');
         if (assessment.getProbability() != null) {
@@ -132,7 +135,9 @@ public class MessageTxService {
             block.append("- 상대 유형: ").append(assessment.getPartnerType().getLabel()).append('\n');
         }
         for (Deduction deduction : assessment.getDeductions()) {
-            block.append("- 감점 ").append(deduction.getDelta()).append(": ").append(deduction.getSignal());
+            // 가점(양수 delta)까지 "감점"으로 라벨링하면 모순된 데이터가 주입된다
+            block.append(deduction.getDelta() < 0 ? "- 감점 " : "- 가점 +").append(deduction.getDelta());
+            block.append(": ").append(deduction.getSignal());
             if (deduction.getEvidence() != null && !deduction.getEvidence().isBlank()) {
                 block.append(" (근거: ").append(deduction.getEvidence()).append(')');
             }
