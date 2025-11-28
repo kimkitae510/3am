@@ -253,11 +253,7 @@ export function AssessmentPage() {
             </>
           )}
 
-          <div className={styles.hint}>
-            새로운 이야기를 나눈 뒤 '다시 진단'을 눌러 주세요.
-            <br />
-            대화만으로는 저절로 바뀌지 않아요.
-          </div>
+          {/* 갱신 안내 문구는 제거 — 새 이야기 없이 다시 진단하면 서버가 사유를 설명하며 거부해서 중복 안내였다 */}
           <div className={styles.hintCount}>{remaining != null ? `오늘 ${remaining}회 남음` : '하루 2회'}</div>
 
           <button
