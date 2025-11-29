@@ -105,6 +105,14 @@ public class MessageTxService {
         // 최신 진단을 실어, 유저가 "왜 이 진단이야?" 같은 후속 질문을 하면 근거를 들어 설명할 수 있게 한다.
         assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
                 .ifPresent(assessment -> prompt.add(ChatMessage.system(describeAssessment(assessment))));
+        // 매 턴 질문으로 끝내는 습관은 페르소나 규칙으로 안 잡힌다(실측) — 직전 답변을 보고 동적으로 금지한다.
+        recent.stream()
+                .filter(message -> message.getRole() == MessageRole.ASSISTANT)
+                .findFirst() // recent는 최신순이라 첫 매치가 직전 답변
+                .map(Message::getContent)
+                .filter(content -> content.strip().endsWith("?"))
+                .ifPresent(content -> prompt.add(ChatMessage.system(
+                        "직전 네 답변이 질문으로 끝났다. 이번 답변에는 질문을 넣지 마라 — 물음표 없이, 말을 받아주는 것으로 끝내라.")));
         for (int i = recent.size() - 1; i >= 0; i--) {
             Message message = recent.get(i);
             prompt.add(message.getRole() == MessageRole.USER

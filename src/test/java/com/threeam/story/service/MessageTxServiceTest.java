@@ -136,6 +136,44 @@ class MessageTxServiceTest {
     }
 
     @Test
+    @DisplayName("프롬프트 조립 - 직전 답변이 질문으로 끝났으면 이번 턴 질문 금지 지시를 싣는다")
+    void buildPrompt_bansQuestionAfterQuestionReply() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(
+                        message(MessageRole.USER, "서운했던 것 같아"),
+                        message(MessageRole.ASSISTANT, "가장 먼저 든 감정이 억울함이야, 아니면 서운함이야?")),
+                        PageRequest.of(0, 20), false));
+
+        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "서운했던 것 같아").prompt();
+
+        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
+                .extracting(ChatMessage::content)
+                .anyMatch(c -> c.contains("질문을 넣지 마라"));
+    }
+
+    @Test
+    @DisplayName("프롬프트 조립 - 직전 답변이 질문이 아니면 질문 금지 지시를 싣지 않는다")
+    void buildPrompt_noBanWhenLastReplyNotQuestion() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(
+                        message(MessageRole.USER, "고마워"),
+                        message(MessageRole.ASSISTANT, "울어도 돼. 근데 걔한테는 울지 마.")),
+                        PageRequest.of(0, 20), false));
+
+        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "고마워").prompt();
+
+        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
+                .extracting(ChatMessage::content)
+                .noneMatch(c -> c.contains("질문을 넣지 마라"));
+    }
+
+    @Test
     @DisplayName("유저 메시지 저장 - 제목이 기본값이면 첫 메시지 내용으로 제목을 바꾼다")
     void appendUser_renamesDefaultTitle() {
         Story story = Story.builder().userId(1L).title(Story.DEFAULT_TITLE).build();
