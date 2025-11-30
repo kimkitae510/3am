@@ -13,6 +13,7 @@ import com.threeam.llm.LlmException;
 import com.threeam.story.entity.StoryFact;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,8 +46,8 @@ public class ReunionLlm {
               "verdict": "POSSIBLE" | "INSUFFICIENT",
               "breakupType": "CLINGER" | "REGRETTER" | "SELF_BLAMER",
               "partnerType": "DECISIVE" | "AMBIVALENT" | "COLD",
-              "deductions": [ { "signal": "짧은 신호명", "points": 양수 정수, "evidence": "대화 속 근거" } ],
-              "boosts": [ { "signal": "짧은 신호명", "points": 양수 정수, "evidence": "대화 속 근거" } ],
+              "deductions": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
+              "boosts": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
               "reason": "한두 문장 총평(반말, 다정하되 솔직하게)",
               "summary": "감정 흐름과 현재 상태 중심의 한두 문장. 사실 나열은 여기 하지 마라(사실은 newFacts로).",
               "newFacts": [ "이번 대화에서 새로 드러난 사실. 한 줄씩." ]
@@ -77,6 +78,11 @@ public class ReunionLlm {
               1) 상대의 마음 — 떠났는가, 미련이 남았는가
               2) 이별 원인의 복구 가능성 — 권태와 신뢰 파탄은 어렵고, 오해와 외부 사정은 쉽다
               3) 구조적 장애 — 새 애인, 기혼, 물리적 거리
+            - 모든 감점/가점 항목은 axis에 세 축 중 하나를 반드시 적어야 한다.
+              어느 축에도 붙일 수 없는 항목은 확률 신호가 아니라 도덕 평가다 — 통째로 버려라.
+              예: "이별 후 문란한 사생활"은 어느 축에도 못 붙는다(도덕적으로 어떻게 보이든
+              확률 정보가 없다). 굳이 읽자면 이별 직후의 자극 몰입은 고통 회피, 즉 감정 정리가
+              안 됐다는 신호라 감점 근거로는 성립하지 않는다.
             - 상대의 행동이 나쁘다는 것(무례, 회피, 이기적)은 축이 아니다. 나쁜 행동이라도
               마음이 떠났다는 증거가 아니면 감점하지 마라. 확률과 무관한 결점(생활 습관,
               인성 문제)은 0점이다.
@@ -180,12 +186,21 @@ public class ReunionLlm {
         }
     }
 
+    // 세 판단 축. 항목마다 axis를 강제해서 "나쁜 행동 = 감점" 같은 도덕 채점을 걸러낸다.
+    private static final Set<String> AXES = Set.of("마음", "복구가능성", "구조");
+
     private List<DeductionItem> parseItems(JsonNode root, String field) {
         List<DeductionItem> items = new ArrayList<>();
         for (JsonNode node : root.path(field)) {
             String signal = node.path("signal").asText("");
             int points = node.path("points").asInt(0);
             if (signal.isBlank() || points == 0) {
+                continue;
+            }
+            String axis = node.path("axis").asText("");
+            if (!AXES.contains(axis)) {
+                // 축 없는 신호는 확률 신호가 아니다. 버리되, 프롬프트 조정 근거로 관측 로그를 남긴다.
+                log.warn("진단 신호 폐기(축 없음): field={} signal={} axis={}", field, signal, axis);
                 continue;
             }
             items.add(new DeductionItem(signal, points, node.path("evidence").asText("")));

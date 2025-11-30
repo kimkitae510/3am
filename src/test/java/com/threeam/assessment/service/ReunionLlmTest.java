@@ -42,8 +42,8 @@ class ReunionLlmTest {
                   "breakupType": "CLINGER",
                   "partnerType": "COLD",
                   "deductions": [
-                    {"signal": "차단", "points": 30, "evidence": "차단당함"},
-                    {"signal": "무시할 값", "points": 0, "evidence": "버려짐"}
+                    {"signal": "차단", "axis": "마음", "points": 30, "evidence": "차단당함"},
+                    {"signal": "무시할 값", "axis": "마음", "points": 0, "evidence": "버려짐"}
                   ],
                   "reason": "쉽지 않아",
                   "summary": "상대가 차단함"
@@ -59,6 +59,34 @@ class ReunionLlmTest {
         assertThat(diagnosis.deductions()).hasSize(1); // points=0 항목은 버려진다
         assertThat(diagnosis.deductions().get(0).points()).isEqualTo(30);
         assertThat(diagnosis.summary()).isEqualTo("상대가 차단함");
+    }
+
+    @Test
+    @DisplayName("판단 축(axis)이 없거나 세 축이 아닌 항목은 도덕 채점으로 보고 버린다")
+    void parse_dropsItemsWithoutValidAxis() {
+        String json = """
+                {
+                  "verdict": "POSSIBLE",
+                  "breakupType": "REGRETTER",
+                  "partnerType": "AMBIVALENT",
+                  "deductions": [
+                    {"signal": "이별 후 문란한 사생활", "points": 20, "evidence": "클럽 방문"},
+                    {"signal": "무책임한 인성", "axis": "도덕", "points": 10, "evidence": "근거"},
+                    {"signal": "상대가 지쳐서 떠남", "axis": "마음", "points": 20, "evidence": "근거"}
+                  ],
+                  "boosts": [
+                    {"signal": "먼저 안부 연락", "points": 5, "evidence": "축 없음 - 버려짐"}
+                  ],
+                  "reason": "", "summary": ""
+                }
+                """;
+        given(llmClient.generateJson(anyList())).willReturn(CompletableFuture.completedFuture(json));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        assertThat(diagnosis.deductions()).hasSize(1);
+        assertThat(diagnosis.deductions().get(0).signal()).isEqualTo("상대가 지쳐서 떠남");
+        assertThat(diagnosis.boosts()).isEmpty();
     }
 
     @Test
