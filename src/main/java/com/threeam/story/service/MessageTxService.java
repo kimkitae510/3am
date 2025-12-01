@@ -105,7 +105,12 @@ public class MessageTxService {
         // 최신 진단을 실어, 유저가 "왜 이 진단이야?" 같은 후속 질문을 하면 근거를 들어 설명할 수 있게 한다.
         assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
                 .ifPresent(assessment -> prompt.add(ChatMessage.system(describeAssessment(assessment))));
-        // 매 턴 질문으로 끝내는 습관은 페르소나 규칙으로 안 잡힌다(실측) — 직전 답변을 보고 동적으로 금지한다.
+        // 페르소나 깊숙한 규칙은 자주 무시된다(실측) — 제일 잘 어기는 것만 프롬프트 말미에 매 턴 다시 박는다.
+        prompt.add(ChatMessage.system(
+                "스타일 리마인더: 질문은 그 답을 들어야 네 다음 말이 달라질 때만 해라. "
+                        + "리액션용 질문과 양자택일 질문('A야, 아니면 B야?')은 금지 — 그런 턴은 질문 없이 끝내라. "
+                        + "답변은 2~5문장, 입말('~야/~어', '-라'와 '-다' 종결 금지), 마크다운 금지."));
+        // 매 턴 질문으로 끝내는 습관 차단 — 직전 답변이 질문이었으면 이번 턴은 무조건 질문 금지.
         recent.stream()
                 .filter(message -> message.getRole() == MessageRole.ASSISTANT)
                 .findFirst() // recent는 최신순이라 첫 매치가 직전 답변

@@ -78,8 +78,9 @@ class MessageTxServiceTest {
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 힘들어").prompt();
 
         assertThat(prompt.get(0).role()).isEqualTo(LlmRole.SYSTEM); // 맨 앞은 페르소나
+        // 페르소나 + 매 턴 스타일 리마인더 + 유저
         assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.USER);
+                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER);
         verify(messageRepository).save(any(Message.class)); // 유저 메시지 저장됨
     }
 
@@ -126,9 +127,9 @@ class MessageTxServiceTest {
 
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "왜 이 진단이야?").prompt();
 
-        // 시스템(페르소나) + 시스템(진단 데이터) + 유저
+        // 시스템(페르소나) + 시스템(진단 데이터) + 시스템(스타일 리마인더) + 유저
         assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER);
+                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER);
         assertThat(prompt.get(1).content())
                 .contains("20%")
                 .contains("읽씹당하는 중")
