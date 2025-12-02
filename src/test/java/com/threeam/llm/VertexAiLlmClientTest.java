@@ -41,6 +41,23 @@ class VertexAiLlmClientTest {
                         + "/locations/asia-northeast3/publishers/google/models/gemini-2.5-flash:generateContent");
     }
 
+    @Test
+    @DisplayName("진단 전용 모델이 비어 있으면 기본 모델 엔드포인트로 떨어진다")
+    void assessmentEndpointFallsBack() {
+        assertThat(properties("global").assessmentEndpoint())
+                .isEqualTo(properties("global").endpoint());
+    }
+
+    @Test
+    @DisplayName("진단 전용 모델을 지정하면 진단 엔드포인트만 그 모델을 쓴다")
+    void assessmentEndpointUsesOverride() {
+        VertexAiProperties props = properties("global");
+        props.setAssessmentModel("gemini-2.5-pro");
+
+        assertThat(props.assessmentEndpoint()).contains("/models/gemini-2.5-pro:generateContent");
+        assertThat(props.endpoint()).contains("/models/gemini-2.5-flash:generateContent");
+    }
+
     // GoogleCredentials는 핵심 메서드가 final이라 Mockito 목이 안 걸린다.
     // 실제 객체에 고정 토큰을 넣어 진짜 만료/갱신 로직 위에서 검증한다.
 

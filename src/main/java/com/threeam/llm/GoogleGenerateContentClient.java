@@ -37,6 +37,11 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     abstract String endpoint();
 
+    // 정밀 판단 호출용 엔드포인트. 분리 설정이 없으면 기본 모델과 같다.
+    String deepEndpoint() {
+        return endpoint();
+    }
+
     // 요청마다 호출된다 — 만료되는 토큰 방식(Vertex)도 여기서 최신 값을 실을 수 있게.
     abstract void authorize(HttpRequest.Builder builder);
 
@@ -47,12 +52,17 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     @Override
     public CompletableFuture<String> generate(List<ChatMessage> messages) {
-        return send(buildRequest(messages, false));
+        return send(buildRequest(messages, false, false));
     }
 
     @Override
     public CompletableFuture<String> generateJson(List<ChatMessage> messages) {
-        return send(buildRequest(messages, true));
+        return send(buildRequest(messages, true, false));
+    }
+
+    @Override
+    public CompletableFuture<String> generateJsonDeep(List<ChatMessage> messages) {
+        return send(buildRequest(messages, true, true));
     }
 
     private CompletableFuture<String> send(HttpRequest request) {
@@ -74,7 +84,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                         response.request(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)));
     }
 
-    private HttpRequest buildRequest(List<ChatMessage> messages, boolean json) {
+    private HttpRequest buildRequest(List<ChatMessage> messages, boolean json, boolean deep) {
         // system은 system_instruction으로, 대화는 contents(user/model)로 나눠 받는다.
         StringBuilder system = new StringBuilder();
         List<Map<String, Object>> contents = new ArrayList<>();
@@ -99,10 +109,11 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
         try {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
-                    .uri(URI.create(endpoint()))
+                    .uri(URI.create(deep ? deepEndpoint() : endpoint()))
                     .header("Content-Type", "application/json")
                     // 타임아웃 없이는 LLM이 매달릴 때 future가 영원히 미완 → 답도 폴백도 저장되지 않는다.
-                    .timeout(Duration.ofSeconds(timeoutSeconds()))
+                    // 정밀 판단(deep)은 추론이 긴 모델을 쓸 수 있어 여유를 두 배 준다.
+                    .timeout(Duration.ofSeconds(deep ? timeoutSeconds() * 2 : timeoutSeconds()))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8));
             authorize(builder);
             return builder.build();

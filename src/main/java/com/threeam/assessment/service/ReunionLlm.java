@@ -152,7 +152,8 @@ public class ReunionLlm {
             prompt.add(ChatMessage.system("지금까지 요약: " + memorySummary));
         }
         prompt.addAll(conversation);
-        return llmClient.generateJson(prompt).thenApply(this::parse);
+        // 진단은 긴 루브릭 일관 적용이 필요해 정밀 판단 경로로 — 설정에 따라 더 강한 모델이 배정된다.
+        return llmClient.generateJsonDeep(prompt).thenApply(this::parse);
     }
 
     private ReunionDiagnosis parse(String json) {

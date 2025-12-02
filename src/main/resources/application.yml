@@ -49,6 +49,8 @@ llm:
     project-id: ${GCP_PROJECT_ID:}
     location: ${GCP_LOCATION:global}
     model: ${LLM_MODEL:gemini-2.5-flash}
+    # 진단 전용 모델(선택). 비우면 model 사용. 진단은 긴 루브릭이라 강한 모델 배정 가능.
+    assessment-model: ${LLM_ASSESSMENT_MODEL:}
     timeout-seconds: 30
 
 # 사용량 제한 — LLM 비용 어뷰징 방지. 한도는 실제 비용 추이를 보고 조정한다.
