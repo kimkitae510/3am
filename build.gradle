@@ -24,9 +24,12 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-	// === Redis (AI 사용량 제한 / 비동기 task 저장 / 캐싱) ===
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	implementation 'org.apache.commons:commons-pool2'  // Lettuce 커넥션 풀용
+	// === Redis — 현재 미사용 ===
+	// 사용량 제한이 DB(usage_quota)로 전환되어 코드에서 쓰는 곳이 없다.
+	// 살려두면 액추에이터 헬스체크가 Redis 접속을 검사해 배포 환경에서 DOWN 오탐 가능.
+	// 분산 잠금 등으로 다시 필요해지면 주석 해제.
+	// implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	// implementation 'org.apache.commons:commons-pool2'  // Lettuce 커넥션 풀용
 
 	// === JWT ===
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
