@@ -38,14 +38,16 @@ textarea {
   font-family: inherit;
 }
 
-/* 채팅 타이핑 인디케이터 점 깜빡임 */
+/* 타이핑/로딩 인디케이터 점 — 깜빡임만으론 밋밋해서 카톡처럼 통통 튀게 */
 @keyframes sc-blink {
   0%,
-  80%,
+  60%,
   100% {
-    opacity: 0.25;
+    opacity: 0.3;
+    transform: translateY(0);
   }
-  40% {
-    opacity: 0.9;
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
   }
 }
