@@ -53,8 +53,17 @@ class AssessmentServiceTest {
     @InjectMocks
     private AssessmentService assessmentService;
 
+    // 사전 가드(유저 발화 3개 미만 거부)를 통과하는 기본 컨텍스트
     private static final AssessmentContext CONTEXT =
-            new AssessmentContext("요약", List.of(), List.of(ChatMessage.user("걔가 먼저 헤어지자 했어")));
+            new AssessmentContext("요약", List.of(), List.of(
+                    ChatMessage.user("걔가 먼저 헤어지자 했어"),
+                    ChatMessage.assistant("언제부터 그런 말이 나왔어?"),
+                    ChatMessage.user("한 달 전부터 지쳤다고 하더라"),
+                    ChatMessage.assistant("연락은 지금 어때?"),
+                    ChatMessage.user("일주일째 읽씹이야")));
+
+    private static final AssessmentContext SPARSE_CONTEXT =
+            new AssessmentContext("", List.of(), List.of(ChatMessage.user("안녕")));
 
     @Test
     @DisplayName("진단 - POSSIBLE이면 LLM 감점을 백엔드가 합산해 확률을 낸다")
@@ -96,6 +105,20 @@ class AssessmentServiceTest {
         verify(txService, never()).save(any(), any(), any(), anyList()); // 히스토리에 저장 안 함
         // 근거 부족이어도 LLM 비용은 나갔으므로 차감된다
         verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L);
+    }
+
+    @Test
+    @DisplayName("진단 - 유저 발화 3개 미만이면 LLM 호출 없이 안내만, 쿼터도 안 깎고 잠금은 해제한다")
+    void assess_preGateOnSparseConversation() {
+        given(txService.loadContext(1L, 10L)).willReturn(SPARSE_CONTEXT);
+
+        AssessmentResponse response = assessmentService.assess(1L, 10L).join();
+
+        assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
+        assertThat(response.getReason()).contains("이야기가 부족");
+        verify(reunionLlm, never()).diagnose(any(), anyList(), anyList()); // LLM 비용 없음
+        verify(usageLimiter, never()).recordDaily(any(), any());          // 쿼터 미차감
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
     }
 
     @Test
