@@ -16,6 +16,7 @@ import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import com.threeam.story.service.StoryFactService;
 import com.threeam.story.service.StoryMemoryService;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +42,12 @@ public class AssessmentTxService {
     private final StoryFactRepository storyFactRepository;
     private final StoryFactService storyFactService;
     private final AssessmentRepository assessmentRepository;
+
+    // INSUFFICIENT 재시도 가드용: 이 시점 이후 새 대화가 있었는지.
+    @Transactional(readOnly = true)
+    public boolean hasNewMessageAfter(Long storyId, LocalDateTime since) {
+        return messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, since);
+    }
 
     // 히스토리 조회 전 소유권만 확인한다.
     @Transactional(readOnly = true)

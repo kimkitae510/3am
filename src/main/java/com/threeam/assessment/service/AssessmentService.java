@@ -11,9 +11,12 @@ import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.llm.LlmRole;
 import com.threeam.usage.UsageKind;
 import com.threeam.usage.UsageLimiter;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +31,11 @@ public class AssessmentService {
     // 사전 가드: 유저 메시지가 이보다 적으면 LLM 없이도 "근거 부족"이 자명하다.
     // 뻔한 실패에 LLM 비용과 일일 쿼터(2회)를 태우지 않는다.
     private static final int MIN_USER_TURNS = 3;
+
+    // INSUFFICIENT를 받은 사연의 시각. 새 대화 없이 재시도하면 LLM 없이 거부한다 —
+    // INSUFFICIENT를 쿼터 미차감으로 바꾸면서 생기는 무한 호출 구멍을 이걸로 막는다.
+    // (인메모리 = 단일 인스턴스 전제. in-flight 잠금과 같은 전제이며, 재시작 시 초기화돼도 해는 없다.)
+    private final Map<Long, LocalDateTime> insufficientAt = new ConcurrentHashMap<>();
 
     private final AssessmentTxService txService;
     private final ReunionLlm reunionLlm;
@@ -54,11 +62,23 @@ public class AssessmentService {
                 usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId);
                 return CompletableFuture.completedFuture(insufficientGuide(storyId));
             }
+            // 지난 INSUFFICIENT 이후 새 대화가 없으면 다시 물어봐도 같은 답이다 — LLM 없이 거부.
+            LocalDateTime lastGuide = insufficientAt.get(storyId);
+            if (lastGuide != null && !txService.hasNewMessageAfter(storyId, lastGuide)) {
+                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId);
+                return CompletableFuture.completedFuture(insufficientGuide(storyId));
+            }
             return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(), context.conversation())
                     .thenApply(diagnosis -> {
                         AssessmentResponse response = persist(storyId, diagnosis);
-                        // INSUFFICIENT(근거 부족)여도 LLM 비용은 나갔으므로 차감한다.
-                        recordUsageQuietly(userId);
+                        if (diagnosis.verdict() == ReunionVerdict.INSUFFICIENT) {
+                            // 진단을 제공하지 못했으니 쿼터를 깎지 않는다(유저 억울함 방지).
+                            // 대신 시점을 기록해 새 대화 없는 재시도를 위에서 공짜로 막는다.
+                            insufficientAt.put(storyId, LocalDateTime.now());
+                        } else {
+                            insufficientAt.remove(storyId);
+                            recordUsageQuietly(userId);
+                        }
                         return response;
                     })
                     .whenComplete((ignored, ex) ->

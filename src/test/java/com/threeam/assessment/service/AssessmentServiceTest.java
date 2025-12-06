@@ -103,8 +103,40 @@ class AssessmentServiceTest {
         assertThat(response.getReason()).isEqualTo("조금 더 들려줄래요?");
         verify(scorer, never()).apply(anyList());
         verify(txService, never()).save(any(), any(), any(), anyList()); // 히스토리에 저장 안 함
-        // 근거 부족이어도 LLM 비용은 나갔으므로 차감된다
-        verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L);
+        // 진단을 제공하지 못했으니 쿼터를 깎지 않는다 (재시도 남발은 INSUFFICIENT 가드가 막는다)
+        verify(usageLimiter, never()).recordDaily(UsageKind.ASSESSMENT, 1L);
+    }
+
+    @Test
+    @DisplayName("진단 - INSUFFICIENT 후 새 대화가 없으면 LLM 재호출 없이 안내만 돌려준다")
+    void assess_insufficientRetryBlockedWithoutNewMessage() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null,
+                        List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
+        given(txService.hasNewMessageAfter(eq(10L), any())).willReturn(false);
+
+        assessmentService.assess(1L, 10L).join(); // 1차: LLM이 INSUFFICIENT 판정
+        AssessmentResponse retry = assessmentService.assess(1L, 10L).join(); // 2차: 새 대화 없음
+
+        assertThat(retry.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
+        verify(reunionLlm, org.mockito.Mockito.times(1)).diagnose(any(), anyList(), anyList()); // 2차는 미호출
+        verify(usageLimiter, never()).recordDaily(any(), any());
+    }
+
+    @Test
+    @DisplayName("진단 - INSUFFICIENT 후라도 새 대화가 생기면 다시 LLM으로 진단한다")
+    void assess_insufficientRetryAllowedWithNewMessage() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null,
+                        List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
+        given(txService.hasNewMessageAfter(eq(10L), any())).willReturn(true);
+
+        assessmentService.assess(1L, 10L).join();
+        assessmentService.assess(1L, 10L).join();
+
+        verify(reunionLlm, org.mockito.Mockito.times(2)).diagnose(any(), anyList(), anyList());
     }
 
     @Test
@@ -176,8 +208,8 @@ class AssessmentServiceTest {
 
         verify(usageLimiter).checkDaily(UsageKind.ASSESSMENT, 1L);
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
-        // 후차감: 처리 완료 시점에 1회 기록된다
-        verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L);
+        // INSUFFICIENT는 진단을 제공하지 못했으니 차감하지 않는다
+        verify(usageLimiter, never()).recordDaily(UsageKind.ASSESSMENT, 1L);
     }
 
     @Test
