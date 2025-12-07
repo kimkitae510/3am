@@ -116,6 +116,14 @@
   margin-top: 6px;
 }
 
+/* 확률 범위 정책 안내 — 밴드 문구와 분리된 작은 줄 */
+.gaugeNote {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  margin-top: 4px;
+}
+
 /* 유형 카드 */
 .typeRow {
   display: flex;
