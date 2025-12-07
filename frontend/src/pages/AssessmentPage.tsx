@@ -10,14 +10,10 @@ import styles from './AssessmentPage.module.css';
 const GAUGE_MAX = 80; // 확률 상한(정책, 백엔드 클램프와 동일). 게이지는 이 값을 만점으로 그린다.
 const GAUGE_MIN = 5; // 확률 하한(정책)
 
-// 진단은 수십 초 걸릴 수 있어(추론 모델) 정적 문구 대신 단계를 순환시켜 진행감을 준다.
-const DIAGNOSING_STEPS = ['대화를 다시 읽는 중', '신호를 찾는 중', '확률을 계산하는 중'];
-
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
 function bandText(prob: number): string {
-  const band = prob < 15 ? '아직은 낮아요' : prob < 40 ? '낮지도, 높지도 않아요' : '가능성이 보여요';
-  return `${band} (확률은 ${GAUGE_MIN}~${GAUGE_MAX}% 사이로만 봐요)`;
+  return prob < 15 ? '아직은 낮아요' : prob < 40 ? '낮지도, 높지도 않아요' : '가능성이 보여요';
 }
 
 function BackBar({ onBack }: { onBack: () => void }) {
@@ -43,16 +39,7 @@ export function AssessmentPage() {
   const [diagnosing, setDiagnosing] = useState(false); // 새 진단(LLM 호출, 쿼터 차감) 실행 중
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState<number | null>(null); // 오늘 남은 진단 횟수
-  const [stepIdx, setStepIdx] = useState(0); // 진단 중 순환 문구 인덱스
   const aliveRef = useRef(true);
-
-  useEffect(() => {
-    if (!diagnosing) return;
-    setStepIdx(0);
-    const timer = window.setInterval(
-        () => setStepIdx((i) => (i + 1) % DIAGNOSING_STEPS.length), 2500);
-    return () => clearInterval(timer);
-  }, [diagnosing]);
 
   function refreshUsage() {
     getUsage()
@@ -101,7 +88,7 @@ export function AssessmentPage() {
           <div className={styles.state}>
             {diagnosing ? (
               <>
-                {DIAGNOSING_STEPS[stepIdx]}
+                재회 진단중입니다
                 <span className={styles.stateDots}>
                   <span className={styles.stateDot} />
                   <span className={styles.stateDot} />
@@ -231,6 +218,9 @@ export function AssessmentPage() {
           </div>
           <div className={styles.gaugeLabel}>재회 가능성</div>
           <div className={styles.gaugeSub}>{bandText(prob)}</div>
+          <div className={styles.gaugeNote}>
+            확률은 {GAUGE_MIN}~{GAUGE_MAX}% 사이로만 봅니다. 극단적인 확률은 나오지 않습니다.
+          </div>
 
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
