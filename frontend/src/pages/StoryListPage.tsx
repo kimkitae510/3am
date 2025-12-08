@@ -221,9 +221,11 @@ export function StoryListPage() {
             <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
               <div className={styles.dialogTitle}>이 대화를 삭제할까요?</div>
               <div className={styles.dialogText}>
-                {deleteTarget.title || '이 대화'}과 나눈 대화랑 진단 기록이
+                이 방에서 나눈 대화, 재회 진단 기록, 쌓아온 기억이
                 <br />
-                모두 지워져요. 되돌릴 수 없어요.
+                모두 지워져요. 새 방을 만들어도 이 이야기는
+                <br />
+                기억하지 못해요. 되돌릴 수 없어요.
               </div>
               <div className={styles.dialogButtons}>
                 <button className={styles.cancelBtn} onClick={() => setDeleteTarget(null)} disabled={deleting}>
