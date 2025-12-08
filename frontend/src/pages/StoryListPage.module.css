@@ -139,6 +139,7 @@
   position: relative;
   border-radius: 16px;
   overflow: hidden;
+  flex-shrink: 0; /* 방이 많아져도 행이 눌려 찌그러지지 않게 — 목록은 스크롤로 넘긴다 */
 }
 
 .swipeDelete {
