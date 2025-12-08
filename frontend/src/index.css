@@ -38,16 +38,5 @@ textarea {
   font-family: inherit;
 }
 
-/* 타이핑/로딩 인디케이터 점 — 깜빡임만으론 밋밋해서 카톡처럼 통통 튀게 */
-@keyframes sc-blink {
-  0%,
-  60%,
-  100% {
-    opacity: 0.3;
-    transform: translateY(0);
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(-4px);
-  }
-}
+/* 타이핑/로딩 점 키프레임은 각 페이지 모듈 CSS 안에 둔다.
+   전역에 두면 CSS 모듈(LightningCSS)이 모듈 쪽 참조 이름을 해시 처리해서 매칭이 깨진다. */

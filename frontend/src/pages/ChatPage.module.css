@@ -131,6 +131,20 @@
   align-items: center;
 }
 
+/* 키프레임을 모듈 안에 둬야 참조 이름이 함께 스코핑되어 실제로 매칭된다 */
+@keyframes sc-blink {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
 .dot {
   width: 7px;
   height: 7px;
