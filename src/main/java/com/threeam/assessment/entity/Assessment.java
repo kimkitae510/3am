@@ -60,6 +60,12 @@ public class Assessment {
     @Column(length = 20)
     private PartnerType partnerType;
 
+    // 상대 애착유형. 행동 패턴 근거가 부족하면 LLM이 비워 null.
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 20)
+    private PartnerAttachment partnerAttachment;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
 
@@ -75,13 +81,15 @@ public class Assessment {
 
     @Builder
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
-                       BreakupType myBreakupType, PartnerType partnerType, String reason,
+                       BreakupType myBreakupType, PartnerType partnerType,
+                       PartnerAttachment partnerAttachment, String reason,
                        @Singular List<Deduction> deductions) {
         this.storyId = storyId;
         this.verdict = verdict;
         this.probability = probability;
         this.myBreakupType = myBreakupType;
         this.partnerType = partnerType;
+        this.partnerAttachment = partnerAttachment;
         this.reason = reason;
         this.deductions = deductions != null ? deductions : new ArrayList<>();
     }

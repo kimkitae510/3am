@@ -1,6 +1,7 @@
 package com.threeam.assessment.dto;
 
 import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.PartnerAttachment;
 import com.threeam.assessment.entity.PartnerType;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.util.List;
@@ -11,6 +12,7 @@ public record ReunionDiagnosis(
         ReunionVerdict verdict,
         BreakupType breakupType,
         PartnerType partnerType,
+        PartnerAttachment partnerAttachment,  // 행동 근거 부족 시 null
         List<DeductionItem> deductions,
         List<DeductionItem> boosts,  // 가점 항목. 강한 긍정 신호(상대의 행동)에만 나온다
         String reason,

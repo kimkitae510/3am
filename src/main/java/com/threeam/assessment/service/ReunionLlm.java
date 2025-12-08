@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
 import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.PartnerAttachment;
 import com.threeam.assessment.entity.PartnerType;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.ChatMessage;
@@ -46,6 +47,7 @@ public class ReunionLlm {
               "verdict": "POSSIBLE" | "INSUFFICIENT",
               "breakupType": "CLINGER" | "REGRETTER" | "SELF_BLAMER",
               "partnerType": "DECISIVE" | "AMBIVALENT" | "COLD",
+              "partnerAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
               "deductions": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
               "boosts": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
               "reason": "한두 문장 총평(반말, 다정하되 솔직하게)",
@@ -63,9 +65,17 @@ public class ReunionLlm {
 
             기록된 사실 해석 규칙: 기록끼리 서로 모순되면 기록일이 나중인 쪽을 따르라(정정이 원본을 이긴다).
 
+            partnerAttachment(상대 애착유형) 판정:
+            - 근거는 기록된 사실과 대화 속 상대의 '행동 패턴'만이다:
+              갈등이 생기면 대화를 피하고 잠수(AVOIDANT), 확인을 반복 요구하고 매달림(ANXIOUS),
+              감정을 명확히 말하고 갈등을 대화로 풂(SECURE),
+              가까워지면 밀어내고 멀어지면 다시 당기는 반복(FEARFUL).
+            - 서로 다른 행동 근거가 두 개 이상일 때만 판정하라. 애매하면 null — 억지로 붙이지 마라.
+            - 이것도 도덕 평가가 아니라 패턴 분류다. 유형이 나쁜 사람이라는 뜻이 아니다.
+
             판정 기준:
             - INSUFFICIENT: 대화에 이별, 관계 정보가 거의 없어 판단 근거가 부족할 때. 억지로 확률을 내지 마라.
-              이때 breakupType, partnerType, deductions, boosts는 비우고, reason에는 무엇을 더 이야기하면 좋을지
+              이때 breakupType, partnerType, partnerAttachment, deductions, boosts는 비우고, reason에는 무엇을 더 이야기하면 좋을지
               부드러운 가이드를 담아라(예: 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일).
             - POSSIBLE: 판단 근거가 충분한 그 외 모든 경우. 감점 항목을 채워라.
               ※ "놓아줘라"는 판정은 하지 마라. 상대가 새 사람이 있거나 신뢰가 크게 무너졌어도
@@ -163,6 +173,8 @@ public class ReunionLlm {
                     ReunionVerdict.POSSIBLE);
             BreakupType breakupType = enumValue(BreakupType.class, root.path("breakupType").asText(null), null);
             PartnerType partnerType = enumValue(PartnerType.class, root.path("partnerType").asText(null), null);
+            PartnerAttachment partnerAttachment =
+                    enumValue(PartnerAttachment.class, root.path("partnerAttachment").asText(null), null);
 
             List<DeductionItem> deductions = parseItems(root, "deductions");
             List<DeductionItem> boosts = parseItems(root, "boosts");
@@ -179,7 +191,8 @@ public class ReunionLlm {
                         : fact);
             }
 
-            return new ReunionDiagnosis(verdict, breakupType, partnerType, deductions, boosts,
+            return new ReunionDiagnosis(verdict, breakupType, partnerType, partnerAttachment,
+                    deductions, boosts,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
             log.error("재회 진단 JSON 파싱 실패: {}", json, e);

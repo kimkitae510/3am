@@ -2,6 +2,7 @@ package com.threeam.assessment.dto;
 
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.PartnerAttachment;
 import com.threeam.assessment.entity.PartnerType;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.time.LocalDateTime;
@@ -15,17 +16,19 @@ public class AssessmentResponse {
     private final Integer probability;   // POSSIBLE이 아니면 null
     private final String myBreakupType;  // 라벨(한국어), 없으면 null
     private final String partnerType;    // 라벨(한국어), 없으면 null
+    private final String partnerAttachment; // 애착유형 라벨(한국어), 근거 부족이면 null
     private final String reason;
     private final List<DeductionView> deductions;
     private final LocalDateTime createdAt;
 
     private AssessmentResponse(ReunionVerdict verdict, Integer probability, String myBreakupType,
-                              String partnerType, String reason, List<DeductionView> deductions,
-                              LocalDateTime createdAt) {
+                              String partnerType, String partnerAttachment, String reason,
+                              List<DeductionView> deductions, LocalDateTime createdAt) {
         this.verdict = verdict;
         this.probability = probability;
         this.myBreakupType = myBreakupType;
         this.partnerType = partnerType;
+        this.partnerAttachment = partnerAttachment;
         this.reason = reason;
         this.deductions = deductions;
         this.createdAt = createdAt;
@@ -40,6 +43,7 @@ public class AssessmentResponse {
                 assessment.getProbability(),
                 label(assessment.getMyBreakupType()),
                 label(assessment.getPartnerType()),
+                label(assessment.getPartnerAttachment()),
                 assessment.getReason(),
                 deductions,
                 assessment.getCreatedAt());
@@ -50,6 +54,10 @@ public class AssessmentResponse {
     }
 
     private static String label(PartnerType type) {
+        return type == null ? null : type.getLabel();
+    }
+
+    private static String label(PartnerAttachment type) {
         return type == null ? null : type.getLabel();
     }
 

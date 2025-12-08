@@ -231,6 +231,10 @@ export function AssessmentPage() {
               <div className={styles.typeKey}>상대</div>
               <div className={styles.typeName}>{result.partnerType ?? '—'}</div>
             </div>
+            <div className={styles.typeCard}>
+              <div className={styles.typeKey}>상대 애착</div>
+              <div className={styles.typeName}>{result.partnerAttachment ?? '—'}</div>
+            </div>
           </div>
 
           {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다 */}

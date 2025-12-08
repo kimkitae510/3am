@@ -156,6 +156,7 @@ public class AssessmentService {
                 .probability(probability)
                 .myBreakupType(diagnosis.breakupType())
                 .partnerType(diagnosis.partnerType())
+                .partnerAttachment(diagnosis.partnerAttachment())
                 .reason(diagnosis.reason())
                 .deductions(deductions)
                 .build();

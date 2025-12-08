@@ -147,6 +147,9 @@ public class MessageTxService {
         if (assessment.getPartnerType() != null) {
             block.append("- 상대 유형: ").append(assessment.getPartnerType().getLabel()).append('\n');
         }
+        if (assessment.getPartnerAttachment() != null) {
+            block.append("- 상대 애착유형: ").append(assessment.getPartnerAttachment().getLabel()).append('\n');
+        }
         for (Deduction deduction : assessment.getDeductions()) {
             // 가점(양수 delta)까지 "감점"으로 라벨링하면 모순된 데이터가 주입된다
             block.append(deduction.getDelta() < 0 ? "- 감점 " : "- 가점 +").append(deduction.getDelta());

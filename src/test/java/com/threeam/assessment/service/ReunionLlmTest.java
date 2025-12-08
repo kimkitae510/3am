@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.PartnerAttachment;
 import com.threeam.assessment.entity.PartnerType;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.LlmClient;
@@ -41,6 +42,7 @@ class ReunionLlmTest {
                   "verdict": "POSSIBLE",
                   "breakupType": "CLINGER",
                   "partnerType": "COLD",
+                  "partnerAttachment": "AVOIDANT",
                   "deductions": [
                     {"signal": "차단", "axis": "마음", "points": 30, "evidence": "차단당함"},
                     {"signal": "무시할 값", "axis": "마음", "points": 0, "evidence": "버려짐"}
@@ -56,6 +58,7 @@ class ReunionLlmTest {
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE);
         assertThat(diagnosis.breakupType()).isEqualTo(BreakupType.CLINGER);
         assertThat(diagnosis.partnerType()).isEqualTo(PartnerType.COLD);
+        assertThat(diagnosis.partnerAttachment()).isEqualTo(PartnerAttachment.AVOIDANT);
         assertThat(diagnosis.deductions()).hasSize(1); // points=0 항목은 버려진다
         assertThat(diagnosis.deductions().get(0).points()).isEqualTo(30);
         assertThat(diagnosis.summary()).isEqualTo("상대가 차단함");
