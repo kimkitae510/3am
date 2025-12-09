@@ -246,6 +246,27 @@
   animation-delay: 0.4s;
 }
 
+/* 상대 애착유형 — 유형 카드 줄과 분리된 단독 카드 */
+.attachCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.attachName {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.attachDesc {
+  color: var(--text-sub);
+  font-size: 12.5px;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
 /* 남은 횟수 알약 배지 */
 .hintCount {
   align-self: center;

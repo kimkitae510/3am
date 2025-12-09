@@ -10,6 +10,14 @@ import styles from './AssessmentPage.module.css';
 const GAUGE_MAX = 80; // 확률 상한(정책, 백엔드 클램프와 동일). 게이지는 이 값을 만점으로 그린다.
 const GAUGE_MIN = 5; // 확률 하한(정책)
 
+// 애착유형 라벨(서버) → 한 줄 설명. 유형명만 던지면 뭔지 모르는 유저가 많다.
+const ATTACH_DESC: Record<string, string> = {
+  안정형: '감정을 말로 풀고, 갈등을 대화로 다루는 편이에요.',
+  불안형: '확인받고 싶어 하고, 거리가 생기면 매달리는 편이에요.',
+  회피형: '갈등과 감정 얘기를 피하고, 거리를 두는 편이에요.',
+  혼란형: '가까워지면 밀어내고, 멀어지면 다시 찾는 편이에요.',
+};
+
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
 function bandText(prob: number): string {
@@ -24,7 +32,7 @@ function BackBar({ onBack }: { onBack: () => void }) {
           <path d="M15 5l-7 7 7 7" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      <div className={styles.topTitle}>재회 진단</div>
+      <div className={styles.topTitle}>진단</div>
     </div>
   );
 }
@@ -231,11 +239,20 @@ export function AssessmentPage() {
               <div className={styles.typeKey}>상대</div>
               <div className={styles.typeName}>{result.partnerType ?? '—'}</div>
             </div>
-            <div className={styles.typeCard}>
-              <div className={styles.typeKey}>상대 애착</div>
-              <div className={styles.typeName}>{result.partnerAttachment ?? '—'}</div>
-            </div>
           </div>
+
+          {/* 애착유형은 확률과 별개 축이라 유형 카드 줄과 분리된 섹션으로 */}
+          {result.partnerAttachment && (
+            <>
+              <div className={styles.dedTitle}>상대 애착유형</div>
+              <div className={styles.attachCard}>
+                <div className={styles.attachName}>{result.partnerAttachment}</div>
+                {ATTACH_DESC[result.partnerAttachment] && (
+                  <div className={styles.attachDesc}>{ATTACH_DESC[result.partnerAttachment]}</div>
+                )}
+              </div>
+            </>
+          )}
 
           {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다 */}
           {minus.length > 0 && (
