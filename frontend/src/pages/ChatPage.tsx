@@ -13,6 +13,7 @@ import { getUsage } from '../api/usage';
 import { formatClock, formatDateDivider, isSameCalendarDate } from '../utils/datetime';
 import styles from './ChatPage.module.css';
 
+const MAX_LENGTH = 1000; // 서버 검증(@Size)과 동일 값
 const POLL_INTERVAL = 1500;
 // 백엔드 LLM 타임아웃(30초) 안에는 답 또는 폴백 메시지가 반드시 저장되므로,
 // 그보다 여유 있게 잡아 "..." 표시가 답이 올 때까지 끊기지 않게 한다.
@@ -215,12 +216,19 @@ export function ChatPage() {
         {chatRemaining != null && (
           <div className={styles.usageHint}>오늘 남은 대화 {chatRemaining}회</div>
         )}
+        {/* 한도(1000자, 서버 검증과 동일)에 가까워질 때만 카운터 노출 — 평소엔 조용히 */}
+        {input.length >= MAX_LENGTH - 200 && (
+          <div className={styles.lengthHint}>
+            {input.length}/{MAX_LENGTH}자
+          </div>
+        )}
         <div className={styles.inputBar}>
           <textarea
             className={styles.input}
             placeholder={waiting ? '답변을 기다리는 중…' : '메시지 입력'}
             rows={1}
             value={input}
+            maxLength={MAX_LENGTH}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
             disabled={waiting}
