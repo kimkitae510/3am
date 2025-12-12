@@ -85,7 +85,7 @@ class AssessmentServiceTest {
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.POSSIBLE);
         assertThat(response.getProbability()).isEqualTo(20);
         assertThat(response.getMyBreakupType()).isEqualTo("후회형");
-        assertThat(response.getPartnerAttachment()).isEqualTo("회피형"); // 애착유형 라벨 매핑
+        assertThat(response.getPartnerAttachment()).isEqualTo("거부회피형"); // 애착유형 라벨 매핑(커뮤니티 용어)
         assertThat(response.getDeductions()).hasSize(2);
         assertThat(response.getDeductions().get(0).getDelta()).isEqualTo(-15); // 감점: 양수 points → 음수 delta
         assertThat(response.getDeductions().get(1).getDelta()).isEqualTo(10);  // 가점: 양수 delta로 합류
