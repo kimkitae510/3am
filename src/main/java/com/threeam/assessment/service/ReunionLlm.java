@@ -4,9 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
-import com.threeam.assessment.entity.BreakupType;
-import com.threeam.assessment.entity.PartnerAttachment;
-import com.threeam.assessment.entity.PartnerType;
+import com.threeam.assessment.entity.AttachmentStyle;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
@@ -51,9 +49,9 @@ public class ReunionLlm {
             아래 JSON 스키마로만 답하라(다른 텍스트 금지):
             {
               "verdict": "POSSIBLE" | "INSUFFICIENT",
-              "breakupType": "CLINGER" | "REGRETTER" | "SELF_BLAMER",
-              "partnerType": "DECISIVE" | "AMBIVALENT" | "COLD",
+              "myAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
               "partnerAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
+              "activeReunionOffer": true | false,
               "deductions": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
               "boosts": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
               "reason": "한두 문장 총평(반말, 다정하되 솔직하게)",
@@ -71,8 +69,15 @@ public class ReunionLlm {
 
             기록된 사실 해석 규칙: 기록끼리 서로 모순되면 기록일이 나중인 쪽을 따르라(정정이 원본을 이긴다).
 
-            partnerAttachment(상대 애착유형) 판정:
-            - 근거는 기록된 사실과 대화 속 상대의 '행동 패턴'만이다:
+            activeReunionOffer 판정:
+            - 상대가 '먼저' 만나자 또는 다시 만나자고 제안했고, 그 제안이 아직 철회되거나
+              번복되지 않은 상태면 true. 이 경우 재회는 유저의 수락만 남은 상태다.
+            - 제안을 회수했거나("없던 일로 하자"), 취중 발언 후 아침에 번복했거나,
+              조건이 붙어 사실상 제안이 아니면 false. 유저의 추측, 희망은 false.
+            - true면 deductions, boosts와 무관하게 백엔드가 확률을 100으로 확정한다.
+
+            애착유형(myAttachment, partnerAttachment) 판정 — 유저와 상대 각각:
+            - 근거는 기록된 사실과 대화 속 '행동 패턴'만이다:
               갈등이 생기면 대화를 피하고 잠수, 이별 후 뒤도 안 돌아보는 듯 단호하고 무심(AVOIDANT),
               확인을 반복 요구하고 거리가 생기면 매달림(ANXIOUS),
               감정을 명확히 말하고 갈등을 대화로 풂(SECURE),
@@ -84,7 +89,7 @@ public class ReunionLlm {
 
             판정 기준:
             - INSUFFICIENT: 대화에 이별, 관계 정보가 거의 없어 판단 근거가 부족할 때. 억지로 확률을 내지 마라.
-              이때 breakupType, partnerType, partnerAttachment, deductions, boosts는 비우고, reason에는 무엇을 더 이야기하면 좋을지
+              이때 myAttachment, partnerAttachment, deductions, boosts는 비우고, reason에는 무엇을 더 이야기하면 좋을지
               부드러운 가이드를 담아라(예: 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일).
             - POSSIBLE: 판단 근거가 충분한 그 외 모든 경우. 감점 항목을 채워라.
               ※ "놓아줘라"는 판정은 하지 마라. 상대가 새 사람이 있거나 신뢰가 크게 무너졌어도
@@ -183,10 +188,11 @@ public class ReunionLlm {
             JsonNode root = objectMapper.readTree(json);
             ReunionVerdict verdict = enumValue(ReunionVerdict.class, root.path("verdict").asText(null),
                     ReunionVerdict.POSSIBLE);
-            BreakupType breakupType = enumValue(BreakupType.class, root.path("breakupType").asText(null), null);
-            PartnerType partnerType = enumValue(PartnerType.class, root.path("partnerType").asText(null), null);
-            PartnerAttachment partnerAttachment =
-                    enumValue(PartnerAttachment.class, root.path("partnerAttachment").asText(null), null);
+            AttachmentStyle myAttachment =
+                    enumValue(AttachmentStyle.class, root.path("myAttachment").asText(null), null);
+            AttachmentStyle partnerAttachment =
+                    enumValue(AttachmentStyle.class, root.path("partnerAttachment").asText(null), null);
+            boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
 
             List<DeductionItem> deductions = parseItems(root, "deductions");
             List<DeductionItem> boosts = parseItems(root, "boosts");
@@ -203,7 +209,7 @@ public class ReunionLlm {
                         : fact);
             }
 
-            return new ReunionDiagnosis(verdict, breakupType, partnerType, partnerAttachment,
+            return new ReunionDiagnosis(verdict, myAttachment, partnerAttachment, activeReunionOffer,
                     deductions, boosts,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {

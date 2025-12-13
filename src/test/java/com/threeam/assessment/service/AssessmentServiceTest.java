@@ -14,9 +14,7 @@ import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
 import com.threeam.assessment.entity.Assessment;
-import com.threeam.assessment.entity.BreakupType;
-import com.threeam.assessment.entity.PartnerAttachment;
-import com.threeam.assessment.entity.PartnerType;
+import com.threeam.assessment.entity.AttachmentStyle;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -71,8 +69,8 @@ class AssessmentServiceTest {
     void assess_possible() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
-                new ReunionDiagnosis(ReunionVerdict.POSSIBLE, BreakupType.REGRETTER, PartnerType.AMBIVALENT,
-                        PartnerAttachment.AVOIDANT,
+                new ReunionDiagnosis(ReunionVerdict.POSSIBLE, AttachmentStyle.ANXIOUS, AttachmentStyle.AVOIDANT,
+                        false,
                         List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")),
                         List.of(new DeductionItem("상대가 먼저 연락", 10, "근거2")),
                         "총평", "갱신요약", List.of("상대가 먼저 통보함"))));
@@ -84,11 +82,30 @@ class AssessmentServiceTest {
 
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.POSSIBLE);
         assertThat(response.getProbability()).isEqualTo(20);
-        assertThat(response.getMyBreakupType()).isEqualTo("후회형");
-        assertThat(response.getPartnerAttachment()).isEqualTo("거부회피형"); // 애착유형 라벨 매핑(커뮤니티 용어)
+        assertThat(response.getMyAttachment()).isEqualTo("불안형");        // 애착유형 라벨(커뮤니티 용어)
+        assertThat(response.getPartnerAttachment()).isEqualTo("거부회피형");
         assertThat(response.getDeductions()).hasSize(2);
         assertThat(response.getDeductions().get(0).getDelta()).isEqualTo(-15); // 감점: 양수 points → 음수 delta
         assertThat(response.getDeductions().get(1).getDelta()).isEqualTo(10);  // 가점: 양수 delta로 합류
+    }
+
+    @Test
+    @DisplayName("진단 - 상대의 유효한 만남/재회 제안이 있으면 감점 합산 없이 확률 100으로 확정한다")
+    void assess_activeOfferForcesFullProbability() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
+                new ReunionDiagnosis(ReunionVerdict.POSSIBLE, null, AttachmentStyle.FEARFUL,
+                        true,
+                        List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")),
+                        List.of(),
+                        "수락만 남았어", "", List.of())));
+        given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
+                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
+
+        AssessmentResponse response = assessmentService.assess(1L, 10L).join();
+
+        assertThat(response.getProbability()).isEqualTo(100);
+        verify(scorer, never()).apply(anyList()); // 합산을 건너뛴다
     }
 
     @Test
@@ -96,7 +113,7 @@ class AssessmentServiceTest {
     void assess_insufficient() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
-                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, null,
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, false,
                         List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
@@ -115,7 +132,7 @@ class AssessmentServiceTest {
     void assess_insufficientRetryBlockedWithoutNewMessage() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
-                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, null,
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, false,
                         List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
         given(txService.hasNewMessageAfter(eq(10L), any())).willReturn(false);
 
@@ -132,7 +149,7 @@ class AssessmentServiceTest {
     void assess_insufficientRetryAllowedWithNewMessage() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
-                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, null,
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, false,
                         List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
         given(txService.hasNewMessageAfter(eq(10L), any())).willReturn(true);
 
@@ -205,7 +222,7 @@ class AssessmentServiceTest {
     void assess_releasesLockOnCompletion() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
-                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, null, List.of(), List.of(), "가이드", "", List.of())));
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, false, List.of(), List.of(), "가이드", "", List.of())));
 
         assessmentService.assess(1L, 10L).join();
 

@@ -7,9 +7,7 @@ import static org.mockito.BDDMockito.given;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.dto.ReunionDiagnosis;
-import com.threeam.assessment.entity.BreakupType;
-import com.threeam.assessment.entity.PartnerAttachment;
-import com.threeam.assessment.entity.PartnerType;
+import com.threeam.assessment.entity.AttachmentStyle;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.LlmClient;
 import com.threeam.llm.LlmException;
@@ -40,9 +38,9 @@ class ReunionLlmTest {
         String json = """
                 {
                   "verdict": "POSSIBLE",
-                  "breakupType": "CLINGER",
-                  "partnerType": "COLD",
+                  "myAttachment": "ANXIOUS",
                   "partnerAttachment": "AVOIDANT",
+                  "activeReunionOffer": true,
                   "deductions": [
                     {"signal": "차단", "axis": "마음", "points": 30, "evidence": "차단당함"},
                     {"signal": "무시할 값", "axis": "마음", "points": 0, "evidence": "버려짐"}
@@ -56,9 +54,9 @@ class ReunionLlmTest {
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE);
-        assertThat(diagnosis.breakupType()).isEqualTo(BreakupType.CLINGER);
-        assertThat(diagnosis.partnerType()).isEqualTo(PartnerType.COLD);
-        assertThat(diagnosis.partnerAttachment()).isEqualTo(PartnerAttachment.AVOIDANT);
+        assertThat(diagnosis.myAttachment()).isEqualTo(AttachmentStyle.ANXIOUS);
+        assertThat(diagnosis.partnerAttachment()).isEqualTo(AttachmentStyle.AVOIDANT);
+        assertThat(diagnosis.activeReunionOffer()).isTrue();
         assertThat(diagnosis.deductions()).hasSize(1); // points=0 항목은 버려진다
         assertThat(diagnosis.deductions().get(0).points()).isEqualTo(30);
         assertThat(diagnosis.summary()).isEqualTo("상대가 차단함");
@@ -128,7 +126,7 @@ class ReunionLlmTest {
     @DisplayName("알 수 없는 enum 값은 안전한 기본값으로 떨어진다")
     void parse_unknownEnum_fallsBack() {
         String json = """
-                {"verdict": "???", "breakupType": "WAT", "partnerType": null,
+                {"verdict": "???", "myAttachment": "WAT", "partnerAttachment": null,
                  "deductions": [], "reason": "", "summary": ""}
                 """;
         given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
@@ -136,8 +134,9 @@ class ReunionLlmTest {
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE); // 기본값
-        assertThat(diagnosis.breakupType()).isNull();
-        assertThat(diagnosis.partnerType()).isNull();
+        assertThat(diagnosis.myAttachment()).isNull();
+        assertThat(diagnosis.partnerAttachment()).isNull();
+        assertThat(diagnosis.activeReunionOffer()).isFalse(); // 필드 누락 시 안전한 기본값
     }
 
     @Test

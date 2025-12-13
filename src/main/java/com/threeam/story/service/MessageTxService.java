@@ -141,11 +141,8 @@ public class MessageTxService {
         if (assessment.getProbability() != null) {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
         }
-        if (assessment.getMyBreakupType() != null) {
-            block.append("- 유저 유형: ").append(assessment.getMyBreakupType().getLabel()).append('\n');
-        }
-        if (assessment.getPartnerType() != null) {
-            block.append("- 상대 유형: ").append(assessment.getPartnerType().getLabel()).append('\n');
+        if (assessment.getMyAttachment() != null) {
+            block.append("- 유저 애착유형: ").append(assessment.getMyAttachment().getLabel()).append('\n');
         }
         if (assessment.getPartnerAttachment() != null) {
             block.append("- 상대 애착유형: ").append(assessment.getPartnerAttachment().getLabel()).append('\n');

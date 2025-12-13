@@ -145,17 +145,17 @@ public class AssessmentService {
                 .map(b -> Deduction.boostOf(b.signal(), b.points(), b.evidence()))
                 .forEach(deductions::add);
 
-        // 확률은 POSSIBLE일 때만. 졸업(LET_GO)은 숫자 대신 놓아주라는 판정.
+        // 확률은 POSSIBLE일 때만. 상대의 유효한 만남/재회 제안이 있으면 유저 수락만 남은
+        // 상태라 감점 합산을 건너뛰고 100으로 확정한다(제안이 회수되면 다음 진단부터 일반 합산).
         Integer probability = diagnosis.verdict() == ReunionVerdict.POSSIBLE
-                ? scorer.apply(deductions)
+                ? (diagnosis.activeReunionOffer() ? 100 : scorer.apply(deductions))
                 : null;
 
         Assessment assessment = Assessment.builder()
                 .storyId(storyId)
                 .verdict(diagnosis.verdict())
                 .probability(probability)
-                .myBreakupType(diagnosis.breakupType())
-                .partnerType(diagnosis.partnerType())
+                .myAttachment(diagnosis.myAttachment())
                 .partnerAttachment(diagnosis.partnerAttachment())
                 .reason(diagnosis.reason())
                 .deductions(deductions)

@@ -1,20 +1,19 @@
 package com.threeam.assessment.dto;
 
-import com.threeam.assessment.entity.BreakupType;
-import com.threeam.assessment.entity.PartnerAttachment;
-import com.threeam.assessment.entity.PartnerType;
+import com.threeam.assessment.entity.AttachmentStyle;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.util.List;
 
 // LLM이 대화를 읽고 내려준 진단(파싱 결과). 확률(%)은 여기 없다.
 // 감점/가점 항목만 판단하고, 최종 숫자는 백엔드(ReunionScorer)가 합산, 클램프한다.
+// 예외: activeReunionOffer(상대의 유효한 만남/재회 제안)면 백엔드가 100으로 확정한다.
 public record ReunionDiagnosis(
         ReunionVerdict verdict,
-        BreakupType breakupType,
-        PartnerType partnerType,
-        PartnerAttachment partnerAttachment,  // 행동 근거 부족 시 null
+        AttachmentStyle myAttachment,       // 유저 애착유형. 행동 근거 부족 시 null
+        AttachmentStyle partnerAttachment,  // 상대 애착유형. 행동 근거 부족 시 null
+        boolean activeReunionOffer,         // 상대가 먼저 만남/재회를 제안했고 철회되지 않음
         List<DeductionItem> deductions,
-        List<DeductionItem> boosts,  // 가점 항목. 강한 긍정 신호(상대의 행동)에만 나온다
+        List<DeductionItem> boosts,
         String reason,
         String summary,           // 감정 흐름, 현재 상태 요약 → StoryMemory에 반영
         List<String> newFacts) {  // 새로 드러난 사실 → StoryFact 원장에 append

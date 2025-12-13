@@ -35,9 +35,9 @@ public class MockLlmClient implements LlmClient {
         return CompletableFuture.completedFuture("""
                 {
                   "verdict": "POSSIBLE",
-                  "breakupType": "REGRETTER",
-                  "partnerType": "AMBIVALENT",
+                  "myAttachment": "ANXIOUS",
                   "partnerAttachment": "AVOIDANT",
+                  "activeReunionOffer": false,
                   "deductions": [
                     {"signal": "상대가 먼저 이별을 통보", "axis": "마음", "points": 15, "evidence": "(개발용 임시 근거)"},
                     {"signal": "연락이 뜸해진 상태", "axis": "마음", "points": 5, "evidence": "(개발용 임시 근거)"}
