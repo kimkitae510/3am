@@ -21,10 +21,11 @@ const ATTACH_DESC: Record<string, string> = {
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
 function bandText(prob: number): string {
+  if (prob >= 100) return '상대의 제안이 유효한 상태예요';
   return prob < 15 ? '아직은 낮아요' : prob < 40 ? '낮지도, 높지도 않아요' : '가능성이 보여요';
 }
 
-function BackBar({ onBack }: { onBack: () => void }) {
+function BackBar({ onBack, onHelp }: { onBack: () => void; onHelp?: () => void }) {
   return (
     <div className={styles.topbar}>
       <button className={styles.backButton} onClick={onBack} aria-label="뒤로">
@@ -33,6 +34,14 @@ function BackBar({ onBack }: { onBack: () => void }) {
         </svg>
       </button>
       <div className={styles.topTitle}>진단</div>
+      {onHelp && (
+        <button className={styles.helpButton} onClick={onHelp} aria-label="도움말">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />
+            <path d="M9.6 9.2a2.4 2.4 0 114.1 1.7c-.7.7-1.7 1.1-1.7 2.2M12 16.4h.01" stroke="#9B98A3" strokeWidth="1.7" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -47,7 +56,15 @@ export function AssessmentPage() {
   const [diagnosing, setDiagnosing] = useState(false); // 새 진단(LLM 호출, 쿼터 차감) 실행 중
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState<number | null>(null); // 오늘 남은 진단 횟수
+  const [showHelp, setShowHelp] = useState(false);
   const aliveRef = useRef(true);
+
+  // 에러 배너(쿼터 소진, 재진단 거부 등)가 화면에 계속 남지 않게 잠시 뒤 스스로 사라진다.
+  useEffect(() => {
+    if (!error) return;
+    const timer = window.setTimeout(() => aliveRef.current && setError(''), 6000);
+    return () => clearTimeout(timer);
+  }, [error]);
 
   function refreshUsage() {
     getUsage()
@@ -124,7 +141,7 @@ export function AssessmentPage() {
               대화로
             </button>
             <button className={styles.btnPrimary} onClick={diagnose}>
-              다시 진단
+              다시 진단 (1회 차감)
             </button>
           </div>
         </div>
@@ -199,7 +216,7 @@ export function AssessmentPage() {
   return (
     <PhoneFrame>
       <div className={styles.wrap}>
-        <BackBar onBack={toChat} />
+        <BackBar onBack={toChat} onHelp={() => setShowHelp(true)} />
         {error && <div className={styles.errorBanner}>{error}</div>}
         <div className={styles.body}>
           <div className={styles.meta}>재회 확률은 이 대화방의 이야기 기준이에요</div>
@@ -227,31 +244,28 @@ export function AssessmentPage() {
           <div className={styles.gaugeLabel}>재회 가능성</div>
           <div className={styles.gaugeSub}>{bandText(prob)}</div>
           <div className={styles.gaugeNote}>
-            확률은 {GAUGE_MIN}~{GAUGE_MAX}% 사이로만 봅니다. 극단적인 확률은 나오지 않습니다.
+            확률은 보통 {GAUGE_MIN}~{GAUGE_MAX}% 사이로만 봅니다.
+            <br />
+            100%는 상대가 먼저 만나자고 한 상태에서만 나옵니다.
           </div>
 
+          {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기) */}
+          <div className={styles.dedTitle}>애착유형</div>
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
               <div className={styles.typeKey}>나</div>
-              <div className={styles.typeName}>{result.myBreakupType ?? '—'}</div>
+              <div className={styles.typeName}>{result.myAttachment ?? '—'}</div>
             </div>
             <div className={styles.typeCard}>
               <div className={styles.typeKey}>상대</div>
-              <div className={styles.typeName}>{result.partnerType ?? '—'}</div>
+              <div className={styles.typeName}>{result.partnerAttachment ?? '—'}</div>
             </div>
           </div>
-
-          {/* 애착유형은 확률과 별개 축이라 유형 카드 줄과 분리된 섹션으로 */}
-          {result.partnerAttachment && (
-            <>
-              <div className={styles.dedTitle}>상대 애착유형</div>
-              <div className={styles.attachCard}>
-                <div className={styles.attachName}>{result.partnerAttachment}</div>
-                {ATTACH_DESC[result.partnerAttachment] && (
-                  <div className={styles.attachDesc}>{ATTACH_DESC[result.partnerAttachment]}</div>
-                )}
-              </div>
-            </>
+          {result.partnerAttachment && ATTACH_DESC[result.partnerAttachment] && (
+            <div className={styles.attachDesc}>상대: {ATTACH_DESC[result.partnerAttachment]}</div>
+          )}
+          {result.myAttachment && ATTACH_DESC[result.myAttachment] && (
+            <div className={styles.attachDesc}>나: {ATTACH_DESC[result.myAttachment]}</div>
           )}
 
           {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다 */}
@@ -309,9 +323,39 @@ export function AssessmentPage() {
             기록
           </button>
           <button className={styles.btnPrimary} onClick={diagnose}>
-            다시 진단
+            다시 진단 (1회 차감)
           </button>
         </div>
+
+        {showHelp && (
+          <div className={styles.overlay} onClick={() => setShowHelp(false)}>
+            <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.dialogTitle}>진단은 이렇게 봐요</div>
+              <div className={styles.helpBlock}>
+                <div className={styles.helpKey}>재회 가능성</div>
+                대화와 기록된 사실을 근거로 "상대가 돌아올 가능성"을 봐요. 보통 {GAUGE_MIN}~{GAUGE_MAX}%
+                사이이고, 상대가 먼저 만나자고 한 상태에서만 100%가 나와요.
+              </div>
+              <div className={styles.helpBlock}>
+                <div className={styles.helpKey}>단계</div>
+                15% 미만 "아직은 낮아요", 40% 미만 "낮지도, 높지도 않아요", 40% 이상 "가능성이 보여요"
+              </div>
+              <div className={styles.helpBlock}>
+                <div className={styles.helpKey}>애착유형</div>
+                안정형, 불안형, 거부회피형(거회), 공포회피형(공회) 네 가지예요. 대화에 드러난 행동
+                패턴으로 판정하고, 근거가 부족하면 비워둬요.
+              </div>
+              <div className={styles.helpBlock}>
+                <div className={styles.helpKey}>횟수</div>
+                진단은 하루 2회, 대화는 하루 15회예요. "다시 진단"은 1회가 차감되지만, 이야기가
+                부족하다는 안내만 받은 경우엔 차감되지 않아요.
+              </div>
+              <button className={styles.btnPrimary} onClick={() => setShowHelp(false)}>
+                알겠어요
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </PhoneFrame>
   );

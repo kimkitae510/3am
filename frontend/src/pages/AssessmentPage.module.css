@@ -2,6 +2,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative; /* 도움말 모달 오버레이 기준 */
 }
 
 .topbar {
@@ -246,25 +247,66 @@
   animation-delay: 0.4s;
 }
 
-/* 상대 애착유형 — 유형 카드 줄과 분리된 단독 카드 */
-.attachCard {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px 16px;
-}
-
-.attachName {
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 700;
-}
-
+/* 애착유형 한 줄 설명 (카드 아래) */
 .attachDesc {
   color: var(--text-sub);
   font-size: 12.5px;
-  margin-top: 4px;
+  margin-top: 6px;
   line-height: 1.5;
+}
+
+/* 상단 도움말(?) 버튼 — 제목 오른쪽 끝 */
+.helpButton {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+/* 도움말 모달 */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.dialog {
+  width: 82%;
+  max-height: 78%;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialogTitle {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.helpBlock {
+  color: var(--text-sub);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.helpKey {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 2px;
 }
 
 /* 남은 횟수 알약 배지 */
