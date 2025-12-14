@@ -134,6 +134,30 @@
   flex-direction: column;
 }
 
+/* 시각 + 안읽음 배지 묶음(오른쪽 정렬) */
+.itemRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* 카톡의 1 — 읽지 않은 새 답이 있는 방 */
+.unreadBadge {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* 스와이프 컨테이너: 뒤에 삭제 버튼, 앞의 .item이 좌로 밀리며 드러난다(카톡식) */
 .swipeRow {
   position: relative;

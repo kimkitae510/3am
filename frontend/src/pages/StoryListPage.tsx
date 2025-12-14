@@ -200,7 +200,10 @@ export function StoryListPage() {
                   <div className={styles.itemBody}>
                     <div className={styles.itemTop}>
                       <span className={styles.itemName}>{s.title || '제목 없음'}</span>
-                      <span className={styles.itemTime}>{formatListTime(s.updatedAt)}</span>
+                      <span className={styles.itemRight}>
+                        <span className={styles.itemTime}>{formatListTime(s.updatedAt)}</span>
+                        {s.unread && <span className={styles.unreadBadge}>1</span>}
+                      </span>
                     </div>
                   </div>
                 </button>

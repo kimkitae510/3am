@@ -5,6 +5,7 @@ export interface StoryResponse {
   title: string;
   createdAt: string;
   updatedAt: string;
+  unread: boolean; // 마지막으로 읽은 뒤 새 답이 있음 — 목록 배지용
 }
 
 export async function listStories(): Promise<StoryResponse[]> {
