@@ -35,6 +35,7 @@ export function ChatPage() {
   const [input, setInput] = useState('');
   const [waiting, setWaiting] = useState(false); // 어시스턴트 답 대기(타이핑)
   const [chatRemaining, setChatRemaining] = useState<number | null>(null); // 오늘 남은 대화 횟수
+  const [showHelp, setShowHelp] = useState(false);
 
   function refreshUsage() {
     getUsage()
@@ -149,15 +150,23 @@ export function ChatPage() {
             </button>
             <div className={styles.storyTitle}>{title}</div>
           </div>
-          <button
-            className={styles.diagButton}
-            onClick={() => navigate(`/stories/${storyId}/assessment`)}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M4 19V9m5 10V5m5 14v-7m5 7V11" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-            재회 진단
-          </button>
+          <div className={styles.topRight}>
+            <button
+              className={styles.diagButton}
+              onClick={() => navigate(`/stories/${storyId}/assessment`)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M4 19V9m5 10V5m5 14v-7m5 7V11" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              진단
+            </button>
+            <button className={styles.helpButton} onClick={() => setShowHelp(true)} aria-label="도움말">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />
+                <path d="M9.6 9.2a2.4 2.4 0 114.1 1.7c-.7.7-1.7 1.1-1.7 2.2M12 16.4h.01" stroke="#9B98A3" strokeWidth="1.7" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className={styles.messages}>
@@ -172,9 +181,11 @@ export function ChatPage() {
               )}
               {messages.length === 0 && !waiting && (
                 <div className={styles.state}>
-                  첫 마음을 적어보세요.
+                  대화를 나눌수록 이야기와 기억이 쌓이고,
                   <br />
-                  잠 안 오는 밤, 여기 있을게요.
+                  진단도 정확해져요.
+                  <br />
+                  첫 대화를 시작해 보세요.
                 </div>
               )}
               {messages.map((m, i) => {
@@ -251,6 +262,31 @@ export function ChatPage() {
             )}
           </button>
         </div>
+
+        {showHelp && (
+          <div className={styles.overlay} onClick={() => setShowHelp(false)}>
+            <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.dialogTitle}>이 방은 이렇게 써요</div>
+              <div className={styles.helpBlock}>
+                <div className={styles.helpKey}>방 하나 = 한 사람 이야기</div>
+                이 방에서 나눈 대화로 이야기와 기억이 쌓여요. 기억은 방마다 따로라, 다른 사람
+                이야기는 새 방에서 해주세요.
+              </div>
+              <div className={styles.helpBlock}>
+                <div className={styles.helpKey}>대화</div>
+                하루 10회, 한 번에 500자까지 보낼 수 있어요. 나눈 이야기가 많을수록 진단이
+                정확해져요.
+              </div>
+              <div className={styles.helpBlock}>
+                <div className={styles.helpKey}>진단</div>
+                오른쪽 위 진단 버튼에서 재회 가능성과 애착유형을 볼 수 있어요. 하루 2회예요.
+              </div>
+              <button className={styles.helpClose} onClick={() => setShowHelp(false)}>
+                알겠어요
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </PhoneFrame>
   );
