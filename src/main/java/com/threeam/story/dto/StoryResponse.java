@@ -11,12 +11,15 @@ public class StoryResponse {
     private final String title;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
+    private final boolean unread; // 마지막으로 읽은 뒤 새 활동이 있음 — 목록의 안읽음 배지용
 
-    private StoryResponse(Long id, String title, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    private StoryResponse(Long id, String title, LocalDateTime createdAt, LocalDateTime updatedAt,
+                          boolean unread) {
         this.id = id;
         this.title = title;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.unread = unread;
     }
 
     public static StoryResponse from(Story story) {
@@ -24,6 +27,7 @@ public class StoryResponse {
                 story.getId(),
                 story.getTitle(),
                 story.getCreatedAt(),
-                story.getUpdatedAt());
+                story.getUpdatedAt(),
+                story.hasUnread());
     }
 }

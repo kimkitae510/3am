@@ -109,15 +109,27 @@ public class StoryService {
     }
 
     // 폴링: 방금 보낸 메시지(afterId) 이후 새로 생긴 메시지(주로 어시스턴트 답)를 시간순으로 반환.
+    @Transactional
     public List<MessageResponse> getMessagesSince(Long userId, Long storyId, Long afterId) {
-        findOwned(storyId, userId);
-        return messageRepository.findByStoryIdAndIdGreaterThanOrderByIdAsc(storyId, afterId).stream()
+        Story story = findOwned(storyId, userId);
+        List<MessageResponse> fresh = messageRepository
+                .findByStoryIdAndIdGreaterThanOrderByIdAsc(storyId, afterId).stream()
                 .map(MessageResponse::from)
                 .toList();
+        // 답을 화면에서 받아봤으니 읽음 처리 — 목록 안읽음 배지의 기준 시각.
+        if (!fresh.isEmpty()) {
+            story.markRead();
+        }
+        return fresh;
     }
 
+    @Transactional
     public MessagePageResponse getMessages(Long userId, Long storyId, Long cursor, int size) {
-        findOwned(storyId, userId);
+        Story story = findOwned(storyId, userId);
+        // 방에 들어와 최신 페이지를 본 시점(cursor 없음)이 곧 읽음이다. 과거 페이징은 해당 없음.
+        if (cursor == null) {
+            story.markRead();
+        }
 
         int limit = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         PageRequest page = PageRequest.of(0, limit);

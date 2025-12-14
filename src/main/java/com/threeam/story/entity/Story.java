@@ -46,6 +46,11 @@ public class Story {
     @Column
     private LocalDateTime deletedAt;
 
+    // 유저가 이 방을 마지막으로 읽은 시각. updatedAt이 이보다 뒤면 목록에 안읽음 표시(카톡의 1).
+    // 메시지 조회(입장, 폴링 수신) 시점에 갱신된다.
+    @Column
+    private LocalDateTime lastReadAt;
+
     @Builder
     private Story(Long userId, String title) {
         this.userId = userId;
@@ -59,6 +64,14 @@ public class Story {
 
     public void touch() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void markRead() {
+        this.lastReadAt = LocalDateTime.now();
+    }
+
+    public boolean hasUnread() {
+        return lastReadAt != null && updatedAt.isAfter(lastReadAt);
     }
 
     public void rename(String title) {
