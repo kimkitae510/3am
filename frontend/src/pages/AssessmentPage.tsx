@@ -347,7 +347,7 @@ export function AssessmentPage() {
               </div>
               <div className={styles.helpBlock}>
                 <div className={styles.helpKey}>횟수</div>
-                진단은 하루 2회, 대화는 하루 15회예요. "다시 진단"은 1회가 차감되지만, 이야기가
+                진단은 하루 2회, 대화는 하루 10회예요. "다시 진단"은 1회가 차감되지만, 이야기가
                 부족하다는 안내만 받은 경우엔 차감되지 않아요.
               </div>
               <button className={styles.btnPrimary} onClick={() => setShowHelp(false)}>
