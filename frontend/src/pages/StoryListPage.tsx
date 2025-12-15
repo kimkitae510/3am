@@ -181,7 +181,12 @@ export function StoryListPage() {
           <div className={styles.list}>
             {stories.map((s) => (
               <div className={styles.swipeRow} key={s.id}>
-                <button className={styles.swipeDelete} onClick={() => askDelete(s)}>
+                {/* 평상시엔 완전히 감춘다 — 모서리로 빨간 배경이 비치는 잔상 방지 */}
+                <button
+                  className={styles.swipeDelete}
+                  style={{ opacity: offsetFor(s.id) < 0 ? 1 : 0 }}
+                  onClick={() => askDelete(s)}
+                >
                   삭제
                 </button>
                 <button

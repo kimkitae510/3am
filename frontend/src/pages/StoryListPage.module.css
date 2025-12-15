@@ -178,6 +178,7 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  transition: opacity 0.15s ease; /* 평상시 opacity 0(잔상 방지) → 밀 때 부드럽게 등장 */
 }
 
 .item {
