@@ -38,5 +38,15 @@ textarea {
   font-family: inherit;
 }
 
+/* 모바일 앱 룩: 데스크톱 브라우저의 스크롤바가 폰 프레임 안에 보이면 흉하다 — 전부 숨긴다(스크롤은 그대로 동작) */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* 타이핑/로딩 점 키프레임은 각 페이지 모듈 CSS 안에 둔다.
    전역에 두면 CSS 모듈(LightningCSS)이 모듈 쪽 참조 이름을 해시 처리해서 매칭이 깨진다. */
