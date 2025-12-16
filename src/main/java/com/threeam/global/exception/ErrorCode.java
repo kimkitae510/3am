@@ -38,7 +38,20 @@ public enum ErrorCode {
 
     // 사용량 제한
     QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Q001", "오늘 이야기할 수 있는 횟수를 모두 썼어요. 내일 다시 만나요."),
-    GENERATION_IN_PROGRESS(HttpStatus.TOO_MANY_REQUESTS, "Q002", "아직 이전 답변을 만드는 중이에요. 잠시만 기다려 주세요.");
+    GENERATION_IN_PROGRESS(HttpStatus.TOO_MANY_REQUESTS, "Q002", "아직 이전 답변을 만드는 중이에요. 잠시만 기다려 주세요."),
+
+    // 결제
+    PAYMENT_ITEM_NOT_FOUND(HttpStatus.BAD_REQUEST, "P001", "존재하지 않는 상품입니다."),
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "P002", "결제 내역을 찾을 수 없습니다."),
+    PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "P003", "결제 금액이 주문 금액과 다릅니다."),
+    PAYMENT_INVALID_STATE(HttpStatus.CONFLICT, "P004", "지금 상태에서는 처리할 수 없는 결제입니다."),
+    PAYMENT_ALREADY_PROCESSING(HttpStatus.TOO_MANY_REQUESTS, "P005", "결제를 처리하는 중이에요. 잠시만 기다려 주세요."),
+    PAYMENT_CONFIRM_REJECTED(HttpStatus.BAD_REQUEST, "P006", "결제가 승인되지 않았어요. 다른 수단으로 다시 시도해 주세요."),
+    PAYMENT_RESULT_PENDING(HttpStatus.BAD_GATEWAY, "P007",
+            "결제 결과 확인이 지연되고 있어요. 잠시 후 결제 내역에서 확인해 주세요. 완료된 결제는 자동으로 반영됩니다."),
+    PAYMENT_CANCEL_REJECTED(HttpStatus.BAD_GATEWAY, "P008", "환불 처리가 거절되었어요. 잠시 후 다시 시도해 주세요."),
+    REFUND_NOT_ALLOWED(HttpStatus.CONFLICT, "P009", "남은 이용권이 없어 환불할 수 없어요."),
+    REFUND_ACCOUNT_REQUIRED(HttpStatus.BAD_REQUEST, "P010", "가상계좌 결제는 환불받을 계좌 정보가 필요해요.");
 
     private final HttpStatus status;
     private final String code;

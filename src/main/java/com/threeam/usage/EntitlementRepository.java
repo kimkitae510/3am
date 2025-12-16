@@ -1,0 +1,45 @@
+package com.threeam.usage;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface EntitlementRepository extends JpaRepository<Entitlement, Long> {
+
+    Optional<Entitlement> findByPaymentId(Long paymentId);
+
+    List<Entitlement> findByPaymentIdIn(Collection<Long> paymentIds);
+
+    @Query("""
+            select coalesce(sum(e.totalCount - e.usedCount), 0) from Entitlement e
+            where e.userId = :userId and e.kind = :kind and e.revokedAt is null
+            """)
+    long remainingOf(@Param("userId") Long userId, @Param("kind") UsageKind kind);
+
+    // 차감 후보를 오래된 것부터 — 먼저 산 이용권부터 소진시킨다(환불 분쟁 여지 최소화).
+    @Query("""
+            select e.id from Entitlement e
+            where e.userId = :userId and e.kind = :kind
+                and e.revokedAt is null and e.usedCount < e.totalCount
+            order by e.createdAt asc
+            """)
+    List<Long> findConsumableIds(@Param("userId") Long userId, @Param("kind") UsageKind kind);
+
+    // 조건부 증가 한 문장 — 동시 차감이 잔여분을 초과하지 못하게 DB가 직렬화한다.
+    // 0을 돌려주면(경합 패배, 그 사이 환불) 호출부가 다음 후보로 넘어간다.
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update Entitlement e set e.usedCount = e.usedCount + 1
+            where e.id = :id and e.usedCount < e.totalCount and e.revokedAt is null
+            """)
+    int consumeOne(@Param("id") Long id);
+
+    @Modifying(clearAutomatically = true)
+    @Query("update Entitlement e set e.revokedAt = :at where e.id = :id and e.revokedAt is null")
+    int revoke(@Param("id") Long id, @Param("at") LocalDateTime at);
+}
