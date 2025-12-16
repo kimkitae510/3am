@@ -254,11 +254,11 @@ export function AssessmentPage() {
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
               <div className={styles.typeKey}>나</div>
-              <div className={styles.typeName}>{result.myAttachment ?? '—'}</div>
+              <div className={styles.typeName}>{result.myAttachment ?? '아직 몰라요'}</div>
             </div>
             <div className={styles.typeCard}>
               <div className={styles.typeKey}>상대</div>
-              <div className={styles.typeName}>{result.partnerAttachment ?? '—'}</div>
+              <div className={styles.typeName}>{result.partnerAttachment ?? '아직 몰라요'}</div>
             </div>
           </div>
           {result.partnerAttachment && ATTACH_DESC[result.partnerAttachment] && (
@@ -266,6 +266,12 @@ export function AssessmentPage() {
           )}
           {result.myAttachment && ATTACH_DESC[result.myAttachment] && (
             <div className={styles.attachDesc}>나: {ATTACH_DESC[result.myAttachment]}</div>
+          )}
+          {(!result.myAttachment || !result.partnerAttachment) && (
+            <div className={styles.attachDesc}>
+              유형은 확률과 달라서 행동 패턴이 여러 번 보여야 잡혀요. 서로가 어떻게 말하고
+              행동했는지 이야기가 쌓이면 다음 진단에서 채워져요.
+            </div>
           )}
 
           {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다 */}
