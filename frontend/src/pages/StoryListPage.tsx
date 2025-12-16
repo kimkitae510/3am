@@ -20,6 +20,7 @@ export function StoryListPage() {
   const [deleteTarget, setDeleteTarget] = useState<StoryResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [showHelp, setShowHelp] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null); // 스와이프로 열린 행
   const [dragId, setDragId] = useState<number | null>(null); // 지금 드래그 중인 행
   const [dragX, setDragX] = useState(0);
@@ -144,11 +145,14 @@ export function StoryListPage() {
     <PhoneFrame>
       <div className={styles.wrap}>
         <div className={styles.header}>
-          <div>
-            <div className={styles.title}>대화</div>
-            <div className={styles.count}>{loading ? ' ' : `${stories.length}개`}</div>
-          </div>
+          <div className={styles.title}>대화</div>
           <div className={styles.headerActions}>
+            <button className={styles.iconButton} onClick={() => setShowHelp(true)} aria-label="도움말">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />
+                <path d="M9.6 9.2a2.4 2.4 0 114.1 1.7c-.7.7-1.7 1.1-1.7 2.2M12 16.4h.01" stroke="#9B98A3" strokeWidth="1.7" strokeLinecap="round" />
+              </svg>
+            </button>
             <button className={styles.iconButton} onClick={handleLogout} aria-label="로그아웃">
               <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
                 <path
@@ -161,10 +165,6 @@ export function StoryListPage() {
               </svg>
             </button>
           </div>
-        </div>
-
-        <div className={styles.concept}>
-          방 하나에 한 사람과의 이별 이야기를 담아요. 진단과 기억은 방마다 따로 쌓여요.
         </div>
 
         {loading ? (
@@ -223,6 +223,32 @@ export function StoryListPage() {
           </svg>
           {creating ? '시작하는 중…' : '새 이야기'}
         </button>
+
+        {showHelp && (
+          <div className={styles.overlay} onClick={() => setShowHelp(false)}>
+            <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.dialogTitle}>새벽 세시 사용법</div>
+              <div className={styles.dialogText}>
+                방 하나에 한 사람과의 이별 이야기를 담아요.
+                <br />
+                진단과 기억은 방마다 따로 쌓여요.
+              </div>
+              <div className={styles.dialogText}>
+                방을 왼쪽으로 밀거나 길게 누르면 삭제할 수 있어요.
+                <br />
+                보라색 배지는 읽지 않은 새 답이에요.
+              </div>
+              <div className={styles.dialogText}>
+                대화는 하루 10회, 진단은 하루 2회예요.
+              </div>
+              <div className={styles.dialogButtons}>
+                <button className={styles.cancelBtn} onClick={() => setShowHelp(false)}>
+                  알겠어요
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {deleteTarget && (
           <div className={styles.overlay} onClick={() => !deleting && setDeleteTarget(null)}>
