@@ -3,6 +3,7 @@ package com.threeam.global.config;
 import com.threeam.llm.ChatPersonaProperties;
 import com.threeam.llm.GeminiProperties;
 import com.threeam.llm.VertexAiProperties;
+import com.threeam.payment.client.PaymentProperties;
 import com.threeam.usage.UsageProperties;
 import com.threeam.security.handler.JwtAccessDeniedHandler;
 import com.threeam.security.handler.JwtAuthenticationEntryPoint;
@@ -31,7 +32,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties({JwtProperties.class, GeminiProperties.class, VertexAiProperties.class,
-        ChatPersonaProperties.class, UsageProperties.class})
+        ChatPersonaProperties.class, UsageProperties.class, PaymentProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 

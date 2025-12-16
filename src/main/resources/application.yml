@@ -61,6 +61,18 @@ usage:
   assessment-daily-limit: 2
   in-flight-ttl-seconds: 120   # 생성 중 잠금이 해제 유실돼도 이 시간 뒤 자동으로 풀린다
 
+# 결제 — 기본은 mock(키 불필요, 무조건 승인). 실연동 시 PAYMENT_PROVIDER=toss + 키 2종 주입.
+# client-key는 프론트 위젯용(공개 가능), secret-key는 서버 승인/취소용(절대 비공개).
+payment:
+  provider: ${PAYMENT_PROVIDER:mock}   # mock | toss
+  toss:
+    client-key: ${TOSS_CLIENT_KEY:}
+    secret-key: ${TOSS_SECRET_KEY:}
+    base-url: https://api.tosspayments.com/v1
+    timeout-seconds: 30
+  order-expire-minutes: 30   # READY로 방치된 주문의 만료 기준
+  sync-after-minutes: 2      # 승인/취소 응답 불명 상태를 재동기화하기까지의 대기
+
 # CORS — 프론트(개발 서버) origin. 콤마로 여러 개 허용. 운영 도메인은 환경변수로 주입.
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
