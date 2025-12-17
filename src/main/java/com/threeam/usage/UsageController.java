@@ -21,6 +21,7 @@ public class UsageController {
                 usageLimiter.remainingDaily(UsageKind.CHAT, userId),
                 properties.getChatDailyLimit(),
                 usageLimiter.remainingDaily(UsageKind.ASSESSMENT, userId),
-                properties.getAssessmentDailyLimit()));
+                properties.getAssessmentDailyLimit(),
+                usageLimiter.paidRemaining(UsageKind.ASSESSMENT, userId)));
     }
 }

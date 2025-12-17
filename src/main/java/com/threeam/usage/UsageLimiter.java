@@ -18,8 +18,12 @@ public interface UsageLimiter {
     void checkDaily(UsageKind kind, Long userId);
 
     // 성공 시 호출: 오늘 사용량 1회 기록. 자정이 지나 있었다면 1부터 다시 센다.
+    // 무료 한도가 이미 찼으면 결제로 산 이용권에서 1회 차감한다(무료 우선 소진).
     void recordDaily(UsageKind kind, Long userId);
 
-    // 오늘 남은 횟수(0 이상). 화면에 "오늘 N회 남음"을 보여주기 위한 조회 전용.
+    // 오늘 남은 무료 횟수(0 이상). 화면에 "오늘 N회 남음"을 보여주기 위한 조회 전용.
     int remainingDaily(UsageKind kind, Long userId);
+
+    // 결제로 산 이용권의 잔여 횟수 합(환불된 것 제외). 무료 한도와 별개로 표시된다.
+    int paidRemaining(UsageKind kind, Long userId);
 }
