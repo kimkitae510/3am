@@ -3,14 +3,19 @@ package com.threeam.usage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.global.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -33,6 +38,9 @@ class DbUsageLimiterTest {
     @Mock
     private UsageQuotaRepository quotaRepository;
 
+    @Mock
+    private EntitlementRepository entitlementRepository;
+
     private UsageProperties properties;
     private DbUsageLimiter limiter;
 
@@ -42,7 +50,7 @@ class DbUsageLimiterTest {
         properties.setChatDailyLimit(30);
         properties.setAssessmentDailyLimit(3);
         properties.setInFlightTtlSeconds(120);
-        limiter = new DbUsageLimiter(properties, quotaRepository);
+        limiter = new DbUsageLimiter(properties, quotaRepository, entitlementRepository);
     }
 
     private UsageQuota quota(LocalDate date, int used) {
@@ -63,14 +71,26 @@ class DbUsageLimiterTest {
     }
 
     @Test
-    @DisplayName("한도 검사 - 오늘 행이 한도에 닿았으면 QUOTA_EXCEEDED")
+    @DisplayName("한도 검사 - 무료 한도 소진 + 이용권 없음이면 QUOTA_EXCEEDED")
     void checkDaily_exceeded() {
         given(quotaRepository.findByUserIdAndKind(1L, UsageKind.ASSESSMENT))
                 .willReturn(Optional.of(quota(TODAY, 3)));
+        given(entitlementRepository.remainingOf(1L, UsageKind.ASSESSMENT)).willReturn(0L);
 
         assertThatThrownBy(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
+    }
+
+    @Test
+    @DisplayName("한도 검사 - 무료 한도를 다 썼어도 이용권이 남아 있으면 통과한다")
+    void checkDaily_paidEntitlementPasses() {
+        given(quotaRepository.findByUserIdAndKind(1L, UsageKind.ASSESSMENT))
+                .willReturn(Optional.of(quota(TODAY, 3)));
+        given(entitlementRepository.remainingOf(1L, UsageKind.ASSESSMENT)).willReturn(2L);
+
+        assertThatCode(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -94,11 +114,66 @@ class DbUsageLimiterTest {
     }
 
     @Test
-    @DisplayName("사용 기록 - 오늘 날짜(KST)로 원자 upsert를 호출한다")
+    @DisplayName("사용 기록 - 무료 한도가 남아 있으면 오늘 날짜(KST)로 원자 upsert를 호출한다")
     void recordDaily_delegatesAtomicUpsert() {
+        given(quotaRepository.findByUserIdAndKind(1L, UsageKind.CHAT))
+                .willReturn(Optional.empty());
+
         limiter.recordDaily(UsageKind.CHAT, 1L);
 
         verify(quotaRepository).recordUsage(eq(1L), eq("CHAT"), eq(TODAY));
+    }
+
+    @Test
+    @DisplayName("사용 기록 - 무료 한도 소진 시 이용권에서 차감하고 무료 카운터는 건드리지 않는다")
+    void recordDaily_consumesEntitlementAfterFreeLimit() {
+        given(quotaRepository.findByUserIdAndKind(1L, UsageKind.ASSESSMENT))
+                .willReturn(Optional.of(quota(TODAY, 3)));
+        given(entitlementRepository.findConsumableIds(1L, UsageKind.ASSESSMENT))
+                .willReturn(List.of(10L));
+        given(entitlementRepository.consumeOne(10L)).willReturn(1);
+
+        limiter.recordDaily(UsageKind.ASSESSMENT, 1L);
+
+        verify(entitlementRepository).consumeOne(10L);
+        verify(quotaRepository, never()).recordUsage(anyLong(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("사용 기록 - 첫 이용권 차감이 경합에 지면 다음 후보에서 차감한다")
+    void recordDaily_fallsThroughToNextEntitlement() {
+        given(quotaRepository.findByUserIdAndKind(1L, UsageKind.ASSESSMENT))
+                .willReturn(Optional.of(quota(TODAY, 3)));
+        given(entitlementRepository.findConsumableIds(1L, UsageKind.ASSESSMENT))
+                .willReturn(List.of(10L, 11L));
+        given(entitlementRepository.consumeOne(10L)).willReturn(0);   // 그 사이 소진/환불
+        given(entitlementRepository.consumeOne(11L)).willReturn(1);
+
+        limiter.recordDaily(UsageKind.ASSESSMENT, 1L);
+
+        verify(entitlementRepository).consumeOne(11L);
+        verify(quotaRepository, never()).recordUsage(anyLong(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("사용 기록 - 이용권 차감이 전부 실패하면 무료 카운터에 초과 기록으로 남긴다")
+    void recordDaily_fallsBackToFreeCounter() {
+        given(quotaRepository.findByUserIdAndKind(1L, UsageKind.ASSESSMENT))
+                .willReturn(Optional.of(quota(TODAY, 3)));
+        given(entitlementRepository.findConsumableIds(1L, UsageKind.ASSESSMENT))
+                .willReturn(List.of());
+
+        limiter.recordDaily(UsageKind.ASSESSMENT, 1L);
+
+        verify(quotaRepository).recordUsage(eq(1L), eq("ASSESSMENT"), eq(TODAY));
+    }
+
+    @Test
+    @DisplayName("이용권 잔여 조회 - 리포지토리 합계를 그대로 돌려준다")
+    void paidRemaining_delegates() {
+        given(entitlementRepository.remainingOf(1L, UsageKind.ASSESSMENT)).willReturn(7L);
+
+        assertThat(limiter.paidRemaining(UsageKind.ASSESSMENT, 1L)).isEqualTo(7);
     }
 
     @Test
