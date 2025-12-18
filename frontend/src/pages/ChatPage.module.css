@@ -148,59 +148,7 @@
   align-items: center;
 }
 
-/* 도움말 모달 */
-.overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-.dialog {
-  width: 82%;
-  max-height: 78%;
-  overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 20px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.dialogTitle {
-  color: var(--text);
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.helpBlock {
-  color: var(--text-sub);
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-
-.helpKey {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-
-.helpClose {
-  height: 44px;
-  border: none;
-  border-radius: 13px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 14.5px;
-  font-weight: 700;
-  cursor: pointer;
-}
+/* 도움말 모달은 공용 컴포넌트(components/HelpModal)를 쓴다 */
 
 /* 키프레임을 모듈 안에 둬야 참조 이름이 함께 스코핑되어 실제로 매칭된다 */
 @keyframes sc-blink {

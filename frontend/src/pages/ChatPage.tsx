@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
+import { HelpModal } from '../components/HelpModal';
 import {
   getMessages,
   getMessagesSince,
@@ -272,28 +273,24 @@ export function ChatPage() {
         </div>
 
         {showHelp && (
-          <div className={styles.overlay} onClick={() => setShowHelp(false)}>
-            <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.dialogTitle}>이 방은 이렇게 써요</div>
-              <div className={styles.helpBlock}>
-                <div className={styles.helpKey}>방 하나 = 한 사람 이야기</div>
-                이 방에서 나눈 대화로 이야기와 기억이 쌓여요. 기억은 방마다 따로라, 다른 사람
-                이야기는 새 방에서 해주세요.
-              </div>
-              <div className={styles.helpBlock}>
-                <div className={styles.helpKey}>대화</div>
-                하루 10회, 한 번에 500자까지 보낼 수 있어요. 나눈 이야기가 많을수록 진단이
-                정확해져요.
-              </div>
-              <div className={styles.helpBlock}>
-                <div className={styles.helpKey}>진단</div>
-                오른쪽 위 진단 버튼에서 재회 가능성과 애착유형을 볼 수 있어요. 하루 2회예요.
-              </div>
-              <button className={styles.helpClose} onClick={() => setShowHelp(false)}>
-                알겠어요
-              </button>
-            </div>
-          </div>
+          <HelpModal
+            title="이 방은 이렇게 써요"
+            onClose={() => setShowHelp(false)}
+            sections={[
+              {
+                heading: '기억이 쌓여요',
+                text: '이 방에서 나눈 대화로 이야기와 기억이 쌓이고, 진단이 정확해져요. 기억은 방마다 따로라 다른 사람 이야기는 새 방에서 해주세요.',
+              },
+              {
+                heading: '대화 횟수',
+                text: '하루 10회, 한 번에 500자까지 보낼 수 있어요.',
+              },
+              {
+                heading: '진단',
+                text: '오른쪽 위 진단 버튼에서 재회 가능성과 애착유형을 볼 수 있어요.',
+              },
+            ]}
+          />
         )}
       </div>
     </PhoneFrame>

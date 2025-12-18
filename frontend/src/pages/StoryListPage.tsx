@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
+import { HelpModal } from '../components/HelpModal';
 import { listStories, createStory, deleteStory, type StoryResponse } from '../api/story';
 import { logout } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
@@ -236,29 +237,24 @@ export function StoryListPage() {
         </button>
 
         {showHelp && (
-          <div className={styles.overlay} onClick={() => setShowHelp(false)}>
-            <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.dialogTitle}>새벽 세시 사용법</div>
-              <div className={styles.dialogText}>
-                방 하나에 한 사람과의 이별 이야기를 담아요.
-                <br />
-                진단과 기억은 방마다 따로 쌓여요.
-              </div>
-              <div className={styles.dialogText}>
-                방을 왼쪽으로 밀거나 길게 누르면 삭제할 수 있어요.
-                <br />
-                보라색 배지는 읽지 않은 새 답이에요.
-              </div>
-              <div className={styles.dialogText}>
-                대화는 하루 10회, 진단은 하루 2회예요.
-              </div>
-              <div className={styles.dialogButtons}>
-                <button className={styles.cancelBtn} onClick={() => setShowHelp(false)}>
-                  알겠어요
-                </button>
-              </div>
-            </div>
-          </div>
+          <HelpModal
+            title="새벽 세시 사용법"
+            onClose={() => setShowHelp(false)}
+            sections={[
+              {
+                heading: '방 하나 = 한 사람 이야기',
+                text: '방 하나에 한 사람과의 이별 이야기를 담아요. 진단과 기억은 방마다 따로 쌓여요.',
+              },
+              {
+                heading: '목록 다루기',
+                text: '방을 왼쪽으로 밀거나 길게 누르면 삭제할 수 있어요. 보라색 배지는 읽지 않은 새 답이에요.',
+              },
+              {
+                heading: '이용권',
+                text: '무료 횟수를 다 쓰면 이용권으로 이어서 쓸 수 있어요. 위 카드 모양 버튼에서 구매해요.',
+              },
+            ]}
+          />
         )}
 
         {deleteTarget && (
