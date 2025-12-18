@@ -20,6 +20,7 @@ public class UsageController {
         return ResponseEntity.ok(new UsageStatusResponse(
                 usageLimiter.remainingDaily(UsageKind.CHAT, userId),
                 properties.getChatDailyLimit(),
+                usageLimiter.paidRemaining(UsageKind.CHAT, userId),
                 usageLimiter.remainingDaily(UsageKind.ASSESSMENT, userId),
                 properties.getAssessmentDailyLimit(),
                 usageLimiter.paidRemaining(UsageKind.ASSESSMENT, userId)));

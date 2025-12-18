@@ -37,7 +37,8 @@ public enum ErrorCode {
     LLM_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "L001", "AI 응답 생성에 실패했습니다."),
 
     // 사용량 제한
-    QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Q001", "오늘 이야기할 수 있는 횟수를 모두 썼어요. 내일 다시 만나요."),
+    QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Q001",
+            "오늘의 무료 횟수와 이용권을 모두 썼어요. 이용권을 채우거나 내일 다시 만나요."),
     GENERATION_IN_PROGRESS(HttpStatus.TOO_MANY_REQUESTS, "Q002", "아직 이전 답변을 만드는 중이에요. 잠시만 기다려 주세요."),
 
     // 결제
