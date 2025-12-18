@@ -28,7 +28,7 @@ import com.threeam.payment.entity.PaymentItem;
 import com.threeam.payment.entity.PaymentStatus;
 import com.threeam.usage.Entitlement;
 import com.threeam.usage.UsageKind;
-import java.util.Optional;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +41,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceTest {
+
+    // BUNDLE_STANDARD: 대화 20회(회당 20원) + 진단 3회(회당 500원) = 1,900원
+    private static final int BUNDLE_AMOUNT = 1900;
 
     @Mock
     private PaymentTxService txService;
@@ -57,7 +60,7 @@ class PaymentServiceTest {
 
     private Payment payment(PaymentStatus status) {
         Payment payment = Payment.builder()
-                .userId(1L).orderId("order-1").item(PaymentItem.ASSESSMENT_5).build();
+                .userId(1L).orderId("order-1").item(PaymentItem.BUNDLE_STANDARD).build();
         ReflectionTestUtils.setField(payment, "id", 100L);
         ReflectionTestUtils.setField(payment, "status", status);
         ReflectionTestUtils.setField(payment, "paymentKey", "pay-1");
@@ -72,15 +75,15 @@ class PaymentServiceTest {
         return request;
     }
 
-    private Entitlement entitlement(int total, int used) {
+    private Entitlement entitlement(UsageKind kind, int total, int used) {
         Entitlement entitlement = Entitlement.builder()
-                .userId(1L).kind(UsageKind.ASSESSMENT).totalCount(total).paymentId(100L).build();
+                .userId(1L).kind(kind).totalCount(total).paymentId(100L).build();
         ReflectionTestUtils.setField(entitlement, "usedCount", used);
         return entitlement;
     }
 
     private PaymentResponse response(Payment payment) {
-        return PaymentResponse.of(payment, null);
+        return PaymentResponse.of(payment, List.of());
     }
 
     @Test
@@ -102,7 +105,7 @@ class PaymentServiceTest {
         given(txService.loadOwned(1L, "order-1")).willReturn(done);
         given(txService.toResponseOwned(1L, "order-1")).willReturn(response(done));
 
-        PaymentResponse result = service.confirm(1L, confirmRequest(3900)).join();
+        PaymentResponse result = service.confirm(1L, confirmRequest(BUNDLE_AMOUNT)).join();
 
         assertThat(result.getStatus()).isEqualTo(PaymentStatus.DONE);
         verifyNoInteractions(paymentGateway);
@@ -114,7 +117,7 @@ class PaymentServiceTest {
     void confirm_rejectsWhileInProgress() {
         given(txService.loadOwned(1L, "order-1")).willReturn(payment(PaymentStatus.IN_PROGRESS));
 
-        assertThatThrownBy(() -> service.confirm(1L, confirmRequest(3900)))
+        assertThatThrownBy(() -> service.confirm(1L, confirmRequest(BUNDLE_AMOUNT)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_ALREADY_PROCESSING);
         verifyNoInteractions(paymentGateway);
@@ -137,7 +140,7 @@ class PaymentServiceTest {
         given(txService.loadOwned(1L, "order-1")).willReturn(payment(PaymentStatus.READY));
         given(txService.claimConfirm("order-1", "pay-1")).willReturn(false);
 
-        assertThatThrownBy(() -> service.confirm(1L, confirmRequest(3900)))
+        assertThatThrownBy(() -> service.confirm(1L, confirmRequest(BUNDLE_AMOUNT)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_ALREADY_PROCESSING);
         verifyNoInteractions(paymentGateway);
@@ -150,12 +153,12 @@ class PaymentServiceTest {
         given(txService.loadOwned(1L, "order-1")).willReturn(ready);
         given(txService.claimConfirm("order-1", "pay-1")).willReturn(true);
         PgPaymentResult done = PgPaymentResult.of("pay-1", "order-1", PgStatus.DONE);
-        given(paymentGateway.confirm("pay-1", "order-1", 3900))
+        given(paymentGateway.confirm("pay-1", "order-1", BUNDLE_AMOUNT))
                 .willReturn(CompletableFuture.completedFuture(done));
         Payment donePayment = payment(PaymentStatus.DONE);
         given(txService.applyPgResult("order-1", done)).willReturn(response(donePayment));
 
-        PaymentResponse result = service.confirm(1L, confirmRequest(3900)).join();
+        PaymentResponse result = service.confirm(1L, confirmRequest(BUNDLE_AMOUNT)).join();
 
         assertThat(result.getStatus()).isEqualTo(PaymentStatus.DONE);
     }
@@ -167,11 +170,11 @@ class PaymentServiceTest {
         given(txService.claimConfirm("order-1", "pay-1")).willReturn(true);
         PgPaymentResult failed = new PgPaymentResult("pay-1", "order-1", PgStatus.FAILED,
                 null, null, "카드 한도 초과", 0, null);
-        given(paymentGateway.confirm("pay-1", "order-1", 3900))
+        given(paymentGateway.confirm("pay-1", "order-1", BUNDLE_AMOUNT))
                 .willReturn(CompletableFuture.completedFuture(failed));
         given(txService.applyPgResult("order-1", failed)).willReturn(response(payment(PaymentStatus.FAILED)));
 
-        CompletableFuture<PaymentResponse> future = service.confirm(1L, confirmRequest(3900));
+        CompletableFuture<PaymentResponse> future = service.confirm(1L, confirmRequest(BUNDLE_AMOUNT));
 
         assertThatThrownBy(future::join)
                 .isInstanceOf(CompletionException.class)
@@ -186,10 +189,10 @@ class PaymentServiceTest {
     void confirm_unknownOutcome() {
         given(txService.loadOwned(1L, "order-1")).willReturn(payment(PaymentStatus.READY));
         given(txService.claimConfirm("order-1", "pay-1")).willReturn(true);
-        given(paymentGateway.confirm("pay-1", "order-1", 3900))
+        given(paymentGateway.confirm("pay-1", "order-1", BUNDLE_AMOUNT))
                 .willReturn(CompletableFuture.failedFuture(new PaymentGatewayException("timeout")));
 
-        CompletableFuture<PaymentResponse> future = service.confirm(1L, confirmRequest(3900));
+        CompletableFuture<PaymentResponse> future = service.confirm(1L, confirmRequest(BUNDLE_AMOUNT));
 
         assertThatThrownBy(future::join)
                 .isInstanceOf(CompletionException.class)
@@ -201,23 +204,27 @@ class PaymentServiceTest {
     }
 
     @Test
-    @DisplayName("환불 - 5회권 중 2회 사용이면 남은 3회 비례액으로 부분취소를 요청한다")
-    void cancel_partialRefundByRemaining() {
+    @DisplayName("환불 - 남은 횟수 가치 가중 합으로 부분취소를 요청한다(대화 15회 + 진단 2회 = 1,300원)")
+    void cancel_partialRefundByRemainingValue() {
         Payment done = payment(PaymentStatus.DONE);
         ReflectionTestUtils.setField(done, "method", "카드");
         given(txService.loadOwned(1L, "order-1")).willReturn(done);
-        given(txService.entitlementOf(100L)).willReturn(Optional.of(entitlement(5, 2)));
+        // 대화 20회 중 5회 사용(잔여 15 x 20원 = 300), 진단 3회 중 1회 사용(잔여 2 x 500원 = 1,000)
+        given(txService.entitlementsOf(100L)).willReturn(List.of(
+                entitlement(UsageKind.CHAT, 20, 5),
+                entitlement(UsageKind.ASSESSMENT, 3, 1)));
         given(txService.claimCancel(eq("order-1"), eq(PaymentStatus.DONE), anyString())).willReturn(true);
+        given(txService.cancelAttemptsOf("order-1")).willReturn(1);
         PgPaymentResult canceled = new PgPaymentResult("pay-1", "order-1", PgStatus.PARTIAL_CANCELED,
-                "카드", null, null, 2340, null);
-        given(paymentGateway.cancel(eq("pay-1"), eq(2340), anyString(), eq("order-1-cancel"), isNull()))
+                "카드", null, null, 1300, null);
+        given(paymentGateway.cancel(eq("pay-1"), eq(1300), anyString(), eq("order-1-cancel-1"), isNull()))
                 .willReturn(CompletableFuture.completedFuture(canceled));
         given(txService.applyPgResult("order-1", canceled)).willReturn(response(payment(PaymentStatus.CANCELED)));
 
         PaymentResponse result = service.cancel(1L, "order-1", new CancelRequest()).join();
 
         assertThat(result.getStatus()).isEqualTo(PaymentStatus.CANCELED);
-        verify(paymentGateway).cancel(eq("pay-1"), eq(2340), anyString(), eq("order-1-cancel"), isNull());
+        verify(paymentGateway).cancel(eq("pay-1"), eq(1300), anyString(), eq("order-1-cancel-1"), isNull());
     }
 
     @Test
@@ -225,7 +232,9 @@ class PaymentServiceTest {
     void cancel_nothingLeftToRefund() {
         Payment done = payment(PaymentStatus.DONE);
         given(txService.loadOwned(1L, "order-1")).willReturn(done);
-        given(txService.entitlementOf(100L)).willReturn(Optional.of(entitlement(5, 5)));
+        given(txService.entitlementsOf(100L)).willReturn(List.of(
+                entitlement(UsageKind.CHAT, 20, 20),
+                entitlement(UsageKind.ASSESSMENT, 3, 3)));
 
         assertThatThrownBy(() -> service.cancel(1L, "order-1", new CancelRequest()))
                 .isInstanceOf(BusinessException.class)
@@ -239,7 +248,9 @@ class PaymentServiceTest {
         Payment done = payment(PaymentStatus.DONE);
         ReflectionTestUtils.setField(done, "method", "가상계좌");
         given(txService.loadOwned(1L, "order-1")).willReturn(done);
-        given(txService.entitlementOf(100L)).willReturn(Optional.of(entitlement(5, 0)));
+        given(txService.entitlementsOf(100L)).willReturn(List.of(
+                entitlement(UsageKind.CHAT, 20, 0),
+                entitlement(UsageKind.ASSESSMENT, 3, 0)));
 
         assertThatThrownBy(() -> service.cancel(1L, "order-1", new CancelRequest()))
                 .isInstanceOf(BusinessException.class)
@@ -253,8 +264,11 @@ class PaymentServiceTest {
         Payment done = payment(PaymentStatus.DONE);
         ReflectionTestUtils.setField(done, "method", "카드");
         given(txService.loadOwned(1L, "order-1")).willReturn(done);
-        given(txService.entitlementOf(100L)).willReturn(Optional.of(entitlement(5, 2)));
+        given(txService.entitlementsOf(100L)).willReturn(List.of(
+                entitlement(UsageKind.CHAT, 20, 5),
+                entitlement(UsageKind.ASSESSMENT, 3, 1)));
         given(txService.claimCancel(eq("order-1"), eq(PaymentStatus.DONE), anyString())).willReturn(true);
+        given(txService.cancelAttemptsOf("order-1")).willReturn(1);
         PgPaymentResult rejected = new PgPaymentResult("pay-1", "order-1", PgStatus.FAILED,
                 null, null, "취소 불가", 0, null);
         given(paymentGateway.cancel(anyString(), anyInt(), anyString(), anyString(), isNull()))
@@ -272,7 +286,7 @@ class PaymentServiceTest {
     @Test
     @DisplayName("동기화 - 우리 주문이 아니면 PG 조회 없이 조용히 넘긴다(위조 웹훅 무해화)")
     void sync_ignoresUnknownOrder() {
-        given(txService.statusOf("evil-order")).willReturn(Optional.empty());
+        given(txService.statusOf("evil-order")).willReturn(java.util.Optional.empty());
 
         service.syncByOrderId("evil-order").join();
 

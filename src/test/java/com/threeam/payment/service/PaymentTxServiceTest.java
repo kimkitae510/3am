@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.threeam.global.exception.ErrorCode;
@@ -21,6 +22,7 @@ import com.threeam.usage.Entitlement;
 import com.threeam.usage.EntitlementRepository;
 import com.threeam.usage.UsageKind;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,16 +47,16 @@ class PaymentTxServiceTest {
 
     private Payment payment(PaymentStatus status) {
         Payment payment = Payment.builder()
-                .userId(1L).orderId("order-1").item(PaymentItem.ASSESSMENT_5).build();
+                .userId(1L).orderId("order-1").item(PaymentItem.BUNDLE_STANDARD).build();
         ReflectionTestUtils.setField(payment, "id", 100L);
         ReflectionTestUtils.setField(payment, "status", status);
         return payment;
     }
 
-    private Entitlement entitlement() {
+    private Entitlement entitlement(Long id, UsageKind kind, int total) {
         Entitlement entitlement = Entitlement.builder()
-                .userId(1L).kind(UsageKind.ASSESSMENT).totalCount(5).paymentId(100L).build();
-        ReflectionTestUtils.setField(entitlement, "id", 55L);
+                .userId(1L).kind(kind).totalCount(total).paymentId(100L).build();
+        ReflectionTestUtils.setField(entitlement, "id", id);
         return entitlement;
     }
 
@@ -69,11 +71,11 @@ class PaymentTxServiceTest {
     }
 
     @Test
-    @DisplayName("반영 - DONE 결과는 승인 확정과 이용권 지급을 함께 처리한다")
-    void apply_doneGrantsEntitlement() {
+    @DisplayName("반영 - DONE 결과는 승인 확정과 묶음 이용권 지급(대화+진단)을 함께 처리한다")
+    void apply_doneGrantsAllEntitlements() {
         Payment inProgress = payment(PaymentStatus.IN_PROGRESS);
         given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(inProgress));
-        given(entitlementRepository.findByPaymentId(100L)).willReturn(Optional.empty());
+        given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of());
 
         PgPaymentResult done = new PgPaymentResult("pay-1", "order-1", PgStatus.DONE,
                 "카드", LocalDateTime.now(), null, 0, null);
@@ -82,18 +84,37 @@ class PaymentTxServiceTest {
         assertThat(inProgress.getStatus()).isEqualTo(PaymentStatus.DONE);
         assertThat(inProgress.getMethod()).isEqualTo("카드");
         ArgumentCaptor<Entitlement> captor = ArgumentCaptor.forClass(Entitlement.class);
-        verify(entitlementRepository).save(captor.capture());
-        assertThat(captor.getValue().getTotalCount()).isEqualTo(5);
-        assertThat(captor.getValue().getKind()).isEqualTo(UsageKind.ASSESSMENT);
-        assertThat(captor.getValue().getPaymentId()).isEqualTo(100L);
+        verify(entitlementRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(Entitlement::getKind, Entitlement::getTotalCount, Entitlement::getPaymentId)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(UsageKind.CHAT, 20, 100L),
+                        org.assertj.core.groups.Tuple.tuple(UsageKind.ASSESSMENT, 3, 100L));
     }
 
     @Test
-    @DisplayName("반영 - 이미 지급된 결제에 DONE이 다시 와도(웹훅 재전송) 이중 지급하지 않는다")
+    @DisplayName("반영 - 일부만 지급된 채 끊겼으면 빠진 종류만 마저 지급한다")
+    void apply_doneFillsMissingGrantOnly() {
+        Payment done = payment(PaymentStatus.DONE);
+        given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(done));
+        given(entitlementRepository.findByPaymentId(100L))
+                .willReturn(List.of(entitlement(55L, UsageKind.CHAT, 20)));
+
+        service.applyPgResult("order-1", PgPaymentResult.of("pay-1", "order-1", PgStatus.DONE));
+
+        ArgumentCaptor<Entitlement> captor = ArgumentCaptor.forClass(Entitlement.class);
+        verify(entitlementRepository, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getKind()).isEqualTo(UsageKind.ASSESSMENT);
+    }
+
+    @Test
+    @DisplayName("반영 - 이미 다 지급된 결제에 DONE이 다시 와도(웹훅 재전송) 이중 지급하지 않는다")
     void apply_doneIsIdempotent() {
         Payment done = payment(PaymentStatus.DONE);
         given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(done));
-        given(entitlementRepository.findByPaymentId(100L)).willReturn(Optional.of(entitlement()));
+        given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of(
+                entitlement(55L, UsageKind.CHAT, 20),
+                entitlement(56L, UsageKind.ASSESSMENT, 3)));
 
         service.applyPgResult("order-1", PgPaymentResult.of("pay-1", "order-1", PgStatus.DONE));
 
@@ -106,7 +127,7 @@ class PaymentTxServiceTest {
     void apply_terminalStateIsFrozen() {
         Payment canceled = payment(PaymentStatus.CANCELED);
         given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(canceled));
-        given(entitlementRepository.findByPaymentId(100L)).willReturn(Optional.empty());
+        given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of());
 
         PaymentResponse response = service.applyPgResult("order-1",
                 PgPaymentResult.of("pay-1", "order-1", PgStatus.DONE));
@@ -116,19 +137,22 @@ class PaymentTxServiceTest {
     }
 
     @Test
-    @DisplayName("반영 - 취소 결과는 환불액 기록과 이용권 회수를 함께 처리한다")
-    void apply_cancelRevokesEntitlement() {
+    @DisplayName("반영 - 취소 결과는 환불액 기록과 이용권 전부 회수를 함께 처리한다")
+    void apply_cancelRevokesAllEntitlements() {
         Payment requested = payment(PaymentStatus.CANCEL_REQUESTED);
         given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(requested));
-        given(entitlementRepository.findByPaymentId(100L)).willReturn(Optional.of(entitlement()));
+        given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of(
+                entitlement(55L, UsageKind.CHAT, 20),
+                entitlement(56L, UsageKind.ASSESSMENT, 3)));
 
         PgPaymentResult canceled = new PgPaymentResult("pay-1", "order-1", PgStatus.PARTIAL_CANCELED,
-                "카드", null, null, 2340, null);
+                "카드", null, null, 1300, null);
         service.applyPgResult("order-1", canceled);
 
         assertThat(requested.getStatus()).isEqualTo(PaymentStatus.CANCELED);
-        assertThat(requested.getCanceledAmount()).isEqualTo(2340);
+        assertThat(requested.getCanceledAmount()).isEqualTo(1300);
         verify(entitlementRepository).revoke(eq(55L), any(LocalDateTime.class));
+        verify(entitlementRepository).revoke(eq(56L), any(LocalDateTime.class));
     }
 
     @Test
@@ -136,7 +160,7 @@ class PaymentTxServiceTest {
     void apply_notFoundExpires() {
         Payment inProgress = payment(PaymentStatus.IN_PROGRESS);
         given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(inProgress));
-        given(entitlementRepository.findByPaymentId(100L)).willReturn(Optional.empty());
+        given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of());
 
         service.applyPgResult("order-1", PgPaymentResult.of(null, "order-1", PgStatus.NOT_FOUND));
 
@@ -148,7 +172,7 @@ class PaymentTxServiceTest {
     void apply_virtualAccountIssued() {
         Payment inProgress = payment(PaymentStatus.IN_PROGRESS);
         given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(inProgress));
-        given(entitlementRepository.findByPaymentId(100L)).willReturn(Optional.empty());
+        given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of());
 
         LocalDateTime due = LocalDateTime.now().plusDays(1);
         PgPaymentResult waiting = new PgPaymentResult("pay-1", "order-1", PgStatus.WAITING_FOR_DEPOSIT,
@@ -168,7 +192,7 @@ class PaymentTxServiceTest {
     void apply_unknownIsNoop() {
         Payment inProgress = payment(PaymentStatus.IN_PROGRESS);
         given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(inProgress));
-        given(entitlementRepository.findByPaymentId(100L)).willReturn(Optional.empty());
+        given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of());
 
         service.applyPgResult("order-1", PgPaymentResult.of(null, "order-1", PgStatus.UNKNOWN));
 
