@@ -81,6 +81,11 @@ public class Payment {
     @Column(name = "canceled_amount", nullable = false)
     private int canceledAmount;
 
+    // 취소 시도 횟수. PG 멱등키에 붙여 "같은 시도의 재전송은 흡수, 새 시도(거절 후 정보 고쳐
+    // 재요청)는 새 키"가 되게 한다 — 키를 주문에만 고정하면 거절 응답이 캐시로 영원히 반복된다.
+    @Column(name = "cancel_attempts", nullable = false)
+    private int cancelAttempts;
+
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 

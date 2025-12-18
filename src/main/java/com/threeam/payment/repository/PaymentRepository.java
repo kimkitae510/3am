@@ -34,9 +34,11 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     int claimWithKey(@Param("orderId") String orderId, @Param("from") String from,
                      @Param("to") String to, @Param("paymentKey") String paymentKey);
 
+    // cancel_attempts 증가는 PG 멱등키 갱신용 — 시도마다 새 키, 같은 시도의 재전송은 같은 키.
     @Modifying(clearAutomatically = true)
     @Query(value = """
-            UPDATE payments SET status = :to, cancel_reason = :reason, updated_at = NOW(6)
+            UPDATE payments SET status = :to, cancel_reason = :reason,
+                cancel_attempts = cancel_attempts + 1, updated_at = NOW(6)
             WHERE order_id = :orderId AND status = :from
             """, nativeQuery = true)
     int claimCancel(@Param("orderId") String orderId, @Param("from") String from,
