@@ -2,6 +2,7 @@ package com.threeam.payment.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.threeam.payment.service.PaymentService;
+import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,16 +23,17 @@ public class PaymentWebhookController {
     private final PaymentService paymentService;
 
     @PostMapping("/toss")
-    public ResponseEntity<Void> toss(@RequestBody JsonNode payload) {
+    public CompletableFuture<ResponseEntity<Void>> toss(@RequestBody JsonNode payload) {
         // 상태 변경 이벤트는 data.orderId, 가상계좌 입금 콜백은 최상위 orderId에 실려 온다.
         String orderId = payload.path("data").path("orderId").asText(
                 payload.path("orderId").asText(null));
         if (orderId == null || orderId.isBlank()) {
             log.warn("orderId 없는 웹훅 무시: eventType={}", payload.path("eventType").asText(""));
-            return ResponseEntity.ok().build();
+            return CompletableFuture.completedFuture(ResponseEntity.ok().build());
         }
+        // 논블로킹 — 웹훅이 몰려도 서블릿 스레드를 PG 조회 시간만큼 잡아두지 않는다.
         // 실패하면 500으로 떨어져 토스가 재전송한다(재동기화 스케줄러도 뒤를 받친다).
-        paymentService.syncByOrderId(orderId).join();
-        return ResponseEntity.ok().build();
+        return paymentService.syncByOrderId(orderId)
+                .thenApply(ignored -> ResponseEntity.ok().build());
     }
 }
