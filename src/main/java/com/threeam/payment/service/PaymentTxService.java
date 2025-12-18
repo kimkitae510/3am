@@ -10,12 +10,13 @@ import com.threeam.payment.entity.PaymentStatus;
 import com.threeam.payment.repository.PaymentRepository;
 import com.threeam.usage.Entitlement;
 import com.threeam.usage.EntitlementRepository;
+import com.threeam.usage.UsageKind;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -104,7 +105,7 @@ public class PaymentTxService {
                             result.approvedAt() != null ? result.approvedAt() : LocalDateTime.now());
                 }
                 // 승인 확정과 이용권 지급이 한 트랜잭션 — 돈만 받고 지급이 빠지는 틈을 없앤다.
-                grantEntitlementOnce(payment);
+                grantEntitlementsOnce(payment);
             }
             case WAITING_FOR_DEPOSIT -> {
                 if (payment.getStatus() == PaymentStatus.READY
@@ -119,7 +120,7 @@ public class PaymentTxService {
             // 우리 시나리오의 부분취소는 "미사용분 환불로 종결"이라 둘 다 취소 완료로 접는다.
             case CANCELED, PARTIAL_CANCELED -> {
                 payment.markCanceled(result.canceledAmount(), LocalDateTime.now());
-                revokeEntitlement(payment);
+                revokeEntitlements(payment);
             }
             case FAILED -> {
                 if (payment.getStatus() == PaymentStatus.DONE) {
@@ -156,42 +157,57 @@ public class PaymentTxService {
     public List<PaymentResponse> myPayments(Long userId) {
         List<Payment> payments = paymentRepository.findByUserIdOrderByCreatedAtDesc(userId);
         // 이용권을 결제 건별로 한 번에 당겨 N+1을 피한다.
-        Map<Long, Entitlement> byPaymentId = entitlementRepository
+        Map<Long, List<Entitlement>> byPaymentId = entitlementRepository
                 .findByPaymentIdIn(payments.stream().map(Payment::getId).toList()).stream()
-                .collect(Collectors.toMap(Entitlement::getPaymentId, Function.identity()));
+                .collect(Collectors.groupingBy(Entitlement::getPaymentId));
         return payments.stream()
-                .map(payment -> PaymentResponse.of(payment, byPaymentId.get(payment.getId())))
+                .map(payment -> PaymentResponse.of(payment,
+                        byPaymentId.getOrDefault(payment.getId(), List.of())))
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public Optional<Entitlement> entitlementOf(Long paymentId) {
+    public List<Entitlement> entitlementsOf(Long paymentId) {
         return entitlementRepository.findByPaymentId(paymentId);
     }
 
+    @Transactional(readOnly = true)
+    public int cancelAttemptsOf(String orderId) {
+        return paymentRepository.findByOrderId(orderId)
+                .map(Payment::getCancelAttempts)
+                .orElse(0);
+    }
+
     private PaymentResponse toResponse(Payment payment) {
-        return PaymentResponse.of(payment,
-                entitlementRepository.findByPaymentId(payment.getId()).orElse(null));
+        return PaymentResponse.of(payment, entitlementRepository.findByPaymentId(payment.getId()));
     }
 
-    private void grantEntitlementOnce(Payment payment) {
-        if (entitlementRepository.findByPaymentId(payment.getId()).isPresent()) {
-            return;
+    // 상품이 지급하는 이용권 종류별로, 아직 없는 것만 채운다 — 중간에 죽어 일부만
+    // 지급된 상태로 재실행돼도 빠진 종류만 마저 지급된다(멱등).
+    private void grantEntitlementsOnce(Payment payment) {
+        Set<UsageKind> granted = entitlementRepository.findByPaymentId(payment.getId()).stream()
+                .map(Entitlement::getKind)
+                .collect(Collectors.toSet());
+        for (PaymentItem.Grant grant : payment.getItem().getGrants()) {
+            if (granted.contains(grant.kind())) {
+                continue;
+            }
+            // 행 락이 동시 지급을 이미 직렬화한다. (payment_id, kind) 유니크는 최후의 안전판 —
+            // 그래도 겹치면 이 트랜잭션이 통째로 실패하고, 다음 재동기화가 멱등하게 다시 지나간다.
+            entitlementRepository.save(Entitlement.builder()
+                    .userId(payment.getUserId())
+                    .kind(grant.kind())
+                    .totalCount(grant.count())
+                    .paymentId(payment.getId())
+                    .build());
+            log.info("이용권 지급 paymentId={} userId={} {}x{}",
+                    payment.getId(), payment.getUserId(), grant.kind(), grant.count());
         }
-        // 행 락이 동시 지급을 이미 직렬화한다. payment_id 유니크는 최후의 안전판 —
-        // 그래도 겹치면 이 트랜잭션이 통째로 실패하고, 다음 재동기화가 멱등하게 다시 지나간다.
-        entitlementRepository.save(Entitlement.builder()
-                .userId(payment.getUserId())
-                .kind(payment.getItem().getKind())
-                .totalCount(payment.getItem().getCount())
-                .paymentId(payment.getId())
-                .build());
-        log.info("이용권 지급 paymentId={} userId={} {}x{}",
-                payment.getId(), payment.getUserId(), payment.getItem().getKind(), payment.getItem().getCount());
     }
 
-    private void revokeEntitlement(Payment payment) {
-        entitlementRepository.findByPaymentId(payment.getId())
-                .ifPresent(entitlement -> entitlementRepository.revoke(entitlement.getId(), LocalDateTime.now()));
+    private void revokeEntitlements(Payment payment) {
+        for (Entitlement entitlement : entitlementRepository.findByPaymentId(payment.getId())) {
+            entitlementRepository.revoke(entitlement.getId(), LocalDateTime.now());
+        }
     }
 }

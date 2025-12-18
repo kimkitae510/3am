@@ -21,11 +21,12 @@ import org.hibernate.type.SqlTypes;
 // 결제로 지급된 이용권. 일일 무료 한도를 다 쓴 뒤에 여기서 차감된다.
 // usage 도메인에 두는 이유: 이용권은 "쓸 수 있는 횟수"라는 사용량 개념의 확장이고,
 // 이 방향이어야 의존이 payment → usage 한 방향으로 유지된다(usage는 결제를 모른다).
-// payment_id 유니크가 이중 지급을 DB 수준에서 막는다 — 승인 재시도, 웹훅 재전송,
-// 재동기화가 겹쳐 지급 로직이 몇 번을 다시 돌아도 이용권은 한 번만 생긴다.
+// (payment_id, kind) 유니크가 이중 지급을 DB 수준에서 막는다 — 승인 재시도, 웹훅 재전송,
+// 재동기화가 겹쳐 지급 로직이 몇 번을 다시 돌아도 종류당 한 번만 생긴다.
+// (묶음 상품은 한 결제가 대화, 진단 이용권을 각각 지급하므로 결제당 행이 여러 개일 수 있다.)
 @Entity
 @Table(name = "entitlements", uniqueConstraints =
-        @UniqueConstraint(name = "uk_entitlements_payment", columnNames = "payment_id"))
+        @UniqueConstraint(name = "uk_entitlements_payment_kind", columnNames = {"payment_id", "kind"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Entitlement {

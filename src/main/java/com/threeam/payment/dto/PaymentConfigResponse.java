@@ -24,16 +24,25 @@ public class PaymentConfigResponse {
     public static class ItemView {
         private final String code;
         private final String name;
-        private final String kind;
-        private final int count;
         private final int amount;
+        private final List<GrantView> grants;
 
         private ItemView(PaymentItem item) {
             this.code = item.name();
             this.name = item.getDisplayName();
-            this.kind = item.getKind().name();
-            this.count = item.getCount();
             this.amount = item.getAmount();
+            this.grants = item.getGrants().stream().map(GrantView::new).toList();
+        }
+    }
+
+    @Getter
+    public static class GrantView {
+        private final String kind;
+        private final int count;
+
+        private GrantView(PaymentItem.Grant grant) {
+            this.kind = grant.kind().name();
+            this.count = grant.count();
         }
     }
 }

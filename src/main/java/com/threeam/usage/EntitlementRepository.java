@@ -3,7 +3,6 @@ package com.threeam.usage;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -11,7 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface EntitlementRepository extends JpaRepository<Entitlement, Long> {
 
-    Optional<Entitlement> findByPaymentId(Long paymentId);
+    // 묶음 상품은 결제 하나가 이용권 여러 종(대화, 진단)을 지급한다.
+    List<Entitlement> findByPaymentId(Long paymentId);
 
     List<Entitlement> findByPaymentIdIn(Collection<Long> paymentIds);
 

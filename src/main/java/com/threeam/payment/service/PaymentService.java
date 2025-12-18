@@ -106,9 +106,11 @@ public class PaymentService {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSING);
         }
 
-        // 멱등키를 주문에 고정 — 응답 유실 후 재시도가 와도 PG가 최초 1회로 흡수해 이중 환불이 없다.
+        // 멱등키 = 주문 + 시도 번호. 같은 시도의 재전송은 PG가 최초 1회로 흡수하고(이중 환불 방지),
+        // 거절 후 정보를 고쳐 다시 요청하는 "새 시도"는 새 키를 받는다(캐시된 거절 응답 회피).
+        String idempotencyKey = orderId + "-cancel-" + txService.cancelAttemptsOf(orderId);
         return paymentGateway.cancel(payment.getPaymentKey(), refundAmount, reason,
-                        orderId + "-cancel", toRefundAccount(request))
+                        idempotencyKey, toRefundAccount(request))
                 .thenApply(result -> {
                     if (result.status() == PgStatus.FAILED) {
                         // 확실한 거절만 원상 복귀. 불명이면 여기 오지 않는다(exceptionally → 재동기화).
@@ -144,16 +146,19 @@ public class PaymentService {
         if (payment.getStatus() == PaymentStatus.WAITING_FOR_DEPOSIT) {
             return payment.getAmount();
         }
-        Entitlement entitlement = txService.entitlementOf(payment.getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_INVALID_STATE));
-        if (entitlement.remainingCount() <= 0) {
+        List<Entitlement> entitlements = txService.entitlementsOf(payment.getId());
+        if (entitlements.isEmpty()) {
+            throw new BusinessException(ErrorCode.PAYMENT_INVALID_STATE);
+        }
+        int refundAmount = payment.getItem().refundableAmount(entitlements);
+        if (refundAmount <= 0) {
             throw new BusinessException(ErrorCode.REFUND_NOT_ALLOWED);
         }
         // 가상계좌로 이미 입금된 돈은 돌려보낼 계좌가 있어야 한다(카드, 간편결제는 수단으로 자동 환불).
         if ("가상계좌".equals(payment.getMethod()) && toRefundAccount(request) == null) {
             throw new BusinessException(ErrorCode.REFUND_ACCOUNT_REQUIRED);
         }
-        return entitlement.refundableAmount(payment.getAmount());
+        return refundAmount;
     }
 
     private PaymentGateway.RefundAccount toRefundAccount(CancelRequest request) {
