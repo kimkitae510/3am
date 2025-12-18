@@ -30,7 +30,8 @@ public class MockPaymentGateway implements PaymentGateway {
 
     @Override
     public CompletableFuture<PgPaymentResult> findByOrderId(String orderId) {
-        // 모의 결제는 응답 유실이 없어 재동기화가 개입할 일이 없다. 승인 완료로 간주한다.
-        return CompletableFuture.completedFuture(PgPaymentResult.of(null, orderId, PgStatus.DONE));
+        // UNKNOWN = 아무것도 확정하지 말라. DONE을 돌려주면 웹훅 경로(인증 없이 열림)로
+        // orderId만 던져도 승인 없이 이용권이 지급되는 구멍이 된다 — mock이라도 막는다.
+        return CompletableFuture.completedFuture(PgPaymentResult.of(null, orderId, PgStatus.UNKNOWN));
     }
 }
