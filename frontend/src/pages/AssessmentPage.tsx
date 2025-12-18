@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
+import { HelpModal } from '../components/HelpModal';
 import { getAssessments, runAssessment, type AssessmentResponse } from '../api/assessment';
 import { getUsage } from '../api/usage';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
@@ -8,7 +9,7 @@ import { formatListTime } from '../utils/datetime';
 import styles from './AssessmentPage.module.css';
 
 const GAUGE_MAX = 80; // 확률 상한(정책, 백엔드 클램프와 동일). 게이지는 이 값을 만점으로 그린다.
-const GAUGE_MIN = 5; // 확률 하한(정책)
+// 수치 계산 방식(범위, 단계 기준)은 화면에 공개하지 않는다 — "왜 80이 최대냐" 같은 질문만 만든다.
 
 // 애착유형 라벨(서버) → 한 줄 설명. 유형명만 던지면 뭔지 모르는 유저가 많다.
 const ATTACH_DESC: Record<string, string> = {
@@ -259,11 +260,6 @@ export function AssessmentPage() {
           </div>
           <div className={styles.gaugeLabel}>재회 가능성</div>
           <div className={styles.gaugeSub}>{bandText(prob)}</div>
-          <div className={styles.gaugeNote}>
-            확률은 보통 {GAUGE_MIN}~{GAUGE_MAX}% 사이로만 봅니다.
-            <br />
-            100%는 상대가 먼저 만나자고 한 상태에서만 나옵니다.
-          </div>
 
           {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기) */}
           <div className={styles.dedTitle}>애착유형</div>
@@ -353,33 +349,28 @@ export function AssessmentPage() {
         </div>
 
         {showHelp && (
-          <div className={styles.overlay} onClick={() => setShowHelp(false)}>
-            <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.dialogTitle}>진단은 이렇게 봐요</div>
-              <div className={styles.helpBlock}>
-                <div className={styles.helpKey}>재회 가능성</div>
-                대화와 기록된 사실을 근거로 "상대가 돌아올 가능성"을 봐요. 보통 {GAUGE_MIN}~{GAUGE_MAX}%
-                사이이고, 상대가 먼저 만나자고 한 상태에서만 100%가 나와요.
-              </div>
-              <div className={styles.helpBlock}>
-                <div className={styles.helpKey}>단계</div>
-                15% 미만 "아직은 낮아요", 40% 미만 "낮지도, 높지도 않아요", 40% 이상 "가능성이 보여요"
-              </div>
-              <div className={styles.helpBlock}>
-                <div className={styles.helpKey}>애착유형</div>
-                안정형, 불안형, 거부회피형(거회), 공포회피형(공회) 네 가지예요. 대화에 드러난 행동
-                패턴으로 판정하고, 근거가 부족하면 비워둬요.
-              </div>
-              <div className={styles.helpBlock}>
-                <div className={styles.helpKey}>횟수</div>
-                진단은 하루 2회, 대화는 하루 10회예요. "다시 진단"은 1회가 차감되지만, 이야기가
-                부족하다는 안내만 받은 경우엔 차감되지 않아요.
-              </div>
-              <button className={styles.btnPrimary} onClick={() => setShowHelp(false)}>
-                알겠어요
-              </button>
-            </div>
-          </div>
+          <HelpModal
+            title="진단은 이렇게 봐요"
+            onClose={() => setShowHelp(false)}
+            sections={[
+              {
+                heading: '재회 가능성',
+                text: '대화와 기록된 사실을 근거로 "상대가 돌아올 가능성"을 봐요. 한 번의 대화로 출렁이지 않게 보수적으로 계산해요.',
+              },
+              {
+                heading: '100%가 뜨는 경우',
+                text: '상대가 먼저 만나자고 한 상태라면 100%예요. 남은 건 내 마음이니까요. 제안이 없던 일이 되면 다시 내려가요.',
+              },
+              {
+                heading: '애착유형',
+                text: '안정형, 불안형, 거부회피형(거회), 공포회피형(공회) 네 가지예요. 행동 패턴이 여러 번 보여야 잡혀서 처음엔 비어 있을 수 있어요.',
+              },
+              {
+                heading: '횟수',
+                text: '진단은 하루 2회예요. 이야기가 부족하다는 안내만 받은 경우엔 차감되지 않아요.',
+              },
+            ]}
+          />
         )}
       </div>
     </PhoneFrame>
