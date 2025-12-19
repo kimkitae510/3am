@@ -70,3 +70,12 @@ export function extractErrorMessage(err: unknown, fallback = '요청 처리 중 
   }
   return fallback;
 }
+
+// 백엔드 에러 코드(Q001, P007 등). 코드별 분기(쿼터 소진 → 구매 유도 등)에 쓴다.
+export function extractErrorCode(err: unknown): string | null {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { code?: string } | undefined;
+    return data?.code ?? null;
+  }
+  return null;
+}
