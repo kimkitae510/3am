@@ -35,11 +35,16 @@ export function ChatPage() {
   const [input, setInput] = useState('');
   const [waiting, setWaiting] = useState(false); // 어시스턴트 답 대기(타이핑)
   const [chatRemaining, setChatRemaining] = useState<number | null>(null); // 오늘 남은 대화 횟수
+  const [chatPaidRemaining, setChatPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
   const [showHelp, setShowHelp] = useState(false);
 
   function refreshUsage() {
     getUsage()
-      .then((u) => aliveRef.current && setChatRemaining(u.chatRemaining))
+      .then((u) => {
+        if (!aliveRef.current) return;
+        setChatRemaining(u.chatRemaining);
+        setChatPaidRemaining(u.chatPaidRemaining);
+      })
       .catch(() => {}); // 표시용 정보라 실패는 조용히 무시
   }
 
@@ -225,7 +230,10 @@ export function ChatPage() {
         </div>
 
         {chatRemaining != null && (
-          <div className={styles.usageHint}>오늘 남은 대화 {chatRemaining}회</div>
+          <div className={styles.usageHint}>
+            오늘 남은 대화 {chatRemaining}회
+            {chatPaidRemaining > 0 && ` + 이용권 ${chatPaidRemaining}회`}
+          </div>
         )}
         {/* 한도(1000자, 서버 검증과 동일)에 가까워질 때만 카운터 노출 — 평소엔 조용히 */}
         {input.length >= MAX_LENGTH - 200 && (

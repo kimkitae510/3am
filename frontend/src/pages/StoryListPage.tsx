@@ -147,6 +147,17 @@ export function StoryListPage() {
         <div className={styles.header}>
           <div className={styles.title}>대화</div>
           <div className={styles.headerActions}>
+            <button className={styles.iconButton} onClick={() => navigate('/payment')} aria-label="이용권">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M4 9a1 1 0 011-1h14a1 1 0 011 1v1.5a1.5 1.5 0 000 3V15a1 1 0 01-1 1H5a1 1 0 01-1-1v-1.5a1.5 1.5 0 000-3V9z"
+                  stroke="#9B98A3"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+                <path d="M14.5 8.5v7" stroke="#9B98A3" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2.4" />
+              </svg>
+            </button>
             <button className={styles.iconButton} onClick={() => setShowHelp(true)} aria-label="도움말">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />

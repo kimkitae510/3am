@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { getAssessments, runAssessment, type AssessmentResponse } from '../api/assessment';
 import { getUsage } from '../api/usage';
-import { extractErrorMessage } from '../api/client';
+import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import styles from './AssessmentPage.module.css';
 
@@ -56,6 +56,8 @@ export function AssessmentPage() {
   const [diagnosing, setDiagnosing] = useState(false); // 새 진단(LLM 호출, 쿼터 차감) 실행 중
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState<number | null>(null); // 오늘 남은 진단 횟수
+  const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
+  const [quotaOver, setQuotaOver] = useState(false); // 무료+이용권 모두 소진 → 구매 유도
   const [showHelp, setShowHelp] = useState(false);
   const aliveRef = useRef(true);
 
@@ -68,7 +70,11 @@ export function AssessmentPage() {
 
   function refreshUsage() {
     getUsage()
-      .then((u) => aliveRef.current && setRemaining(u.assessmentRemaining))
+      .then((u) => {
+        if (!aliveRef.current) return;
+        setRemaining(u.assessmentRemaining);
+        setPaidRemaining(u.assessmentPaidRemaining);
+      })
       .catch(() => {});
   }
 
@@ -76,6 +82,7 @@ export function AssessmentPage() {
   async function diagnose() {
     setDiagnosing(true);
     setError('');
+    setQuotaOver(false);
     try {
       const res = await runAssessment(storyId);
       if (aliveRef.current) {
@@ -83,7 +90,11 @@ export function AssessmentPage() {
         refreshUsage(); // 후차감이라 성공 시점에 갱신
       }
     } catch (e) {
-      if (aliveRef.current) setError(extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'));
+      if (aliveRef.current) {
+        setError(extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'));
+        // 무료+이용권 모두 소진(Q001)일 때만 구매 유도 버튼을 띄운다.
+        setQuotaOver(extractErrorCode(e) === 'Q001');
+      }
     } finally {
       if (aliveRef.current) setDiagnosing(false);
     }
@@ -218,6 +229,11 @@ export function AssessmentPage() {
       <div className={styles.wrap}>
         <BackBar onBack={toChat} onHelp={() => setShowHelp(true)} />
         {error && <div className={styles.errorBanner}>{error}</div>}
+        {quotaOver && (
+          <button className={styles.askChat} onClick={() => navigate('/payment')}>
+            이용권 채우러 가기
+          </button>
+        )}
         <div className={styles.body}>
           <div className={styles.meta}>재회 확률은 이 대화방의 이야기 기준이에요</div>
           <div className={styles.metaSub}>마지막 진단 {metaDate}</div>
@@ -310,7 +326,10 @@ export function AssessmentPage() {
           )}
 
           {/* 갱신 안내 문구는 제거 — 새 이야기 없이 다시 진단하면 서버가 사유를 설명하며 거부해서 중복 안내였다 */}
-          <div className={styles.hintCount}>{remaining != null ? `오늘 ${remaining}회 남음` : '하루 2회'}</div>
+          <div className={styles.hintCount}>
+            {remaining != null ? `오늘 ${remaining}회 남음` : '하루 2회'}
+            {paidRemaining > 0 && ` + 이용권 ${paidRemaining}회`}
+          </div>
 
           <button
             className={styles.askChat}
