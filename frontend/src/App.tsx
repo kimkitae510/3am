@@ -5,6 +5,8 @@ import { StoryListPage } from './pages/StoryListPage';
 import { ChatPage } from './pages/ChatPage';
 import { AssessmentPage } from './pages/AssessmentPage';
 import { HistoryPage } from './pages/HistoryPage';
+import { PaymentPage } from './pages/PaymentPage';
+import { PaymentResultPage } from './pages/PaymentResultPage';
 
 export default function App() {
   return (
@@ -16,6 +18,10 @@ export default function App() {
       <Route path="/stories/:storyId" element={<ChatPage />} />
       <Route path="/stories/:storyId/assessment" element={<AssessmentPage />} />
       <Route path="/stories/:storyId/history" element={<HistoryPage />} />
+      <Route path="/payment" element={<PaymentPage />} />
+      {/* 토스 위젯 리다이렉트 도착지 — success는 여기서 서버 승인까지 마친다 */}
+      <Route path="/payment/success" element={<PaymentResultPage />} />
+      <Route path="/payment/fail" element={<PaymentResultPage />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
