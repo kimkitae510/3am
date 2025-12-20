@@ -20,6 +20,10 @@ public class PaymentProperties {
     // 너무 짧으면 정상 진행 중인 승인과 경합하고, 너무 길면 유저가 "돈 나갔는데 지급이 없다"를 오래 본다.
     private int syncAfterMinutes = 2;
 
+    // 유저당 미결(READY) 주문 상한. 결제까지 안 가는 주문 생성 도배로 테이블이 부푸는 것을 막는다.
+    // 정상 유저는 위젯을 띄우면 바로 결제하거나 30분 뒤 만료되므로 이 수에 닿을 일이 없다.
+    private int maxPendingOrdersPerUser = 5;
+
     @Getter
     @Setter
     public static class Toss {

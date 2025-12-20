@@ -42,7 +42,8 @@ public class PaymentService {
     // 금액은 여기서(서버 상품 정의로) 확정된다. 프론트는 orderId와 금액을 받아 위젯만 띄운다.
     public OrderCreateResponse createOrder(Long userId, OrderCreateRequest request) {
         PaymentItem item = PaymentItem.parse(request.getItem());
-        return OrderCreateResponse.from(txService.createOrder(userId, item));
+        return OrderCreateResponse.from(
+                txService.createOrder(userId, item, properties.getMaxPendingOrdersPerUser()));
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)

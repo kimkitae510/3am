@@ -34,7 +34,11 @@ public class PaymentTxService {
     private final EntitlementRepository entitlementRepository;
 
     @Transactional
-    public Payment createOrder(Long userId, PaymentItem item) {
+    public Payment createOrder(Long userId, PaymentItem item, int maxPending) {
+        // 결제까지 안 가는 주문 생성 도배로 테이블이 부푸는 것을 막는다(돈은 안 걸리지만 잔재가 쌓임).
+        if (paymentRepository.countByUserIdAndStatus(userId, PaymentStatus.READY) >= maxPending) {
+            throw new BusinessException(ErrorCode.TOO_MANY_PENDING_ORDERS);
+        }
         Payment payment = Payment.builder()
                 .userId(userId)
                 .orderId(UUID.randomUUID().toString())

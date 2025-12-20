@@ -24,6 +24,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByUserIdOrderByCreatedAtDesc(Long userId);
 
+    // 미결 주문 도배 방어용. 만료 전(만료 스케줄러가 아직 안 돈) READY 주문 수를 센다.
+    int countByUserIdAndStatus(Long userId, PaymentStatus status);
+
     // 상태 전이를 조건부 UPDATE 한 문장으로 — 같은 주문의 동시 요청 중 한 쪽만 성공한다(선점).
     // updated_at은 재동기화의 "얼마나 머물렀나" 기준이라 벌크 UPDATE에서도 직접 갱신한다.
     @Modifying(clearAutomatically = true)
