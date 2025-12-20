@@ -32,6 +32,9 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private SignupRateLimiter signupRateLimiter;
+
     @InjectMocks
     private UserService userService;
 
@@ -47,7 +50,7 @@ class UserServiceTest {
             return saved;
         });
 
-        SignupResponse response = userService.signup(request);
+        SignupResponse response = userService.signup(request, "1.1.1.1");
 
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getEmail()).isEqualTo("a@a.com");
@@ -65,9 +68,21 @@ class UserServiceTest {
         SignupRequest request = signupRequest("dup@a.com", "password123", "닉네임");
         given(userRepository.existsByEmail("dup@a.com")).willReturn(true);
 
-        assertThatThrownBy(() -> userService.signup(request))
+        assertThatThrownBy(() -> userService.signup(request, "1.1.1.1"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMAIL_ALREADY_EXISTS);
+    }
+
+    @Test
+    @DisplayName("회원가입 실패 - IP 가입 한도를 넘으면 SIGNUP_RATE_LIMITED 예외")
+    void signup_rateLimited() {
+        SignupRequest request = signupRequest("a@a.com", "password123", "닉네임");
+        org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.SIGNUP_RATE_LIMITED))
+                .given(signupRateLimiter).check("9.9.9.9");
+
+        assertThatThrownBy(() -> userService.signup(request, "9.9.9.9"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SIGNUP_RATE_LIMITED);
     }
 
     private SignupRequest signupRequest(String email, String password, String nickname) {

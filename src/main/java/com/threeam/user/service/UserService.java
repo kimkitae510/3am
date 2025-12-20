@@ -19,9 +19,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SignupRateLimiter signupRateLimiter;
 
     @Transactional
-    public SignupResponse signup(SignupRequest request) {
+    public SignupResponse signup(SignupRequest request, String clientIp) {
+        signupRateLimiter.check(clientIp);
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }

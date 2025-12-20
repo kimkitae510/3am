@@ -1,8 +1,10 @@
 package com.threeam.user.controller;
 
+import com.threeam.global.web.ClientIp;
 import com.threeam.user.dto.SignupRequest;
 import com.threeam.user.dto.SignupResponse;
 import com.threeam.user.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,7 +22,9 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping("/signup")
-    public ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.signup(request));
+    public ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request,
+                                                 HttpServletRequest httpRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(userService.signup(request, ClientIp.of(httpRequest)));
     }
 }

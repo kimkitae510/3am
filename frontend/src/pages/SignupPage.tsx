@@ -58,7 +58,7 @@ export function SignupPage() {
               className={styles.input}
               type="password"
               autoComplete="new-password"
-              placeholder="비밀번호 (8자 이상)"
+              placeholder="비밀번호 (영문, 숫자 포함 8자 이상)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
