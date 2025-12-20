@@ -49,6 +49,14 @@ public class JwtTokenProvider {
         return parse(token).get("role", String.class);
     }
 
+    public long getIssuedAtMillis(String token) {
+        return parse(token).getIssuedAt().getTime();
+    }
+
+    public long getAccessValidityMillis() {
+        return accessValidityMs;
+    }
+
     private String build(Long userId, String role, long validityMs) {
         long now = System.currentTimeMillis();
         var builder = Jwts.builder()

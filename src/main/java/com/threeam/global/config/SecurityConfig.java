@@ -9,6 +9,7 @@ import com.threeam.security.handler.JwtAccessDeniedHandler;
 import com.threeam.security.handler.JwtAuthenticationEntryPoint;
 import com.threeam.security.jwt.JwtAuthenticationFilter;
 import com.threeam.security.jwt.JwtTokenProvider;
+import com.threeam.security.jwt.TokenInvalidationRegistry;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +40,7 @@ public class SecurityConfig {
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
     private final JwtAccessDeniedHandler accessDeniedHandler;
+    private final TokenInvalidationRegistry tokenInvalidationRegistry;
 
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
@@ -71,7 +73,7 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, tokenInvalidationRegistry),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

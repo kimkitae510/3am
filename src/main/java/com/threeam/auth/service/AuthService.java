@@ -8,6 +8,7 @@ import com.threeam.global.config.JwtProperties;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.security.jwt.JwtTokenProvider;
+import com.threeam.security.jwt.TokenInvalidationRegistry;
 import com.threeam.user.entity.User;
 import com.threeam.user.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -27,6 +28,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
     private final LoginAttemptGuard loginAttemptGuard;
+    private final TokenInvalidationRegistry tokenInvalidationRegistry;
 
     @Transactional
     public TokenResponse login(LoginRequest request, String clientIp) {
@@ -34,7 +36,8 @@ public class AuthService {
         loginAttemptGuard.assertNotLocked(email, clientIp);
 
         // 이메일 존재 여부로 응답이 갈리면 계정 수집에 쓰인다. "없는 이메일"과 "틀린 비번"을 같은 실패로 합친다.
-        User user = userRepository.findByEmail(email).orElse(null);
+        // 탈퇴 계정도 조회 대상에서 빠지므로 같은 LOGIN_FAILED로 떨어진다.
+        User user = userRepository.findByEmailAndDeletedAtIsNull(email).orElse(null);
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             loginAttemptGuard.recordFailure(email, clientIp);
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
@@ -59,8 +62,8 @@ public class AuthService {
             throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
 
         return issueTokens(user);
     }
@@ -68,6 +71,7 @@ public class AuthService {
     @Transactional
     public void logout(Long userId) {
         refreshTokenRepository.deleteByUserId(userId);
+        tokenInvalidationRegistry.invalidateAll(userId);
     }
 
     private TokenResponse issueTokens(User user) {

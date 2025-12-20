@@ -45,11 +45,27 @@ public class User {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // 탈퇴는 소프트 딜리트. 기록(사연/결제)을 남기는 정책과 이메일 재사용 차단을 위해 물리 삭제하지 않는다.
+    @Column
+    private LocalDateTime deletedAt;
+
     @Builder
     private User(String email, String password, String nickname, Role role) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
         this.role = role;
+    }
+
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
+    public void withdraw(LocalDateTime when) {
+        this.deletedAt = when;
+    }
+
+    public boolean isWithdrawn() {
+        return deletedAt != null;
     }
 }

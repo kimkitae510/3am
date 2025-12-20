@@ -49,6 +49,9 @@ class AuthServiceTest {
     @Mock
     private LoginAttemptGuard loginAttemptGuard;
 
+    @Mock
+    private com.threeam.security.jwt.TokenInvalidationRegistry tokenInvalidationRegistry;
+
     @InjectMocks
     private AuthService authService;
 
@@ -56,7 +59,7 @@ class AuthServiceTest {
     @DisplayName("로그인 성공 - 토큰을 발급하고 RefreshToken을 저장한다")
     void login_success() {
         User user = userWithId(1L, "a@a.com", "encodedPw");
-        given(userRepository.findByEmail("a@a.com")).willReturn(Optional.of(user));
+        given(userRepository.findByEmailAndDeletedAtIsNull("a@a.com")).willReturn(Optional.of(user));
         given(passwordEncoder.matches("rawPw", "encodedPw")).willReturn(true);
         given(jwtTokenProvider.generateAccessToken(1L, Role.USER)).willReturn("access");
         given(jwtTokenProvider.generateRefreshToken(1L)).willReturn("refresh");
@@ -74,7 +77,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("로그인 실패 - 존재하지 않는 이메일도 LOGIN_FAILED로 통일(계정 존재 여부 비노출) + 실패 기록")
     void login_userNotFound() {
-        given(userRepository.findByEmail("x@a.com")).willReturn(Optional.empty());
+        given(userRepository.findByEmailAndDeletedAtIsNull("x@a.com")).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.login(loginRequest("x@a.com", "rawPw"), "1.1.1.1"))
                 .isInstanceOf(BusinessException.class)
@@ -86,7 +89,7 @@ class AuthServiceTest {
     @DisplayName("로그인 실패 - 비밀번호가 틀리면 동일한 LOGIN_FAILED + 실패 기록")
     void login_invalidPassword() {
         User user = userWithId(1L, "a@a.com", "encodedPw");
-        given(userRepository.findByEmail("a@a.com")).willReturn(Optional.of(user));
+        given(userRepository.findByEmailAndDeletedAtIsNull("a@a.com")).willReturn(Optional.of(user));
         given(passwordEncoder.matches("wrong", "encodedPw")).willReturn(false);
 
         assertThatThrownBy(() -> authService.login(loginRequest("a@a.com", "wrong"), "1.1.1.1"))
@@ -116,7 +119,7 @@ class AuthServiceTest {
         given(jwtTokenProvider.validateToken(oldRefresh)).willReturn(true);
         given(jwtTokenProvider.getUserId(oldRefresh)).willReturn(1L);
         given(refreshTokenRepository.findByUserId(1L)).willReturn(Optional.of(stored));
-        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(user));
         given(jwtTokenProvider.generateAccessToken(1L, Role.USER)).willReturn("newAccess");
         given(jwtTokenProvider.generateRefreshToken(1L)).willReturn("newRefresh");
         given(jwtProperties.getRefreshTokenValiditySeconds()).willReturn(1209600L);

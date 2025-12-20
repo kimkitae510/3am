@@ -6,7 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // 가입 시 이메일 중복 검사는 탈퇴 계정까지 포함한다(이메일 재사용 차단).
     boolean existsByEmail(String email);
 
-    Optional<User> findByEmail(String email);
+    // 로그인 등 살아있는 계정만 대상으로 하는 조회는 탈퇴자를 제외한다.
+    Optional<User> findByEmailAndDeletedAtIsNull(String email);
+
+    Optional<User> findByIdAndDeletedAtIsNull(Long id);
 }

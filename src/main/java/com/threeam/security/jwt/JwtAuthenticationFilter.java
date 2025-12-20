@@ -20,6 +20,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenInvalidationRegistry tokenInvalidationRegistry;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -27,13 +28,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = resolveToken(request);
         if (token != null && jwtTokenProvider.validateToken(token)) {
             Long userId = jwtTokenProvider.getUserId(token);
-            String role = jwtTokenProvider.getRole(token);
-            List<SimpleGrantedAuthority> authorities = role == null
-                    ? List.of()
-                    : List.of(new SimpleGrantedAuthority("ROLE_" + role));
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, authorities);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // 로그아웃/비밀번호 변경/탈퇴로 무효화된 유저의 옛 토큰이면 인증을 세우지 않는다(→ 401).
+            if (!tokenInvalidationRegistry.isInvalid(userId, jwtTokenProvider.getIssuedAtMillis(token))) {
+                String role = jwtTokenProvider.getRole(token);
+                List<SimpleGrantedAuthority> authorities = role == null
+                        ? List.of()
+                        : List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userId, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
+            tokenInvalidationRegistry.evictIfExpired(userId, System.currentTimeMillis(),
+                    jwtTokenProvider.getAccessValidityMillis());
         }
         filterChain.doFilter(request, response);
     }
