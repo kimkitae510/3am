@@ -16,12 +16,16 @@ public enum ErrorCode {
     // 회원
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "U001", "이미 사용 중인 이메일입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U002", "사용자를 찾을 수 없습니다."),
+    SIGNUP_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "U003", "가입 요청이 너무 많아요. 내일 다시 시도해 주세요."),
 
     // 인증
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "A001", "비밀번호가 올바르지 않습니다."),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "A002", "유효하지 않은 토큰입니다."),
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "A003", "인증이 필요합니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "A004", "접근 권한이 없습니다."),
+    // 이메일 존재 여부가 응답으로 갈리면 계정 수집(enumeration)에 쓰인다. 로그인 실패는 이 하나로 통일.
+    LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A005", "이메일 또는 비밀번호가 올바르지 않습니다."),
+    LOGIN_LOCKED(HttpStatus.TOO_MANY_REQUESTS, "A006", "로그인 시도가 너무 많았어요. 15분 뒤에 다시 시도해 주세요."),
 
     // 사연
     STORY_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "사연을 찾을 수 없습니다."),

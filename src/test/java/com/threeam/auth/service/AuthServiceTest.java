@@ -46,6 +46,9 @@ class AuthServiceTest {
     @Mock
     private JwtProperties jwtProperties;
 
+    @Mock
+    private LoginAttemptGuard loginAttemptGuard;
+
     @InjectMocks
     private AuthService authService;
 
@@ -60,33 +63,47 @@ class AuthServiceTest {
         given(jwtProperties.getRefreshTokenValiditySeconds()).willReturn(1209600L);
         given(refreshTokenRepository.findByUserId(1L)).willReturn(Optional.empty());
 
-        TokenResponse response = authService.login(loginRequest("a@a.com", "rawPw"));
+        TokenResponse response = authService.login(loginRequest("a@a.com", "rawPw"), "1.1.1.1");
 
         assertThat(response.getAccessToken()).isEqualTo("access");
         assertThat(response.getRefreshToken()).isEqualTo("refresh");
         verify(refreshTokenRepository).save(any(RefreshToken.class));
+        verify(loginAttemptGuard).recordSuccess("a@a.com", "1.1.1.1");
     }
 
     @Test
-    @DisplayName("로그인 실패 - 존재하지 않는 이메일이면 USER_NOT_FOUND")
+    @DisplayName("로그인 실패 - 존재하지 않는 이메일도 LOGIN_FAILED로 통일(계정 존재 여부 비노출) + 실패 기록")
     void login_userNotFound() {
         given(userRepository.findByEmail("x@a.com")).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.login(loginRequest("x@a.com", "rawPw")))
+        assertThatThrownBy(() -> authService.login(loginRequest("x@a.com", "rawPw"), "1.1.1.1"))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.LOGIN_FAILED);
+        verify(loginAttemptGuard).recordFailure("x@a.com", "1.1.1.1");
     }
 
     @Test
-    @DisplayName("로그인 실패 - 비밀번호가 틀리면 INVALID_PASSWORD")
+    @DisplayName("로그인 실패 - 비밀번호가 틀리면 동일한 LOGIN_FAILED + 실패 기록")
     void login_invalidPassword() {
         User user = userWithId(1L, "a@a.com", "encodedPw");
         given(userRepository.findByEmail("a@a.com")).willReturn(Optional.of(user));
         given(passwordEncoder.matches("wrong", "encodedPw")).willReturn(false);
 
-        assertThatThrownBy(() -> authService.login(loginRequest("a@a.com", "wrong")))
+        assertThatThrownBy(() -> authService.login(loginRequest("a@a.com", "wrong"), "1.1.1.1"))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_PASSWORD);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.LOGIN_FAILED);
+        verify(loginAttemptGuard).recordFailure("a@a.com", "1.1.1.1");
+    }
+
+    @Test
+    @DisplayName("로그인 실패 - 잠금 상태면 검증 전에 LOGIN_LOCKED")
+    void login_locked() {
+        org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.LOGIN_LOCKED))
+                .given(loginAttemptGuard).assertNotLocked("a@a.com", "1.1.1.1");
+
+        assertThatThrownBy(() -> authService.login(loginRequest("a@a.com", "rawPw"), "1.1.1.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.LOGIN_LOCKED);
     }
 
     @Test

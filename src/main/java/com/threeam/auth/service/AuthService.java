@@ -26,16 +26,21 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
+    private final LoginAttemptGuard loginAttemptGuard;
 
     @Transactional
-    public TokenResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    public TokenResponse login(LoginRequest request, String clientIp) {
+        String email = request.getEmail();
+        loginAttemptGuard.assertNotLocked(email, clientIp);
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new BusinessException(ErrorCode.INVALID_PASSWORD);
+        // 이메일 존재 여부로 응답이 갈리면 계정 수집에 쓰인다. "없는 이메일"과 "틀린 비번"을 같은 실패로 합친다.
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            loginAttemptGuard.recordFailure(email, clientIp);
+            throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
+        loginAttemptGuard.recordSuccess(email, clientIp);
         return issueTokens(user);
     }
 

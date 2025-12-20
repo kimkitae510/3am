@@ -4,6 +4,8 @@ import com.threeam.auth.dto.LoginRequest;
 import com.threeam.auth.dto.ReissueRequest;
 import com.threeam.auth.dto.TokenResponse;
 import com.threeam.auth.service.AuthService;
+import com.threeam.global.web.ClientIp;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,8 +23,9 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.login(request));
+    public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request,
+                                               HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(authService.login(request, ClientIp.of(httpRequest)));
     }
 
     @PostMapping("/reissue")
