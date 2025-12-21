@@ -35,6 +35,12 @@ class UserServiceTest {
     @Mock
     private SignupRateLimiter signupRateLimiter;
 
+    @Mock
+    private com.threeam.auth.repository.RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
+    private com.threeam.security.jwt.TokenInvalidationRegistry tokenInvalidationRegistry;
+
     @InjectMocks
     private UserService userService;
 
@@ -83,6 +89,61 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.signup(request, "9.9.9.9"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SIGNUP_RATE_LIMITED);
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경 성공 - 현재 비번 확인 후 교체하고 세션을 모두 끊는다")
+    void changePassword_success() {
+        User user = userWithId(1L, "encodedOld");
+        given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(java.util.Optional.of(user));
+        given(passwordEncoder.matches("oldPw", "encodedOld")).willReturn(true);
+        given(passwordEncoder.encode("newPw12345")).willReturn("encodedNew");
+
+        userService.changePassword(1L, passwordChangeRequest("oldPw", "newPw12345"));
+
+        assertThat(user.getPassword()).isEqualTo("encodedNew");
+        verify(refreshTokenRepository).deleteByUserId(1L);
+        verify(tokenInvalidationRegistry).invalidateAll(1L);
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경 실패 - 현재 비번이 틀리면 INVALID_PASSWORD, 교체 안 함")
+    void changePassword_wrongCurrent() {
+        User user = userWithId(1L, "encodedOld");
+        given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(java.util.Optional.of(user));
+        given(passwordEncoder.matches("wrong", "encodedOld")).willReturn(false);
+
+        assertThatThrownBy(() -> userService.changePassword(1L, passwordChangeRequest("wrong", "newPw12345")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_PASSWORD);
+        assertThat(user.getPassword()).isEqualTo("encodedOld");
+    }
+
+    @Test
+    @DisplayName("탈퇴 - 소프트 딜리트하고 세션을 모두 끊는다")
+    void withdraw_success() {
+        User user = userWithId(1L, "encodedPw");
+        given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(java.util.Optional.of(user));
+
+        userService.withdraw(1L);
+
+        assertThat(user.isWithdrawn()).isTrue();
+        verify(refreshTokenRepository).deleteByUserId(1L);
+        verify(tokenInvalidationRegistry).invalidateAll(1L);
+    }
+
+    private User userWithId(Long id, String password) {
+        User user = User.builder()
+                .email("a@a.com").password(password).nickname("닉네임").role(Role.USER).build();
+        ReflectionTestUtils.setField(user, "id", id);
+        return user;
+    }
+
+    private com.threeam.user.dto.PasswordChangeRequest passwordChangeRequest(String current, String next) {
+        com.threeam.user.dto.PasswordChangeRequest request = new com.threeam.user.dto.PasswordChangeRequest();
+        ReflectionTestUtils.setField(request, "currentPassword", current);
+        ReflectionTestUtils.setField(request, "newPassword", next);
+        return request;
     }
 
     private SignupRequest signupRequest(String email, String password, String nickname) {

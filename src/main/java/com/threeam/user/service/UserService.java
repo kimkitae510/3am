@@ -1,12 +1,16 @@
 package com.threeam.user.service;
 
+import com.threeam.auth.repository.RefreshTokenRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
+import com.threeam.security.jwt.TokenInvalidationRegistry;
+import com.threeam.user.dto.PasswordChangeRequest;
 import com.threeam.user.dto.SignupRequest;
 import com.threeam.user.dto.SignupResponse;
 import com.threeam.user.entity.Role;
 import com.threeam.user.entity.User;
 import com.threeam.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +24,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SignupRateLimiter signupRateLimiter;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final TokenInvalidationRegistry tokenInvalidationRegistry;
 
     @Transactional
     public SignupResponse signup(SignupRequest request, String clientIp) {
@@ -37,5 +43,31 @@ public class UserService {
                 .build();
 
         return SignupResponse.from(userRepository.save(user));
+    }
+
+    @Transactional
+    public void changePassword(Long userId, PasswordChangeRequest request) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        user.changePassword(passwordEncoder.encode(request.getNewPassword()));
+        // 비밀번호가 바뀌면 기존 세션(리프레시 + 이미 발급된 access)을 모두 끊어 재로그인을 강제한다.
+        refreshTokenRepository.deleteByUserId(userId);
+        tokenInvalidationRegistry.invalidateAll(userId);
+    }
+
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // 소프트 딜리트: 기록은 남기되 로그인/조회 대상에서 빠진다. 이메일은 재사용 차단을 위해 그대로 둔다.
+        user.withdraw(LocalDateTime.now());
+        refreshTokenRepository.deleteByUserId(userId);
+        tokenInvalidationRegistry.invalidateAll(userId);
     }
 }
