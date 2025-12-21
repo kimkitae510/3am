@@ -91,6 +91,76 @@ class ReunionLlmTest {
     }
 
     @Test
+    @DisplayName("신호가 있었는데 축이 없어 전부 폐기되면 근거 없는 70%를 막으려 INSUFFICIENT로 강등한다")
+    void parse_allSignalsDropped_downgradesToInsufficient() {
+        String json = """
+                {
+                  "verdict": "POSSIBLE",
+                  "activeReunionOffer": false,
+                  "deductions": [
+                    {"signal": "이별 후 문란한 사생활", "points": 20, "evidence": "축 없음"},
+                    {"signal": "무책임한 인성", "axis": "도덕", "points": 10, "evidence": "잘못된 축"}
+                  ],
+                  "boosts": [],
+                  "reason": "", "summary": ""
+                }
+                """;
+        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        // 남은 감점이 0인데 BASE(70)를 그대로 확률로 내보내지 않는다.
+        assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
+        assertThat(diagnosis.deductions()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("활성 재회 제안이면 감점 신호가 전부 폐기돼도 강등하지 않는다(확률은 100으로 확정될 경로)")
+    void parse_allDroppedButActiveOffer_staysPossible() {
+        String json = """
+                {
+                  "verdict": "POSSIBLE",
+                  "activeReunionOffer": true,
+                  "deductions": [
+                    {"signal": "문란한 사생활", "points": 20, "evidence": "축 없음"}
+                  ],
+                  "boosts": [],
+                  "reason": "", "summary": ""
+                }
+                """;
+        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE);
+        assertThat(diagnosis.activeReunionOffer()).isTrue();
+    }
+
+    @Test
+    @DisplayName("points는 크기만 보고 상한(100)으로 자른다 — 음수, 폭주값 방어")
+    void parse_pointsClampedAndAbs() {
+        String json = """
+                {
+                  "verdict": "POSSIBLE",
+                  "activeReunionOffer": false,
+                  "deductions": [
+                    {"signal": "폭주값", "axis": "마음", "points": 9999, "evidence": "근거"},
+                    {"signal": "음수값", "axis": "구조", "points": -15, "evidence": "근거"}
+                  ],
+                  "boosts": [],
+                  "reason": "", "summary": ""
+                }
+                """;
+        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        assertThat(diagnosis.deductions()).hasSize(2);
+        assertThat(diagnosis.deductions().get(0).points()).isEqualTo(100); // 9999 → 상한 100
+        assertThat(diagnosis.deductions().get(1).points()).isEqualTo(15);  // -15 → 크기 15
+    }
+
+    @Test
     @DisplayName("newFacts를 파싱한다 — 빈 문자열은 버리고, 정상 범위의 개수는 자르지 않는다")
     void parse_newFacts() {
         String json = """

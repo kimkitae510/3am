@@ -194,8 +194,18 @@ public class ReunionLlm {
                     enumValue(AttachmentStyle.class, root.path("partnerAttachment").asText(null), null);
             boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
 
-            List<DeductionItem> deductions = parseItems(root, "deductions");
-            List<DeductionItem> boosts = parseItems(root, "boosts");
+            int[] dropped = {0};
+            List<DeductionItem> deductions = parseItems(root, "deductions", dropped);
+            List<DeductionItem> boosts = parseItems(root, "boosts", dropped);
+
+            // LLM이 감점/가점을 냈는데 축을 못 붙여 전부 폐기되면, 남은 근거가 0이라 점수가 BASE(70)로 나온다.
+            // 그 70은 "재회 가능성 70%"가 아니라 "근거가 유실됨"이다 — 근거 없는 확률을 유저에게 보이지 않도록
+            // 진단 자체를 INSUFFICIENT로 강등한다(활성 재회 제안이면 감점과 무관하게 100이므로 예외).
+            if (verdict == ReunionVerdict.POSSIBLE && !activeReunionOffer
+                    && deductions.isEmpty() && boosts.isEmpty() && dropped[0] > 0) {
+                log.warn("진단 신호 전량 폐기 — 근거 없는 확률 방지 위해 INSUFFICIENT로 강등 droppedCount={}", dropped[0]);
+                verdict = ReunionVerdict.INSUFFICIENT;
+            }
 
             // 개수 제한은 폭주 방어용 안전핀뿐(정상 진단에선 닿지 않는다). 길이는 원장 컬럼에 맞춰 자른다.
             List<String> newFacts = new ArrayList<>();
@@ -221,11 +231,17 @@ public class ReunionLlm {
     // 세 판단 축. 항목마다 axis를 강제해서 "나쁜 행동 = 감점" 같은 도덕 채점을 걸러낸다.
     private static final Set<String> AXES = Set.of("마음", "복구가능성", "구조");
 
-    private List<DeductionItem> parseItems(JsonNode root, String field) {
+    // 한 항목이 움직일 수 있는 점수 상한. 앵커 최대치(30)보다 넉넉히 두되, LLM이 실수로 뱉는
+    // 폭주값(예: 9999)이 그대로 저장되지 않게 막는다. 부호는 Deduction에서 감점/가점으로 통일된다.
+    private static final int MAX_POINTS = 100;
+
+    // dropped[0]에 "신호는 있으나 축이 없어 버린 항목 수"를 누적한다(전량 폐기 감지에 쓰인다).
+    private List<DeductionItem> parseItems(JsonNode root, String field, int[] dropped) {
         List<DeductionItem> items = new ArrayList<>();
         for (JsonNode node : root.path(field)) {
             String signal = node.path("signal").asText("");
-            int points = node.path("points").asInt(0);
+            // 부호는 저장 단계에서 정해지므로 여기선 크기만 본다. 0은 신호 없음, 상한은 폭주 방어.
+            int points = Math.min(Math.abs(node.path("points").asInt(0)), MAX_POINTS);
             if (signal.isBlank() || points == 0) {
                 continue;
             }
@@ -233,6 +249,7 @@ public class ReunionLlm {
             if (!AXES.contains(axis)) {
                 // 축 없는 신호는 확률 신호가 아니다. 버리되, 프롬프트 조정 근거로 관측 로그를 남긴다.
                 log.warn("진단 신호 폐기(축 없음): field={} signal={} axis={}", field, signal, axis);
+                dropped[0]++;
                 continue;
             }
             items.add(new DeductionItem(signal, points, node.path("evidence").asText("")));
