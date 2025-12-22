@@ -81,8 +81,14 @@ public class AssessmentService {
                         }
                         return response;
                     })
-                    .whenComplete((ignored, ex) ->
-                            usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId));
+                    .whenComplete((ignored, ex) -> {
+                        // 진단 실패(LLM 장애, 저장 실패)를 storyId, userId와 함께 남긴다 —
+                        // 전역 핸들러 로그엔 맥락이 없어 "돈 깎였는데 결과 없음" CS를 추적할 수 없다.
+                        if (ex != null) {
+                            log.error("진단 처리 실패 storyId={} userId={}", storyId, userId, ex);
+                        }
+                        usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
+                    });
         } catch (RuntimeException e) {
             // 후차감이라 되돌릴 차감이 없다. 잠금만 풀고 그대로 던진다.
             usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);

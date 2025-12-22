@@ -78,24 +78,52 @@ public class StoryService {
                     messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
 
             // fire-and-forget: 응답을 기다리지 않는다. 완료되면 어시스턴트 메시지로 저장, 실패하면 폴백 저장.
+            // handle로 LLM 단계 예외와 저장 단계 예외를 분리한다(저장 실패를 'LLM 실패'로 오인 기록하지 않게).
             llmClient.generate(prepared.prompt())
-                    .thenAccept(reply -> {
-                        messageTxService.appendAssistantReply(storyId, reply);
-                        recordUsageQuietly(userId);   // 성공 시만 차감. 폴백(LLM 장애)은 유저 잘못이 아니라 미차감.
-                        factExtractor.extractAsync(storyId);   // 원장 갱신. 실패해도 채팅에 영향 없음(내부에서 삼킴).
-                    })
-                    .exceptionally(ex -> {
-                        log.error("LLM 응답 생성 실패 storyId={}", storyId, ex);
-                        messageTxService.appendAssistantReply(storyId, LLM_FALLBACK);
+                    .handle((reply, ex) -> {
+                        if (ex != null) {
+                            log.error("LLM 응답 생성 실패 storyId={} userId={}", storyId, userId, ex);
+                            persistFallbackQuietly(storyId);
+                        } else {
+                            persistReplyQuietly(userId, storyId, reply);
+                        }
                         return null;
                     })
-                    .whenComplete((ignored, ex) -> usageLimiter.releaseInFlight(UsageKind.CHAT, userId, storyId));
+                    .whenComplete((ignored, ex) -> {
+                        // handle에서 예외를 삼키므로 여기 ex는 보통 null이지만, 만일을 대비해 흔적을 남긴다(무로그 방지).
+                        if (ex != null) {
+                            log.error("메시지 처리 파이프라인 예상외 실패 storyId={} userId={}", storyId, userId, ex);
+                        }
+                        usageLimiter.releaseInFlight(UsageKind.CHAT, userId, storyId);
+                    });
 
             return prepared.userMessage();
         } catch (RuntimeException e) {
             // 후차감이라 되돌릴 차감이 없다. 잠금만 풀고 그대로 던진다.
             usageLimiter.releaseInFlight(UsageKind.CHAT, userId, storyId);
             throw e;
+        }
+    }
+
+    // LLM 성공 후: 답변 저장 → 차감 → 사실 추출. 저장 단계 실패는 'LLM 실패'와 구분해 명확히 남긴다.
+    private void persistReplyQuietly(Long userId, Long storyId, String reply) {
+        try {
+            messageTxService.appendAssistantReply(storyId, reply);
+        } catch (RuntimeException e) {
+            // LLM은 성공했으나 답을 못 남긴 상태 — 폴링이 끝나지 않는 CS 원인이 되므로 반드시 추적 가능해야 한다.
+            log.error("LLM 응답은 받았으나 답변 저장 실패 storyId={} userId={}", storyId, userId, e);
+            return;
+        }
+        recordUsageQuietly(userId);          // 성공 시만 차감. 폴백(LLM 장애)은 유저 잘못이 아니라 미차감.
+        factExtractor.extractAsync(storyId); // 원장 갱신. 실패해도 채팅에 영향 없음(내부에서 삼킴).
+    }
+
+    // LLM 실패 시 폴백 저장. 이마저 실패하면 답도 폴백도 없이 조용히 사라지므로 반드시 로그를 남긴다.
+    private void persistFallbackQuietly(Long storyId) {
+        try {
+            messageTxService.appendAssistantReply(storyId, LLM_FALLBACK);
+        } catch (RuntimeException e) {
+            log.error("폴백 메시지 저장까지 실패 storyId={} — 유저 폴링이 종료되지 않는다", storyId, e);
         }
     }
 
