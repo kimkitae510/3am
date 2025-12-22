@@ -5,6 +5,7 @@ import com.threeam.global.exception.custom.BusinessException;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -31,8 +32,18 @@ public class DbUsageLimiter implements UsageLimiter {
     // 사연별 "생성 진행 중" 표시. 값은 만료 시각(epoch ms) — 지난 값은 풀린 것으로 취급한다.
     private final ConcurrentHashMap<String, Long> inFlight = new ConcurrentHashMap<>();
 
+    // 유저별 동시 생성 카운터. 사연 여러 개로 동시에 쏘아 한도를 넘기는 것을 막는 상한.
+    private final ConcurrentHashMap<String, AtomicInteger> userConcurrency = new ConcurrentHashMap<>();
+
     @Override
-    public void acquireInFlight(UsageKind kind, Long storyId) {
+    public void acquireInFlight(UsageKind kind, Long userId, Long storyId) {
+        // 먼저 유저 동시 상한을 잡는다. 사연 잠금에 실패하면 이 슬롯을 반드시 되돌린다.
+        AtomicInteger counter = userConcurrency.computeIfAbsent(key(kind, userId), k -> new AtomicInteger());
+        if (counter.incrementAndGet() > properties.getMaxConcurrentGenerationsPerUser()) {
+            counter.decrementAndGet();
+            throw new BusinessException(ErrorCode.GENERATION_IN_PROGRESS);
+        }
+
         long now = System.currentTimeMillis();
         long expireAt = now + properties.getInFlightTtlSeconds() * 1000;
         // compute가 원자적이라, 동시에 들어와도 한 요청만 acquired가 된다.
@@ -45,13 +56,19 @@ public class DbUsageLimiter implements UsageLimiter {
             return expiry;
         });
         if (!acquired[0]) {
+            counter.decrementAndGet();
             throw new BusinessException(ErrorCode.GENERATION_IN_PROGRESS);
         }
     }
 
     @Override
-    public void releaseInFlight(UsageKind kind, Long storyId) {
+    public void releaseInFlight(UsageKind kind, Long userId, Long storyId) {
         inFlight.remove(key(kind, storyId));
+        // 음수로 내려가지 않게 0 바닥에서 멈춘다(중복 release 방어).
+        userConcurrency.computeIfPresent(key(kind, userId), (k, counter) -> {
+            counter.updateAndGet(v -> v > 0 ? v - 1 : 0);
+            return counter;
+        });
     }
 
     @Override

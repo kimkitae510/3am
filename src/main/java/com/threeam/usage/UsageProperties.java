@@ -15,4 +15,8 @@ public class UsageProperties {
 
     // in-flight 잠금의 자동 만료. 서버가 죽어 해제가 유실돼도 이 시간이 지나면 풀린 것으로 본다.
     private long inFlightTtlSeconds = 120;
+
+    // 한 유저가 동시에 진행할 수 있는 생성(대화 답변, 진단) 최대 건수. 사연 여러 개로 동시에 쏘아
+    // 후차감 검사를 한꺼번에 통과시켜 한도를 크게 넘기는 것을 막는 상한.
+    private int maxConcurrentGenerationsPerUser = 3;
 }

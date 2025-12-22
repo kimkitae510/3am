@@ -47,8 +47,8 @@ public class AssessmentService {
     // DB 저장은 txService의 짧은 트랜잭션, 느린 LLM 호출은 그 사이에서 논블로킹으로.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CompletableFuture<AssessmentResponse> assess(Long userId, Long storyId) {
-        // 같은 사연의 진단 동시 실행 차단(연타 차단 + 기억 upsert 레이스 방지).
-        usageLimiter.acquireInFlight(UsageKind.ASSESSMENT, storyId);
+        // 같은 사연의 진단 동시 실행 차단(연타 차단 + 기억 upsert 레이스 방지) + 유저 동시 생성 상한.
+        usageLimiter.acquireInFlight(UsageKind.ASSESSMENT, userId, storyId);
         try {
             // 후차감: 여기서는 한도 검사만. 기록은 진단이 정상 처리된 뒤에 한다(LLM 장애 시 미차감).
             usageLimiter.checkDaily(UsageKind.ASSESSMENT, userId);
@@ -59,13 +59,13 @@ public class AssessmentService {
                     .count();
             if (userTurns < MIN_USER_TURNS) {
                 // LLM 비용이 없으므로 쿼터도 차감하지 않는다. 잠금만 풀고 안내를 돌려준다.
-                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId);
+                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
                 return CompletableFuture.completedFuture(insufficientGuide(storyId));
             }
             // 지난 INSUFFICIENT 이후 새 대화가 없으면 다시 물어봐도 같은 답이다 — LLM 없이 거부.
             LocalDateTime lastGuide = insufficientAt.get(storyId);
             if (lastGuide != null && !txService.hasNewMessageAfter(storyId, lastGuide)) {
-                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId);
+                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
                 return CompletableFuture.completedFuture(insufficientGuide(storyId));
             }
             return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(), context.conversation())
@@ -82,10 +82,10 @@ public class AssessmentService {
                         return response;
                     })
                     .whenComplete((ignored, ex) ->
-                            usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId));
+                            usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId));
         } catch (RuntimeException e) {
             // 후차감이라 되돌릴 차감이 없다. 잠금만 풀고 그대로 던진다.
-            usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, storyId);
+            usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
             throw e;
         }
     }

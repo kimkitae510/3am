@@ -170,7 +170,7 @@ class AssessmentServiceTest {
         assertThat(response.getReason()).contains("이야기가 부족");
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList()); // LLM 비용 없음
         verify(usageLimiter, never()).recordDaily(any(), any());          // 쿼터 미차감
-        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L, 10L);
     }
 
     @Test
@@ -186,14 +186,14 @@ class AssessmentServiceTest {
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList());
         // 후차감이라 성공 전에 실패하면 기록할 것이 없다. 잠금만 해제.
         verify(usageLimiter, never()).recordDaily(any(), any());
-        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L, 10L);
     }
 
     @Test
     @DisplayName("진단 - 같은 사연의 진단이 진행 중이면 접수를 거부한다(연타 차단)")
     void assess_inFlightRejected() {
         org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.GENERATION_IN_PROGRESS))
-                .given(usageLimiter).acquireInFlight(UsageKind.ASSESSMENT, 10L);
+                .given(usageLimiter).acquireInFlight(UsageKind.ASSESSMENT, 1L, 10L);
 
         assertThatThrownBy(() -> assessmentService.assess(1L, 10L))
                 .isInstanceOf(BusinessException.class)
@@ -213,7 +213,7 @@ class AssessmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
 
-        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L, 10L);
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList());
     }
 
@@ -227,7 +227,7 @@ class AssessmentServiceTest {
         assessmentService.assess(1L, 10L).join();
 
         verify(usageLimiter).checkDaily(UsageKind.ASSESSMENT, 1L);
-        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L, 10L);
         // INSUFFICIENT는 진단을 제공하지 못했으니 차감하지 않는다
         verify(usageLimiter, never()).recordDaily(UsageKind.ASSESSMENT, 1L);
     }

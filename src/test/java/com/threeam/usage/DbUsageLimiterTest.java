@@ -210,7 +210,7 @@ class DbUsageLimiterTest {
                 ready.countDown();
                 try {
                     start.await();
-                    limiter.acquireInFlight(UsageKind.CHAT, 10L);
+                    limiter.acquireInFlight(UsageKind.CHAT, 1L, 10L);
                     acquired.incrementAndGet();
                 } catch (Exception ignored) {
                 }
@@ -227,15 +227,33 @@ class DbUsageLimiterTest {
     @Test
     @DisplayName("in-flight - 해제하면 다시 획득할 수 있고, TTL이 지난 잠금은 무시된다")
     void acquireInFlight_releaseAndTtl() {
-        limiter.acquireInFlight(UsageKind.CHAT, 10L);
-        limiter.releaseInFlight(UsageKind.CHAT, 10L);
-        assertThatCode(() -> limiter.acquireInFlight(UsageKind.CHAT, 10L))
+        limiter.acquireInFlight(UsageKind.CHAT, 1L, 10L);
+        limiter.releaseInFlight(UsageKind.CHAT, 1L, 10L);
+        assertThatCode(() -> limiter.acquireInFlight(UsageKind.CHAT, 1L, 10L))
                 .doesNotThrowAnyException();
 
         // TTL 0으로 만들면 방금 잡은 잠금도 만료로 취급 → 재획득 가능(서버 죽음 대비 자동 해제)
         properties.setInFlightTtlSeconds(0);
-        limiter.acquireInFlight(UsageKind.CHAT, 20L);
-        assertThatCode(() -> limiter.acquireInFlight(UsageKind.CHAT, 20L))
+        limiter.acquireInFlight(UsageKind.CHAT, 2L, 20L);
+        assertThatCode(() -> limiter.acquireInFlight(UsageKind.CHAT, 2L, 20L))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("in-flight - 한 유저가 서로 다른 사연으로 동시 생성해도 상한(3)을 넘으면 거부한다")
+    void acquireInFlight_perUserConcurrencyCap() {
+        // 사연이 달라 사연 잠금은 각각 통과하지만, 유저 동시 상한이 4번째를 막는다.
+        limiter.acquireInFlight(UsageKind.CHAT, 7L, 101L);
+        limiter.acquireInFlight(UsageKind.CHAT, 7L, 102L);
+        limiter.acquireInFlight(UsageKind.CHAT, 7L, 103L);
+
+        assertThatThrownBy(() -> limiter.acquireInFlight(UsageKind.CHAT, 7L, 104L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENERATION_IN_PROGRESS);
+
+        // 하나 해제하면 다시 한 자리가 열린다.
+        limiter.releaseInFlight(UsageKind.CHAT, 7L, 101L);
+        assertThatCode(() -> limiter.acquireInFlight(UsageKind.CHAT, 7L, 104L))
                 .doesNotThrowAnyException();
     }
 }

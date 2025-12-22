@@ -67,8 +67,8 @@ public class StoryService {
     // 트랜잭션 밖(NOT_SUPPORTED)에서 오케스트레이션 — 느린 LLM 호출이 DB 커넥션을 잡지 않게.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public MessageResponse sendMessage(Long userId, Long storyId, MessageSendRequest request) {
-        // 이 사연에서 답변 생성이 진행 중이면 접수 자체를 거부한다(연타, 중복요청 차단).
-        usageLimiter.acquireInFlight(UsageKind.CHAT, storyId);
+        // 이 사연에서 답변 생성이 진행 중이거나 유저 동시 생성 상한을 넘으면 접수를 거부한다(연타, 중복요청, 한도 우회 차단).
+        usageLimiter.acquireInFlight(UsageKind.CHAT, userId, storyId);
         try {
             // 후차감: 여기서는 한도 검사만 하고, 기록은 답변 저장이 성공한 뒤에 한다.
             // 유저가 폴링을 끊어도(중지) 서버는 끝까지 저장하므로 "기록 시점"은 반드시 도달한다.
@@ -89,12 +89,12 @@ public class StoryService {
                         messageTxService.appendAssistantReply(storyId, LLM_FALLBACK);
                         return null;
                     })
-                    .whenComplete((ignored, ex) -> usageLimiter.releaseInFlight(UsageKind.CHAT, storyId));
+                    .whenComplete((ignored, ex) -> usageLimiter.releaseInFlight(UsageKind.CHAT, userId, storyId));
 
             return prepared.userMessage();
         } catch (RuntimeException e) {
             // 후차감이라 되돌릴 차감이 없다. 잠금만 풀고 그대로 던진다.
-            usageLimiter.releaseInFlight(UsageKind.CHAT, storyId);
+            usageLimiter.releaseInFlight(UsageKind.CHAT, userId, storyId);
             throw e;
         }
     }
