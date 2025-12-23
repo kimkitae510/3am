@@ -1,6 +1,13 @@
+# 배포 중 재시작 시 진행 중인 요청, 비동기 저장이 강제 종료되지 않게 유예를 둔다.
+server:
+  shutdown: graceful
+
 spring:
   application:
     name: 3am
+
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
 
   config:
     # 페르소나 실문구 등 저장소 밖에서 관리하는 설정. 파일이 없으면 조용히 무시된다.
@@ -87,6 +94,5 @@ management:
     health:
       show-details: when_authorized
 
-logging:
-  level:
-    com.threeam: debug
+# 로그 레벨, 출력(콘솔/파일), traceId 패턴은 logback-spring.xml에서 프로파일별로 관리한다.
+# show-sql은 개발 기본값만 여기 두고, 운영(prod)에서는 application-prod.yml이 꺼서 개인정보(사연) 쿼리 노출을 막는다.

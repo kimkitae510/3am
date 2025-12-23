@@ -1,0 +1,9 @@
+# 운영 프로파일. SPRING_PROFILES_ACTIVE=prod 로 활성화한다.
+# 개발 기본값(application.yml)에서 운영에 위험한 것만 덮어쓴다.
+spring:
+  jpa:
+    # 운영에서 show-sql이 켜져 있으면 Message.content(이별 사연) 같은 개인정보가 쿼리 로그로 새어 나간다.
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false

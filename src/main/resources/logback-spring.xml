@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  로그 설정. 콘솔은 항상, 파일은 롤링으로 남긴다(재시작해도 증발하지 않게 — CS 추적의 최소 조건).
+  패턴의 %X{traceId}는 MdcTraceFilter가 심는 요청 상관관계 ID다.
+-->
+<configuration>
+
+    <property name="PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/3am.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/3am.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <!-- 보존 기간. 개인정보(사연)가 로그에 스며들 수 있으니 무한 보관하지 않는다. -->
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 운영: 콘솔 + 파일, 애플리케이션 로그는 info. -->
+    <springProfile name="prod">
+        <logger name="com.threeam" level="INFO"/>
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- 개발(기본): 콘솔 + 파일, 애플리케이션 로그는 debug. -->
+    <springProfile name="!prod">
+        <logger name="com.threeam" level="DEBUG"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+</configuration>
