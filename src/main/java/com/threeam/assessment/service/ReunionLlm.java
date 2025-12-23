@@ -223,7 +223,8 @@ public class ReunionLlm {
                     deductions, boosts,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
-            log.error("재회 진단 JSON 파싱 실패: {}", json, e);
+            // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 로그에 원문을 남기지 않고 길이만 남긴다.
+            log.error("재회 진단 JSON 파싱 실패 (본문 길이 {}자)", json == null ? 0 : json.length(), e);
             throw new LlmException();
         }
     }

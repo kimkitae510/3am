@@ -2,6 +2,7 @@ package com.threeam.llm;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Metrics;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -68,7 +69,10 @@ abstract class GoogleGenerateContentClient implements LlmClient {
     private CompletableFuture<String> send(HttpRequest request) {
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenCompose(this::retryOnceIfOverloaded)
-                .thenApply(this::extractText);
+                .thenApply(this::extractText)
+                // 호출 성공/실패 카운터 — 실패율, 호출량을 /actuator/prometheus로 관측(비용, 장애 감지).
+                .whenComplete((result, ex) -> Metrics.counter("llm.calls",
+                        "provider", providerName(), "result", ex == null ? "success" : "error").increment());
     }
 
     // 503은 피크 시간대의 일상이라(실측) 짧게 기다렸다 1회 재시도한다.
@@ -78,6 +82,8 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             return CompletableFuture.completedFuture(response);
         }
         log.warn("{} 503(혼잡) — {}초 뒤 1회 재시도", providerName(), RETRY_DELAY_SECONDS);
+        // 재시도는 곧 호출 비용 2배다. 재시도 빈도를 세어 두면 "재시도로 비용이 튄 날"을 뒤늦게라도 짚을 수 있다.
+        Metrics.counter("llm.retries", "provider", providerName()).increment();
         return CompletableFuture.supplyAsync(() -> null,
                         CompletableFuture.delayedExecutor(RETRY_DELAY_SECONDS, TimeUnit.SECONDS))
                 .thenCompose(ignored -> httpClient.sendAsync(
@@ -125,9 +131,14 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         }
     }
 
+    // 로그로 남기는 응답 본문 상한. 오류 진단에 필요한 앞부분만 남기고 잘라 로그 폭탄, 개인정보 노출을 줄인다.
+    private static final int LOG_BODY_LIMIT = 500;
+
     private String extractText(HttpResponse<String> response) {
         if (response.statusCode() / 100 != 2) {
-            log.error("{} 응답 오류: status={} body={}", providerName(), response.statusCode(), response.body());
+            // 오류 본문은 보통 provider 에러 메타(429 한도, 안전성 차단 등)라 진단에 필요하지만, 길이는 자른다.
+            log.error("{} 응답 오류: status={} body={}", providerName(), response.statusCode(),
+                    snippet(response.body()));
             throw new LlmException();
         }
         try {
@@ -136,7 +147,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             JsonNode text = root
                     .path("candidates").path(0).path("content").path("parts").path(0).path("text");
             if (text.isMissingNode()) {
-                log.error("{} 응답에 텍스트가 없음: {}", providerName(), response.body());
+                log.error("{} 응답에 텍스트가 없음: {}", providerName(), snippet(response.body()));
                 throw new LlmException();
             }
             return text.asText();
@@ -148,16 +159,26 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         }
     }
 
+    private String snippet(String body) {
+        if (body == null) {
+            return "";
+        }
+        return body.length() <= LOG_BODY_LIMIT ? body : body.substring(0, LOG_BODY_LIMIT) + "...(truncated)";
+    }
+
     // 호출당 실제 토큰량을 남긴다 — 비용 검증(프롬프트 창 크기, 추출 호출 비용)은 추정이 아니라 이 실측으로 한다.
     private void logUsage(JsonNode root) {
         JsonNode usage = root.path("usageMetadata");
         if (usage.isMissingNode()) {
             return;
         }
+        int total = usage.path("totalTokenCount").asInt(0);
         log.info("{} 토큰 사용: input={}, output={}, total={}",
                 providerName(),
                 usage.path("promptTokenCount").asInt(0),
                 usage.path("candidatesTokenCount").asInt(0),
-                usage.path("totalTokenCount").asInt(0));
+                total);
+        // 토큰 총량 분포 — 프롬프트 창, 추출 호출이 비용에 미치는 영향을 실측으로 집계한다.
+        Metrics.summary("llm.tokens.total", "provider", providerName()).record(total);
     }
 }

@@ -134,7 +134,9 @@ public class StoryFactExtractor {
             }
             return new Extraction(newFacts, root.path("summary").asText(""));
         } catch (Exception e) {
-            throw new IllegalStateException("채팅 사실 추출 JSON 파싱 실패: " + json, e);
+            // json에는 사연에서 추출한 사실, 감정 요약이 들어 있어 개인정보다 — 예외 메시지에 원문을 싣지 않는다.
+            throw new IllegalStateException(
+                    "채팅 사실 추출 JSON 파싱 실패 (본문 길이 " + (json == null ? 0 : json.length()) + "자)", e);
         }
     }
 }
