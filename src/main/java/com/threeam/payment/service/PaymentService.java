@@ -124,9 +124,14 @@ public class PaymentService {
 
     // 웹훅과 재동기화의 공용 경로. 페이로드, 추측이 아니라 PG 조회 API가 준 실상태만 반영한다.
     public CompletableFuture<Void> syncByOrderId(String orderId) {
-        if (txService.statusOf(orderId).isEmpty()) {
+        var status = txService.statusOf(orderId);
+        if (status.isEmpty()) {
             // 우리 주문이 아니다(다른 환경의 웹훅 등). 재시도를 부르지 않게 조용히 넘긴다.
             log.warn("알 수 없는 주문 동기화 요청 무시 orderId={}", orderId);
+            return CompletableFuture.completedFuture(null);
+        }
+        if (status.get().isTerminal()) {
+            // 이미 종결(실패, 만료, 취소)된 주문은 어떤 이벤트로도 안 바뀐다 — PG를 다시 조회할 필요가 없다.
             return CompletableFuture.completedFuture(null);
         }
         return paymentGateway.findByOrderId(orderId)

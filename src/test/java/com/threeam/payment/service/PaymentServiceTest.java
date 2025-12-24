@@ -292,4 +292,14 @@ class PaymentServiceTest {
 
         verifyNoInteractions(paymentGateway);
     }
+
+    @Test
+    @DisplayName("동기화 - 이미 종결된 주문은 PG 조회 없이 넘긴다(반복 웹훅 비용 차단)")
+    void sync_skipsTerminalOrder() {
+        given(txService.statusOf("done-canceled")).willReturn(java.util.Optional.of(PaymentStatus.CANCELED));
+
+        service.syncByOrderId("done-canceled").join();
+
+        verifyNoInteractions(paymentGateway);
+    }
 }

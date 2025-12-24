@@ -2,6 +2,7 @@ package com.threeam.payment.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.threeam.payment.service.PaymentService;
+import com.threeam.payment.service.WebhookRateLimiter;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentWebhookController {
 
     private final PaymentService paymentService;
+    private final WebhookRateLimiter webhookRateLimiter;
 
     @PostMapping("/toss")
     public CompletableFuture<ResponseEntity<Void>> toss(@RequestBody JsonNode payload) {
@@ -29,6 +31,11 @@ public class PaymentWebhookController {
                 payload.path("orderId").asText(null));
         if (orderId == null || orderId.isBlank()) {
             log.warn("orderId 없는 웹훅 무시: eventType={}", payload.path("eventType").asText(""));
+            return CompletableFuture.completedFuture(ResponseEntity.ok().build());
+        }
+        // 같은 주문의 반복 웹훅은 쿨다운 안에서 삼킨다(위조 반복 POST로 PG 조회 비용을 태우는 것 방지).
+        // 200으로 응답해 토스가 재전송하지 않게 한다 — 진짜 이벤트를 흘려도 재동기화가 확정한다.
+        if (!webhookRateLimiter.allow(orderId)) {
             return CompletableFuture.completedFuture(ResponseEntity.ok().build());
         }
         // 논블로킹 — 웹훅이 몰려도 서블릿 스레드를 PG 조회 시간만큼 잡아두지 않는다.
