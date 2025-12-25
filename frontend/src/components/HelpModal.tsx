@@ -26,7 +26,7 @@ export function HelpModal({
           </div>
         ))}
         <button className={styles.close} onClick={onClose}>
-          알겠어요
+          확인
         </button>
       </div>
     </div>
