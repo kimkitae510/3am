@@ -120,3 +120,89 @@
   color: var(--text-muted);
   font-size: 13.5px;
 }
+
+/* 가입 동의 영역 */
+.consentBox {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.consentRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-sub);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.consentCheck {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.consentView {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* 약관 전문 오버레이 — 페이지 이동 없이 열어 입력값을 보존한다 */
+.sheetOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.sheet {
+  width: 86%;
+  max-height: 82%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheetTitle {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sheetBody {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.sheetAgree {
+  height: 44px;
+  border: none;
+  border-radius: 13px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}

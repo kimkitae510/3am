@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
+import { TermsContent } from '../components/TermsContent';
 import { signup } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import styles from './LoginPage.module.css';
@@ -10,11 +11,19 @@ export function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreeDisclaimer, setAgreeDisclaimer] = useState(false);
+  const [showTerms, setShowTerms] = useState(false); // 오버레이로 열어 입력값이 안 날아가게 한다
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const canSubmit =
-    email.trim() !== '' && password.length >= 8 && nickname.trim().length >= 2 && !submitting;
+    email.trim() !== '' &&
+    password.length >= 8 &&
+    nickname.trim().length >= 2 &&
+    agreeTerms &&
+    agreeDisclaimer &&
+    !submitting;
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -74,6 +83,30 @@ export function SignupPage() {
           </div>
         </div>
 
+        <div className={styles.consentBox}>
+          <label className={styles.consentRow}>
+            <input
+              type="checkbox"
+              className={styles.consentCheck}
+              checked={agreeTerms}
+              onChange={(e) => setAgreeTerms(e.target.checked)}
+            />
+            <span>(필수) 이용약관에 동의합니다</span>
+          </label>
+          <label className={styles.consentRow}>
+            <input
+              type="checkbox"
+              className={styles.consentCheck}
+              checked={agreeDisclaimer}
+              onChange={(e) => setAgreeDisclaimer(e.target.checked)}
+            />
+            <span>(필수) 면책 고지를 확인했습니다</span>
+          </label>
+          <button type="button" className={styles.consentView} onClick={() => setShowTerms(true)}>
+            전문 보기
+          </button>
+        </div>
+
         <div className={styles.error}>{error}</div>
 
         <button className={styles.primary} type="submit" disabled={!canSubmit}>
@@ -82,6 +115,28 @@ export function SignupPage() {
         <button className={styles.secondary} type="button" onClick={() => navigate('/login')}>
           이미 계정이 있어요
         </button>
+
+        {showTerms && (
+          <div className={styles.sheetOverlay} onClick={() => setShowTerms(false)}>
+            <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.sheetTitle}>이용약관과 면책 고지</div>
+              <div className={styles.sheetBody}>
+                <TermsContent />
+              </div>
+              <button
+                type="button"
+                className={styles.sheetAgree}
+                onClick={() => {
+                  setAgreeTerms(true);
+                  setAgreeDisclaimer(true);
+                  setShowTerms(false);
+                }}
+              >
+                모두 확인했으며 동의합니다
+              </button>
+            </div>
+          </div>
+        )}
       </form>
     </PhoneFrame>
   );
