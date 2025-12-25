@@ -1,0 +1,41 @@
+.content {
+  color: var(--text-sub);
+  font-size: 12.5px;
+  line-height: 1.7;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 10px;
+}
+
+.section:first-child {
+  margin-top: 0;
+}
+
+.clauseTitle {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.para {
+  margin: 0;
+}
+
+/* 면책 고지는 약관보다 먼저 읽혀야 해서 박스로 분리 강조 */
+.noticeBox {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

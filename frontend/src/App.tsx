@@ -7,6 +7,7 @@ import { AssessmentPage } from './pages/AssessmentPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { PaymentPage } from './pages/PaymentPage';
 import { PaymentResultPage } from './pages/PaymentResultPage';
+import { TermsPage } from './pages/TermsPage';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/terms" element={<TermsPage />} />
       <Route path="/stories" element={<StoryListPage />} />
       <Route path="/stories/:storyId" element={<ChatPage />} />
       <Route path="/stories/:storyId/assessment" element={<AssessmentPage />} />
