@@ -21,6 +21,16 @@ const POLL_INTERVAL = 1500;
 const POLL_TIMEOUT = 45000;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// 장문 답변을 문단 단위 말풍선으로 쪼갠다 — 사람이 나눠 보내는 것처럼.
+// 저장은 한 덩어리 그대로라 재입장 시에도 같은 규칙으로 똑같이 쪼개진다.
+function splitParagraphs(text: string): string[] {
+  const parts = text
+    .split(/\n{2,}/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : [text];
+}
+
 export function ChatPage() {
   const { storyId: storyIdParam } = useParams();
   const storyId = Number(storyIdParam);
@@ -35,6 +45,8 @@ export function ChatPage() {
   const [error, setError] = useState('');
   const [input, setInput] = useState('');
   const [waiting, setWaiting] = useState(false); // 어시스턴트 답 대기(타이핑)
+  // 방금 도착한 답만 조각을 순차 공개한다. null이면 전부 표시(과거 메시지 포함).
+  const [reveal, setReveal] = useState<{ id: number; shown: number } | null>(null);
   const [chatRemaining, setChatRemaining] = useState<number | null>(null); // 오늘 남은 대화 횟수
   const [chatPaidRemaining, setChatPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
   const [showHelp, setShowHelp] = useState(false);
@@ -81,10 +93,25 @@ export function ChatPage() {
     };
   }, [storyId]);
 
-  // 새 메시지, 타이핑 표시 시 맨 아래로.
+  // 새 메시지, 타이핑 표시, 조각 공개 시 맨 아래로.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
-  }, [messages.length, waiting]);
+  }, [messages.length, waiting, reveal]);
+
+  // 다음 조각 길이에 비례한 간격으로 하나씩 공개 — 실제로 치는 듯한 리듬.
+  // 늦게 발화한 타이머가 다른 방/다른 답의 공개 상태를 덮지 않게 자기 id일 때만 갱신.
+  function scheduleReveal(id: number, next: number, segs: string[]) {
+    const ms = Math.min(600 + segs[next - 1].length * 25, 2200);
+    window.setTimeout(() => {
+      if (!aliveRef.current) return;
+      if (next < segs.length) {
+        setReveal((prev) => (prev?.id === id ? { id, shown: next } : prev));
+        scheduleReveal(id, next + 1, segs);
+      } else {
+        setReveal((prev) => (prev?.id === id ? null : prev)); // 전부 공개 — 이후엔 일반 렌더와 동일
+      }
+    }, ms);
+  }
 
   async function loadOlder() {
     if (cursor == null) return;
@@ -109,6 +136,14 @@ export function ChatPage() {
           setMessages((prev) => [...prev, ...fresh]);
           setWaiting(false);
           refreshUsage(); // 답이 저장된 턴만 차감되므로(후차감) 이 시점에 갱신
+          const lastReply = [...fresh].reverse().find((f) => f.role !== 'USER');
+          if (lastReply) {
+            const segs = splitParagraphs(lastReply.content);
+            if (segs.length > 1) {
+              setReveal({ id: lastReply.id, shown: 1 });
+              scheduleReveal(lastReply.id, 2, segs);
+            }
+          }
           return;
         }
       } catch {
@@ -205,19 +240,27 @@ export function ChatPage() {
                   next.role !== m.role ||
                   formatClock(next.createdAt) !== formatClock(m.createdAt) ||
                   !isSameCalendarDate(next.createdAt, m.createdAt);
+                // 어시스턴트 답은 문단 단위 말풍선으로. 유저 입력은 쓴 그대로 한 덩어리.
+                const segs = m.role === 'USER' ? [m.content] : splitParagraphs(m.content);
+                const shown = reveal?.id === m.id ? Math.min(reveal.shown, segs.length) : segs.length;
                 return (
                   <div key={m.id} style={{ display: 'contents' }}>
                     {newDay && <div className={styles.divider}>{formatDateDivider(m.createdAt)}</div>}
-                    <div className={`${styles.msgRow} ${m.role === 'USER' ? styles.msgRowUser : ''}`}>
-                      <div className={`${styles.bubble} ${m.role === 'USER' ? styles.user : styles.assistant}`}>
-                        {m.content}
+                    {segs.slice(0, shown).map((seg, si) => (
+                      <div className={`${styles.msgRow} ${m.role === 'USER' ? styles.msgRowUser : ''}`} key={si}>
+                        <div className={`${styles.bubble} ${m.role === 'USER' ? styles.user : styles.assistant}`}>
+                          {seg}
+                        </div>
+                        {/* 시각은 묶음의 마지막 조각에만, 그것도 전부 공개된 뒤에 */}
+                        {showTime && shown === segs.length && si === shown - 1 && (
+                          <span className={styles.msgTime}>{formatClock(m.createdAt)}</span>
+                        )}
                       </div>
-                      {showTime && <span className={styles.msgTime}>{formatClock(m.createdAt)}</span>}
-                    </div>
+                    ))}
                   </div>
                 );
               })}
-              {waiting && (
+              {(waiting || reveal != null) && (
                 <div className={styles.typing}>
                   <span className={styles.dot} />
                   <span className={styles.dot} />
