@@ -5,7 +5,7 @@ import { getAssessments, type AssessmentResponse } from '../api/assessment';
 import { extractErrorMessage } from '../api/client';
 import styles from './HistoryPage.module.css';
 
-const GAUGE_MAX = 70; // 확률 상한(정책) — 차트 y축 만점
+const GAUGE_MAX = 80; // 확률 상한(정책, 진단 페이지와 동일) — 차트 y축 만점
 const CH_W = 320;
 const CH_TOP = 28;
 const CH_BOTTOM = 140;
