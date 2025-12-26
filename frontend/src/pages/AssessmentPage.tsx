@@ -11,19 +11,12 @@ import styles from './AssessmentPage.module.css';
 const GAUGE_MAX = 80; // 확률 상한(정책, 백엔드 클램프와 동일). 게이지는 이 값을 만점으로 그린다.
 // 수치 계산 방식(범위, 단계 기준)은 화면에 공개하지 않는다 — "왜 80이 최대냐" 같은 질문만 만든다.
 
-// 애착유형 라벨(서버) → 한 줄 설명. 유형명만 던지면 뭔지 모르는 유저가 많다.
-const ATTACH_DESC: Record<string, string> = {
-  안정형: '감정을 말로 풀고, 갈등을 대화로 다루는 편이에요.',
-  불안형: '확인받고 싶어 하고, 거리가 생기면 매달리는 편이에요.',
-  거부회피형: '갈등과 감정 얘기를 피하고, 이별 후엔 뒤도 안 돌아보는 것처럼 보이는 편이에요.',
-  공포회피형: '가까워지면 밀어내고 멀어지면 다시 찾아요. 잠수와 재연락을 반복하는 편이에요.',
-};
-
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
-function bandText(prob: number): string {
-  if (prob >= 100) return '상대의 제안이 유효한 상태예요';
-  return prob < 15 ? '아직은 낮아요' : prob < 40 ? '낮지도, 높지도 않아요' : '가능성이 보여요';
+// 결과지는 문장 대신 명사형 라벨 — 기록 페이지(HistoryPage)의 밴드 표기와 동일 기준.
+function bandLabel(prob: number): string {
+  if (prob >= 100) return '상대의 재회 제안 유효';
+  return prob < 15 ? '낮음' : prob < 40 ? '보통' : '높음';
 }
 
 function BackBar({ onBack, onHelp }: { onBack: () => void; onHelp?: () => void }) {
@@ -236,8 +229,7 @@ export function AssessmentPage() {
           </button>
         )}
         <div className={styles.body}>
-          <div className={styles.meta}>재회 확률은 이 대화방의 이야기 기준이에요</div>
-          <div className={styles.metaSub}>마지막 진단 {metaDate}</div>
+          <div className={styles.meta}>이 대화방 기준, 마지막 진단 {metaDate}</div>
 
           <div className={styles.gaugeWrap}>
             <svg width="280" height="150" viewBox="0 0 280 150">
@@ -259,32 +251,20 @@ export function AssessmentPage() {
             </div>
           </div>
           <div className={styles.gaugeLabel}>재회 가능성</div>
-          <div className={styles.gaugeSub}>{bandText(prob)}</div>
+          <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
 
-          {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기) */}
+          {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기). 유형 설명은 도움말 모달로. */}
           <div className={styles.dedTitle}>애착유형</div>
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
               <div className={styles.typeKey}>나</div>
-              <div className={styles.typeName}>{result.myAttachment ?? '아직 몰라요'}</div>
+              <div className={styles.typeName}>{result.myAttachment ?? '미확정'}</div>
             </div>
             <div className={styles.typeCard}>
               <div className={styles.typeKey}>상대</div>
-              <div className={styles.typeName}>{result.partnerAttachment ?? '아직 몰라요'}</div>
+              <div className={styles.typeName}>{result.partnerAttachment ?? '미확정'}</div>
             </div>
           </div>
-          {result.partnerAttachment && ATTACH_DESC[result.partnerAttachment] && (
-            <div className={styles.attachDesc}>상대: {ATTACH_DESC[result.partnerAttachment]}</div>
-          )}
-          {result.myAttachment && ATTACH_DESC[result.myAttachment] && (
-            <div className={styles.attachDesc}>나: {ATTACH_DESC[result.myAttachment]}</div>
-          )}
-          {(!result.myAttachment || !result.partnerAttachment) && (
-            <div className={styles.attachDesc}>
-              유형은 확률과 달라서 행동 패턴이 여러 번 보여야 잡혀요. 서로가 어떻게 말하고
-              행동했는지 이야기가 쌓이면 다음 진단에서 채워져요.
-            </div>
-          )}
 
           {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다 */}
           {minus.length > 0 && (
@@ -363,7 +343,7 @@ export function AssessmentPage() {
               },
               {
                 heading: '애착유형',
-                text: '안정형, 불안형, 거부회피형(거회), 공포회피형(공회) 네 가지입니다. 행동 패턴이 여러 번 보여야 잡히기 때문에 처음에는 비어 있을 수 있습니다.',
+                text: '안정형은 감정을 말로 풀고 갈등을 대화로 다루는 편, 불안형은 확인받고 싶어 하고 거리가 생기면 매달리는 편, 거부회피형(거회)은 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편, 공포회피형(공회)은 밀어내고 다시 찾기를 반복하는 편입니다. 행동 패턴이 여러 번 보여야 잡히기 때문에 처음에는 미확정으로 나올 수 있습니다.',
               },
               {
                 heading: '횟수',
