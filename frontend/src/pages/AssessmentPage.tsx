@@ -223,7 +223,8 @@ export function AssessmentPage() {
       <div className={styles.wrap}>
         <BackBar onBack={toChat} onHelp={() => setShowHelp(true)} />
         {error && <div className={styles.errorBanner}>{error}</div>}
-        {quotaOver && (
+        {/* Q001 거절뿐 아니라 잔여 0이 보이는 시점에도 선제 노출 — 채팅 화면과 같은 동선 */}
+        {(quotaOver || (remaining === 0 && paidRemaining === 0)) && (
           <button className={styles.askChat} onClick={() => navigate('/payment')}>
             이용권 채우러 가기
           </button>
@@ -346,7 +347,7 @@ export function AssessmentPage() {
                 text: '안정형은 감정을 말로 풀고 갈등을 대화로 다루는 편, 불안형은 확인받고 싶어 하고 거리가 생기면 매달리는 편, 거부회피형(거회)은 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편, 공포회피형(공회)은 밀어내고 다시 찾기를 반복하는 편입니다. 행동 패턴이 여러 번 보여야 잡히기 때문에 처음에는 미확정으로 나올 수 있습니다.',
               },
               {
-                heading: '횟수',
+                heading: '진단 횟수',
                 text: '진단은 하루 2회입니다. 이야기가 부족하다는 안내만 받은 경우에는 차감되지 않습니다.',
               },
             ]}
