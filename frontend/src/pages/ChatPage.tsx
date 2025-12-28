@@ -9,7 +9,7 @@ import {
   sendMessage,
   type MessageResponse,
 } from '../api/story';
-import { extractErrorMessage } from '../api/client';
+import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { getUsage } from '../api/usage';
 import { formatClock, formatDateDivider, isSameCalendarDate } from '../utils/datetime';
 import styles from './ChatPage.module.css';
@@ -49,6 +49,7 @@ export function ChatPage() {
   const [reveal, setReveal] = useState<{ id: number; shown: number } | null>(null);
   const [chatRemaining, setChatRemaining] = useState<number | null>(null); // 오늘 남은 대화 횟수
   const [chatPaidRemaining, setChatPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
+  const [quotaOver, setQuotaOver] = useState(false); // 무료+이용권 모두 소진(Q001) → 구매 유도
   const [showHelp, setShowHelp] = useState(false);
 
   function refreshUsage() {
@@ -161,6 +162,7 @@ export function ChatPage() {
     if (!content || waiting) return;
     setInput('');
     setError('');
+    setQuotaOver(false);
     try {
       const userMsg = await sendMessage(storyId, content);
       setMessages((prev) => [...prev, userMsg]);
@@ -169,6 +171,7 @@ export function ChatPage() {
     } catch (e) {
       setInput(content); // 실패 시 입력 복구
       setError(extractErrorMessage(e, '메시지를 보내지 못했어요.'));
+      setQuotaOver(extractErrorCode(e) === 'Q001');
     }
   }
 
@@ -278,6 +281,12 @@ export function ChatPage() {
             오늘 남은 대화 {chatRemaining}회
             {chatPaidRemaining > 0 && ` + 이용권 ${chatPaidRemaining}회`}
           </div>
+        )}
+        {/* 소진 상태(잔여 0 또는 Q001 거절)에서만 결제 유도 — 진단 화면과 같은 동선 */}
+        {(quotaOver || (chatRemaining === 0 && chatPaidRemaining === 0)) && (
+          <button className={styles.buyButton} onClick={() => navigate('/payment')}>
+            이용권 채우러 가기
+          </button>
         )}
         {/* 한도에 가까워질 때만 카운터 노출 — 평소엔 조용히 */}
         {input.length >= MAX_LENGTH - 80 && (
