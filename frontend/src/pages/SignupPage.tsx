@@ -43,6 +43,11 @@ export function SignupPage() {
   return (
     <PhoneFrame>
       <form className={styles.body} onSubmit={handleSignup}>
+        <button type="button" className={styles.backTop} onClick={() => navigate('/login')} aria-label="뒤로">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M15 5l-7 7 7 7" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
         <div className={styles.brand}>
           <div className={styles.title}>가입하기</div>
           <div className={styles.subtitle}>이메일로 새벽 세시를 시작해요.</div>
@@ -111,9 +116,6 @@ export function SignupPage() {
 
         <button className={styles.primary} type="submit" disabled={!canSubmit}>
           {submitting ? '가입 중…' : '가입하기'}
-        </button>
-        <button className={styles.secondary} type="button" onClick={() => navigate('/login')}>
-          이미 계정이 있어요
         </button>
 
         {showTerms && (

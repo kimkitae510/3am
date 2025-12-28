@@ -121,6 +121,19 @@
   font-size: 13.5px;
 }
 
+/* 가입 화면 좌상단 뒤로가기 — 로그인과 공유하는 brand 레이아웃을 건드리지 않게 절대 배치 */
+.backTop {
+  position: absolute;
+  top: 58px; /* 상태바(54px) 바로 아래 */
+  left: 22px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  z-index: 1;
+}
+
 /* 가입 동의 영역 */
 .consentBox {
   margin-top: 14px;
