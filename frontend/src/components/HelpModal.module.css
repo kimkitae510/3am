@@ -9,39 +9,40 @@
 }
 
 .dialog {
-  width: 82%;
+  width: 84%;
   max-height: 78%;
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 18px;
-  padding: 20px 18px;
+  padding: 24px 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 13px;
+  gap: 16px;
 }
 
 .title {
   color: var(--text);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
+  margin-bottom: 2px; /* 항목 간 gap에 더해 제목 아래만 한 뼘 더 */
 }
 
 .block {
   color: var(--text-sub);
-  font-size: 12.5px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.65;
 }
 
 .heading {
   color: var(--text);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .close {
-  margin-top: 4px;
+  margin-top: 6px;
   height: 44px;
   border: none;
   border-radius: 13px;
