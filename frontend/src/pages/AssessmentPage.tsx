@@ -6,18 +6,12 @@ import { getAssessments, runAssessment, type AssessmentResponse } from '../api/a
 import { getUsage } from '../api/usage';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
+import { GAUGE_MAX, bandLabel } from '../utils/assessmentScale';
 import styles from './AssessmentPage.module.css';
 
-const GAUGE_MAX = 80; // 확률 상한(정책, 백엔드 클램프와 동일). 게이지는 이 값을 만점으로 그린다.
 // 수치 계산 방식(범위, 단계 기준)은 화면에 공개하지 않는다 — "왜 80이 최대냐" 같은 질문만 만든다.
 
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
-
-// 결과지는 문장 대신 명사형 라벨 — 기록 페이지(HistoryPage)의 밴드 표기와 동일 기준.
-function bandLabel(prob: number): string {
-  if (prob >= 100) return '상대의 재회 제안 유효';
-  return prob < 15 ? '낮음' : prob < 40 ? '보통' : '높음';
-}
 
 function BackBar({ onBack, onHelp }: { onBack: () => void; onHelp?: () => void }) {
   return (

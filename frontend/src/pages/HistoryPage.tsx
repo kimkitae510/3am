@@ -3,16 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { getAssessments, type AssessmentResponse } from '../api/assessment';
 import { extractErrorMessage } from '../api/client';
+import { GAUGE_MAX, bandLabel } from '../utils/assessmentScale';
 import styles from './HistoryPage.module.css';
 
-const GAUGE_MAX = 80; // 확률 상한(정책, 진단 페이지와 동일) — 차트 y축 만점
 const CH_W = 320;
 const CH_TOP = 28;
 const CH_BOTTOM = 140;
-
-function bandLabel(prob: number): string {
-  return prob < 15 ? '낮음' : prob < 40 ? '보통' : '높음';
-}
 
 function shortDate(iso: string | null): string {
   if (!iso) return '';
