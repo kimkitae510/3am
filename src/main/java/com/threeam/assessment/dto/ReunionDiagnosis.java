@@ -11,6 +11,8 @@ public record ReunionDiagnosis(
         ReunionVerdict verdict,
         AttachmentStyle myAttachment,       // 유저 애착유형. 행동 근거 부족 시 null
         AttachmentStyle partnerAttachment,  // 상대 애착유형. 행동 근거 부족 시 null
+        String myAttachmentEvidence,        // 유형 판정 근거 한 줄. 유형이 null이면 null
+        String partnerAttachmentEvidence,
         boolean activeReunionOffer,         // 상대가 먼저 만남/재회를 제안했고 철회되지 않음
         List<DeductionItem> deductions,
         List<DeductionItem> boosts,

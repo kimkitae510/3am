@@ -14,17 +14,22 @@ public class AssessmentResponse {
     private final Integer probability;      // POSSIBLE이 아니면 null. 상대 제안 유효 시 100
     private final String myAttachment;      // 유저 애착유형 라벨(한국어), 근거 부족이면 null
     private final String partnerAttachment; // 상대 애착유형 라벨(한국어), 근거 부족이면 null
+    private final String myAttachmentEvidence;      // 유형 판정 근거 한 줄, 유형 null이면 null
+    private final String partnerAttachmentEvidence;
     private final String reason;
     private final List<DeductionView> deductions;
     private final LocalDateTime createdAt;
 
     private AssessmentResponse(ReunionVerdict verdict, Integer probability, String myAttachment,
-                              String partnerAttachment, String reason,
+                              String partnerAttachment, String myAttachmentEvidence,
+                              String partnerAttachmentEvidence, String reason,
                               List<DeductionView> deductions, LocalDateTime createdAt) {
         this.verdict = verdict;
         this.probability = probability;
         this.myAttachment = myAttachment;
         this.partnerAttachment = partnerAttachment;
+        this.myAttachmentEvidence = myAttachmentEvidence;
+        this.partnerAttachmentEvidence = partnerAttachmentEvidence;
         this.reason = reason;
         this.deductions = deductions;
         this.createdAt = createdAt;
@@ -39,6 +44,8 @@ public class AssessmentResponse {
                 assessment.getProbability(),
                 label(assessment.getMyAttachment()),
                 label(assessment.getPartnerAttachment()),
+                assessment.getMyAttachmentEvidence(),
+                assessment.getPartnerAttachmentEvidence(),
                 assessment.getReason(),
                 deductions,
                 assessment.getCreatedAt());

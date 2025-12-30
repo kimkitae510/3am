@@ -163,6 +163,8 @@ public class AssessmentService {
                 .probability(probability)
                 .myAttachment(diagnosis.myAttachment())
                 .partnerAttachment(diagnosis.partnerAttachment())
+                .myAttachmentEvidence(diagnosis.myAttachmentEvidence())
+                .partnerAttachmentEvidence(diagnosis.partnerAttachmentEvidence())
                 .reason(diagnosis.reason())
                 .deductions(deductions)
                 .build();

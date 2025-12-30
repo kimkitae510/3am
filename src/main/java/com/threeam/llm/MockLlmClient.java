@@ -36,7 +36,9 @@ public class MockLlmClient implements LlmClient {
                 {
                   "verdict": "POSSIBLE",
                   "myAttachment": "ANXIOUS",
+                  "myAttachmentEvidence": "(개발용 임시 근거) 답장이 늦으면 반복해서 확인 연락",
                   "partnerAttachment": "AVOIDANT",
+                  "partnerAttachmentEvidence": "(개발용 임시 근거) 갈등 얘기를 꺼내면 화제를 돌리는 패턴",
                   "activeReunionOffer": false,
                   "deductions": [
                     {"signal": "상대가 먼저 이별을 통보", "axis": "마음", "points": 15, "evidence": "(개발용 임시 근거)"},

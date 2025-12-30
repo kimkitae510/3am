@@ -50,7 +50,9 @@ public class ReunionLlm {
             {
               "verdict": "POSSIBLE" | "INSUFFICIENT",
               "myAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
+              "myAttachmentEvidence": "유형 판정 근거 한 줄" | null,
               "partnerAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
+              "partnerAttachmentEvidence": "유형 판정 근거 한 줄" | null,
               "activeReunionOffer": true | false,
               "deductions": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
               "boosts": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
@@ -85,6 +87,11 @@ public class ReunionLlm {
             - AVOIDANT와 FEARFUL의 구분: 떠난 뒤 일관되게 무심하면 AVOIDANT,
               밀어냈다가 다시 찾아오기를 반복하면 FEARFUL.
             - 서로 다른 행동 근거가 두 개 이상일 때만 판정하라. 애매하면 null — 억지로 붙이지 마라.
+            - 유형을 판정했으면 그 근거가 된 행동 패턴을 myAttachmentEvidence,
+              partnerAttachmentEvidence에 각각 한 줄로 적어라. 대화와 기록에서 실제 관찰된
+              행동만 담아라(예: "감정 얘기를 꺼내면 화제를 돌리는 패턴이 반복됨").
+              해석이나 유형 정의의 반복("회피 성향이라서")은 근거가 아니다.
+              유형이 null이면 근거도 null이다.
             - 이것도 도덕 평가가 아니라 패턴 분류다. 유형이 나쁜 사람이라는 뜻이 아니다.
 
             판정 기준:
@@ -198,6 +205,9 @@ public class ReunionLlm {
                     enumValue(AttachmentStyle.class, root.path("myAttachment").asText(null), null);
             AttachmentStyle partnerAttachment =
                     enumValue(AttachmentStyle.class, root.path("partnerAttachment").asText(null), null);
+            String myAttachmentEvidence = attachmentEvidence(root, "myAttachmentEvidence", myAttachment);
+            String partnerAttachmentEvidence =
+                    attachmentEvidence(root, "partnerAttachmentEvidence", partnerAttachment);
             boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
 
             int[] dropped = {0};
@@ -225,7 +235,8 @@ public class ReunionLlm {
                         : fact);
             }
 
-            return new ReunionDiagnosis(verdict, myAttachment, partnerAttachment, activeReunionOffer,
+            return new ReunionDiagnosis(verdict, myAttachment, partnerAttachment,
+                    myAttachmentEvidence, partnerAttachmentEvidence, activeReunionOffer,
                     deductions, boosts,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
@@ -262,6 +273,23 @@ public class ReunionLlm {
             items.add(new DeductionItem(signal, points, node.path("evidence").asText("")));
         }
         return items;
+    }
+
+    // 근거는 유형이 판정된 경우에만 의미가 있다 — 유형 없는 근거는 버린다(스키마 일관성).
+    // 길이는 저장 컬럼(VARCHAR(200))에 맞춰 자른다.
+    private static final int ATTACHMENT_EVIDENCE_MAX = 200;
+
+    private String attachmentEvidence(JsonNode root, String field, AttachmentStyle attachment) {
+        if (attachment == null) {
+            return null;
+        }
+        String evidence = root.path(field).asText("").trim();
+        if (evidence.isBlank()) {
+            return null;
+        }
+        return evidence.length() > ATTACHMENT_EVIDENCE_MAX
+                ? evidence.substring(0, ATTACHMENT_EVIDENCE_MAX)
+                : evidence;
     }
 
     private <E extends Enum<E>> E enumValue(Class<E> type, String raw, E fallback) {

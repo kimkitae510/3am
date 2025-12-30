@@ -39,7 +39,9 @@ class ReunionLlmTest {
                 {
                   "verdict": "POSSIBLE",
                   "myAttachment": "ANXIOUS",
+                  "myAttachmentEvidence": "답장이 늦으면 반복해서 확인 연락",
                   "partnerAttachment": "AVOIDANT",
+                  "partnerAttachmentEvidence": "갈등 얘기를 꺼내면 화제를 돌림",
                   "activeReunionOffer": true,
                   "deductions": [
                     {"signal": "차단", "axis": "마음", "points": 30, "evidence": "차단당함"},
@@ -56,6 +58,8 @@ class ReunionLlmTest {
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE);
         assertThat(diagnosis.myAttachment()).isEqualTo(AttachmentStyle.ANXIOUS);
         assertThat(diagnosis.partnerAttachment()).isEqualTo(AttachmentStyle.AVOIDANT);
+        assertThat(diagnosis.myAttachmentEvidence()).isEqualTo("답장이 늦으면 반복해서 확인 연락");
+        assertThat(diagnosis.partnerAttachmentEvidence()).isEqualTo("갈등 얘기를 꺼내면 화제를 돌림");
         assertThat(diagnosis.activeReunionOffer()).isTrue();
         assertThat(diagnosis.deductions()).hasSize(1); // points=0 항목은 버려진다
         assertThat(diagnosis.deductions().get(0).points()).isEqualTo(30);
@@ -193,10 +197,11 @@ class ReunionLlmTest {
     }
 
     @Test
-    @DisplayName("알 수 없는 enum 값은 안전한 기본값으로 떨어진다")
+    @DisplayName("알 수 없는 enum 값은 안전한 기본값으로 떨어지고, 유형 없는 근거는 함께 버려진다")
     void parse_unknownEnum_fallsBack() {
         String json = """
-                {"verdict": "???", "myAttachment": "WAT", "partnerAttachment": null,
+                {"verdict": "???", "myAttachment": "WAT", "myAttachmentEvidence": "유형이 없으니 버려질 근거",
+                 "partnerAttachment": null, "partnerAttachmentEvidence": "이것도 버려짐",
                  "deductions": [], "reason": "", "summary": ""}
                 """;
         given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
@@ -206,7 +211,27 @@ class ReunionLlmTest {
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE); // 기본값
         assertThat(diagnosis.myAttachment()).isNull();
         assertThat(diagnosis.partnerAttachment()).isNull();
+        assertThat(diagnosis.myAttachmentEvidence()).isNull();      // 유형이 안 잡히면 근거도 무효
+        assertThat(diagnosis.partnerAttachmentEvidence()).isNull();
         assertThat(diagnosis.activeReunionOffer()).isFalse(); // 필드 누락 시 안전한 기본값
+    }
+
+    @Test
+    @DisplayName("유형 근거는 저장 컬럼 길이(200자)로 자르고, 빈 문자열은 null로 정규화한다")
+    void parse_attachmentEvidence_truncatedAndBlankNormalized() {
+        String longEvidence = "가".repeat(300);
+        String json = """
+                {"verdict": "POSSIBLE",
+                 "myAttachment": "ANXIOUS", "myAttachmentEvidence": "%s",
+                 "partnerAttachment": "AVOIDANT", "partnerAttachmentEvidence": "  ",
+                 "deductions": [], "reason": "", "summary": ""}
+                """.formatted(longEvidence);
+        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        assertThat(diagnosis.myAttachmentEvidence()).hasSize(200);
+        assertThat(diagnosis.partnerAttachmentEvidence()).isNull();
     }
 
     @Test

@@ -143,10 +143,12 @@ public class MessageTxService {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
         }
         if (assessment.getMyAttachment() != null) {
-            block.append("- 유저 애착유형: ").append(assessment.getMyAttachment().getLabel()).append('\n');
+            block.append("- 유저 애착유형: ").append(assessment.getMyAttachment().getLabel());
+            appendAttachmentEvidence(block, assessment.getMyAttachmentEvidence());
         }
         if (assessment.getPartnerAttachment() != null) {
-            block.append("- 상대 애착유형: ").append(assessment.getPartnerAttachment().getLabel()).append('\n');
+            block.append("- 상대 애착유형: ").append(assessment.getPartnerAttachment().getLabel());
+            appendAttachmentEvidence(block, assessment.getPartnerAttachmentEvidence());
         }
         for (Deduction deduction : assessment.getDeductions()) {
             // 가점(양수 delta)까지 "감점"으로 라벨링하면 모순된 데이터가 주입된다
@@ -161,5 +163,13 @@ public class MessageTxService {
             block.append("- 총평: ").append(assessment.getReason());
         }
         return block.toString().trim();
+    }
+
+    // 유형 근거가 저장돼 있으면 라벨 옆에 붙인다 — "왜 이 유형이야?"에 즉석 재구성 대신 실제 판정 근거로 답하게.
+    private void appendAttachmentEvidence(StringBuilder block, String evidence) {
+        if (evidence != null && !evidence.isBlank()) {
+            block.append(" (판정 근거: ").append(evidence).append(')');
+        }
+        block.append('\n');
     }
 }

@@ -60,6 +60,13 @@ public class Assessment {
     @Column(length = 20)
     private AttachmentStyle partnerAttachment;
 
+    // 유형 판정의 근거가 된 행동 패턴 한 줄. 유형이 null이면 함께 null.
+    @Column(length = 200)
+    private String myAttachmentEvidence;
+
+    @Column(length = 200)
+    private String partnerAttachmentEvidence;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
 
@@ -76,12 +83,15 @@ public class Assessment {
     @Builder
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
                        AttachmentStyle myAttachment, AttachmentStyle partnerAttachment,
+                       String myAttachmentEvidence, String partnerAttachmentEvidence,
                        String reason, @Singular List<Deduction> deductions) {
         this.storyId = storyId;
         this.verdict = verdict;
         this.probability = probability;
         this.myAttachment = myAttachment;
         this.partnerAttachment = partnerAttachment;
+        this.myAttachmentEvidence = myAttachmentEvidence;
+        this.partnerAttachmentEvidence = partnerAttachmentEvidence;
         this.reason = reason;
         this.deductions = deductions != null ? deductions : new ArrayList<>();
     }
