@@ -238,7 +238,7 @@ export function StoryListPage() {
 
         {showHelp && (
           <HelpModal
-            title="3AM 가이드"
+            title="이용 가이드"
             onClose={() => setShowHelp(false)}
             sections={[
               {
