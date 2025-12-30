@@ -248,7 +248,8 @@ export function AssessmentPage() {
           <div className={styles.gaugeLabel}>재회 가능성</div>
           <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
 
-          {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기). 유형 설명은 도움말 모달로. */}
+          {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기). 일반 설명은 도움말 모달로,
+              카드 아래엔 이 사람에게서 실제 관찰된 판정 근거만 붙인다. */}
           <div className={styles.dedTitle}>애착유형</div>
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
@@ -260,6 +261,12 @@ export function AssessmentPage() {
               <div className={styles.typeName}>{result.partnerAttachment ?? '미확정'}</div>
             </div>
           </div>
+          {result.myAttachmentEvidence && (
+            <div className={styles.typeEvidence}>나: {result.myAttachmentEvidence}</div>
+          )}
+          {result.partnerAttachmentEvidence && (
+            <div className={styles.typeEvidence}>상대: {result.partnerAttachmentEvidence}</div>
+          )}
 
           {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다 */}
           {minus.length > 0 && (
