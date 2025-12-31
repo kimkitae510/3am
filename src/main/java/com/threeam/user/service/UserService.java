@@ -24,6 +24,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SignupRateLimiter signupRateLimiter;
+    private final EmailVerificationService emailVerificationService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final TokenInvalidationRegistry tokenInvalidationRegistry;
 
@@ -34,6 +35,10 @@ public class UserService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
+
+        // 코드 검증은 별도 트랜잭션(REQUIRES_NEW)에서 소비된다. 이후 save가 실패하는 극단 케이스엔
+        // 코드를 다시 요청해야 하지만, 그 대가로 실패 시도 카운트가 롤백에 휩쓸리지 않는다.
+        emailVerificationService.verifyAndConsume(request.getEmail(), request.getVerificationCode());
 
         User user = User.builder()
                 .email(request.getEmail())

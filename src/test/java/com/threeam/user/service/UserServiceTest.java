@@ -36,6 +36,9 @@ class UserServiceTest {
     private SignupRateLimiter signupRateLimiter;
 
     @Mock
+    private EmailVerificationService emailVerificationService;
+
+    @Mock
     private com.threeam.auth.repository.RefreshTokenRepository refreshTokenRepository;
 
     @Mock
@@ -66,6 +69,21 @@ class UserServiceTest {
         verify(userRepository).save(captor.capture());
         assertThat(captor.getValue().getPassword()).isEqualTo("encodedPw"); // 평문 저장 안 함
         assertThat(captor.getValue().getRole()).isEqualTo(Role.USER);
+        verify(emailVerificationService).verifyAndConsume("a@a.com", "123456"); // 인증 코드 검증을 거친다
+    }
+
+    @Test
+    @DisplayName("회원가입 실패 - 인증 코드 검증에 실패하면 저장하지 않는다")
+    void signup_verificationFailed() {
+        SignupRequest request = signupRequest("a@a.com", "password123", "닉네임");
+        given(userRepository.existsByEmail("a@a.com")).willReturn(false);
+        org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.VERIFICATION_CODE_INVALID))
+                .given(emailVerificationService).verifyAndConsume("a@a.com", "123456");
+
+        assertThatThrownBy(() -> userService.signup(request, "1.1.1.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VERIFICATION_CODE_INVALID);
+        verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
     }
 
     @Test
@@ -151,6 +169,7 @@ class UserServiceTest {
         ReflectionTestUtils.setField(request, "email", email);
         ReflectionTestUtils.setField(request, "password", password);
         ReflectionTestUtils.setField(request, "nickname", nickname);
+        ReflectionTestUtils.setField(request, "verificationCode", "123456");
         return request;
     }
 }
