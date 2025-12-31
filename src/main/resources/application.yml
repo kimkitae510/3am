@@ -35,6 +35,20 @@ spring:
   #     host: ${REDIS_HOST:localhost}
   #     port: ${REDIS_PORT:6379}
 
+  # 가입 인증 메일 발송용 SMTP (Gmail). 실제 계정/앱 비밀번호는 환경변수로 주입.
+  # mail.provider=mock이면 이 설정은 사용되지 않는다.
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
 # JWT (실제 시크릿은 환경변수로 주입)
 jwt:
   secret: ${JWT_SECRET:change-me-to-a-long-random-secret-key-at-least-256-bits}
@@ -60,6 +74,12 @@ llm:
     # 진단 전용 모델(선택). 비우면 model 사용. 진단은 긴 루브릭이라 강한 모델 배정 가능.
     assessment-model: ${LLM_ASSESSMENT_MODEL:}
     timeout-seconds: 30
+
+# 인증 메일 — 기본은 mock(발송 없이 서버 로그로 코드 확인). 실발송 시 MAIL_PROVIDER=smtp
+# + MAIL_USERNAME(Gmail 주소), MAIL_PASSWORD(앱 비밀번호) 주입.
+mail:
+  provider: ${MAIL_PROVIDER:mock}   # mock | smtp
+  from: ${MAIL_USERNAME:}
 
 # 사용량 제한 — LLM 비용 어뷰징 방지. 한도는 실제 비용 추이를 보고 조정한다.
 # (일반 API의 공통 빈도 제한은 앱이 아니라 인프라 층(nginx 등)에서 건다 — 운영 전환 시.)
