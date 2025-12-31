@@ -96,6 +96,24 @@ class StoryServiceTest {
     }
 
     @Test
+    @DisplayName("사연 목록 - 마지막 메시지를 한 줄 미리보기로 붙인다(개행 평탄화, 60자 절단, 대화 없으면 null)")
+    void getStories_withLastMessagePreview() {
+        Story first = story(1L, "첫 사연");
+        ReflectionTestUtils.setField(first, "id", 10L);
+        Story second = story(1L, "둘째 사연");
+        ReflectionTestUtils.setField(second, "id", 20L);
+        given(storyRepository.findByUserIdAndDeletedAtIsNullOrderByUpdatedAtDesc(1L))
+                .willReturn(List.of(first, second));
+        given(messageRepository.findLatestPerStory(List.of(10L, 20L)))
+                .willReturn(List.of(Message.assistant(first, "첫 줄\n둘째 줄 " + "가".repeat(80))));
+
+        List<StoryResponse> responses = storyService.getStories(1L);
+
+        assertThat(responses.get(0).getLastMessage()).startsWith("첫 줄 둘째 줄").hasSize(60);
+        assertThat(responses.get(1).getLastMessage()).isNull(); // 아직 대화가 없는 방
+    }
+
+    @Test
     @DisplayName("메시지 전송 - 유저 메시지를 즉시 반환하고, 어시스턴트 답은 백그라운드로 저장한다")
     void sendMessage_success() {
         MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, "오늘 너무 힘들어"));

@@ -17,6 +17,8 @@ import com.threeam.usage.UsageKind;
 import com.threeam.usage.UsageLimiter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -57,9 +59,25 @@ public class StoryService {
     }
 
     public List<StoryResponse> getStories(Long userId) {
-        return storyRepository.findByUserIdAndDeletedAtIsNullOrderByUpdatedAtDesc(userId).stream()
-                .map(StoryResponse::from)
+        List<Story> stories = storyRepository.findByUserIdAndDeletedAtIsNullOrderByUpdatedAtDesc(userId);
+        if (stories.isEmpty()) {
+            return List.of();
+        }
+        // 카톡식 목록 미리보기 — 사연별 마지막 메시지를 한 방 쿼리로 가져와 붙인다(N+1 회피).
+        Map<Long, String> previews = messageRepository
+                .findLatestPerStory(stories.stream().map(Story::getId).toList()).stream()
+                .collect(Collectors.toMap(m -> m.getStory().getId(), m -> preview(m.getContent())));
+        return stories.stream()
+                .map(story -> StoryResponse.from(story, previews.get(story.getId())))
                 .toList();
+    }
+
+    // 목록 한 줄용 — 개행은 공백으로 펴고 길면 자른다(전문은 방 안에서 보이므로 잘림은 무해).
+    private static final int PREVIEW_LENGTH = 60;
+
+    private String preview(String content) {
+        String oneLine = content.replace('\n', ' ').strip();
+        return oneLine.length() > PREVIEW_LENGTH ? oneLine.substring(0, PREVIEW_LENGTH) : oneLine;
     }
 
     // 폴링 방식: 유저 메시지를 저장하고 즉시 반환한다. 어시스턴트 답은 백그라운드에서 생성, 저장되고,

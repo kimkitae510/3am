@@ -2,10 +2,13 @@ package com.threeam.story.repository;
 
 import com.threeam.story.entity.Message;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
@@ -21,6 +24,11 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     // 재진단 가드용: 마지막 진단 이후 새로 나눈 대화가 있는지.
     boolean existsByStoryIdAndCreatedAtAfter(Long storyId, LocalDateTime createdAt);
+
+    // 목록 미리보기용: 사연별 마지막 메시지를 한 방 쿼리로(IN + GROUP BY MAX — 사연 수만큼 도는 N+1 회피).
+    @Query("select m from Message m where m.id in "
+            + "(select max(m2.id) from Message m2 where m2.story.id in :storyIds group by m2.story.id)")
+    List<Message> findLatestPerStory(@Param("storyIds") Collection<Long> storyIds);
 
     void deleteByStoryId(Long storyId);
 }
