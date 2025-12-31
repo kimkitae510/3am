@@ -217,10 +217,12 @@ export function StoryListPage() {
                   <div className={styles.itemBody}>
                     <div className={styles.itemTop}>
                       <span className={styles.itemName}>{s.title || '제목 없음'}</span>
-                      <span className={styles.itemRight}>
-                        <span className={styles.itemTime}>{formatListTime(s.updatedAt)}</span>
-                        {s.unread && <span className={styles.unreadBadge}>1</span>}
-                      </span>
+                      <span className={styles.itemTime}>{formatListTime(s.updatedAt)}</span>
+                    </div>
+                    {/* 카톡식 2줄: 아래 줄은 마지막 메시지 미리보기 + NEW 배지 */}
+                    <div className={styles.itemBottom}>
+                      <span className={styles.itemSub}>{s.lastMessage ?? '아직 나눈 대화가 없어요'}</span>
+                      {s.unread && <span className={styles.unreadBadge}>NEW</span>}
                     </div>
                   </div>
                 </button>

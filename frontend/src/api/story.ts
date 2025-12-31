@@ -6,6 +6,7 @@ export interface StoryResponse {
   createdAt: string;
   updatedAt: string;
   unread: boolean; // 마지막으로 읽은 뒤 새 답이 있음 — 목록 배지용
+  lastMessage: string | null; // 마지막 메시지 미리보기(한 줄, 서버에서 잘림). 대화 없으면 null
 }
 
 export async function listStories(): Promise<StoryResponse[]> {
