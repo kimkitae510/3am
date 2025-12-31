@@ -1,9 +1,11 @@
 package com.threeam.user.controller;
 
 import com.threeam.global.web.ClientIp;
+import com.threeam.user.dto.EmailVerificationRequest;
 import com.threeam.user.dto.PasswordChangeRequest;
 import com.threeam.user.dto.SignupRequest;
 import com.threeam.user.dto.SignupResponse;
+import com.threeam.user.service.EmailVerificationService;
 import com.threeam.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -24,6 +26,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+    private final EmailVerificationService emailVerificationService;
+
+    @PostMapping("/email-verifications")
+    public ResponseEntity<Void> issueVerification(@Valid @RequestBody EmailVerificationRequest request,
+                                                  HttpServletRequest httpRequest) {
+        emailVerificationService.issue(request.getEmail(), ClientIp.of(httpRequest));
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/signup")
     public ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request,

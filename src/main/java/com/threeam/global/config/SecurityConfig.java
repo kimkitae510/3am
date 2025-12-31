@@ -3,6 +3,7 @@ package com.threeam.global.config;
 import com.threeam.llm.ChatPersonaProperties;
 import com.threeam.llm.GeminiProperties;
 import com.threeam.llm.VertexAiProperties;
+import com.threeam.mail.MailProperties;
 import com.threeam.payment.client.PaymentProperties;
 import com.threeam.usage.UsageProperties;
 import com.threeam.security.handler.JwtAccessDeniedHandler;
@@ -33,7 +34,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties({JwtProperties.class, GeminiProperties.class, VertexAiProperties.class,
-        ChatPersonaProperties.class, UsageProperties.class, PaymentProperties.class})
+        ChatPersonaProperties.class, UsageProperties.class, PaymentProperties.class, MailProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -64,7 +65,8 @@ public class SecurityConfig {
                         // 이미 인증을 통과한 내부 흐름 — Security 6은 기본으로 이것까지 검사해서,
                         // 면제하지 않으면 진단 API가 처리 완료 후 401로 떨어진다.
                         .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
-                        .requestMatchers("/api/users/signup", "/api/auth/login", "/api/auth/reissue").permitAll()
+                        .requestMatchers("/api/users/signup", "/api/users/email-verifications",
+                                "/api/auth/login", "/api/auth/reissue").permitAll()
                         // PG 웹훅 — 토스 서버가 호출하므로 JWT가 없다. 페이로드를 신뢰하지 않고
                         // PG 조회로 재확인하는 구조라(PaymentWebhookController) 열어도 상태 위조가 불가능하다.
                         .requestMatchers("/api/payments/webhook/**").permitAll()

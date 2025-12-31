@@ -17,6 +17,12 @@ public enum ErrorCode {
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "U001", "이미 사용 중인 이메일입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U002", "사용자를 찾을 수 없습니다."),
     SIGNUP_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "U003", "가입 요청이 너무 많아요. 내일 다시 시도해 주세요."),
+    // 코드 불일치와 "코드 발급 이력 없음"을 한 코드로 합친다 — 응답이 갈리면 발급 여부 추측에 쓰인다.
+    VERIFICATION_CODE_INVALID(HttpStatus.BAD_REQUEST, "U004", "인증 코드가 올바르지 않아요. 다시 확인해 주세요."),
+    VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "U005", "인증 코드가 만료됐어요. 코드를 다시 요청해 주세요."),
+    VERIFICATION_RESEND_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "U006", "인증 메일을 방금 보냈어요. 1분 뒤에 다시 요청해 주세요."),
+    VERIFICATION_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "U007", "인증 시도가 너무 많았어요. 코드를 다시 요청해 주세요."),
+    MAIL_SEND_FAILED(HttpStatus.BAD_GATEWAY, "U008", "인증 메일 발송에 실패했어요. 잠시 후 다시 시도해 주세요."),
 
     // 인증
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "A001", "비밀번호가 올바르지 않습니다."),
