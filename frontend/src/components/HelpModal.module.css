@@ -41,6 +41,19 @@
   margin-bottom: 4px;
 }
 
+.contact {
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.6;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.contact a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .close {
   margin-top: 6px;
   height: 44px;

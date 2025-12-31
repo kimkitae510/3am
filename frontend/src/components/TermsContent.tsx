@@ -1,4 +1,5 @@
 import styles from './TermsContent.module.css';
+import { CONTACT_OPENCHAT_URL } from './HelpModal';
 
 // 약관/면책 본문. 회원가입 오버레이와 /terms 페이지가 같은 내용을 쓰도록 하나로 모은다.
 // 법적 성격의 문서라 전체 습니다 체 고정.
@@ -85,6 +86,15 @@ export function TermsContent() {
 
       <div className={styles.clauseTitle}>제10조 (준거법)</div>
       <p className={styles.para}>이 약관은 대한민국 법령에 따라 해석되고 적용됩니다.</p>
+
+      <div className={styles.section}>문의</div>
+      <p className={styles.para}>
+        서비스 이용 중 궁금한 점이나 불편한 점은{' '}
+        <a href={CONTACT_OPENCHAT_URL} target="_blank" rel="noreferrer">
+          카카오 오픈채팅 1:1 문의
+        </a>
+        로 보내주시면 확인 후 답변드립니다.
+      </p>
     </div>
   );
 }
