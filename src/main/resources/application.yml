@@ -81,6 +81,19 @@ mail:
   provider: ${MAIL_PROVIDER:mock}   # mock | smtp
   from: ${MAIL_USERNAME:}
 
+# 소셜 로그인 — 기본은 mock(키 불필요, 같은 code면 같은 계정). 실연동 시 OAUTH_PROVIDER=real
+# + 카카오 REST API 키, 네이버 Client ID/Secret 주입. redirect_uri는 프론트가 요청에 담아 보낸다
+# (인가 요청과 토큰 교환의 값이 같아야 하고, 등록된 URI인지는 카카오/네이버가 검증).
+oauth:
+  provider: ${OAUTH_PROVIDER:mock}   # mock | real
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID:}
+    client-secret: ${KAKAO_CLIENT_SECRET:}   # 콘솔 보안 설정에서 켰을 때만 필요
+  naver:
+    client-id: ${NAVER_CLIENT_ID:}
+    client-secret: ${NAVER_CLIENT_SECRET:}
+  timeout-seconds: 10
+
 # 사용량 제한 — LLM 비용 어뷰징 방지. 한도는 실제 비용 추이를 보고 조정한다.
 # (일반 API의 공통 빈도 제한은 앱이 아니라 인프라 층(nginx 등)에서 건다 — 운영 전환 시.)
 usage:
