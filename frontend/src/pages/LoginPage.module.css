@@ -114,6 +114,56 @@
   cursor: pointer;
 }
 
+/* 소셜 로그인 — 각 브랜드 가이드 색상 고정(테마 변수 미사용) */
+.kakao {
+  margin-top: 10px;
+  height: 54px;
+  border: none;
+  border-radius: 14px;
+  background: #fee500;
+  color: #191919;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.naver {
+  margin-top: 10px;
+  height: 54px;
+  border: none;
+  border-radius: 14px;
+  background: #03c75a;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 가입 이메일 인증 — 입력칸 안 오른쪽의 코드 요청 버튼 */
+.fieldButton {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fieldButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
 .footer {
   text-align: center;
   margin-top: 26px;

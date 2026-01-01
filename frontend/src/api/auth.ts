@@ -16,6 +16,15 @@ export interface SignupRequest {
   email: string;
   password: string;
   nickname: string;
+  verificationCode: string;
+}
+
+export type OAuthProvider = 'kakao' | 'naver';
+
+export interface OAuthLoginRequest {
+  code: string;
+  state?: string;
+  redirectUri: string;
 }
 
 export interface SignupResponse {
@@ -32,6 +41,16 @@ export async function login(body: LoginRequest): Promise<TokenResponse> {
 
 export async function signup(body: SignupRequest): Promise<SignupResponse> {
   const { data } = await api.post<SignupResponse>('/api/users/signup', body);
+  return data;
+}
+
+export async function requestEmailVerification(email: string): Promise<void> {
+  await api.post('/api/users/email-verifications', { email });
+}
+
+export async function oauthLogin(provider: OAuthProvider, body: OAuthLoginRequest): Promise<TokenResponse> {
+  const { data } = await api.post<TokenResponse>(`/api/auth/oauth/${provider}`, body);
+  tokenStore.set(data.accessToken, data.refreshToken);
   return data;
 }
 

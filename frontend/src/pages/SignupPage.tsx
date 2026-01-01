@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { TermsContent } from '../components/TermsContent';
-import { signup } from '../api/auth';
+import { requestEmailVerification, signup } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import styles from './LoginPage.module.css';
+
+const RESEND_COOLDOWN_SECONDS = 60; // 서버 쿨다운과 동일 — UI에서 먼저 눌러볼 일이 없게
 
 export function SignupPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -16,9 +22,47 @@ export function SignupPage() {
   const [showTerms, setShowTerms] = useState(false); // 오버레이로 열어 입력값이 안 날아가게 한다
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const cooldownTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimer.current !== null) window.clearInterval(cooldownTimer.current);
+    };
+  }, []);
+
+  function startCooldown() {
+    setCooldown(RESEND_COOLDOWN_SECONDS);
+    cooldownTimer.current = window.setInterval(() => {
+      setCooldown((s) => {
+        if (s <= 1 && cooldownTimer.current !== null) {
+          window.clearInterval(cooldownTimer.current);
+          cooldownTimer.current = null;
+        }
+        return Math.max(0, s - 1);
+      });
+    }, 1000);
+  }
+
+  const canRequestCode = email.trim() !== '' && cooldown === 0 && !sendingCode;
+
+  async function handleRequestCode() {
+    if (!canRequestCode) return;
+    setError('');
+    setSendingCode(true);
+    try {
+      await requestEmailVerification(email.trim());
+      setCodeSent(true);
+      startCooldown();
+    } catch (err) {
+      setError(extractErrorMessage(err, '인증 메일 발송에 실패했어요.'));
+    } finally {
+      setSendingCode(false);
+    }
+  }
 
   const canSubmit =
     email.trim() !== '' &&
+    /^\d{6}$/.test(code) &&
     password.length >= 8 &&
     nickname.trim().length >= 2 &&
     agreeTerms &&
@@ -31,7 +75,12 @@ export function SignupPage() {
     setError('');
     setSubmitting(true);
     try {
-      await signup({ email: email.trim(), password, nickname: nickname.trim() });
+      await signup({
+        email: email.trim(),
+        password,
+        nickname: nickname.trim(),
+        verificationCode: code,
+      });
       navigate('/login');
     } catch (err) {
       setError(extractErrorMessage(err, '가입에 실패했어요.'));
@@ -66,7 +115,32 @@ export function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
+            <button
+              type="button"
+              className={styles.fieldButton}
+              onClick={handleRequestCode}
+              disabled={!canRequestCode}
+            >
+              {sendingCode ? '발송 중…' : cooldown > 0 ? `재발송 ${cooldown}초` : codeSent ? '재발송' : '인증코드 받기'}
+            </button>
           </div>
+          {codeSent && (
+            <>
+              <div className={styles.field}>
+                <input
+                  className={styles.input}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="메일로 받은 6자리 코드"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                />
+              </div>
+              <div className={styles.hint}>메일이 안 보이면 스팸함도 확인해 주세요. 코드는 10분 동안 유효해요.</div>
+            </>
+          )}
           <div className={styles.field}>
             <input
               className={styles.input}
