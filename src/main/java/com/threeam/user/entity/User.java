@@ -27,14 +27,26 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    // 소셜 가입은 이메일 제공이 선택 동의라 null일 수 있다(특히 카카오 기본 앱).
+    @Column(unique = true, length = 100)
     private String email;
 
-    @Column(nullable = false)
+    // 소셜 가입 계정은 비밀번호가 없다. BCrypt matches는 null 해시에 false를 돌려주므로
+    // 이메일 로그인 경로는 안전하지만, 비밀번호 변경은 명시적으로 거부한다(UserService).
+    @Column
     private String password;
 
     @Column(nullable = false, length = 30)
     private String nickname;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 20)
+    private AuthProvider provider;
+
+    // (provider, provider_id) 유니크 — 같은 카카오/네이버 계정으로 계정이 두 개 생기지 않는다.
+    @Column(name = "provider_id", length = 100)
+    private String providerId;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
@@ -50,11 +62,18 @@ public class User {
     private LocalDateTime deletedAt;
 
     @Builder
-    private User(String email, String password, String nickname, Role role) {
+    private User(String email, String password, String nickname, Role role,
+                 AuthProvider provider, String providerId) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
         this.role = role;
+        this.provider = provider == null ? AuthProvider.EMAIL : provider;
+        this.providerId = providerId;
+    }
+
+    public boolean hasPassword() {
+        return password != null;
     }
 
     public void changePassword(String encodedPassword) {

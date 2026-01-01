@@ -138,6 +138,21 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("비밀번호 변경 실패 - 소셜 계정(비밀번호 없음)은 명시적으로 거부한다")
+    void changePassword_socialAccount() {
+        User user = User.builder()
+                .nickname("소셜닉").role(Role.USER)
+                .provider(com.threeam.user.entity.AuthProvider.KAKAO).providerId("kakao-1")
+                .build();
+        ReflectionTestUtils.setField(user, "id", 1L);
+        given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(java.util.Optional.of(user));
+
+        assertThatThrownBy(() -> userService.changePassword(1L, passwordChangeRequest("any", "newPw12345")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SOCIAL_ACCOUNT_NO_PASSWORD);
+    }
+
+    @Test
     @DisplayName("탈퇴 - 소프트 딜리트하고 세션을 모두 끊는다")
     void withdraw_success() {
         User user = userWithId(1L, "encodedPw");

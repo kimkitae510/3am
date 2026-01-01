@@ -7,6 +7,7 @@ import com.threeam.security.jwt.TokenInvalidationRegistry;
 import com.threeam.user.dto.PasswordChangeRequest;
 import com.threeam.user.dto.SignupRequest;
 import com.threeam.user.dto.SignupResponse;
+import com.threeam.user.entity.AuthProvider;
 import com.threeam.user.entity.Role;
 import com.threeam.user.entity.User;
 import com.threeam.user.repository.UserRepository;
@@ -45,6 +46,7 @@ public class UserService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .nickname(request.getNickname())
                 .role(Role.USER)
+                .provider(AuthProvider.EMAIL)
                 .build();
 
         return SignupResponse.from(userRepository.save(user));
@@ -55,6 +57,9 @@ public class UserService {
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        if (!user.hasPassword()) {
+            throw new BusinessException(ErrorCode.SOCIAL_ACCOUNT_NO_PASSWORD);
+        }
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
