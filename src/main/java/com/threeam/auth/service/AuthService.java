@@ -1,14 +1,19 @@
 package com.threeam.auth.service;
 
 import com.threeam.auth.dto.LoginRequest;
+import com.threeam.auth.dto.OAuthLoginRequest;
 import com.threeam.auth.dto.TokenResponse;
 import com.threeam.auth.entity.RefreshToken;
+import com.threeam.auth.oauth.OAuthClient;
+import com.threeam.auth.oauth.OAuthProfile;
 import com.threeam.auth.repository.RefreshTokenRepository;
 import com.threeam.global.config.JwtProperties;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.security.jwt.JwtTokenProvider;
 import com.threeam.security.jwt.TokenInvalidationRegistry;
+import com.threeam.user.entity.AuthProvider;
+import com.threeam.user.entity.Role;
 import com.threeam.user.entity.User;
 import com.threeam.user.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -29,6 +34,7 @@ public class AuthService {
     private final JwtProperties jwtProperties;
     private final LoginAttemptGuard loginAttemptGuard;
     private final TokenInvalidationRegistry tokenInvalidationRegistry;
+    private final OAuthClient oAuthClient;
 
     @Transactional
     public TokenResponse login(LoginRequest request, String clientIp) {
@@ -45,6 +51,49 @@ public class AuthService {
 
         loginAttemptGuard.recordSuccess(email, clientIp);
         return issueTokens(user);
+    }
+
+    // 소셜 로그인 겸 가입 — (provider, providerId)로 찾고 없으면 그 자리에서 만든다.
+    // 로그인 잠금(LoginAttemptGuard)은 비밀번호 추측 방어라 소셜 경로엔 해당 없음.
+    @Transactional
+    public TokenResponse oauthLogin(AuthProvider provider, OAuthLoginRequest request) {
+        OAuthProfile profile = oAuthClient.fetchProfile(
+                provider, request.getCode(), request.getState(), request.getRedirectUri());
+
+        User user = userRepository.findByProviderAndProviderId(provider, profile.providerId())
+                .orElse(null);
+        if (user == null) {
+            user = registerSocialUser(profile);
+        } else if (user.isWithdrawn()) {
+            // 이메일 가입과 같은 정책: 탈퇴 계정은 재사용 불가. 본인이 카카오/네이버 인증을
+            // 마친 상태라 사유를 그대로 알려줘도 계정 열거 문제가 없다.
+            throw new BusinessException(ErrorCode.OAUTH_WITHDRAWN_ACCOUNT);
+        }
+        return issueTokens(user);
+    }
+
+    private User registerSocialUser(OAuthProfile profile) {
+        // 소셜 이메일이 기존 계정(이메일 가입 또는 다른 소셜)과 겹치면 통합하지 않고 거부한다
+        // (사용자 확정 정책 — 소셜 제공자의 이메일 검증 수준을 신뢰 조건에서 뺀다).
+        if (profile.email() != null && userRepository.existsByEmail(profile.email())) {
+            throw new BusinessException(ErrorCode.OAUTH_EMAIL_CONFLICT);
+        }
+        return userRepository.save(User.builder()
+                .email(profile.email())
+                .nickname(normalizeNickname(profile.nickname()))
+                .role(Role.USER)
+                .provider(profile.provider())
+                .providerId(profile.providerId())
+                .build());
+    }
+
+    // 소셜 닉네임은 우리 규칙(2~30자 컬럼, 화면 기준 2~20자)을 벗어날 수 있어 맞춰 자른다.
+    private String normalizeNickname(String nickname) {
+        String cleaned = nickname == null ? "" : nickname.trim();
+        if (cleaned.length() < 2) {
+            return "새벽손님";
+        }
+        return cleaned.length() > 20 ? cleaned.substring(0, 20) : cleaned;
     }
 
     @Transactional

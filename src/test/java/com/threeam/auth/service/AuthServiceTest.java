@@ -52,8 +52,112 @@ class AuthServiceTest {
     @Mock
     private com.threeam.security.jwt.TokenInvalidationRegistry tokenInvalidationRegistry;
 
+    @Mock
+    private com.threeam.auth.oauth.OAuthClient oAuthClient;
+
     @InjectMocks
     private AuthService authService;
+
+    @Test
+    @DisplayName("소셜 로그인 - 처음 온 계정이면 그 자리에서 가입하고 토큰을 발급한다")
+    void oauthLogin_registersNewUser() {
+        given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.KAKAO, "code1", "st", "http://r"))
+                .willReturn(new com.threeam.auth.oauth.OAuthProfile(
+                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", "카카오닉네임", null));
+        given(userRepository.findByProviderAndProviderId(
+                com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.empty());
+        given(userRepository.save(any(User.class))).willAnswer(inv -> {
+            User saved = inv.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 7L);
+            return saved;
+        });
+        stubTokenIssue(7L);
+
+        TokenResponse response = authService.oauthLogin(
+                com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r"));
+
+        assertThat(response.getAccessToken()).isEqualTo("access");
+        org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getProvider()).isEqualTo(com.threeam.user.entity.AuthProvider.KAKAO);
+        assertThat(captor.getValue().getProviderId()).isEqualTo("kakao-1");
+        assertThat(captor.getValue().hasPassword()).isFalse(); // 소셜 계정은 비밀번호 없음
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 - 기존 계정이면 새로 만들지 않고 토큰만 발급한다")
+    void oauthLogin_existingUser() {
+        User user = socialUser(7L, null);
+        given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.NAVER, "code1", "st", "http://r"))
+                .willReturn(new com.threeam.auth.oauth.OAuthProfile(
+                        com.threeam.user.entity.AuthProvider.NAVER, "naver-1", "닉", "n@n.com"));
+        given(userRepository.findByProviderAndProviderId(
+                com.threeam.user.entity.AuthProvider.NAVER, "naver-1")).willReturn(Optional.of(user));
+        stubTokenIssue(7L);
+
+        authService.oauthLogin(com.threeam.user.entity.AuthProvider.NAVER, oauthRequest("code1", "st", "http://r"));
+
+        verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 - 프로필 이메일이 기존 계정과 겹치면 통합 대신 거부한다")
+    void oauthLogin_emailConflict() {
+        given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.NAVER, "code1", "st", "http://r"))
+                .willReturn(new com.threeam.auth.oauth.OAuthProfile(
+                        com.threeam.user.entity.AuthProvider.NAVER, "naver-9", "닉", "dup@a.com"));
+        given(userRepository.findByProviderAndProviderId(
+                com.threeam.user.entity.AuthProvider.NAVER, "naver-9")).willReturn(Optional.empty());
+        given(userRepository.existsByEmail("dup@a.com")).willReturn(true);
+
+        assertThatThrownBy(() -> authService.oauthLogin(
+                com.threeam.user.entity.AuthProvider.NAVER, oauthRequest("code1", "st", "http://r")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.OAUTH_EMAIL_CONFLICT);
+        verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 - 탈퇴한 계정이면 재가입/재로그인을 거부한다")
+    void oauthLogin_withdrawnUser() {
+        User user = socialUser(7L, null);
+        user.withdraw(LocalDateTime.now());
+        given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.KAKAO, "code1", null, "http://r"))
+                .willReturn(new com.threeam.auth.oauth.OAuthProfile(
+                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", "닉", null));
+        given(userRepository.findByProviderAndProviderId(
+                com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.oauthLogin(
+                com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", null, "http://r")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.OAUTH_WITHDRAWN_ACCOUNT);
+    }
+
+    private void stubTokenIssue(Long userId) {
+        given(jwtTokenProvider.generateAccessToken(userId, Role.USER)).willReturn("access");
+        given(jwtTokenProvider.generateRefreshToken(userId)).willReturn("refresh");
+        given(refreshTokenRepository.findByUserId(userId)).willReturn(Optional.empty());
+    }
+
+    private User socialUser(Long id, String email) {
+        User user = User.builder()
+                .email(email).nickname("소셜닉")
+                .role(Role.USER)
+                .provider(com.threeam.user.entity.AuthProvider.KAKAO)
+                .providerId("kakao-1")
+                .build();
+        ReflectionTestUtils.setField(user, "id", id);
+        return user;
+    }
+
+    private com.threeam.auth.dto.OAuthLoginRequest oauthRequest(String code, String state, String redirectUri) {
+        com.threeam.auth.dto.OAuthLoginRequest request = new com.threeam.auth.dto.OAuthLoginRequest();
+        ReflectionTestUtils.setField(request, "code", code);
+        ReflectionTestUtils.setField(request, "state", state);
+        ReflectionTestUtils.setField(request, "redirectUri", redirectUri);
+        return request;
+    }
 
     @Test
     @DisplayName("로그인 성공 - 토큰을 발급하고 RefreshToken을 저장한다")

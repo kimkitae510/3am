@@ -1,15 +1,18 @@
 package com.threeam.auth.controller;
 
 import com.threeam.auth.dto.LoginRequest;
+import com.threeam.auth.dto.OAuthLoginRequest;
 import com.threeam.auth.dto.ReissueRequest;
 import com.threeam.auth.dto.TokenResponse;
 import com.threeam.auth.service.AuthService;
+import com.threeam.user.entity.AuthProvider;
 import com.threeam.global.web.ClientIp;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +29,12 @@ public class AuthController {
     public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request,
                                                HttpServletRequest httpRequest) {
         return ResponseEntity.ok(authService.login(request, ClientIp.of(httpRequest)));
+    }
+
+    @PostMapping("/oauth/{provider}")
+    public ResponseEntity<TokenResponse> oauthLogin(@PathVariable String provider,
+                                                    @Valid @RequestBody OAuthLoginRequest request) {
+        return ResponseEntity.ok(authService.oauthLogin(AuthProvider.fromOAuthPath(provider), request));
     }
 
     @PostMapping("/reissue")
