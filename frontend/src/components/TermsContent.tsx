@@ -40,8 +40,9 @@ export function TermsContent() {
 
       <div className={styles.clauseTitle}>제3조 (계정)</div>
       <p className={styles.para}>
-        회원가입은 이메일, 비밀번호, 닉네임으로 이루어집니다. 계정과 비밀번호를 안전하게
-        관리할 책임은 이용자에게 있으며, 계정을 타인에게 양도하거나 빌려줄 수 없습니다.
+        회원가입은 이메일 인증을 거친 이메일 가입 또는 카카오, 네이버 계정 연동으로
+        이루어집니다. 계정과 비밀번호를 안전하게 관리할 책임은 이용자에게 있으며, 계정을
+        타인에게 양도하거나 빌려줄 수 없습니다.
       </p>
 
       <div className={styles.clauseTitle}>제4조 (대화 기록의 저장과 삭제)</div>

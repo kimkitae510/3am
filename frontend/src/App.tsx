@@ -8,6 +8,7 @@ import { HistoryPage } from './pages/HistoryPage';
 import { PaymentPage } from './pages/PaymentPage';
 import { PaymentResultPage } from './pages/PaymentResultPage';
 import { TermsPage } from './pages/TermsPage';
+import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 
 export default function App() {
   return (
@@ -15,6 +16,8 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      {/* 카카오/네이버 인가 리다이렉트 도착지 */}
+      <Route path="/oauth/callback/:provider" element={<OAuthCallbackPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/stories" element={<StoryListPage />} />
       <Route path="/stories/:storyId" element={<ChatPage />} />

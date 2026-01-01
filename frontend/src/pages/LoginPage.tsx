@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
-import { login } from '../api/auth';
+import { login, oauthLogin, type OAuthProvider } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
+import { redirectUriFor, startSocialLogin } from '../utils/socialAuth';
 import styles from './LoginPage.module.css';
 
 export function LoginPage() {
@@ -14,6 +15,18 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const canSubmit = email.trim() !== '' && password !== '' && !submitting;
+
+  async function handleSocial(provider: OAuthProvider) {
+    setError('');
+    if (startSocialLogin(provider) === 'redirected') return;
+    // 키 미설정(개발) — 백엔드 mock 프로바이더로 바로 교환한다. 같은 code라 항상 같은 개발 계정.
+    try {
+      await oauthLogin(provider, { code: `dev-${provider}`, redirectUri: redirectUriFor(provider) });
+      navigate('/stories');
+    } catch (err) {
+      setError(extractErrorMessage(err, '소셜 로그인에 실패했어요.'));
+    }
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -93,6 +106,12 @@ export function LoginPage() {
 
         <button className={styles.primary} type="submit" disabled={!canSubmit}>
           {submitting ? '로그인 중…' : '로그인'}
+        </button>
+        <button className={styles.kakao} type="button" onClick={() => handleSocial('kakao')}>
+          카카오로 시작하기
+        </button>
+        <button className={styles.naver} type="button" onClick={() => handleSocial('naver')}>
+          네이버로 시작하기
         </button>
         <button
           className={styles.secondary}
