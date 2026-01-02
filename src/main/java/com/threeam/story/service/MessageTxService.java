@@ -2,6 +2,7 @@ package com.threeam.story.service;
 
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.Deduction;
+import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
@@ -139,6 +140,10 @@ public class MessageTxService {
                         + "있을 때만 '지난번 진단 기준'처럼 자연스럽게 짚어라. "
                         + "확률을 다시 계산하거나 여기 없는 진단 내용을 지어내지 마라):\n");
         block.append("- 진단 일시: ").append(ASSESSED_AT.format(assessment.getCreatedAt())).append('\n');
+        if (assessment.getVerdict() == ReunionVerdict.DATING) {
+            block.append("- 판정: 아직 사귀는 중 — 재회 확률은 이별 전제라 산출하지 않음. "
+                    + "확률을 물으면 이 이유를 설명하라(숫자를 지어내지 마라)\n");
+        }
         if (assessment.getProbability() != null) {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
         }

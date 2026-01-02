@@ -113,6 +113,35 @@ class AssessmentServiceTest {
     }
 
     @Test
+    @DisplayName("진단 - DATING(사귀는 중)이면 확률 없이 저장하고, 애착유형은 남기며, 쿼터는 차감한다")
+    void assess_datingLocksProbabilityButKeepsAttachment() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
+                new ReunionDiagnosis(ReunionVerdict.DATING, AttachmentStyle.ANXIOUS, AttachmentStyle.AVOIDANT,
+                        "확인 연락 반복", "감정 얘기 회피 패턴",
+                        // LLM이 실수로 확률 재료를 보냈어도 전부 무시돼야 한다(구조적 잠금)
+                        true,
+                        List.of(new DeductionItem("권태", 15, "근거")),
+                        List.of(new DeductionItem("먼저 연락", 5, "근거2")),
+                        "아직 만나는 중이면 재회 확률은 의미가 없어", "사귀는 중 갈등 상담",
+                        List.of("유저와 상대는 아직 사귀는 중"))));
+        given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
+                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
+
+        AssessmentResponse response = assessmentService.assess(1L, 10L).join();
+
+        assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.DATING);
+        assertThat(response.getProbability()).isNull();          // activeReunionOffer=true여도 100이 안 된다
+        assertThat(response.getDeductions()).isEmpty();          // 감점/가점 폐기
+        assertThat(response.getMyAttachment()).isEqualTo("불안형");
+        assertThat(response.getPartnerAttachment()).isEqualTo("거부회피형");
+        assertThat(response.getPartnerAttachmentEvidence()).isEqualTo("감정 얘기 회피 패턴");
+        verify(scorer, never()).apply(anyList());                // 확률 계산 자체를 건너뛴다
+        verify(txService).save(eq(10L), any(Assessment.class), eq("사귀는 중 갈등 상담"), anyList()); // 원장/요약은 평소대로
+        verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L); // 유형+총평을 제공한 정식 결과라 차감
+    }
+
+    @Test
     @DisplayName("진단 - INSUFFICIENT(근거 부족)면 저장하지 않고 가이드만 돌려준다")
     void assess_insufficient() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);

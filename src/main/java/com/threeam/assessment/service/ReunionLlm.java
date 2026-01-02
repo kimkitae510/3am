@@ -48,7 +48,7 @@ public class ReunionLlm {
 
             아래 JSON 스키마로만 답하라(다른 텍스트 금지):
             {
-              "verdict": "POSSIBLE" | "INSUFFICIENT",
+              "verdict": "POSSIBLE" | "INSUFFICIENT" | "DATING",
               "myAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
               "myAttachmentEvidence": "유형 판정 근거 한 줄" | null,
               "partnerAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
@@ -95,9 +95,14 @@ public class ReunionLlm {
             - 이것도 도덕 평가가 아니라 패턴 분류다. 유형이 나쁜 사람이라는 뜻이 아니다.
 
             판정 기준:
-            - 유저가 아직 헤어지지 않은 상태(사귀는 중의 싸움, 갈등 고민)면 INSUFFICIENT다.
-              reason에는 "아직 헤어진 게 아니라면 재회 진단은 일러요. 지금 갈등은 대화에서
-              같이 풀어봐요" 취지를 담아라 — 헤어질 사람 취급하지 마라.
+            - 유저가 아직 헤어지지 않은 상태(사귀는 중의 싸움, 갈등 고민, 뒤늦게 "사실 안 헤어졌어"
+              고백 포함)면 DATING이다. 재회 확률은 이별을 전제로 하므로 절대 만들지 마라 —
+              deductions, boosts는 빈 배열, activeReunionOffer는 false로 둬라.
+              단, 애착유형(나/상대)은 관계 상태와 무관한 행동 패턴이므로 근거가 충분하면
+              평소 규칙대로 판정하고 근거도 적어라. summary와 newFacts도 평소대로 채워라
+              (사귀는 중이라는 사실 자체가 기록할 사실이다).
+              reason에는 "아직 헤어진 게 아니라면 재회 확률은 의미가 없어요. 지금 갈등은
+              대화에서 같이 풀어봐요" 취지를 담아라 — 헤어질 사람 취급하지 마라.
             - INSUFFICIENT: 대화에 이별, 관계 정보가 거의 없어 판단 근거가 부족할 때. 억지로 확률을 내지 마라.
               이때 myAttachment, partnerAttachment, deductions, boosts는 비우고, reason에는 무엇을 더 이야기하면 좋을지
               부드러운 가이드를 담아라(예: 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일).

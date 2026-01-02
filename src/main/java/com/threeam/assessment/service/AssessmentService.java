@@ -119,6 +119,9 @@ public class AssessmentService {
             "아직 진단하기엔 이야기가 부족해요. 어쩌다 헤어졌는지, 지금 연락은 되는지, "
                     + "상대와 최근 있었던 일을 조금만 더 들려줄래요?";
 
+    private static final String DATING_GUIDE =
+            "아직 만나고 있는 사이라면 재회 확률은 의미가 없어요. 지금 겪는 갈등은 대화에서 같이 풀어봐요.";
+
     // 사전 가드용 임시 응답. 히스토리에 저장하지 않는다(확률 추이 오염 방지).
     private AssessmentResponse insufficientGuide(Long storyId) {
         return AssessmentResponse.from(Assessment.builder()
@@ -141,6 +144,25 @@ public class AssessmentService {
                     .reason(guide)
                     .build();
             return AssessmentResponse.from(transientResult);
+        }
+
+        // 아직 사귀는 중(DATING) — 재회 확률은 이별 전제라 백엔드가 계산 자체를 건너뛴다(구조적 잠금).
+        // LLM이 실수로 감점을 보냈어도 버린다. 애착유형과 총평, 원장(사귀는 중이라는 사실)은 그대로 저장 —
+        // 저장해야 화면의 최신 결과가 이전 확률 대신 이 판정으로 교체된다.
+        if (diagnosis.verdict() == ReunionVerdict.DATING) {
+            String reason = (diagnosis.reason() == null || diagnosis.reason().isBlank())
+                    ? DATING_GUIDE
+                    : diagnosis.reason();
+            Assessment assessment = Assessment.builder()
+                    .storyId(storyId)
+                    .verdict(ReunionVerdict.DATING)
+                    .myAttachment(diagnosis.myAttachment())
+                    .partnerAttachment(diagnosis.partnerAttachment())
+                    .myAttachmentEvidence(diagnosis.myAttachmentEvidence())
+                    .partnerAttachmentEvidence(diagnosis.partnerAttachmentEvidence())
+                    .reason(reason)
+                    .build();
+            return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts());
         }
 
         // 감점(음수 delta)과 가점(양수 delta)을 한 컬렉션에 부호로 구분해 담는다.
