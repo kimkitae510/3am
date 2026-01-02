@@ -1,7 +1,7 @@
 import { api } from './client';
 
-// LET_GO(놓아주기)는 폐기. 확률(POSSIBLE) 또는 근거부족(INSUFFICIENT)만.
-export type Verdict = 'POSSIBLE' | 'INSUFFICIENT';
+// LET_GO(놓아주기)는 폐기. 확률(POSSIBLE), 근거부족(INSUFFICIENT), 사귀는 중(DATING — 확률 잠금, 유형만).
+export type Verdict = 'POSSIBLE' | 'INSUFFICIENT' | 'DATING';
 
 export interface DeductionView {
   signal: string;

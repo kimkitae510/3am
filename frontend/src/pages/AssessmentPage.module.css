@@ -110,6 +110,47 @@
 
 /* 확률 범위/계산 방식은 화면에 공개하지 않는다 — 설명은 도움말 모달에서 숫자 없이 */
 
+/* 사귀는 중(DATING) — 확률 영역만 연한 배경으로 잠근다 */
+.lockOverlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: rgba(236, 234, 240, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.lockCaption {
+  color: var(--text-sub);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.lockText {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.65;
+  margin: 8px auto 0;
+  max-width: 300px;
+}
+
+/* 잠금 상태에서의 총평(갈등 상담 안내) — 잠금 설명과 구분되는 카드 */
+.datingReason {
+  margin: 14px 4px 0;
+  padding: 13px 15px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
 /* 유형 카드 */
 .typeRow {
   display: flex;

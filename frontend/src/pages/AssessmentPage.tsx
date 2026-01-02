@@ -206,7 +206,8 @@ export function AssessmentPage() {
     );
   }
 
-  // POSSIBLE — 확률
+  // POSSIBLE(확률) 또는 DATING(사귀는 중 — 확률만 잠그고 유형/총평은 그대로 보여준다)
+  const dating = result.verdict === 'DATING';
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
   const minus = result.deductions.filter((d) => d.delta < 0);
@@ -229,24 +230,48 @@ export function AssessmentPage() {
           <div className={styles.gaugeWrap}>
             <svg width="280" height="150" viewBox="0 0 280 150">
               <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2A2833" strokeWidth="14" strokeLinecap="round" />
-              <path
-                d="M20,138 A120,120 0 0 1 260,138"
-                fill="none"
-                stroke="#B89DD1"
-                strokeWidth="14"
-                strokeLinecap="round"
-                strokeDasharray={`${fill} ${ARC_LEN + 40}`}
-              />
+              {!dating && (
+                <path
+                  d="M20,138 A120,120 0 0 1 260,138"
+                  fill="none"
+                  stroke="#B89DD1"
+                  strokeWidth="14"
+                  strokeLinecap="round"
+                  strokeDasharray={`${fill} ${ARC_LEN + 40}`}
+                />
+              )}
             </svg>
-            <div className={styles.gaugeValue}>
-              <div className={styles.gaugeNum}>
-                {prob}
-                <span className={styles.gaugePct}>%</span>
+            {dating ? (
+              /* 사귀는 중 — 확률 영역만 연한 배경으로 잠근다. 유형과 총평은 아래에서 그대로 제공 */
+              <div className={styles.lockOverlay}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                  <rect x="5" y="10.5" width="14" height="9" rx="2.5" stroke="#ECEAF0" strokeWidth="1.7" />
+                  <path d="M8 10.5V8a4 4 0 118 0v2.5" stroke="#ECEAF0" strokeWidth="1.7" strokeLinecap="round" />
+                </svg>
+                <div className={styles.lockCaption}>잠김</div>
               </div>
-            </div>
+            ) : (
+              <div className={styles.gaugeValue}>
+                <div className={styles.gaugeNum}>
+                  {prob}
+                  <span className={styles.gaugePct}>%</span>
+                </div>
+              </div>
+            )}
           </div>
           <div className={styles.gaugeLabel}>재회 가능성</div>
-          <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
+          {dating ? (
+            <>
+              <div className={styles.lockText}>
+                지금은 만나고 있는 사이로 알고 있어요.
+                <br />
+                재회 확률은 이별을 전제로 한 진단이라, 헤어진 뒤에 다시 열려요.
+              </div>
+              {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
+            </>
+          ) : (
+            <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
+          )}
 
           {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기). 일반 설명은 도움말 모달로,
               카드 아래엔 이 사람에게서 실제 관찰된 판정 근거만 붙인다. */}
