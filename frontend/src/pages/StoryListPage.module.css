@@ -252,7 +252,7 @@
 }
 
 .newButton {
-  margin: 0 24px 38px;
+  margin: 0 24px 12px;
   height: 52px;
   border: none;
   border-radius: 16px;
@@ -271,4 +271,15 @@
 .newButton:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+/* 하단 상시 문의 링크 — 도움말 모달 안 문의 줄과 같은 창구(오픈채팅) */
+.contactLink {
+  flex-shrink: 0;
+  text-align: center;
+  margin: 0 24px 26px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

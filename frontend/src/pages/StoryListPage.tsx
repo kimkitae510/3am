@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
-import { HelpModal } from '../components/HelpModal';
+import { HelpModal, CONTACT_OPENCHAT_URL } from '../components/HelpModal';
 import { listStories, createStory, deleteStory, type StoryResponse } from '../api/story';
 import { logout } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
@@ -240,6 +240,11 @@ export function StoryListPage() {
           </svg>
           {creating ? '시작하는 중…' : '새 이야기'}
         </button>
+
+        {/* 문의 창구는 도움말 모달 안에만 있으면 못 찾는다 — 첫 화면 하단에 상시 노출 */}
+        <a className={styles.contactLink} href={CONTACT_OPENCHAT_URL} target="_blank" rel="noreferrer">
+          궁금한 점이 있나요? 1:1 문의
+        </a>
 
         {showHelp && (
           <HelpModal
