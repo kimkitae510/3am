@@ -199,17 +199,34 @@
   padding-top: 6px;
 }
 
-/* 무료+이용권 소진 시 입력창 위 결제 유도 */
-.buyButton {
+/* 무료+이용권 소진 시 입력창 위 결제 유도 — 안내 문구 + 버튼 배너 */
+.quotaBanner {
   flex-shrink: 0;
   margin: 6px 14px 0;
-  padding: 11px;
+  padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--card);
-  color: var(--text);
+}
+
+.quotaText {
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.buyButton {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 11px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 

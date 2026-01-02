@@ -204,6 +204,18 @@ export function ChatPage() {
               </svg>
               진단
             </button>
+            {/* 이용권 구매 상시 진입점 — 소진 배너만으로는 평소에 어디서 사는지 안 보인다 */}
+            <button className={styles.helpButton} onClick={() => navigate('/payment')} aria-label="이용권">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M4 9a1 1 0 011-1h14a1 1 0 011 1v1.5a1.5 1.5 0 000 3V15a1 1 0 01-1 1H5a1 1 0 01-1-1v-1.5a1.5 1.5 0 000-3V9z"
+                  stroke="#9B98A3"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+                <path d="M14.5 8.5v7" stroke="#9B98A3" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2.4" />
+              </svg>
+            </button>
             <button className={styles.helpButton} onClick={() => setShowHelp(true)} aria-label="도움말">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />
@@ -282,11 +294,16 @@ export function ChatPage() {
             {chatPaidRemaining > 0 && ` + 이용권 ${chatPaidRemaining}회`}
           </div>
         )}
-        {/* 소진 상태(잔여 0 또는 Q001 거절)에서만 결제 유도 — 진단 화면과 같은 동선 */}
+        {/* 소진 상태(잔여 0 또는 Q001 거절) — 무엇이 끝났고 어떻게 이어갈 수 있는지 먼저 말해준다 */}
         {(quotaOver || (chatRemaining === 0 && chatPaidRemaining === 0)) && (
-          <button className={styles.buyButton} onClick={() => navigate('/payment')}>
-            이용권 채우러 가기
-          </button>
+          <div className={styles.quotaBanner}>
+            <div className={styles.quotaText}>
+              오늘 무료 대화를 다 썼어요. 이용권을 추가하면 바로 이어서 대화할 수 있어요.
+            </div>
+            <button className={styles.buyButton} onClick={() => navigate('/payment')}>
+              이용권 추가하기
+            </button>
+          </div>
         )}
         {/* 한도에 가까워질 때만 카운터 노출 — 평소엔 조용히 */}
         {input.length >= MAX_LENGTH - 80 && (
@@ -335,7 +352,7 @@ export function ChatPage() {
               },
               {
                 heading: '대화 횟수',
-                text: '하루 10회, 한 번에 200자까지 보낼 수 있습니다.',
+                text: '하루 10회, 한 번에 200자까지 보낼 수 있습니다. 무료 횟수를 다 쓰면 이용권으로 이어서 대화할 수 있습니다. 이용권은 위 카드 모양 버튼에서 구매합니다.',
               },
               {
                 heading: '진단',
