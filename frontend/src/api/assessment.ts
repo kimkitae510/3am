@@ -32,3 +32,9 @@ export async function getAssessments(storyId: number): Promise<AssessmentRespons
   const { data } = await api.get<AssessmentResponse[]>(`/api/stories/${storyId}/assessments`);
   return data;
 }
+
+// "사귀는 중" 잠금을 유저가 직접 번복한다(진단이 오해했을 수 있음).
+// 원장에 확인 기록만 남고, 확률은 헤어진 경위를 대화한 뒤의 다음 진단에서 열린다.
+export async function confirmBreakup(storyId: number): Promise<void> {
+  await api.post(`/api/stories/${storyId}/assessments/confirm-breakup`);
+}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { HelpModal } from '../components/HelpModal';
-import { getAssessments, runAssessment, type AssessmentResponse } from '../api/assessment';
+import { confirmBreakup, getAssessments, runAssessment, type AssessmentResponse } from '../api/assessment';
 import { getUsage } from '../api/usage';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
@@ -47,6 +47,8 @@ export function AssessmentPage() {
   const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
   const [quotaOver, setQuotaOver] = useState(false); // 무료+이용권 모두 소진 → 구매 유도
   const [showHelp, setShowHelp] = useState(false);
+  const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
+  const [breakupConfirmed, setBreakupConfirmed] = useState(false); // 이 DATING 결과에 대해 이미 번복함
   const aliveRef = useRef(true);
 
   // 에러 배너(쿼터 소진, 재진단 거부 등)가 화면에 계속 남지 않게 잠시 뒤 스스로 사라진다.
@@ -55,6 +57,29 @@ export function AssessmentPage() {
     const timer = window.setTimeout(() => aliveRef.current && setError(''), 6000);
     return () => clearTimeout(timer);
   }, [error]);
+
+  // "이미 번복했는지"는 결과(createdAt) 단위로 기억한다 — 새 DATING 판정이 나오면 질문이 다시 열린다.
+  const confirmKey = `breakup-confirmed-${storyId}`;
+
+  useEffect(() => {
+    if (result?.verdict === 'DATING') {
+      setBreakupConfirmed(localStorage.getItem(confirmKey) === (result.createdAt ?? ''));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
+
+  async function handleConfirmBreakup() {
+    setConfirming(true);
+    try {
+      await confirmBreakup(storyId);
+      localStorage.setItem(confirmKey, result?.createdAt ?? '');
+      if (aliveRef.current) setBreakupConfirmed(true);
+    } catch (e) {
+      if (aliveRef.current) setError(extractErrorMessage(e, '처리하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+    } finally {
+      if (aliveRef.current) setConfirming(false);
+    }
+  }
 
   function refreshUsage() {
     getUsage()
@@ -267,6 +292,23 @@ export function AssessmentPage() {
                 <br />
                 재회 확률은 이별을 전제로 한 진단이라, 헤어진 뒤에 다시 열려요.
               </div>
+              {/* 진단이 오해했을 수 있다 — 잠금은 서비스가 걸지만, 푸는 열쇠는 유저에게 준다 */}
+              {breakupConfirmed ? (
+                <div className={styles.lockAsk}>
+                  알려주셔서 고마워요. 어쩌다 헤어졌는지 대화로 들려준 뒤 다시 진단하면 확률이 열려요.
+                </div>
+              ) : (
+                <div className={styles.lockAsk}>
+                  제가 오해했을 수도 있어요. 헤어지신 게 맞나요?
+                  <button
+                    className={styles.lockConfirmBtn}
+                    onClick={handleConfirmBreakup}
+                    disabled={confirming}
+                  >
+                    {confirming ? '반영하는 중…' : '네, 헤어졌어요'}
+                  </button>
+                </div>
+              )}
               {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
             </>
           ) : (

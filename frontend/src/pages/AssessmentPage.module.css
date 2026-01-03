@@ -110,12 +110,12 @@
 
 /* 확률 범위/계산 방식은 화면에 공개하지 않는다 — 설명은 도움말 모달에서 숫자 없이 */
 
-/* 사귀는 중(DATING) — 확률 영역만 연한 배경으로 잠근다 */
+/* 사귀는 중(DATING) — 확률 영역만 하얗게 씌워 잠근다(잠긴 게 한눈에 보이게) */
 .lockOverlay {
   position: absolute;
   inset: 0;
   border-radius: 18px;
-  background: rgba(236, 234, 240, 0.05);
+  background: rgba(236, 234, 240, 0.13);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -137,6 +137,36 @@
   line-height: 1.65;
   margin: 8px auto 0;
   max-width: 300px;
+}
+
+/* 잠금 번복 질문("헤어지신 게 맞나요?")과 확인 버튼 */
+.lockAsk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 14px auto 0;
+  max-width: 300px;
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.lockConfirmBtn {
+  padding: 9px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lockConfirmBtn:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 /* 잠금 상태에서의 총평(갈등 상담 안내) — 잠금 설명과 구분되는 카드 */
