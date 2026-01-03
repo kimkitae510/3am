@@ -169,6 +169,16 @@
   cursor: default;
 }
 
+/* 100% 확정 사유(상대의 유효한 재회 제안) 설명 */
+.offerText {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.65;
+  margin: 10px auto 0;
+  max-width: 300px;
+}
+
 /* 잠금 상태에서의 총평(갈등 상담 안내) — 잠금 설명과 구분되는 카드 */
 .datingReason {
   margin: 14px 4px 0;

@@ -312,7 +312,16 @@ export function AssessmentPage() {
               {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
             </>
           ) : (
-            <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
+            <>
+              <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
+              {/* 100은 합산 결과가 아니라 "상대의 유효한 재회 제안" 확정값 — 왜 100인지 그대로 설명한다 */}
+              {prob >= 100 && (
+                <div className={styles.offerText}>
+                  상대가 먼저 다시 만나자고 한 상태예요. 남은 것은 확률이 아니라 내 선택이라 100%로
+                  보여드려요. 제안이 없던 일이 되면 다음 진단에서 다시 계산돼요.
+                </div>
+              )}
+            </>
           )}
 
           {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기). 일반 설명은 도움말 모달로,
