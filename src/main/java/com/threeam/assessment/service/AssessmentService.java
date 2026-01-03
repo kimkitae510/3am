@@ -30,7 +30,7 @@ public class AssessmentService {
 
     // 사전 가드: 유저 메시지가 이보다 적으면 LLM 없이도 "근거 부족"이 자명하다.
     // 뻔한 실패에 LLM 비용과 일일 쿼터(2회)를 태우지 않는다.
-    private static final int MIN_USER_TURNS = 3;
+    private static final int MIN_USER_TURNS = 2;
 
     // INSUFFICIENT를 받은 사연의 시각. 새 대화 없이 재시도하면 LLM 없이 거부한다 —
     // INSUFFICIENT를 쿼터 미차감으로 바꾸면서 생기는 무한 호출 구멍을 이걸로 막는다.
@@ -60,13 +60,13 @@ public class AssessmentService {
             if (userTurns < MIN_USER_TURNS) {
                 // LLM 비용이 없으므로 쿼터도 차감하지 않는다. 잠금만 풀고 안내를 돌려준다.
                 usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
-                return CompletableFuture.completedFuture(insufficientGuide(storyId));
+                return CompletableFuture.completedFuture(insufficientGuide(storyId, TURNS_GUIDE));
             }
             // 지난 INSUFFICIENT 이후 새 대화가 없으면 다시 물어봐도 같은 답이다 — LLM 없이 거부.
             LocalDateTime lastGuide = insufficientAt.get(storyId);
             if (lastGuide != null && !txService.hasNewMessageAfter(storyId, lastGuide)) {
                 usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
-                return CompletableFuture.completedFuture(insufficientGuide(storyId));
+                return CompletableFuture.completedFuture(insufficientGuide(storyId, NO_BASIS_GUIDE));
             }
             return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(), context.conversation())
                     .thenApply(diagnosis -> {
@@ -115,19 +115,26 @@ public class AssessmentService {
                 .toList();
     }
 
-    private static final String DEFAULT_GUIDE =
-            "아직 진단하기엔 이야기가 부족해요. 어쩌다 헤어졌는지, 지금 연락은 되는지, "
-                    + "상대와 최근 있었던 일을 조금만 더 들려줄래요?";
+    // 미진단 사유는 원인별로 갈라 말해준다 — "왜 안 되는지"를 유저가 스스로 고칠 수 있게.
+    // 대화 수 자체가 부족한 경우(사전 가드): 몇 번을 채우면 되는지 명시.
+    private static final String TURNS_GUIDE =
+            "아직 대화가 부족해요. 최소 " + MIN_USER_TURNS + "번은 이야기를 들려주셔야 진단할 수 있어요. "
+                    + "어쩌다 헤어졌는지, 지금 연락은 되는지부터 시작해 볼래요?";
+
+    // 대화는 있었지만 확률을 매길 '사실'이 부족한 경우(LLM 판정, 원장 빈약): 무엇을 말해야 하는지 안내.
+    private static final String NO_BASIS_GUIDE =
+            "이야기는 들었지만 확률을 매길 만한 사실이 아직 부족해요. 어쩌다 헤어졌는지, "
+                    + "상대가 최근 어떻게 행동했는지 같은 '있었던 일'을 들려줄래요?";
 
     private static final String DATING_GUIDE =
             "아직 만나고 있는 사이라면 재회 확률은 의미가 없어요. 지금 겪는 갈등은 대화에서 같이 풀어봐요.";
 
     // 사전 가드용 임시 응답. 히스토리에 저장하지 않는다(확률 추이 오염 방지).
-    private AssessmentResponse insufficientGuide(Long storyId) {
+    private AssessmentResponse insufficientGuide(Long storyId, String guide) {
         return AssessmentResponse.from(Assessment.builder()
                 .storyId(storyId)
                 .verdict(ReunionVerdict.INSUFFICIENT)
-                .reason(DEFAULT_GUIDE)
+                .reason(guide)
                 .build());
     }
 
@@ -136,7 +143,7 @@ public class AssessmentService {
         // reason에 담긴 가이드만 임시 응답으로 돌려준다.
         if (diagnosis.verdict() == ReunionVerdict.INSUFFICIENT) {
             String guide = (diagnosis.reason() == null || diagnosis.reason().isBlank())
-                    ? DEFAULT_GUIDE
+                    ? NO_BASIS_GUIDE
                     : diagnosis.reason();
             Assessment transientResult = Assessment.builder()
                     .storyId(storyId)
