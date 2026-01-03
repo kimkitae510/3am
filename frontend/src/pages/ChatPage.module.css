@@ -199,6 +199,18 @@
   padding-top: 6px;
 }
 
+/* 남은 횟수 옆 이용권 구매 링크 — 소진 배너가 뜨기 전의 상시 진입점 */
+.usageTopup {
+  margin-left: 8px;
+  padding: 1px 9px;
+  border: 1px solid rgba(184, 157, 209, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: #b89dd1;
+  font-size: 11px;
+  cursor: pointer;
+}
+
 /* 무료+이용권 소진 시 입력창 위 결제 유도 — 안내 문구 + 버튼 배너 */
 .quotaBanner {
   flex-shrink: 0;

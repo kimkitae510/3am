@@ -380,9 +380,15 @@ export function AssessmentPage() {
           )}
 
           {/* 갱신 안내 문구는 제거 — 새 이야기 없이 다시 진단하면 서버가 사유를 설명하며 거부해서 중복 안내였다 */}
-          <div className={styles.hintCount}>
-            {remaining != null ? `오늘 ${remaining}회 남음` : '하루 2회'}
-            {paidRemaining > 0 && ` + 이용권 ${paidRemaining}회`}
+          <div className={styles.hintRow}>
+            <div className={styles.hintCount}>
+              {remaining != null ? `오늘 ${remaining}회 남음` : '하루 2회'}
+              {paidRemaining > 0 && ` + 이용권 ${paidRemaining}회`}
+            </div>
+            {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅 상단 아이콘과 같은 동선 */}
+            <button className={styles.topupLink} onClick={() => navigate('/payment')}>
+              추가 이용권
+            </button>
           </div>
 
           <button

@@ -292,6 +292,10 @@ export function ChatPage() {
           <div className={styles.usageHint}>
             오늘 남은 대화 {chatRemaining}회
             {chatPaidRemaining > 0 && ` + 이용권 ${chatPaidRemaining}회`}
+            {/* 남은 횟수를 보는 그 자리에서 바로 살 수 있게 — 소진 배너가 뜨기 전의 진입점 */}
+            <button className={styles.usageTopup} onClick={() => navigate('/payment')}>
+              추가 이용권
+            </button>
           </div>
         )}
         {/* 소진 상태(잔여 0 또는 Q001 거절) — 무엇이 끝났고 어떻게 이어갈 수 있는지 먼저 말해준다 */}
