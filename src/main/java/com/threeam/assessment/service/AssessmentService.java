@@ -105,6 +105,12 @@ public class AssessmentService {
         }
     }
 
+    // "사귀는 중" 잠금을 유저가 직접 번복하는 창구. 즉석에서 확률을 만들어주지 않고
+    // 원장에 확인 기록만 남긴다 — 확률은 헤어진 경위를 대화로 들은 다음 진단에서 열린다.
+    public void confirmBreakup(Long userId, Long storyId) {
+        txService.confirmBreakup(userId, storyId);
+    }
+
     // 감점 목록(@ElementCollection, LAZY)을 매핑에서 읽으므로 트랜잭션 안이어야 한다.
     // (open-in-view: false — 트랜잭션 밖에서 접근하면 LazyInitializationException → 500)
     @Transactional(readOnly = true)

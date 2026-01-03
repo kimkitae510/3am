@@ -35,4 +35,13 @@ public class AssessmentController {
                                                                @PathVariable Long storyId) {
         return ResponseEntity.ok(assessmentService.getHistory(userId, storyId));
     }
+
+    // "사귀는 중" 잠금을 유저가 직접 번복한다(진단이 오해했을 수 있다). 원장에 확인 기록만 남고,
+    // 확률은 헤어진 경위를 대화한 뒤의 다음 진단에서 열린다.
+    @PostMapping("/confirm-breakup")
+    public ResponseEntity<Void> confirmBreakup(@AuthenticationPrincipal Long userId,
+                                               @PathVariable Long storyId) {
+        assessmentService.confirmBreakup(userId, storyId);
+        return ResponseEntity.noContent().build();
+    }
 }

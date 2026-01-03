@@ -3,6 +3,7 @@ package com.threeam.assessment.service;
 import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
@@ -98,6 +99,25 @@ public class AssessmentTxService {
         storyMemoryService.upsert(storyId, newSummary);
         storyFactService.appendFacts(storyId, saved.getId(), newFacts);
         return AssessmentResponse.from(saved);
+    }
+
+    // 유저가 "사귀는 중" 판정을 번복할 때 원장에 남기는 문장.
+    // 진단 프롬프트(ReunionLlm)가 이 문장을 근거로 DATING 재판정을 멈춘다 — 문구를 바꾸면 프롬프트 규칙도 함께 바꿔야 한다.
+    public static final String BREAKUP_CONFIRMED_FACT = "유저가 직접 확인함: 사귀는 중이 아니라 헤어진 상태다";
+
+    // 마지막 판정이 DATING일 때만 받는다 — 아무 때나 열어두면 원장에 무의미한 확인 기록이 쌓인다.
+    // 확률을 즉석 산출하지 않는 이유: 오해를 정정해도 '헤어진 경위'가 대화에 없으면 진단 근거가 없다.
+    @Transactional
+    public void confirmBreakup(Long userId, Long storyId) {
+        storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        ReunionVerdict lastVerdict = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .map(Assessment::getVerdict)
+                .orElse(null);
+        if (lastVerdict != ReunionVerdict.DATING) {
+            throw new BusinessException(ErrorCode.ASSESSMENT_NOT_DATING);
+        }
+        storyFactService.appendFacts(storyId, null, List.of(BREAKUP_CONFIRMED_FACT));
     }
 
     // 새 대화가 없으면 진단 근거 자체가 없고, 대화가 있어도 원장에 새 사실이 없으면

@@ -169,6 +169,57 @@ class AssessmentTxServiceTest {
         verify(messageRepository, never()).existsByStoryIdAndCreatedAtAfter(any(), any());
     }
 
+    private Assessment datingAssessment() {
+        Assessment assessment = Assessment.builder()
+                .storyId(STORY_ID)
+                .verdict(ReunionVerdict.DATING)
+                .reason("아직 만나는 중")
+                .build();
+        ReflectionTestUtils.setField(assessment, "id", 77L);
+        return assessment;
+    }
+
+    @Test
+    @DisplayName("헤어짐 확인 - 마지막 판정이 DATING이면 원장에 확인 사실을 남긴다")
+    void confirmBreakup_appendsFactWhenDating() {
+        givenOwnedStory();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(datingAssessment()));
+
+        txService.confirmBreakup(1L, STORY_ID);
+
+        verify(storyFactService).appendFacts(STORY_ID, null,
+                List.of(AssessmentTxService.BREAKUP_CONFIRMED_FACT));
+    }
+
+    @Test
+    @DisplayName("헤어짐 확인 - 마지막 판정이 DATING이 아니면 거부한다(원장 오염 방지)")
+    void confirmBreakup_rejectsWhenNotDating() {
+        givenOwnedStory();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(lastAssessment())); // POSSIBLE
+
+        assertThatThrownBy(() -> txService.confirmBreakup(1L, STORY_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ASSESSMENT_NOT_DATING);
+
+        verifyNoInteractions(storyFactService);
+    }
+
+    @Test
+    @DisplayName("헤어짐 확인 - 진단 기록이 아예 없어도 거부한다")
+    void confirmBreakup_rejectsWithoutAssessment() {
+        givenOwnedStory();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> txService.confirmBreakup(1L, STORY_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ASSESSMENT_NOT_DATING);
+
+        verifyNoInteractions(storyFactService);
+    }
+
     private void givenConversation() {
         Message message = Message.user(Story.builder().userId(1L).title("사연").build(), "걔가 먼저 헤어지자 했어");
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(STORY_ID), any(Pageable.class)))
