@@ -143,6 +143,12 @@ export function AssessmentPage() {
                   <span className={styles.stateDot} />
                   <span className={styles.stateDot} />
                 </span>
+                {/* 진단 LLM이 느릴 때 이탈해도 손해가 아니라는 안내 — 결과는 저장돼 재진입 시 보인다 */}
+                <span className={styles.stateSub}>
+                  시간이 좀 걸릴 수 있어요.
+                  <br />
+                  화면을 나가도 결과는 저장되니, 다시 들어오면 확인할 수 있어요.
+                </span>
               </>
             ) : (
               '불러오는 중…'
