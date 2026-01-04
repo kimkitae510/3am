@@ -330,14 +330,6 @@
   animation-delay: 0.4s;
 }
 
-/* 유형 판정 근거(실제 관찰된 행동) — 카드 아래 한 줄씩 */
-.typeEvidence {
-  color: var(--text-sub);
-  font-size: 12.5px;
-  margin-top: 6px;
-  line-height: 1.5;
-}
-
 /* 상단 도움말(?) 버튼 — 제목 오른쪽 끝. 모달 자체는 공용 컴포넌트(components/HelpModal) */
 .helpButton {
   margin-left: auto;
