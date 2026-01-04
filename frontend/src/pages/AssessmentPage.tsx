@@ -287,28 +287,34 @@ export function AssessmentPage() {
           <div className={styles.gaugeLabel}>재회 가능성</div>
           {dating ? (
             <>
-              <div className={styles.lockText}>
-                지금은 만나고 있는 사이로 알고 있어요.
-                <br />
-                재회 확률은 이별을 전제로 한 진단이라, 헤어진 뒤에 다시 열려요.
+              {/* 잠금 설명과 번복 질문을 카드 하나로 — 문장이 따로 흩어져 있으면 어수선하다 */}
+              <div className={styles.lockCard}>
+                <div className={styles.lockTitle}>지금은 만나고 있는 사이로 알고 있어요</div>
+                <div className={styles.lockDesc}>
+                  재회 확률은 이별을 전제로 한 진단이라 헤어진 뒤에 다시 열려요.
+                </div>
+                {/* 진단이 오해했을 수 있다 — 잠금은 서비스가 걸지만, 푸는 열쇠는 유저에게 준다 */}
+                {breakupConfirmed ? (
+                  <div className={styles.lockAskRow}>
+                    <span className={styles.lockAskText}>
+                      확인했어요. 어쩌다 헤어졌는지 대화로 들려준 뒤 다시 진단해 주세요.
+                    </span>
+                  </div>
+                ) : (
+                  <div className={styles.lockAskRow}>
+                    <span className={styles.lockAskText}>
+                      제가 오해했을 수도 있어요. 헤어지신 게 맞나요?
+                    </span>
+                    <button
+                      className={styles.lockConfirmBtn}
+                      onClick={handleConfirmBreakup}
+                      disabled={confirming}
+                    >
+                      {confirming ? '반영 중…' : '네, 헤어졌어요'}
+                    </button>
+                  </div>
+                )}
               </div>
-              {/* 진단이 오해했을 수 있다 — 잠금은 서비스가 걸지만, 푸는 열쇠는 유저에게 준다 */}
-              {breakupConfirmed ? (
-                <div className={styles.lockAsk}>
-                  알려주셔서 고마워요. 어쩌다 헤어졌는지 대화로 들려준 뒤 다시 진단하면 확률이 열려요.
-                </div>
-              ) : (
-                <div className={styles.lockAsk}>
-                  제가 오해했을 수도 있어요. 헤어지신 게 맞나요?
-                  <button
-                    className={styles.lockConfirmBtn}
-                    onClick={handleConfirmBreakup}
-                    disabled={confirming}
-                  >
-                    {confirming ? '반영하는 중…' : '네, 헤어졌어요'}
-                  </button>
-                </div>
-              )}
               {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
             </>
           ) : (

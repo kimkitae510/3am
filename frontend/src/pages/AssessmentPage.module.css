@@ -130,36 +130,53 @@
   letter-spacing: 0.5px;
 }
 
-.lockText {
-  text-align: center;
-  color: var(--text-sub);
-  font-size: 13px;
-  line-height: 1.65;
-  margin: 8px auto 0;
-  max-width: 300px;
+/* 잠금 설명 + 번복 질문을 한 카드로(문장이 흩어져 있으면 어수선하다) */
+.lockCard {
+  margin: 12px 4px 0;
+  padding: 14px 15px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 
-/* 잠금 번복 질문("헤어지신 게 맞나요?")과 확인 버튼 */
-.lockAsk {
+.lockTitle {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lockDesc {
+  color: var(--text-sub);
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin-top: 5px;
+}
+
+/* 번복 질문("헤어지신 게 맞나요?") 줄 — 카드 안에서 구분선으로 나뉜다 */
+.lockAskRow {
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 10px;
-  margin: 14px auto 0;
-  max-width: 300px;
-  text-align: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.lockAskText {
+  flex: 1;
   color: var(--text-sub);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.55;
 }
 
 .lockConfirmBtn {
-  padding: 9px 20px;
-  border-radius: 12px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 11px;
   border: 1px solid var(--border);
-  background: var(--card);
+  background: transparent;
   color: var(--text);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
 }
