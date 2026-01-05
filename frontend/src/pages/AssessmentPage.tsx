@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { HelpModal } from '../components/HelpModal';
-import { confirmBreakup, getAssessments, runAssessment, type AssessmentResponse } from '../api/assessment';
+import {
+  confirmBreakup,
+  getAssessments,
+  retractOffer,
+  runAssessment,
+  type AssessmentResponse,
+} from '../api/assessment';
 import { getUsage } from '../api/usage';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
@@ -49,6 +55,8 @@ export function AssessmentPage() {
   const [showHelp, setShowHelp] = useState(false);
   const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
   const [breakupConfirmed, setBreakupConfirmed] = useState(false); // 이 DATING 결과에 대해 이미 번복함
+  const [retracting, setRetracting] = useState(false); // 제안 번복 API 진행 중
+  const [offerRetracted, setOfferRetracted] = useState(false); // 이 100% 결과에 대해 이미 번복함
   const aliveRef = useRef(true);
 
   // 에러 배너(쿼터 소진, 재진단 거부 등)가 화면에 계속 남지 않게 잠시 뒤 스스로 사라진다.
@@ -58,12 +66,16 @@ export function AssessmentPage() {
     return () => clearTimeout(timer);
   }, [error]);
 
-  // "이미 번복했는지"는 결과(createdAt) 단위로 기억한다 — 새 DATING 판정이 나오면 질문이 다시 열린다.
+  // "이미 번복했는지"는 결과(createdAt) 단위로 기억한다 — 새 판정이 나오면 질문이 다시 열린다.
   const confirmKey = `breakup-confirmed-${storyId}`;
+  const retractKey = `offer-retracted-${storyId}`;
 
   useEffect(() => {
     if (result?.verdict === 'DATING') {
       setBreakupConfirmed(localStorage.getItem(confirmKey) === (result.createdAt ?? ''));
+    }
+    if (result?.verdict === 'POSSIBLE' && result.probability === 100) {
+      setOfferRetracted(localStorage.getItem(retractKey) === (result.createdAt ?? ''));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result]);
@@ -78,6 +90,19 @@ export function AssessmentPage() {
       if (aliveRef.current) setError(extractErrorMessage(e, '처리하지 못했어요. 잠시 후 다시 시도해 주세요.'));
     } finally {
       if (aliveRef.current) setConfirming(false);
+    }
+  }
+
+  async function handleRetractOffer() {
+    setRetracting(true);
+    try {
+      await retractOffer(storyId);
+      localStorage.setItem(retractKey, result?.createdAt ?? '');
+      if (aliveRef.current) setOfferRetracted(true);
+    } catch (e) {
+      if (aliveRef.current) setError(extractErrorMessage(e, '처리하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+    } finally {
+      if (aliveRef.current) setRetracting(false);
     }
   }
 
@@ -323,17 +348,38 @@ export function AssessmentPage() {
               </div>
               {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
             </>
-          ) : (
-            <>
-              <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
-              {/* 100은 합산 결과가 아니라 "상대의 유효한 재회 제안" 확정값 — 왜 100인지 그대로 설명한다 */}
-              {prob >= 100 && (
-                <div className={styles.offerText}>
-                  상대가 먼저 다시 만나자고 한 상태예요. 남은 것은 확률이 아니라 내 선택이라 100%로
-                  보여드려요. 제안이 없던 일이 되면 다음 진단에서 다시 계산돼요.
+          ) : prob >= 100 ? (
+            /* 100은 합산 결과가 아니라 "상대의 유효한 재회 제안" 확정값 — 사유 설명과 번복 창구를
+               커플 잠금과 같은 카드 문법으로 제공한다(확정도 유저가 풀 수 있어야 한다) */
+            <div className={styles.lockCard}>
+              <div className={styles.lockTitle}>상대의 재회 제안이 유효한 상태예요</div>
+              <div className={styles.lockDesc}>
+                남은 것은 확률이 아니라 내 선택이라 100%로 보여드려요. 제안이 없던 일이 되면 다음
+                진단에서 다시 계산돼요.
+              </div>
+              {offerRetracted ? (
+                <div className={styles.lockAskRow}>
+                  <span className={styles.lockAskText}>
+                    확인했어요. 최근 상황을 대화로 들려준 뒤 다시 진단해 주세요.
+                  </span>
+                </div>
+              ) : (
+                <div className={styles.lockAskRow}>
+                  <span className={styles.lockAskText}>
+                    제안이 없던 일이 됐거나 제가 잘못 알았다면 알려주세요.
+                  </span>
+                  <button
+                    className={styles.lockConfirmBtn}
+                    onClick={handleRetractOffer}
+                    disabled={retracting}
+                  >
+                    {retracting ? '반영 중…' : '유효하지 않아요'}
+                  </button>
                 </div>
               )}
-            </>
+            </div>
+          ) : (
+            <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
           )}
 
           {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기). 일반 설명은 도움말 모달로.
