@@ -44,4 +44,13 @@ public class AssessmentController {
         assessmentService.confirmBreakup(userId, storyId);
         return ResponseEntity.noContent().build();
     }
+
+    // "상대의 재회 제안 유효(100%)" 확정을 유저가 직접 번복한다(제안이 아니었거나 없던 일이 됨).
+    // 마찬가지로 원장에 정정 기록만 남고, 확률은 다음 진단에서 일반 합산으로 돌아간다.
+    @PostMapping("/retract-offer")
+    public ResponseEntity<Void> retractOffer(@AuthenticationPrincipal Long userId,
+                                             @PathVariable Long storyId) {
+        assessmentService.retractOffer(userId, storyId);
+        return ResponseEntity.noContent().build();
+    }
 }

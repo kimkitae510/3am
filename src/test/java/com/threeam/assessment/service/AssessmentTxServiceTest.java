@@ -220,6 +220,58 @@ class AssessmentTxServiceTest {
         verifyNoInteractions(storyFactService);
     }
 
+    private Assessment offerAssessment() {
+        Assessment assessment = Assessment.builder()
+                .storyId(STORY_ID)
+                .verdict(ReunionVerdict.POSSIBLE)
+                .probability(100)
+                .reason("상대 제안 유효")
+                .build();
+        ReflectionTestUtils.setField(assessment, "id", 77L);
+        return assessment;
+    }
+
+    @Test
+    @DisplayName("제안 번복 - 마지막 진단이 제안 확정(100)이면 원장에 정정 사실을 남긴다")
+    void retractOffer_appendsFactWhenOfferActive() {
+        givenOwnedStory();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(offerAssessment()));
+
+        txService.retractOffer(1L, STORY_ID);
+
+        verify(storyFactService).appendFacts(STORY_ID, null,
+                List.of(AssessmentTxService.OFFER_RETRACTED_FACT));
+    }
+
+    @Test
+    @DisplayName("제안 번복 - 마지막 진단이 100이 아니면 거부한다")
+    void retractOffer_rejectsWhenNotOffer() {
+        givenOwnedStory();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(lastAssessment())); // POSSIBLE 20%
+
+        assertThatThrownBy(() -> txService.retractOffer(1L, STORY_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ASSESSMENT_NOT_OFFER);
+
+        verifyNoInteractions(storyFactService);
+    }
+
+    @Test
+    @DisplayName("제안 번복 - 진단 기록이 없어도 거부한다")
+    void retractOffer_rejectsWithoutAssessment() {
+        givenOwnedStory();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> txService.retractOffer(1L, STORY_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ASSESSMENT_NOT_OFFER);
+
+        verifyNoInteractions(storyFactService);
+    }
+
     private void givenConversation() {
         Message message = Message.user(Story.builder().userId(1L).title("사연").build(), "걔가 먼저 헤어지자 했어");
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(STORY_ID), any(Pageable.class)))

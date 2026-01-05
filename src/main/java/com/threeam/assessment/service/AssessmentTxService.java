@@ -120,6 +120,25 @@ public class AssessmentTxService {
         storyFactService.appendFacts(storyId, null, List.of(BREAKUP_CONFIRMED_FACT));
     }
 
+    // 유저가 "상대의 재회 제안 유효(100%)" 확정을 번복할 때 원장에 남기는 문장.
+    // 이것도 ReunionLlm 프롬프트의 false 규칙과 짝 — 문구를 바꾸면 프롬프트도 함께 바꿔야 한다.
+    public static final String OFFER_RETRACTED_FACT = "유저가 직접 확인함: 상대의 재회 제안은 더 이상 유효하지 않다";
+
+    // 마지막 진단이 제안 확정(100%)일 때만 받는다. confirmBreakup과 같은 원리의 잠금 해제 창구.
+    @Transactional
+    public void retractOffer(Long userId, Long storyId) {
+        storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        boolean offerActive = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .map(last -> last.getVerdict() == ReunionVerdict.POSSIBLE
+                        && Integer.valueOf(100).equals(last.getProbability()))
+                .orElse(false);
+        if (!offerActive) {
+            throw new BusinessException(ErrorCode.ASSESSMENT_NOT_OFFER);
+        }
+        storyFactService.appendFacts(storyId, null, List.of(OFFER_RETRACTED_FACT));
+    }
+
     // 새 대화가 없으면 진단 근거 자체가 없고, 대화가 있어도 원장에 새 사실이 없으면
     // "확률을 바꿀 사건"이 없다는 뜻이라 거부한다(채팅 추출이 대화에서 사실을 실시간으로 적재하는 전제).
     private void assertNewBasisSince(Long storyId, Assessment last) {

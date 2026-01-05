@@ -111,6 +111,11 @@ public class AssessmentService {
         txService.confirmBreakup(userId, storyId);
     }
 
+    // "재회 제안 유효(100%)" 확정을 유저가 직접 번복하는 창구. 원리는 confirmBreakup과 같다.
+    public void retractOffer(Long userId, Long storyId) {
+        txService.retractOffer(userId, storyId);
+    }
+
     // 감점 목록(@ElementCollection, LAZY)을 매핑에서 읽으므로 트랜잭션 안이어야 한다.
     // (open-in-view: false — 트랜잭션 밖에서 접근하면 LazyInitializationException → 500)
     @Transactional(readOnly = true)
