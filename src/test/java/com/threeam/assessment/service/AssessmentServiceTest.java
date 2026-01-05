@@ -52,7 +52,7 @@ class AssessmentServiceTest {
     @InjectMocks
     private AssessmentService assessmentService;
 
-    // 사전 가드(유저 발화 2개 미만 거부)를 통과하는 기본 컨텍스트
+    // 사전 가드(유저 발화 없음 거부)를 통과하는 기본 컨텍스트
     private static final AssessmentContext CONTEXT =
             new AssessmentContext("요약", List.of(), List.of(
                     ChatMessage.user("걔가 먼저 헤어지자 했어"),
@@ -62,7 +62,7 @@ class AssessmentServiceTest {
                     ChatMessage.user("일주일째 읽씹이야")));
 
     private static final AssessmentContext SPARSE_CONTEXT =
-            new AssessmentContext("", List.of(), List.of(ChatMessage.user("안녕")));
+            new AssessmentContext("", List.of(), List.of(ChatMessage.assistant("어서 와, 무슨 일이야?")));
 
     @Test
     @DisplayName("진단 - POSSIBLE이면 LLM 감점을 백엔드가 합산해 확률을 낸다")
@@ -193,15 +193,15 @@ class AssessmentServiceTest {
     }
 
     @Test
-    @DisplayName("진단 - 유저 발화 2개 미만이면 LLM 호출 없이 안내만, 쿼터도 안 깎고 잠금은 해제한다")
+    @DisplayName("진단 - 유저 발화가 하나도 없으면 LLM 호출 없이 안내만, 쿼터도 안 깎고 잠금은 해제한다")
     void assess_preGateOnSparseConversation() {
         given(txService.loadContext(1L, 10L)).willReturn(SPARSE_CONTEXT);
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
-        // 대화 수 부족은 "몇 번을 채우면 되는지"를 명시해 안내한다(근거 부족 안내와 구분)
-        assertThat(response.getReason()).contains("최소 2번");
+        // 발화 없음 안내(사전 가드)는 근거 부족 안내(LLM 판정)와 문구가 다르다
+        assertThat(response.getReason()).contains("이야기가 없어요");
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList()); // LLM 비용 없음
         verify(usageLimiter, never()).recordDaily(any(), any());          // 쿼터 미차감
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L, 10L);

@@ -28,9 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AssessmentService {
 
-    // 사전 가드: 유저 메시지가 이보다 적으면 LLM 없이도 "근거 부족"이 자명하다.
-    // 뻔한 실패에 LLM 비용과 일일 쿼터(2회)를 태우지 않는다.
-    private static final int MIN_USER_TURNS = 2;
+    // 사전 가드: 유저 발화가 하나도 없으면 LLM 없이도 "근거 없음"이 자명하다.
+    // 대화가 한 번이라도 있으면 LLM에 보낸다 — 부족 여부는 횟수가 아니라 내용(원장)이 정한다.
+    private static final int MIN_USER_TURNS = 1;
 
     // INSUFFICIENT를 받은 사연의 시각. 새 대화 없이 재시도하면 LLM 없이 거부한다 —
     // INSUFFICIENT를 쿼터 미차감으로 바꾸면서 생기는 무한 호출 구멍을 이걸로 막는다.
@@ -122,10 +122,10 @@ public class AssessmentService {
     }
 
     // 미진단 사유는 원인별로 갈라 말해준다 — "왜 안 되는지"를 유저가 스스로 고칠 수 있게.
-    // 대화 수 자체가 부족한 경우(사전 가드): 몇 번을 채우면 되는지 명시.
+    // 유저 발화가 아예 없는 경우(사전 가드).
     private static final String TURNS_GUIDE =
-            "아직 대화가 부족해요. 최소 " + MIN_USER_TURNS + "번은 이야기를 들려주셔야 진단할 수 있어요. "
-                    + "어쩌다 헤어졌는지, 지금 연락은 되는지부터 시작해 볼래요?";
+            "아직 들려주신 이야기가 없어요. 어쩌다 헤어졌는지, 지금 어떤 상황인지 "
+                    + "먼저 들려주시면 진단할 수 있어요.";
 
     // 대화는 있었지만 확률을 매길 '사실'이 부족한 경우(LLM 판정, 원장 빈약): 무엇을 말해야 하는지 안내.
     private static final String NO_BASIS_GUIDE =
