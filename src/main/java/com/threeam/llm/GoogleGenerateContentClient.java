@@ -109,8 +109,12 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         }
         body.put("contents", contents);
         // JSON 모드: 모델이 코드펜스, 잡설 없이 순수 JSON만 뱉도록 강제한다.
+        // 정밀 판단(deep=진단)은 temperature 0 — 같은 사실 위에서 점수가 호출마다
+        // 출렁이는 문제(같은 신호에 15점/10점) 실측 대응. 채팅/추출은 기본값 유지.
         if (json) {
-            body.put("generationConfig", Map.of("responseMimeType", "application/json"));
+            body.put("generationConfig", deep
+                    ? Map.of("responseMimeType", "application/json", "temperature", 0)
+                    : Map.of("responseMimeType", "application/json"));
         }
 
         try {
