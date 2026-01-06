@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
+import com.threeam.llm.LlmJson;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.StoryFact;
@@ -121,7 +122,8 @@ public class StoryFactExtractor {
     // 파싱 실패는 호출부의 exceptionally가 받는다(로그만 남기고 무시).
     private Extraction parse(String json) {
         try {
-            JsonNode root = objectMapper.readTree(json);
+            // 코드펜스, 잡설이 붙은 응답을 한 번 다듬어 살린다(파싱 실패 실측 대응).
+            JsonNode root = objectMapper.readTree(LlmJson.salvage(json));
             List<String> newFacts = new ArrayList<>();
             for (JsonNode node : root.path("newFacts")) {
                 String fact = node.asText("").trim();

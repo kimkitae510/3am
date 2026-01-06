@@ -9,6 +9,7 @@ import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
 import com.threeam.llm.LlmException;
+import com.threeam.llm.LlmJson;
 import com.threeam.story.entity.StoryFact;
 import java.util.ArrayList;
 import java.util.List;
@@ -221,7 +222,8 @@ public class ReunionLlm {
 
     private ReunionDiagnosis parse(String json) {
         try {
-            JsonNode root = objectMapper.readTree(json);
+            // 코드펜스, 잡설이 붙은 응답을 한 번 다듬어 살린다 — 진단 실패는 유저에게 502로 보이는 비용이다.
+            JsonNode root = objectMapper.readTree(LlmJson.salvage(json));
             ReunionVerdict verdict = enumValue(ReunionVerdict.class, root.path("verdict").asText(null),
                     ReunionVerdict.POSSIBLE);
             AttachmentStyle myAttachment =
