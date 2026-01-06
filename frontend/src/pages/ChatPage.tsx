@@ -294,19 +294,16 @@ export function ChatPage() {
             {chatPaidRemaining > 0 && ` + 이용권 ${chatPaidRemaining}회`}
             {/* 남은 횟수를 보는 그 자리에서 바로 살 수 있게 — 소진 배너가 뜨기 전의 진입점 */}
             <button className={styles.usageTopup} onClick={() => navigate('/payment')}>
-              추가 이용권
+              추가 이용권 구매
             </button>
           </div>
         )}
-        {/* 소진 상태(잔여 0 또는 Q001 거절) — 무엇이 끝났고 어떻게 이어갈 수 있는지 먼저 말해준다 */}
+        {/* 소진 상태(잔여 0 또는 Q001 거절) — 안내만. 구매 버튼은 위 "추가 이용권 구매"가 담당(중복 제거) */}
         {(quotaOver || (chatRemaining === 0 && chatPaidRemaining === 0)) && (
           <div className={styles.quotaBanner}>
             <div className={styles.quotaText}>
-              오늘 무료 대화를 다 썼어요. 이용권을 추가하면 바로 이어서 대화할 수 있어요.
+              오늘 무료 대화를 다 썼어요. 위의 추가 이용권 구매로 이어서 대화할 수 있어요.
             </div>
-            <button className={styles.buyButton} onClick={() => navigate('/payment')}>
-              이용권 추가하기
-            </button>
           </div>
         )}
         {/* 한도에 가까워질 때만 카운터 노출 — 평소엔 조용히 */}

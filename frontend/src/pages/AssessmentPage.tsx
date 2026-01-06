@@ -10,7 +10,7 @@ import {
   type AssessmentResponse,
 } from '../api/assessment';
 import { getUsage } from '../api/usage';
-import { extractErrorCode, extractErrorMessage } from '../api/client';
+import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import { GAUGE_MAX, bandLabel } from '../utils/assessmentScale';
 import styles from './AssessmentPage.module.css';
@@ -51,7 +51,6 @@ export function AssessmentPage() {
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState<number | null>(null); // 오늘 남은 진단 횟수
   const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
-  const [quotaOver, setQuotaOver] = useState(false); // 무료+이용권 모두 소진 → 구매 유도
   const [showHelp, setShowHelp] = useState(false);
   const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
   const [breakupConfirmed, setBreakupConfirmed] = useState(false); // 이 DATING 결과에 대해 이미 번복함
@@ -120,7 +119,6 @@ export function AssessmentPage() {
   async function diagnose() {
     setDiagnosing(true);
     setError('');
-    setQuotaOver(false);
     try {
       const res = await runAssessment(storyId);
       if (aliveRef.current) {
@@ -128,10 +126,9 @@ export function AssessmentPage() {
         refreshUsage(); // 후차감이라 성공 시점에 갱신
       }
     } catch (e) {
+      // 소진(Q001)도 별도 버튼 없이 에러 배너로만 — 구매 동선은 상시 노출된 "추가 이용권 구매"가 담당.
       if (aliveRef.current) {
         setError(extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'));
-        // 무료+이용권 모두 소진(Q001)일 때만 구매 유도 버튼을 띄운다.
-        setQuotaOver(extractErrorCode(e) === 'Q001');
       }
     } finally {
       if (aliveRef.current) setDiagnosing(false);
@@ -274,12 +271,6 @@ export function AssessmentPage() {
       <div className={styles.wrap}>
         <BackBar onBack={toChat} onHelp={() => setShowHelp(true)} />
         {error && <div className={styles.errorBanner}>{error}</div>}
-        {/* Q001 거절뿐 아니라 잔여 0이 보이는 시점에도 선제 노출 — 채팅 화면과 같은 동선 */}
-        {(quotaOver || (remaining === 0 && paidRemaining === 0)) && (
-          <button className={styles.askChat} onClick={() => navigate('/payment')}>
-            이용권 채우러 가기
-          </button>
-        )}
         <div className={styles.body}>
           <div className={styles.meta}>이 대화방 기준, 마지막 진단 {metaDate}</div>
 
@@ -439,7 +430,7 @@ export function AssessmentPage() {
             </div>
             {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅 상단 아이콘과 같은 동선 */}
             <button className={styles.topupLink} onClick={() => navigate('/payment')}>
-              추가 이용권
+              추가 이용권 구매
             </button>
           </div>
 
