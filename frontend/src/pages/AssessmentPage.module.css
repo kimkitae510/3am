@@ -320,10 +320,13 @@
   animation-delay: 0.4s;
 }
 
-/* 진단 대기 중 이탈 안내 — 본문보다 옅게 */
+/* 진단 대기 중 이탈 안내 — 진행 문구와 딱 붙으면 한 덩어리로 읽혀서, 간격 + 옅은 구분선으로 뗀다 */
 .stateSub {
   display: block;
-  margin-top: 14px;
+  margin: 28px auto 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  max-width: 230px;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.65;
