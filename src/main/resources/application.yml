@@ -97,7 +97,8 @@ oauth:
 # 사용량 제한 — LLM 비용 어뷰징 방지. 한도는 실제 비용 추이를 보고 조정한다.
 # (일반 API의 공통 빈도 제한은 앱이 아니라 인프라 층(nginx 등)에서 건다 — 운영 전환 시.)
 usage:
-  chat-daily-limit: 10
+  chat-daily-limit: 5          # 가입 다음 날부터의 일일 대화 한도
+  chat-first-day-limit: 10     # 가입 당일 한도 — 첫날은 충분히 써보게
   assessment-daily-limit: 2
   in-flight-ttl-seconds: 120   # 생성 중 잠금이 해제 유실돼도 이 시간 뒤 자동으로 풀린다
 

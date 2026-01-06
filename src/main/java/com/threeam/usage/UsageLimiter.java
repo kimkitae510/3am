@@ -26,6 +26,9 @@ public interface UsageLimiter {
     // 오늘 남은 무료 횟수(0 이상). 화면에 "오늘 N회 남음"을 보여주기 위한 조회 전용.
     int remainingDaily(UsageKind kind, Long userId);
 
+    // 오늘 적용되는 무료 한도. 유저별로 다를 수 있다(예: 대화는 가입 당일만 상향).
+    int dailyLimit(UsageKind kind, Long userId);
+
     // 결제로 산 이용권의 잔여 횟수 합(환불된 것 제외). 무료 한도와 별개로 표시된다.
     int paidRemaining(UsageKind kind, Long userId);
 }
