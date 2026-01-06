@@ -26,7 +26,7 @@ public class PaymentResponse {
     private final LocalDateTime canceledAt;
     // 이 결제가 지급한 이용권들의 소진 현황(묶음이면 여러 개). 승인 전, 실패면 빈 목록.
     private final List<EntitlementView> entitlements;
-    // 지금 환불하면 받을 금액(남은 횟수 x 회당 가치). DONE이 아닐 땐 null.
+    // 지금 환불 가능한 금액. 한 번도 안 썼을 때만 전액, 그 외엔 null(환불 불가 — 버튼 숨김 기준).
     private final Integer refundableAmount;
 
     private PaymentResponse(Payment payment, List<Entitlement> entitlements) {
@@ -45,9 +45,9 @@ public class PaymentResponse {
         this.approvedAt = payment.getApprovedAt();
         this.canceledAt = payment.getCanceledAt();
         this.entitlements = entitlements.stream().map(EntitlementView::new).toList();
-        this.refundableAmount = payment.getStatus() == PaymentStatus.DONE && !entitlements.isEmpty()
-                ? payment.getItem().refundableAmount(entitlements)
-                : null;
+        boolean refundable = payment.getStatus() == PaymentStatus.DONE && !entitlements.isEmpty()
+                && entitlements.stream().allMatch(e -> e.getUsedCount() == 0);
+        this.refundableAmount = refundable ? payment.getAmount() : null;
     }
 
     public static PaymentResponse of(Payment payment, List<Entitlement> entitlements) {

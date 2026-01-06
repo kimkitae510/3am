@@ -68,7 +68,7 @@ public enum ErrorCode {
     PAYMENT_RESULT_PENDING(HttpStatus.BAD_GATEWAY, "P007",
             "결제 결과 확인이 지연되고 있어요. 잠시 후 결제 내역에서 확인해 주세요. 완료된 결제는 자동으로 반영됩니다."),
     PAYMENT_CANCEL_REJECTED(HttpStatus.BAD_GATEWAY, "P008", "환불 처리가 거절되었어요. 잠시 후 다시 시도해 주세요."),
-    REFUND_NOT_ALLOWED(HttpStatus.CONFLICT, "P009", "남은 이용권이 없어 환불할 수 없어요."),
+    REFUND_NOT_ALLOWED(HttpStatus.CONFLICT, "P009", "이미 사용을 시작한 이용권은 환불할 수 없어요."),
     REFUND_ACCOUNT_REQUIRED(HttpStatus.BAD_REQUEST, "P010", "가상계좌 결제는 환불받을 계좌 정보가 필요해요.");
 
     private final HttpStatus status;

@@ -171,7 +171,7 @@ export function PaymentPage() {
     try {
       await cancelPayment(refundTarget.orderId);
       if (aliveRef.current) {
-        setNotice('환불이 완료됐어요. 남은 이용권은 회수됐어요.');
+        setNotice('환불이 완료됐어요. 이용권은 회수됐어요.');
         setRefundTarget(null);
         refresh();
       }
@@ -303,9 +303,10 @@ export function PaymentPage() {
                   {p.status === 'FAILED' && p.failReason && (
                     <div className={styles.failReason}>{p.failReason}</div>
                   )}
+                  {/* 환불은 한 번도 안 쓴 결제만 가능(전액) — 쓴 결제엔 버튼 자체를 보이지 않는다 */}
                   {p.status === 'DONE' && (p.refundableAmount ?? 0) > 0 && (
                     <button className={styles.refundLink} onClick={() => setRefundTarget(p)}>
-                      환불하기 (예상 {p.refundableAmount!.toLocaleString()}원)
+                      환불하기
                     </button>
                   )}
                 </div>
@@ -319,9 +320,9 @@ export function PaymentPage() {
             <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
               <div className={styles.dialogTitle}>환불할까요?</div>
               <div className={styles.dialogText}>
-                쓰지 않은 만큼인 {refundTarget.refundableAmount?.toLocaleString()}원을 돌려받아요.
+                결제 금액 {refundTarget.refundableAmount?.toLocaleString()}원을 전액 돌려받아요.
                 <br />
-                남은 이용권은 모두 사라지고, 되돌릴 수 없어요.
+                이용권은 회수되고, 되돌릴 수 없어요.
               </div>
               <div className={styles.dialogButtons}>
                 <button className={styles.cancelBtn} onClick={() => setRefundTarget(null)} disabled={refunding}>

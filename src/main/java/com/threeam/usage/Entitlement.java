@@ -73,12 +73,4 @@ public class Entitlement {
     public int remainingCount() {
         return Math.max(0, totalCount - usedCount);
     }
-
-    // 미사용분 비례 환불액. 나누어떨어지지 않는 몫은 원 단위 절사(전자상거래 관례).
-    public int refundableAmount(int paidAmount) {
-        if (totalCount == 0) {
-            return 0;
-        }
-        return (int) ((long) paidAmount * remainingCount() / totalCount);
-    }
 }

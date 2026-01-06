@@ -55,8 +55,8 @@ export function TermsContent() {
       <div className={styles.clauseTitle}>제5조 (이용 한도와 이용권)</div>
       <p className={styles.para}>
         무료 이용 한도는 하루 단위로 제공되며 서비스 사정에 따라 변경될 수 있습니다. 유료
-        이용권은 결제 시 안내된 횟수만큼 사용할 수 있습니다. 이용권의 환불은 관련 법령과
-        결제 수단의 정책에 따릅니다.
+        이용권은 결제 시 안내된 횟수만큼 사용할 수 있습니다. 이용권을 한 번도 사용하지 않은
+        경우에만 전액 환불할 수 있으며, 한 번이라도 사용한 뒤에는 환불되지 않습니다.
       </p>
 
       <div className={styles.clauseTitle}>제6조 (금지 행위)</div>

@@ -204,37 +204,37 @@ class PaymentServiceTest {
     }
 
     @Test
-    @DisplayName("환불 - 남은 횟수 가치 가중 합으로 부분취소를 요청한다(대화 15회 + 진단 2회 = 1,300원)")
-    void cancel_partialRefundByRemainingValue() {
+    @DisplayName("환불 - 전량 미사용이면 전액 취소를 요청한다")
+    void cancel_fullRefundWhenUnused() {
         Payment done = payment(PaymentStatus.DONE);
         ReflectionTestUtils.setField(done, "method", "카드");
         given(txService.loadOwned(1L, "order-1")).willReturn(done);
-        // 대화 20회 중 5회 사용(잔여 15 x 20원 = 300), 진단 3회 중 1회 사용(잔여 2 x 500원 = 1,000)
         given(txService.entitlementsOf(100L)).willReturn(List.of(
-                entitlement(UsageKind.CHAT, 20, 5),
-                entitlement(UsageKind.ASSESSMENT, 3, 1)));
+                entitlement(UsageKind.CHAT, 20, 0),
+                entitlement(UsageKind.ASSESSMENT, 3, 0)));
         given(txService.claimCancel(eq("order-1"), eq(PaymentStatus.DONE), anyString())).willReturn(true);
         given(txService.cancelAttemptsOf("order-1")).willReturn(1);
-        PgPaymentResult canceled = new PgPaymentResult("pay-1", "order-1", PgStatus.PARTIAL_CANCELED,
-                "카드", null, null, 1300, null);
-        given(paymentGateway.cancel(eq("pay-1"), eq(1300), anyString(), eq("order-1-cancel-1"), isNull()))
+        PgPaymentResult canceled = new PgPaymentResult("pay-1", "order-1", PgStatus.CANCELED,
+                "카드", null, null, BUNDLE_AMOUNT, null);
+        given(paymentGateway.cancel(eq("pay-1"), eq(BUNDLE_AMOUNT), anyString(), eq("order-1-cancel-1"), isNull()))
                 .willReturn(CompletableFuture.completedFuture(canceled));
         given(txService.applyPgResult("order-1", canceled)).willReturn(response(payment(PaymentStatus.CANCELED)));
 
         PaymentResponse result = service.cancel(1L, "order-1", new CancelRequest()).join();
 
         assertThat(result.getStatus()).isEqualTo(PaymentStatus.CANCELED);
-        verify(paymentGateway).cancel(eq("pay-1"), eq(1300), anyString(), eq("order-1-cancel-1"), isNull());
+        verify(paymentGateway).cancel(eq("pay-1"), eq(BUNDLE_AMOUNT), anyString(), eq("order-1-cancel-1"), isNull());
     }
 
     @Test
-    @DisplayName("환불 - 이용권을 다 썼으면 REFUND_NOT_ALLOWED")
-    void cancel_nothingLeftToRefund() {
+    @DisplayName("환불 - 한 번이라도 썼으면 REFUND_NOT_ALLOWED(부분 환불 없음)")
+    void cancel_rejectedAfterAnyUsage() {
         Payment done = payment(PaymentStatus.DONE);
         given(txService.loadOwned(1L, "order-1")).willReturn(done);
+        // 대화 1회만 써도 환불 불가
         given(txService.entitlementsOf(100L)).willReturn(List.of(
-                entitlement(UsageKind.CHAT, 20, 20),
-                entitlement(UsageKind.ASSESSMENT, 3, 3)));
+                entitlement(UsageKind.CHAT, 20, 1),
+                entitlement(UsageKind.ASSESSMENT, 3, 0)));
 
         assertThatThrownBy(() -> service.cancel(1L, "order-1", new CancelRequest()))
                 .isInstanceOf(BusinessException.class)
@@ -264,9 +264,10 @@ class PaymentServiceTest {
         Payment done = payment(PaymentStatus.DONE);
         ReflectionTestUtils.setField(done, "method", "카드");
         given(txService.loadOwned(1L, "order-1")).willReturn(done);
+        // 환불 가능 조건(전량 미사용)은 통과시키고, PG 거절 경로를 본다.
         given(txService.entitlementsOf(100L)).willReturn(List.of(
-                entitlement(UsageKind.CHAT, 20, 5),
-                entitlement(UsageKind.ASSESSMENT, 3, 1)));
+                entitlement(UsageKind.CHAT, 20, 0),
+                entitlement(UsageKind.ASSESSMENT, 3, 0)));
         given(txService.claimCancel(eq("order-1"), eq(PaymentStatus.DONE), anyString())).willReturn(true);
         given(txService.cancelAttemptsOf("order-1")).willReturn(1);
         PgPaymentResult rejected = new PgPaymentResult("pay-1", "order-1", PgStatus.FAILED,

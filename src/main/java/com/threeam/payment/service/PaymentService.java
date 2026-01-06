@@ -155,10 +155,13 @@ public class PaymentService {
         if (entitlements.isEmpty()) {
             throw new BusinessException(ErrorCode.PAYMENT_INVALID_STATE);
         }
-        int refundAmount = payment.getItem().refundableAmount(entitlements);
-        if (refundAmount <= 0) {
+        // 정책: 한 번이라도 쓴 결제는 환불 불가, 전량 미사용이면 전액 환불.
+        // 부분 환불(회당 가치 가중)은 폐지 — 계산과 안내가 단순해지고 "몇 % 쓰면 얼마" 분쟁 여지가 없다.
+        boolean anyUsed = entitlements.stream().anyMatch(e -> e.getUsedCount() > 0);
+        if (anyUsed) {
             throw new BusinessException(ErrorCode.REFUND_NOT_ALLOWED);
         }
+        int refundAmount = payment.getAmount();
         // 가상계좌로 이미 입금된 돈은 돌려보낼 계좌가 있어야 한다(카드, 간편결제는 수단으로 자동 환불).
         if ("가상계좌".equals(payment.getMethod()) && toRefundAccount(request) == null) {
             throw new BusinessException(ErrorCode.REFUND_ACCOUNT_REQUIRED);
