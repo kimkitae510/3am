@@ -30,6 +30,10 @@ body,
 
 body {
   background: var(--bg);
+  /* 한국어는 기본값(글자 단위 줄바꿈)이면 단어 중간에서 끊긴다("들려줄/래?") — 어절 단위로.
+     아주 긴 단어(URL 등)는 overflow-wrap이 칸을 넘지 않게 받쳐준다. 전 화면 상속 적용. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 button,
