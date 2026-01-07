@@ -12,9 +12,9 @@ class ReunionScorerTest {
     private final ReunionScorer scorer = new ReunionScorer();
 
     @Test
-    @DisplayName("감점이 없으면 BASE(70)에서 시작한다")
+    @DisplayName("감점이 없으면 BASE(50)에서 시작한다")
     void base_noDeductions() {
-        assertThat(scorer.apply(List.of())).isEqualTo(70);
+        assertThat(scorer.apply(List.of())).isEqualTo(50);
     }
 
     @Test
@@ -24,7 +24,7 @@ class ReunionScorerTest {
                 Deduction.of("상대가 먼저 통보", 10, "근거"),
                 Deduction.of("연락 두절", 5, "근거")));
 
-        assertThat(score).isEqualTo(55); // 70 - 10 - 5
+        assertThat(score).isEqualTo(35); // 50 - 10 - 5
     }
 
     @Test
@@ -47,13 +47,13 @@ class ReunionScorerTest {
     }
 
     @Test
-    @DisplayName("가점은 감점을 되살린다 — 바람 30에 재회 의사 15면 55")
+    @DisplayName("가점은 감점을 되살린다 — 바람 30에 재회 의사 15면 35")
     void boostsOffsetDeductions() {
         int score = scorer.apply(List.of(
                 Deduction.of("바람", 30, "근거"),
                 Deduction.boostOf("상대가 먼저 재회 의사", 15, "근거")));
 
-        assertThat(score).isEqualTo(55); // 70 - 30 + 15
+        assertThat(score).isEqualTo(35); // 50 - 30 + 15
     }
 
     @Test
@@ -64,16 +64,16 @@ class ReunionScorerTest {
                 Deduction.boostOf("재회 의사", 20, "근거"),
                 Deduction.boostOf("만남 제안", 15, "근거")));
 
-        assertThat(score).isEqualTo(60); // 70 - 30 + min(35, 20)
+        assertThat(score).isEqualTo(40); // 50 - 30 + min(35, 20)
     }
 
     @Test
-    @DisplayName("가점은 BASE 위로도 올리지만 상한(80)을 넘지 못한다")
-    void cappedAtMax() {
+    @DisplayName("가점은 BASE 위로도 올린다 — 합산 상한(20)이 걸려 최대 70")
+    void cappedByBoostTotal() {
         int score = scorer.apply(List.of(
                 Deduction.boostOf("재회 의사", 20, "근거"),
                 Deduction.boostOf("만남 제안", 15, "근거")));
 
-        assertThat(score).isEqualTo(80); // 70 + min(35, 20) = 90 → 상한 80
+        assertThat(score).isEqualTo(70); // 50 + min(35, 20)
     }
 }
