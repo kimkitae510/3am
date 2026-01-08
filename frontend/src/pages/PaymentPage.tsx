@@ -17,13 +17,13 @@ import { formatListTime } from '../utils/datetime';
 import styles from './PaymentPage.module.css';
 
 const STATUS_LABEL: Record<string, string> = {
-  READY: '결제 전',
+  READY: '결제 대기',
   IN_PROGRESS: '확인 중',
   WAITING_FOR_DEPOSIT: '입금 대기',
   DONE: '결제 완료',
-  FAILED: '결제 실패',
-  EXPIRED: '기한 만료',
-  CANCEL_REQUESTED: '환불 진행 중',
+  FAILED: '실패',
+  EXPIRED: '만료',
+  CANCEL_REQUESTED: '환불 처리 중',
   CANCELED: '환불 완료',
 };
 
@@ -212,11 +212,10 @@ export function PaymentPage() {
           <div className={styles.body}>
             {usage && (
               <div className={styles.balanceCard}>
-                {/* "9/10회" 같은 분수 표기는 계기판처럼 읽힌다 — "N회 남음"으로 말하듯 */}
                 <div className={styles.balanceRow}>
                   <span className={styles.balanceKey}>대화</span>
                   <span className={styles.balanceValue}>
-                    오늘 무료 {usage.chatRemaining}회 남음
+                    오늘 무료 {usage.chatRemaining}/{usage.chatDailyLimit}회
                     {usage.chatPaidRemaining > 0 && (
                       <span className={styles.paidBadge}>이용권 {usage.chatPaidRemaining}회</span>
                     )}
@@ -225,7 +224,7 @@ export function PaymentPage() {
                 <div className={styles.balanceRow}>
                   <span className={styles.balanceKey}>진단</span>
                   <span className={styles.balanceValue}>
-                    오늘 무료 {usage.assessmentRemaining}회 남음
+                    오늘 무료 {usage.assessmentRemaining}/{usage.assessmentDailyLimit}회
                     {usage.assessmentPaidRemaining > 0 && (
                       <span className={styles.paidBadge}>이용권 {usage.assessmentPaidRemaining}회</span>
                     )}
@@ -242,7 +241,7 @@ export function PaymentPage() {
                   <div className={styles.itemCard} key={item.code}>
                     <div className={styles.itemInfo}>
                       <div className={styles.itemName}>{item.name}</div>
-                      <div className={styles.itemGrants}>{grantsText(item)}, 기한 없이 쓸 수 있어요</div>
+                      <div className={styles.itemGrants}>{grantsText(item)} / 기한 없음</div>
                     </div>
                     <button className={styles.buyButton} onClick={() => buy(item.code)} disabled={buying}>
                       {buying ? '진행 중…' : `${item.amount.toLocaleString()}원`}
@@ -286,7 +285,7 @@ export function PaymentPage() {
                   {p.entitlements.length > 0 && p.status === 'DONE' && (
                     <div className={styles.historyMeta}>
                       {p.entitlements
-                        .map((e) => `${KIND_LABEL[e.kind] ?? e.kind} ${e.remainingCount}회 남음`)
+                        .map((e) => `${KIND_LABEL[e.kind] ?? e.kind} ${e.usedCount}/${e.totalCount}회 사용`)
                         .join(', ')}
                     </div>
                   )}
