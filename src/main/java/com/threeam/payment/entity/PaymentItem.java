@@ -15,9 +15,9 @@ import lombok.Getter;
 @Getter
 public enum PaymentItem {
 
-    BUNDLE_STANDARD("대화 20회 + 진단 3회", 1900, List.of(
-            new Grant(UsageKind.CHAT, 20),
-            new Grant(UsageKind.ASSESSMENT, 3)));
+    BUNDLE_STANDARD("대화 10회 + 진단 2회", 1900, List.of(
+            new Grant(UsageKind.CHAT, 10),
+            new Grant(UsageKind.ASSESSMENT, 2)));
 
     private final String displayName;
     private final int amount;

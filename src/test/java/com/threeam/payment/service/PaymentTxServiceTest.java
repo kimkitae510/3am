@@ -88,8 +88,8 @@ class PaymentTxServiceTest {
         assertThat(captor.getAllValues())
                 .extracting(Entitlement::getKind, Entitlement::getTotalCount, Entitlement::getPaymentId)
                 .containsExactlyInAnyOrder(
-                        org.assertj.core.groups.Tuple.tuple(UsageKind.CHAT, 20, 100L),
-                        org.assertj.core.groups.Tuple.tuple(UsageKind.ASSESSMENT, 3, 100L));
+                        org.assertj.core.groups.Tuple.tuple(UsageKind.CHAT, 10, 100L),
+                        org.assertj.core.groups.Tuple.tuple(UsageKind.ASSESSMENT, 2, 100L));
     }
 
     @Test
