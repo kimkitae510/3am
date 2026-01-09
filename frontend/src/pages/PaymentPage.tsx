@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import {
-  cancelPayment,
   createOrder,
   confirmPayment,
   getPaymentConfig,
@@ -64,8 +63,6 @@ export function PaymentPage() {
   const [widgetOrder, setWidgetOrder] = useState<OrderCreateResponse | null>(null);
   const [widgetReady, setWidgetReady] = useState(false);
   const widgetsRef = useRef<any>(null);
-  const [refundTarget, setRefundTarget] = useState<PaymentResponse | null>(null);
-  const [refunding, setRefunding] = useState(false);
   const aliveRef = useRef(true);
 
   useEffect(() => {
@@ -165,27 +162,6 @@ export function PaymentPage() {
     }
   }
 
-  async function confirmRefund() {
-    if (!refundTarget) return;
-    setRefunding(true);
-    try {
-      await cancelPayment(refundTarget.orderId);
-      if (aliveRef.current) {
-        setNotice('환불이 완료됐어요. 이용권은 회수됐어요.');
-        setRefundTarget(null);
-        refresh();
-      }
-    } catch (e) {
-      if (aliveRef.current) {
-        setRefundTarget(null);
-        setError(extractErrorMessage(e, '환불하지 못했어요. 잠시 후 다시 시도해 주세요.'));
-        refresh(); // 처리 중(P007)일 수 있으니 목록 상태를 갱신해 보여준다
-      }
-    } finally {
-      if (aliveRef.current) setRefunding(false);
-    }
-  }
-
   function grantsText(p: { grants: { kind: string; count: number }[] }): string {
     return p.grants.map((g) => `${KIND_LABEL[g.kind] ?? g.kind} ${g.count}회`).join(' + ');
   }
@@ -273,9 +249,7 @@ export function PaymentPage() {
                 <div className={styles.historyCard} key={p.orderId}>
                   <div className={styles.historyTop}>
                     <span className={styles.historyName}>{p.itemName}</span>
-                    <span className={`${styles.statusBadge} ${styles[`st${p.status}`] ?? ''}`}>
-                      {STATUS_LABEL[p.status] ?? p.status}
-                    </span>
+                    <span className={styles.statusBadge}>{STATUS_LABEL[p.status] ?? p.status}</span>
                   </div>
                   <div className={styles.historyMeta}>
                     {formatListTime(p.createdAt)}, {p.amount.toLocaleString()}원
@@ -303,36 +277,10 @@ export function PaymentPage() {
                   {p.status === 'FAILED' && p.failReason && (
                     <div className={styles.failReason}>{p.failReason}</div>
                   )}
-                  {/* 환불은 한 번도 안 쓴 결제만 가능(전액) — 쓴 결제엔 버튼 자체를 보이지 않는다 */}
-                  {p.status === 'DONE' && (p.refundableAmount ?? 0) > 0 && (
-                    <button className={styles.refundLink} onClick={() => setRefundTarget(p)}>
-                      환불하기
-                    </button>
-                  )}
+                  {/* 환불 버튼은 두지 않는다 — 미사용 전액 환불(약관)은 1:1 문의로 접수한다 */}
                 </div>
               ))
             )}
-          </div>
-        )}
-
-        {refundTarget && (
-          <div className={styles.overlay} onClick={() => !refunding && setRefundTarget(null)}>
-            <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.dialogTitle}>환불할까요?</div>
-              <div className={styles.dialogText}>
-                결제 금액 {refundTarget.refundableAmount?.toLocaleString()}원을 전액 돌려받아요.
-                <br />
-                이용권은 회수되고, 되돌릴 수 없어요.
-              </div>
-              <div className={styles.dialogButtons}>
-                <button className={styles.cancelBtn} onClick={() => setRefundTarget(null)} disabled={refunding}>
-                  취소
-                </button>
-                <button className={styles.confirmBtn} onClick={confirmRefund} disabled={refunding}>
-                  {refunding ? '환불 중…' : '환불'}
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>

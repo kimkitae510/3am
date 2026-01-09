@@ -248,35 +248,11 @@
   font-weight: 700;
 }
 
+/* 상태는 색 배지가 아니라 조용한 텍스트로 — 형광 필 배지가 관리자 화면처럼 보였다(실측 피드백) */
 .statusBadge {
   flex-shrink: 0;
-  border-radius: 999px;
-  padding: 2px 9px;
-  font-size: 11px;
-  font-weight: 700;
-  border: 1px solid var(--border);
-  color: var(--text-sub);
-}
-
-.stDONE {
-  border-color: rgba(184, 157, 209, 0.5);
-  color: var(--accent);
-  background: rgba(184, 157, 209, 0.12);
-}
-
-.stWAITING_FOR_DEPOSIT,
-.stIN_PROGRESS,
-.stCANCEL_REQUESTED {
-  border-color: rgba(230, 200, 120, 0.4);
-  color: #e6c878;
-  background: rgba(230, 200, 120, 0.08);
-}
-
-.stFAILED,
-.stEXPIRED {
-  border-color: rgba(224, 122, 122, 0.4);
-  color: #e07a7a;
-  background: rgba(224, 122, 122, 0.08);
+  font-size: 11.5px;
+  color: var(--text-muted);
 }
 
 .historyMeta {
@@ -285,91 +261,20 @@
   margin-top: 4px;
 }
 
+/* 입금 안내도 무채색으로 — 강조는 내용(계좌, 기한)이지 색이 아니다 */
 .vbankBox {
   margin-top: 8px;
   padding: 9px 11px;
   border-radius: 10px;
-  background: rgba(230, 200, 120, 0.08);
-  border: 1px solid rgba(230, 200, 120, 0.3);
-  color: #e6c878;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-sub);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .failReason {
   margin-top: 6px;
-  color: #e07a7a;
+  color: var(--text-sub);
   font-size: 12px;
-}
-
-.refundLink {
-  margin-top: 9px;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--text-sub);
-  font-size: 12.5px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 30;
-}
-
-.dialog {
-  width: 300px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 20px 18px 16px;
-}
-
-.dialogTitle {
-  color: var(--text);
-  font-size: 15.5px;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.dialogText {
-  color: var(--text-sub);
-  font-size: 13px;
-  line-height: 1.65;
-  margin-bottom: 16px;
-}
-
-.dialogButtons {
-  display: flex;
-  gap: 8px;
-}
-
-.cancelBtn,
-.confirmBtn {
-  flex: 1;
-  height: 42px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.cancelBtn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-sub);
-}
-
-.confirmBtn {
-  background: var(--accent);
-  border: none;
-  color: var(--on-accent);
-  font-weight: 700;
 }
