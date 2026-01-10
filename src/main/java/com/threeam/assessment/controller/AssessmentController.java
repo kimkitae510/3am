@@ -46,11 +46,10 @@ public class AssessmentController {
     }
 
     // "상대의 재회 제안 유효(100%)" 확정을 유저가 직접 번복한다(제안이 아니었거나 없던 일이 됨).
-    // 마찬가지로 원장에 정정 기록만 남고, 확률은 다음 진단에서 일반 합산으로 돌아간다.
+    // 원장에 정정을 남기고, 저장된 신호의 재합산 값으로 즉시 되돌린 결과를 돌려준다.
     @PostMapping("/retract-offer")
-    public ResponseEntity<Void> retractOffer(@AuthenticationPrincipal Long userId,
-                                             @PathVariable Long storyId) {
-        assessmentService.retractOffer(userId, storyId);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<AssessmentResponse> retractOffer(@AuthenticationPrincipal Long userId,
+                                                           @PathVariable Long storyId) {
+        return ResponseEntity.ok(assessmentService.retractOffer(userId, storyId));
     }
 }

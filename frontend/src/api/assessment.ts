@@ -40,7 +40,10 @@ export async function confirmBreakup(storyId: number): Promise<void> {
 }
 
 // "상대의 재회 제안 유효(100%)" 확정을 유저가 직접 번복한다(제안이 아니었거나 없던 일이 됨).
-// 원장에 정정 기록만 남고, 확률은 다음 진단에서 일반 합산으로 돌아간다.
-export async function retractOffer(storyId: number): Promise<void> {
-  await api.post(`/api/stories/${storyId}/assessments/retract-offer`);
+// 원장에 정정이 남고, 저장된 신호의 재합산 값으로 즉시 되돌린 결과가 돌아온다(재진단 불필요).
+export async function retractOffer(storyId: number): Promise<AssessmentResponse> {
+  const { data } = await api.post<AssessmentResponse>(
+    `/api/stories/${storyId}/assessments/retract-offer`,
+  );
+  return data;
 }

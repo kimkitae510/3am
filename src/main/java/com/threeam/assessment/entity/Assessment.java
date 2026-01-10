@@ -95,4 +95,9 @@ public class Assessment {
         this.reason = reason;
         this.deductions = deductions != null ? deductions : new ArrayList<>();
     }
+
+    // 상대 제안 확정(100)을 유저가 번복할 때 — 저장된 신호의 합산 값으로 되돌린다(원장 정정과 세트).
+    public void retractOffer(int recalculatedProbability) {
+        this.probability = recalculatedProbability;
+    }
 }

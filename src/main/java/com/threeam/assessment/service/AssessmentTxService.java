@@ -43,6 +43,7 @@ public class AssessmentTxService {
     private final StoryFactRepository storyFactRepository;
     private final StoryFactService storyFactService;
     private final AssessmentRepository assessmentRepository;
+    private final ReunionScorer scorer;
 
     // INSUFFICIENT 재시도 가드용: 이 시점 이후 새 대화가 있었는지.
     @Transactional(readOnly = true)
@@ -125,18 +126,19 @@ public class AssessmentTxService {
     public static final String OFFER_RETRACTED_FACT = "유저가 직접 확인함: 상대의 재회 제안은 더 이상 유효하지 않다";
 
     // 마지막 진단이 제안 확정(100%)일 때만 받는다. confirmBreakup과 같은 원리의 잠금 해제 창구.
+    // 100은 합산 결과가 아니라 확정 표시일 뿐이라, 저장해 둔 신호들을 재합산하면 재진단(LLM 비용)
+    // 없이 즉시 일반 확률로 되돌릴 수 있다. 원장 정정은 다음 진단의 오판(제안 재확정)을 막는다.
     @Transactional
-    public void retractOffer(Long userId, Long storyId) {
+    public AssessmentResponse retractOffer(Long userId, Long storyId) {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
-        boolean offerActive = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                .map(last -> last.getVerdict() == ReunionVerdict.POSSIBLE
-                        && Integer.valueOf(100).equals(last.getProbability()))
-                .orElse(false);
-        if (!offerActive) {
-            throw new BusinessException(ErrorCode.ASSESSMENT_NOT_OFFER);
-        }
+        Assessment last = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .filter(a -> a.getVerdict() == ReunionVerdict.POSSIBLE
+                        && Integer.valueOf(100).equals(a.getProbability()))
+                .orElseThrow(() -> new BusinessException(ErrorCode.ASSESSMENT_NOT_OFFER));
+        last.retractOffer(scorer.apply(last.getDeductions()));
         storyFactService.appendFacts(storyId, null, List.of(OFFER_RETRACTED_FACT));
+        return AssessmentResponse.from(last);
     }
 
     // 새 대화가 없으면 진단 근거 자체가 없고, 대화가 있어도 원장에 새 사실이 없으면

@@ -110,9 +110,9 @@ class AssessmentServiceTest {
 
         assertThat(response.getProbability()).isEqualTo(100);
         verify(scorer, never()).apply(anyList()); // 합산을 건너뛴다
-        // 100은 확정이라 합산용 신호(+20 등)를 남기지 않는다 — 확정 사유 하나(+100)로 교체
+        // 신호는 그대로 저장된다 — 유저가 제안을 번복하면 이 신호들의 재합산으로 즉시 되돌린다
         assertThat(response.getDeductions()).hasSize(1);
-        assertThat(response.getDeductions().get(0).getDelta()).isEqualTo(100);
+        assertThat(response.getDeductions().get(0).getDelta()).isEqualTo(-15);
     }
 
     @Test

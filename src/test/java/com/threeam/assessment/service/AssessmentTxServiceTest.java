@@ -1,5 +1,6 @@
 package com.threeam.assessment.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -61,6 +62,9 @@ class AssessmentTxServiceTest {
 
     @Mock
     private AssessmentRepository assessmentRepository;
+
+    @Mock
+    private ReunionScorer scorer;
 
     @InjectMocks
     private AssessmentTxService txService;
@@ -232,14 +236,16 @@ class AssessmentTxServiceTest {
     }
 
     @Test
-    @DisplayName("제안 번복 - 마지막 진단이 제안 확정(100)이면 원장에 정정 사실을 남긴다")
-    void retractOffer_appendsFactWhenOfferActive() {
+    @DisplayName("제안 번복 - 100이면 저장된 신호의 재합산 값으로 즉시 되돌리고 원장에 정정을 남긴다")
+    void retractOffer_recalculatesImmediately() {
         givenOwnedStory();
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
                 .willReturn(Optional.of(offerAssessment()));
+        given(scorer.apply(any())).willReturn(40);
 
-        txService.retractOffer(1L, STORY_ID);
+        var response = txService.retractOffer(1L, STORY_ID);
 
+        assertThat(response.getProbability()).isEqualTo(40); // 재진단(LLM) 없이 즉시 복귀
         verify(storyFactService).appendFacts(STORY_ID, null,
                 List.of(AssessmentTxService.OFFER_RETRACTED_FACT));
     }

@@ -111,9 +111,10 @@ public class AssessmentService {
         txService.confirmBreakup(userId, storyId);
     }
 
-    // "재회 제안 유효(100%)" 확정을 유저가 직접 번복하는 창구. 원리는 confirmBreakup과 같다.
-    public void retractOffer(Long userId, Long storyId) {
-        txService.retractOffer(userId, storyId);
+    // "재회 제안 유효(100%)" 확정을 유저가 직접 번복하는 창구. 저장된 신호의 재합산 값으로
+    // 즉시 되돌린 결과를 돌려준다(재진단 불필요).
+    public AssessmentResponse retractOffer(Long userId, Long storyId) {
+        return txService.retractOffer(userId, storyId);
     }
 
     // 감점 목록(@ElementCollection, LAZY)을 매핑에서 읽으므로 트랜잭션 안이어야 한다.
@@ -193,15 +194,11 @@ public class AssessmentService {
 
         // 확률은 POSSIBLE일 때만. 상대의 유효한 만남/재회 제안이 있으면 유저 수락만 남은
         // 상태라 감점 합산을 건너뛰고 100으로 확정한다(제안이 회수되면 다음 진단부터 일반 합산).
+        // 신호들은 그대로 저장한다 — 유저가 제안을 번복하면(retract-offer) 재진단 없이
+        // 이 신호들의 합산으로 즉시 되돌리기 위한 재료다. 100과 신호 합이 안 맞아 보이는 건
+        // 화면의 확정 카드가 "제안이 없던 일이 되면 아래 신호로 다시 계산"이라고 설명한다.
         boolean offerConfirmed =
                 diagnosis.verdict() == ReunionVerdict.POSSIBLE && diagnosis.activeReunionOffer();
-        // 100은 합산이 아니라 확정이다. 그런데 신호 목록에 "먼저 재회 요청 +20" 같은 합산용
-        // 가점이 남아 있으면 100%와 숫자가 안 맞아 보인다(실측 혼란) — 확정 사유 하나로 교체해
-        // 화면, 기록, 채팅 주입이 같은 얘기를 하게 한다.
-        if (offerConfirmed) {
-            deductions = List.of(Deduction.boostOf("상대의 유효한 재회 제안", 100,
-                    "상대가 먼저 다시 만나자고 제안했고 아직 유효함. 남은 것은 유저의 선택"));
-        }
         Integer probability = diagnosis.verdict() == ReunionVerdict.POSSIBLE
                 ? (offerConfirmed ? 100 : scorer.apply(deductions))
                 : null;
