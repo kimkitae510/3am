@@ -15,7 +15,7 @@ import lombok.Getter;
 @Getter
 public enum PaymentItem {
 
-    BUNDLE_STANDARD("대화 10회 + 진단 2회", 1900, List.of(
+    BUNDLE_STANDARD("대화 10회 + 진단 2회", 1200, List.of(
             new Grant(UsageKind.CHAT, 10),
             new Grant(UsageKind.ASSESSMENT, 2)));
 

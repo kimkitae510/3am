@@ -42,8 +42,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceTest {
 
-    // BUNDLE_STANDARD: 대화 10회 + 진단 2회 = 1,900원
-    private static final int BUNDLE_AMOUNT = 1900;
+    // BUNDLE_STANDARD: 대화 10회 + 진단 2회 = 1,200원
+    private static final int BUNDLE_AMOUNT = 1200;
 
     @Mock
     private PaymentTxService txService;
