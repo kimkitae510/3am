@@ -362,14 +362,15 @@
   font-size: 11.5px;
 }
 
-/* 소진 전에도 보이는 이용권 구매 링크 */
+/* 소진 전에도 보이는 이용권 구매 링크 — 테두리만 있는 알약은 비어 보여서 은은한 채움으로 */
 .topupLink {
-  padding: 3px 12px;
-  border: 1px solid rgba(184, 157, 209, 0.45);
+  padding: 4px 12px;
+  border: none;
   border-radius: 999px;
-  background: transparent;
-  color: #b89dd1;
+  background: rgba(184, 157, 209, 0.16);
+  color: var(--accent);
   font-size: 11.5px;
+  font-weight: 600;
   cursor: pointer;
 }
 
