@@ -109,13 +109,19 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         }
         body.put("contents", contents);
         // JSON 모드: 모델이 코드펜스, 잡설 없이 순수 JSON만 뱉도록 강제한다.
-        // 정밀 판단(deep=진단)은 temperature 0 — 같은 사실 위에서 점수가 호출마다
-        // 출렁이는 문제(같은 신호에 15점/10점) 실측 대응. 채팅/추출은 기본값 유지.
+        // 정밀 판단(deep=진단): temperature 0(같은 사실 위 점수 출렁임 실측 대응) + thinking 유지(긴 루브릭 추론).
+        // 채팅/추출(그 외): thinking 최소화 — thinking 토큰이 출력 과금의 90%를 차지(로그 실측)하는데
+        // 짧은 응답 품질 기여는 작다. Gemini 3.x는 thinkingLevel로 조절하며 완전 끄기는 없어 minimal로 낮춘다.
+        Map<String, Object> generationConfig = new LinkedHashMap<>();
         if (json) {
-            body.put("generationConfig", deep
-                    ? Map.of("responseMimeType", "application/json", "temperature", 0)
-                    : Map.of("responseMimeType", "application/json"));
+            generationConfig.put("responseMimeType", "application/json");
         }
+        if (deep) {
+            generationConfig.put("temperature", 0);
+        } else {
+            generationConfig.put("thinkingConfig", Map.of("thinkingLevel", "minimal"));
+        }
+        body.put("generationConfig", generationConfig);
 
         try {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
