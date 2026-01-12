@@ -171,7 +171,7 @@ export function AssessmentPage() {
                 <span className={styles.stateSub}>
                   시간이 좀 걸릴 수 있어요.
                   <br />
-                  화면을 나가도 결과는 저장되니, 다시 들어오면 확인할 수 있어요.
+                  화면을 나가도 결과는 저장돼요.
                 </span>
               </>
             ) : (
