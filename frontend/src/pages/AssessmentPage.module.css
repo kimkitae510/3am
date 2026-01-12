@@ -411,54 +411,6 @@
   cursor: default;
 }
 
-/* 놓아주기 / 데이터 부족 공통 중앙 레이아웃 */
-.centerBody {
-  flex: 1;
-  padding: 16px 28px;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 30px auto;
-}
-
-.kicker {
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  margin-bottom: 16px;
-}
-
-.bigMsg {
-  text-align: center;
-  font-size: 23px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.4;
-  letter-spacing: -0.3px;
-}
-
-.subMsg {
-  text-align: center;
-  color: var(--text-sub);
-  font-size: 14.5px;
-  line-height: 1.7;
-  margin: 16px auto 0;
-  max-width: 300px;
-}
-
 /* 진단 결과를 채팅으로 이어 묻는 진입점 */
 .askChat {
   display: block;

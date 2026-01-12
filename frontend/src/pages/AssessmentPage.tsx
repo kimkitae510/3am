@@ -118,7 +118,13 @@ export function AssessmentPage() {
     try {
       const res = await runAssessment(storyId);
       if (aliveRef.current) {
-        setResult(res);
+        // 이야기 부족(INSUFFICIENT)은 결과가 아니라 안내다 — 화면 전환 대신 배너로(소진 안내와 통일),
+        // 기존 결과는 그대로 둔다(저장도 안 되는 임시 응답이라 결과 자리를 차지하면 안 된다).
+        if (res.verdict === 'INSUFFICIENT') {
+          setError(res.reason);
+        } else {
+          setResult(res);
+        }
         refreshUsage(); // 후차감이라 성공 시점에 갱신
       }
     } catch (e) {
@@ -223,39 +229,8 @@ export function AssessmentPage() {
   // "계속 대화하면 진단도 따라 갱신된다"는 오해가 있어, 이 결과가 언제 것인지 명시한다.
   const metaDate = result.createdAt ? formatListTime(result.createdAt) : '방금';
 
-  // 데이터 부족
-  if (result.verdict === 'INSUFFICIENT') {
-    return (
-      <PhoneFrame>
-        <div className={styles.wrap}>
-          <BackBar onBack={toChat} />
-          {error && <div className={styles.errorBanner}>{error}</div>}
-          <div className={styles.centerBody}>
-            <div className={styles.icon}>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                <path d="M12 8v5M12 16h.01" stroke="#9B98A3" strokeWidth="1.8" strokeLinecap="round" />
-                <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />
-              </svg>
-            </div>
-            <div className={styles.kicker}>데이터 부족</div>
-            <div className={styles.bigMsg}>
-              아직 진단하기엔
-              <br />
-              이야기가 부족해요.
-            </div>
-            <div className={styles.subMsg}>{result.reason}</div>
-          </div>
-          <div className={styles.footer}>
-            <button className={styles.btnPrimary} onClick={toChat}>
-              대화 더 하기
-            </button>
-          </div>
-        </div>
-      </PhoneFrame>
-    );
-  }
-
-  // POSSIBLE(확률) 또는 DATING(사귀는 중 — 확률만 잠그고 유형/총평은 그대로 보여준다)
+  // INSUFFICIENT는 저장되지 않고 diagnose()에서 배너로 처리되므로 여기 도달하는 결과는
+  // POSSIBLE(확률) 또는 DATING(사귀는 중 — 확률만 잠그고 유형/총평은 그대로 보여준다)뿐이다.
   const dating = result.verdict === 'DATING';
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
