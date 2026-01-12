@@ -249,7 +249,9 @@ export function PaymentPage() {
                 <div className={styles.historyCard} key={p.orderId}>
                   <div className={styles.historyTop}>
                     <span className={styles.historyName}>{p.itemName}</span>
-                    <span className={styles.statusBadge}>{STATUS_LABEL[p.status] ?? p.status}</span>
+                    <span className={`${styles.statusBadge} ${styles[`st${p.status}`] ?? ''}`}>
+                      {STATUS_LABEL[p.status] ?? p.status}
+                    </span>
                   </div>
                   <div className={styles.historyMeta}>
                     {formatListTime(p.createdAt)}, {p.amount.toLocaleString()}원
