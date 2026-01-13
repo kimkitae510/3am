@@ -145,6 +145,24 @@ class AssessmentServiceTest {
     }
 
     @Test
+    @DisplayName("진단 - REUNITED(재회 성공)면 확률 없이 저장하고 쿼터는 차감한다")
+    void assess_reunitedSavesWithoutProbability() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
+                new ReunionDiagnosis(ReunionVerdict.REUNITED, null, null, null, null, false,
+                        List.of(), List.of(), "다시 만나게 됐네", "재회 성공", List.of("두 사람이 다시 만나기로 함"))));
+        given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
+                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
+
+        AssessmentResponse response = assessmentService.assess(1L, 10L).join();
+
+        assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.REUNITED);
+        assertThat(response.getProbability()).isNull();          // 목표 달성 상태 — 확률 산출 없음
+        verify(scorer, never()).apply(anyList());
+        verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L); // 정식 결과라 차감
+    }
+
+    @Test
     @DisplayName("진단 - INSUFFICIENT(근거 부족)면 저장하지 않고 가이드만 돌려준다")
     void assess_insufficient() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);

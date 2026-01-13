@@ -141,6 +141,9 @@ public class AssessmentService {
     private static final String DATING_GUIDE =
             "아직 만나고 있는 사이라면 재회 확률은 의미가 없어요. 지금 겪는 갈등은 대화에서 같이 풀어봐요.";
 
+    private static final String REUNITED_GUIDE =
+            "다시 만나게 됐네요. 여기서부터는 확률이 아니라 관계를 이어가는 이야기예요. 대화에서 함께해요.";
+
     // 사전 가드용 임시 응답. 히스토리에 저장하지 않는다(확률 추이 오염 방지).
     private AssessmentResponse insufficientGuide(Long storyId, String guide) {
         return AssessmentResponse.from(Assessment.builder()
@@ -165,16 +168,17 @@ public class AssessmentService {
             return AssessmentResponse.from(transientResult);
         }
 
-        // 아직 사귀는 중(DATING) — 재회 확률은 이별 전제라 백엔드가 계산 자체를 건너뛴다(구조적 잠금).
-        // LLM이 실수로 감점을 보냈어도 버린다. 애착유형과 총평, 원장(사귀는 중이라는 사실)은 그대로 저장 —
+        // 사귀는 중(DATING)이거나 재회에 성공(REUNITED) — 둘 다 확률 계산을 구조적으로 건너뛴다.
+        // LLM이 실수로 감점을 보냈어도 버린다. 애착유형과 총평, 원장은 그대로 저장 —
         // 저장해야 화면의 최신 결과가 이전 확률 대신 이 판정으로 교체된다.
-        if (diagnosis.verdict() == ReunionVerdict.DATING) {
+        if (diagnosis.verdict() == ReunionVerdict.DATING || diagnosis.verdict() == ReunionVerdict.REUNITED) {
+            String fallback = diagnosis.verdict() == ReunionVerdict.DATING ? DATING_GUIDE : REUNITED_GUIDE;
             String reason = (diagnosis.reason() == null || diagnosis.reason().isBlank())
-                    ? DATING_GUIDE
+                    ? fallback
                     : diagnosis.reason();
             Assessment assessment = Assessment.builder()
                     .storyId(storyId)
-                    .verdict(ReunionVerdict.DATING)
+                    .verdict(diagnosis.verdict())
                     .myAttachment(diagnosis.myAttachment())
                     .partnerAttachment(diagnosis.partnerAttachment())
                     .myAttachmentEvidence(diagnosis.myAttachmentEvidence())

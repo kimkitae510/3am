@@ -106,7 +106,8 @@ public class AssessmentTxService {
     // 진단 프롬프트(ReunionLlm)가 이 문장을 근거로 DATING 재판정을 멈춘다 — 문구를 바꾸면 프롬프트 규칙도 함께 바꿔야 한다.
     public static final String BREAKUP_CONFIRMED_FACT = "유저가 직접 확인함: 사귀는 중이 아니라 헤어진 상태다";
 
-    // 마지막 판정이 DATING일 때만 받는다 — 아무 때나 열어두면 원장에 무의미한 확인 기록이 쌓인다.
+    // 마지막 판정이 "만나는 중"(DATING 또는 재회 성공 REUNITED)일 때만 받는다 —
+    // 아무 때나 열어두면 원장에 무의미한 확인 기록이 쌓인다. 재회했다가 다시 헤어지는 경우도 이 창구다.
     // 확률을 즉석 산출하지 않는 이유: 오해를 정정해도 '헤어진 경위'가 대화에 없으면 진단 근거가 없다.
     @Transactional
     public void confirmBreakup(Long userId, Long storyId) {
@@ -115,7 +116,7 @@ public class AssessmentTxService {
         ReunionVerdict lastVerdict = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
                 .map(Assessment::getVerdict)
                 .orElse(null);
-        if (lastVerdict != ReunionVerdict.DATING) {
+        if (lastVerdict != ReunionVerdict.DATING && lastVerdict != ReunionVerdict.REUNITED) {
             throw new BusinessException(ErrorCode.ASSESSMENT_NOT_DATING);
         }
         storyFactService.appendFacts(storyId, null, List.of(BREAKUP_CONFIRMED_FACT));

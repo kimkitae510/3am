@@ -51,7 +51,7 @@ public class ReunionLlm {
 
             아래 JSON 스키마로만 답하라(다른 텍스트 금지):
             {
-              "verdict": "POSSIBLE" | "INSUFFICIENT" | "DATING",
+              "verdict": "POSSIBLE" | "INSUFFICIENT" | "DATING" | "REUNITED",
               "myAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
               "myAttachmentEvidence": "유형 판정 근거 한 줄" | null,
               "partnerAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
@@ -115,6 +115,12 @@ public class ReunionLlm {
               예외: 기록된 사실에 "유저가 직접 확인함: 사귀는 중이 아니라 헤어진 상태다"가 있고
               그 이후 다시 사귀게 됐다는 기록이 없으면, 유저의 확인을 믿고 DATING으로 판정하지
               마라(이전 진단이 사귀는 중으로 오해한 것을 유저가 정정한 기록이다).
+            - 헤어졌던 두 사람이 다시 만나기로 한 상태(재회 성공 — "다시 만나기로 했어",
+              "우리 다시 사귀기로 했어")면 DATING이 아니라 REUNITED다. 목표를 이룬 상태라
+              확률은 절대 만들지 마라 — deductions, boosts는 빈 배열, activeReunionOffer는 false.
+              애착유형, summary, newFacts는 DATING과 같은 규칙으로 채워라(재회 사실 자체가 기록할 사실이다).
+              reason에는 재회를 담담하게 축하하고, 같은 문제로 다시 흔들리지 않게 관계를
+              이어가는 조언을 한두 문장으로 담아라.
             - INSUFFICIENT: 대화에 이별, 관계 정보가 거의 없어 판단 근거가 부족할 때. 억지로 확률을 내지 마라.
               이때 myAttachment, partnerAttachment, deductions, boosts는 비우고, reason에는 무엇을 더 이야기하면 좋을지
               부드러운 가이드를 담아라(예: 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일).

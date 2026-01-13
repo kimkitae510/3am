@@ -144,6 +144,10 @@ public class MessageTxService {
             block.append("- 판정: 아직 사귀는 중 — 재회 확률은 이별 전제라 산출하지 않음. "
                     + "확률을 물으면 이 이유를 설명하라(숫자를 지어내지 마라)\n");
         }
+        if (assessment.getVerdict() == ReunionVerdict.REUNITED) {
+            block.append("- 판정: 재회 성공, 다시 만나는 중 — 확률 산출 없음. "
+                    + "이제 관계를 잘 이어가는 쪽을 도와라(숫자를 지어내지 마라)\n");
+        }
         if (assessment.getProbability() != null) {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
         }

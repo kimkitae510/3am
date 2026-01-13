@@ -47,7 +47,7 @@ public enum ErrorCode {
             "마지막 진단 이후 새로운 대화가 없어요. 이야기를 나눈 뒤 다시 진단해 주세요."),
     ASSESSMENT_NO_NEW_FACTS(HttpStatus.CONFLICT, "AS003",
             "지난 진단과 비교해 확률을 바꿀 만한 새로운 사실이 없었어요. 어떤 일이 있었는지 들려주시면 다시 진단해 드릴게요."),
-    ASSESSMENT_NOT_DATING(HttpStatus.CONFLICT, "AS004", "지금은 사귀는 중으로 진단된 상태가 아니에요."),
+    ASSESSMENT_NOT_DATING(HttpStatus.CONFLICT, "AS004", "지금은 만나는 중으로 진단된 상태가 아니에요."),
     ASSESSMENT_NOT_OFFER(HttpStatus.CONFLICT, "AS005", "지금은 상대의 재회 제안으로 확정된 상태가 아니에요."),
 
     // LLM
