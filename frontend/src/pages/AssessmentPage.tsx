@@ -273,13 +273,9 @@ export function AssessmentPage() {
                   )}
                 </svg>
                 {dating ? (
-                  /* 사귀는 중 — 확률 영역만 연한 배경으로 잠근다. 유형과 총평은 아래에서 그대로 제공 */
+                  /* 사귀는 중 — 아이콘 대신 말로 잠근다(자물쇠 그림이 스티커처럼 떠 보이던 문제) */
                   <div className={styles.lockOverlay}>
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                      <rect x="5" y="10.5" width="14" height="9" rx="2.5" stroke="#ECEAF0" strokeWidth="1.7" />
-                      <path d="M8 10.5V8a4 4 0 118 0v2.5" stroke="#ECEAF0" strokeWidth="1.7" strokeLinecap="round" />
-                    </svg>
-                    <div className={styles.lockCaption}>잠김</div>
+                    <div className={styles.lockOverlayText}>만나는 중이에요</div>
                   </div>
                 ) : (
                   <div className={styles.gaugeValue}>

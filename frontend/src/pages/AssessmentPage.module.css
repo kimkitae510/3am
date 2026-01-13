@@ -123,11 +123,12 @@
   gap: 7px;
 }
 
-.lockCaption {
+/* 잠금 상태를 아이콘 대신 말로 — "잠김" 자물쇠가 스티커처럼 떠 보였다(실측 피드백) */
+.lockOverlayText {
   color: var(--text-sub);
-  font-size: 12.5px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
 }
 
 /* 재회 성공 — 게이지 자리를 대신하는 축하 블록 */
