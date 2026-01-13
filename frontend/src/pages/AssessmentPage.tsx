@@ -69,7 +69,7 @@ export function AssessmentPage() {
   const confirmKey = `breakup-confirmed-${storyId}`;
 
   useEffect(() => {
-    if (result?.verdict === 'DATING') {
+    if (result?.verdict === 'DATING' || result?.verdict === 'REUNITED') {
       setBreakupConfirmed(localStorage.getItem(confirmKey) === (result.createdAt ?? ''));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -230,8 +230,9 @@ export function AssessmentPage() {
   const metaDate = result.createdAt ? formatListTime(result.createdAt) : '방금';
 
   // INSUFFICIENT는 저장되지 않고 diagnose()에서 배너로 처리되므로 여기 도달하는 결과는
-  // POSSIBLE(확률) 또는 DATING(사귀는 중 — 확률만 잠그고 유형/총평은 그대로 보여준다)뿐이다.
+  // POSSIBLE(확률), DATING(사귀는 중 — 확률만 잠금), REUNITED(재회 성공 — 게이지 대신 축하)뿐이다.
   const dating = result.verdict === 'DATING';
+  const reunited = result.verdict === 'REUNITED';
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
   const minus = result.deductions.filter((d) => d.delta < 0);
@@ -245,40 +246,80 @@ export function AssessmentPage() {
         <div className={styles.body}>
           <div className={styles.meta}>이 대화방 기준, 마지막 진단 {metaDate}</div>
 
-          <div className={styles.gaugeWrap}>
-            <svg width="280" height="150" viewBox="0 0 280 150">
-              <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2A2833" strokeWidth="14" strokeLinecap="round" />
-              {!dating && (
-                <path
-                  d="M20,138 A120,120 0 0 1 260,138"
-                  fill="none"
-                  stroke="#B89DD1"
-                  strokeWidth="14"
-                  strokeLinecap="round"
-                  strokeDasharray={`${fill} ${ARC_LEN + 40}`}
-                />
-              )}
-            </svg>
-            {dating ? (
-              /* 사귀는 중 — 확률 영역만 연한 배경으로 잠근다. 유형과 총평은 아래에서 그대로 제공 */
-              <div className={styles.lockOverlay}>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                  <rect x="5" y="10.5" width="14" height="9" rx="2.5" stroke="#ECEAF0" strokeWidth="1.7" />
-                  <path d="M8 10.5V8a4 4 0 118 0v2.5" stroke="#ECEAF0" strokeWidth="1.7" strokeLinecap="round" />
+          {/* 재회 성공은 확률 화면이 아니라 축하 화면 — 게이지 자체를 두지 않는다 */}
+          {reunited ? (
+            <div className={styles.reunitedHero}>
+              <div className={styles.reunitedTitle}>다시 만나게 됐어요</div>
+              <div className={styles.reunitedSub}>
+                재회에 성공해서 확률 진단은 여기까지예요.
+                <br />
+                이제 관계를 이어가는 대화로 함께해요.
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className={styles.gaugeWrap}>
+                <svg width="280" height="150" viewBox="0 0 280 150">
+                  <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2A2833" strokeWidth="14" strokeLinecap="round" />
+                  {!dating && (
+                    <path
+                      d="M20,138 A120,120 0 0 1 260,138"
+                      fill="none"
+                      stroke="#B89DD1"
+                      strokeWidth="14"
+                      strokeLinecap="round"
+                      strokeDasharray={`${fill} ${ARC_LEN + 40}`}
+                    />
+                  )}
                 </svg>
-                <div className={styles.lockCaption}>잠김</div>
+                {dating ? (
+                  /* 사귀는 중 — 확률 영역만 연한 배경으로 잠근다. 유형과 총평은 아래에서 그대로 제공 */
+                  <div className={styles.lockOverlay}>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                      <rect x="5" y="10.5" width="14" height="9" rx="2.5" stroke="#ECEAF0" strokeWidth="1.7" />
+                      <path d="M8 10.5V8a4 4 0 118 0v2.5" stroke="#ECEAF0" strokeWidth="1.7" strokeLinecap="round" />
+                    </svg>
+                    <div className={styles.lockCaption}>잠김</div>
+                  </div>
+                ) : (
+                  <div className={styles.gaugeValue}>
+                    <div className={styles.gaugeNum}>
+                      {prob}
+                      <span className={styles.gaugePct}>%</span>
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className={styles.gaugeValue}>
-                <div className={styles.gaugeNum}>
-                  {prob}
-                  <span className={styles.gaugePct}>%</span>
-                </div>
+              <div className={styles.gaugeLabel}>재회 가능성</div>
+            </>
+          )}
+          {reunited ? (
+            <>
+              {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
+              {/* 재회 후 다시 헤어질 수도 있다 — 커플 잠금과 같은 번복 창구를 열어둔다 */}
+              <div className={styles.lockCard}>
+                <div className={styles.lockTitle}>혹시 다시 헤어지게 됐다면</div>
+                {breakupConfirmed ? (
+                  <div className={styles.lockAskRow}>
+                    <span className={styles.lockAskText}>
+                      확인했어요. 어쩌다 다시 헤어졌는지 대화로 들려준 뒤 진단해 주세요.
+                    </span>
+                  </div>
+                ) : (
+                  <div className={styles.lockAskRow}>
+                    <span className={styles.lockAskText}>알려주시면 확률 진단을 다시 열게요.</span>
+                    <button
+                      className={styles.lockConfirmBtn}
+                      onClick={handleConfirmBreakup}
+                      disabled={confirming}
+                    >
+                      {confirming ? '반영 중…' : '헤어졌어요'}
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className={styles.gaugeLabel}>재회 가능성</div>
-          {dating ? (
+            </>
+          ) : dating ? (
             <>
               {/* 잠금 설명과 번복 질문을 카드 하나로 — 문장이 따로 흩어져 있으면 어수선하다 */}
               <div className={styles.lockCard}>

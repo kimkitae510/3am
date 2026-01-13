@@ -130,6 +130,27 @@
   letter-spacing: 0.5px;
 }
 
+/* 재회 성공 — 게이지 자리를 대신하는 축하 블록 */
+.reunitedHero {
+  margin: 30px auto 6px;
+  text-align: center;
+}
+
+.reunitedTitle {
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.reunitedSub {
+  margin: 10px auto 0;
+  max-width: 300px;
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
 /* 잠금 설명 + 번복 질문을 한 카드로(문장이 흩어져 있으면 어수선하다) */
 .lockCard {
   margin: 12px 4px 0;
