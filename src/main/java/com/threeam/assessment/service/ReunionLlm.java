@@ -59,7 +59,8 @@ public class ReunionLlm {
               "activeReunionOffer": true | false,
               "deductions": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
               "boosts": [ { "signal": "짧은 신호명", "axis": "마음" | "복구가능성" | "구조", "points": 양수 정수, "evidence": "대화 속 근거" } ],
-              "reason": "한두 문장 총평(반말, 다정하되 솔직하게)",
+              "reason": "한두 문장 총평(반말, 다정하되 솔직하게. 차분하게 — 감탄사와 느낌표로
+                들뜨지 마라. 좋은 소식도 담담하게 전하는 게 이 서비스의 결이다)",
               "summary": "감정 흐름과 현재 상태 중심의 한두 문장. 사실 나열은 여기 하지 마라(사실은 newFacts로).",
               "newFacts": [ "이번 대화에서 새로 드러난 사실. 한 줄씩." ]
             }
