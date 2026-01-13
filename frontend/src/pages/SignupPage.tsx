@@ -81,7 +81,8 @@ export function SignupPage() {
         nickname: nickname.trim(),
         verificationCode: code,
       });
-      navigate('/login');
+      // 가입 선물(이용권)은 로그인 화면 안내로 알린다 — 받은 걸 모르면 준 게 아니다.
+      navigate('/login', { state: { welcomeGift: true } });
     } catch (err) {
       setError(extractErrorMessage(err, '가입에 실패했어요.'));
     } finally {

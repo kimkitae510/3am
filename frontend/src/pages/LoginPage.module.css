@@ -85,6 +85,15 @@
   line-height: 1.4;
 }
 
+/* 가입 직후 선물 안내 — 에러와 같은 자리를 쓴다 */
+.notice {
+  color: var(--accent);
+  font-size: 13px;
+  margin-top: 12px;
+  min-height: 16px;
+  line-height: 1.4;
+}
+
 .primary {
   margin-top: 18px;
   height: 54px;

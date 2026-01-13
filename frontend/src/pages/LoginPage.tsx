@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { login, oauthLogin, type OAuthProvider } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
@@ -8,6 +8,8 @@ import styles from './LoginPage.module.css';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  // 가입 직후 진입이면 선물 안내를 보여준다(새로고침하면 state가 사라져 자연 소멸).
+  const welcomeGift = Boolean((useLocation().state as { welcomeGift?: boolean } | null)?.welcomeGift);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -102,7 +104,13 @@ export function LoginPage() {
           </div>
         </div>
 
-        <div className={styles.error}>{error}</div>
+        {welcomeGift && !error ? (
+          <div className={styles.notice}>
+            가입을 환영해요. 선물로 대화 5회, 진단 1회 이용권을 담아뒀어요.
+          </div>
+        ) : (
+          <div className={styles.error}>{error}</div>
+        )}
 
         <button className={styles.primary} type="submit" disabled={!canSubmit}>
           {submitting ? '로그인 중…' : '로그인'}
