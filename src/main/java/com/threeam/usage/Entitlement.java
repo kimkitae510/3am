@@ -18,7 +18,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-// 결제로 지급된 이용권. 일일 무료 한도를 다 쓴 뒤에 여기서 차감된다.
+// 결제 또는 가입 선물로 지급된 이용권. 일일 무료 한도를 다 쓴 뒤에 여기서 차감된다.
 // usage 도메인에 두는 이유: 이용권은 "쓸 수 있는 횟수"라는 사용량 개념의 확장이고,
 // 이 방향이어야 의존이 payment → usage 한 방향으로 유지된다(usage는 결제를 모른다).
 // (payment_id, kind) 유니크가 이중 지급을 DB 수준에서 막는다 — 승인 재시도, 웹훅 재전송,
@@ -49,7 +49,9 @@ public class Entitlement {
     @Column(name = "used_count", nullable = false)
     private int usedCount;
 
-    @Column(name = "payment_id", nullable = false)
+    // 가입 선물처럼 결제 없이 지급된 이용권은 null. (payment_id, kind) 유니크는 MySQL에서
+    // null끼리 충돌하지 않으므로 선물 지급을 막지 않는다.
+    @Column(name = "payment_id")
     private Long paymentId;
 
     // 환불로 회수된 시각. 회수된 이용권은 차감, 잔여 계산 모두에서 제외된다.

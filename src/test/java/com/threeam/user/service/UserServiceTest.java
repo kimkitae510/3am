@@ -44,6 +44,9 @@ class UserServiceTest {
     @Mock
     private com.threeam.security.jwt.TokenInvalidationRegistry tokenInvalidationRegistry;
 
+    @Mock
+    private com.threeam.usage.WelcomeGiftService welcomeGiftService;
+
     @InjectMocks
     private UserService userService;
 
@@ -70,6 +73,7 @@ class UserServiceTest {
         assertThat(captor.getValue().getPassword()).isEqualTo("encodedPw"); // 평문 저장 안 함
         assertThat(captor.getValue().getRole()).isEqualTo(Role.USER);
         verify(emailVerificationService).verifyAndConsume("a@a.com", "123456"); // 인증 코드 검증을 거친다
+        verify(welcomeGiftService).grant(1L); // 가입 선물 이용권 지급
     }
 
     @Test

@@ -2,8 +2,6 @@ package com.threeam.usage;
 
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
-import com.threeam.user.entity.User;
-import com.threeam.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +28,6 @@ public class DbUsageLimiter implements UsageLimiter {
     private final UsageProperties properties;
     private final UsageQuotaRepository quotaRepository;
     private final EntitlementRepository entitlementRepository;
-    private final UserRepository userRepository;
 
     // 사연별 "생성 진행 중" 표시. 값은 만료 시각(epoch ms) — 지난 값은 풀린 것으로 취급한다.
     private final ConcurrentHashMap<String, Long> inFlight = new ConcurrentHashMap<>();
@@ -125,23 +122,16 @@ public class DbUsageLimiter implements UsageLimiter {
                 .orElse(0);
     }
 
-    // 대화는 가입 당일만 첫날 한도(10), 이후는 일일 한도(5). 진단은 고정.
-    // 유저 조회가 한 번 붙지만 PK 단건이라 비용은 무시할 수준이고, 별도 상태 저장이 필요 없다.
+    // 한도는 종류별 고정 — 가입 첫날 상향은 폐지(가입 선물 이용권으로 대체).
     @Override
-    @Transactional(readOnly = true)
     public int dailyLimit(UsageKind kind, Long userId) {
-        if (kind != UsageKind.CHAT) {
-            return properties.getAssessmentDailyLimit();
-        }
-        return isSignupDay(userId) ? properties.getChatFirstDayLimit() : properties.getChatDailyLimit();
+        return limitOf(kind);
     }
 
-    // createdAt은 서버 시각(KST 전제 단일 인스턴스)이라 KST 날짜와 그대로 비교한다.
-    private boolean isSignupDay(Long userId) {
-        return userRepository.findById(userId)
-                .map(User::getCreatedAt)
-                .map(createdAt -> LocalDate.now(KST).equals(createdAt.toLocalDate()))
-                .orElse(false);
+    private int limitOf(UsageKind kind) {
+        return kind == UsageKind.CHAT
+                ? properties.getChatDailyLimit()
+                : properties.getAssessmentDailyLimit();
     }
 
     private String key(UsageKind kind, Long id) {

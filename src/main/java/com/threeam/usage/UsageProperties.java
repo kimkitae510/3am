@@ -10,12 +10,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "usage")
 public class UsageProperties {
 
+    // 첫날 한도 상향(가입 당일 10회) 방식은 폐지 — 못 쓰면 증발해 불리해서, 가입 선물
+    // 이용권(WelcomeGiftService)으로 대체됐다.
     private int chatDailyLimit = 5;
-
-    // 가입 당일만 적용되는 대화 한도. 첫날 충분히 써보게 하고, 이후는 일일 한도로 조인다.
-    private int chatFirstDayLimit = 10;
-
-    private int assessmentDailyLimit = 3;
+    private int assessmentDailyLimit = 1;
 
     // in-flight 잠금의 자동 만료. 서버가 죽어 해제가 유실돼도 이 시간이 지나면 풀린 것으로 본다.
     private long inFlightTtlSeconds = 120;

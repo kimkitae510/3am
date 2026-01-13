@@ -4,6 +4,7 @@ import com.threeam.auth.repository.RefreshTokenRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.security.jwt.TokenInvalidationRegistry;
+import com.threeam.usage.WelcomeGiftService;
 import com.threeam.user.dto.PasswordChangeRequest;
 import com.threeam.user.dto.SignupRequest;
 import com.threeam.user.dto.SignupResponse;
@@ -28,6 +29,7 @@ public class UserService {
     private final EmailVerificationService emailVerificationService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final TokenInvalidationRegistry tokenInvalidationRegistry;
+    private final WelcomeGiftService welcomeGiftService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request, String clientIp) {
@@ -49,7 +51,9 @@ public class UserService {
                 .provider(AuthProvider.EMAIL)
                 .build();
 
-        return SignupResponse.from(userRepository.save(user));
+        User saved = userRepository.save(user);
+        welcomeGiftService.grant(saved.getId());
+        return SignupResponse.from(saved);
     }
 
     @Transactional

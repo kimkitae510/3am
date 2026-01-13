@@ -13,10 +13,7 @@ import static org.mockito.Mockito.verify;
 
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.global.exception.ErrorCode;
-import com.threeam.user.entity.User;
-import com.threeam.user.repository.UserRepository;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -44,9 +41,6 @@ class DbUsageLimiterTest {
     @Mock
     private EntitlementRepository entitlementRepository;
 
-    @Mock
-    private UserRepository userRepository;
-
     private UsageProperties properties;
     private DbUsageLimiter limiter;
 
@@ -54,22 +48,9 @@ class DbUsageLimiterTest {
     void setUp() {
         properties = new UsageProperties();
         properties.setChatDailyLimit(30);
-        properties.setChatFirstDayLimit(50);
         properties.setAssessmentDailyLimit(3);
         properties.setInFlightTtlSeconds(120);
-        limiter = new DbUsageLimiter(properties, quotaRepository, entitlementRepository, userRepository);
-    }
-
-    private User userCreatedAt(LocalDateTime createdAt) {
-        try {
-            var ctor = User.class.getDeclaredConstructor();
-            ctor.setAccessible(true);
-            User user = ctor.newInstance();
-            ReflectionTestUtils.setField(user, "createdAt", createdAt);
-            return user;
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+        limiter = new DbUsageLimiter(properties, quotaRepository, entitlementRepository);
     }
 
     private UsageQuota quota(LocalDate date, int used) {
@@ -127,7 +108,6 @@ class DbUsageLimiterTest {
     void checkDaily_firstUsePasses() {
         given(quotaRepository.findByUserIdAndKind(1L, UsageKind.CHAT))
                 .willReturn(Optional.empty());
-        given(userRepository.findById(1L)).willReturn(Optional.empty());
 
         assertThatCode(() -> limiter.checkDaily(UsageKind.CHAT, 1L))
                 .doesNotThrowAnyException();
@@ -138,24 +118,10 @@ class DbUsageLimiterTest {
     void recordDaily_delegatesAtomicUpsert() {
         given(quotaRepository.findByUserIdAndKind(1L, UsageKind.CHAT))
                 .willReturn(Optional.empty());
-        given(userRepository.findById(1L)).willReturn(Optional.empty());
 
         limiter.recordDaily(UsageKind.CHAT, 1L);
 
         verify(quotaRepository).recordUsage(eq(1L), eq("CHAT"), eq(TODAY));
-    }
-
-    @Test
-    @DisplayName("대화 한도 - 가입 당일은 첫날 한도, 다음 날부터는 일일 한도를 적용한다")
-    void dailyLimit_firstDayBoostOnlyOnSignupDay() {
-        given(userRepository.findById(1L))
-                .willReturn(Optional.of(userCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Seoul")))));
-        given(userRepository.findById(2L))
-                .willReturn(Optional.of(userCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(1))));
-
-        assertThat(limiter.dailyLimit(UsageKind.CHAT, 1L)).isEqualTo(50);   // 가입 당일
-        assertThat(limiter.dailyLimit(UsageKind.CHAT, 2L)).isEqualTo(30);   // 다음 날부터
-        assertThat(limiter.dailyLimit(UsageKind.ASSESSMENT, 1L)).isEqualTo(3); // 진단은 고정
     }
 
     @Test
@@ -223,7 +189,6 @@ class DbUsageLimiterTest {
 
         given(quotaRepository.findByUserIdAndKind(3L, UsageKind.CHAT))
                 .willReturn(Optional.empty());
-        given(userRepository.findById(3L)).willReturn(Optional.empty());
         assertThat(limiter.remainingDaily(UsageKind.CHAT, 3L)).isEqualTo(30);        // 첫 사용 전
 
         given(quotaRepository.findByUserIdAndKind(4L, UsageKind.ASSESSMENT))

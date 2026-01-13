@@ -12,6 +12,7 @@ import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.security.jwt.JwtTokenProvider;
 import com.threeam.security.jwt.TokenInvalidationRegistry;
+import com.threeam.usage.WelcomeGiftService;
 import com.threeam.user.entity.AuthProvider;
 import com.threeam.user.entity.Role;
 import com.threeam.user.entity.User;
@@ -35,6 +36,7 @@ public class AuthService {
     private final LoginAttemptGuard loginAttemptGuard;
     private final TokenInvalidationRegistry tokenInvalidationRegistry;
     private final OAuthClient oAuthClient;
+    private final WelcomeGiftService welcomeGiftService;
 
     @Transactional
     public TokenResponse login(LoginRequest request, String clientIp) {
@@ -78,13 +80,16 @@ public class AuthService {
         if (profile.email() != null && userRepository.existsByEmail(profile.email())) {
             throw new BusinessException(ErrorCode.OAUTH_EMAIL_CONFLICT);
         }
-        return userRepository.save(User.builder()
+        User saved = userRepository.save(User.builder()
                 .email(profile.email())
                 .nickname(normalizeNickname(profile.nickname()))
                 .role(Role.USER)
                 .provider(profile.provider())
                 .providerId(profile.providerId())
                 .build());
+        // 이메일 가입과 동일한 가입 선물 — 첫 로그인이 곧 가입인 소셜 경로도 빠뜨리지 않는다.
+        welcomeGiftService.grant(saved.getId());
+        return saved;
     }
 
     // 소셜 닉네임은 우리 규칙(2~30자 컬럼, 화면 기준 2~20자)을 벗어날 수 있어 맞춰 자른다.

@@ -55,6 +55,9 @@ class AuthServiceTest {
     @Mock
     private com.threeam.auth.oauth.OAuthClient oAuthClient;
 
+    @Mock
+    private com.threeam.usage.WelcomeGiftService welcomeGiftService;
+
     @InjectMocks
     private AuthService authService;
 
@@ -82,6 +85,7 @@ class AuthServiceTest {
         assertThat(captor.getValue().getProvider()).isEqualTo(com.threeam.user.entity.AuthProvider.KAKAO);
         assertThat(captor.getValue().getProviderId()).isEqualTo("kakao-1");
         assertThat(captor.getValue().hasPassword()).isFalse(); // 소셜 계정은 비밀번호 없음
+        verify(welcomeGiftService).grant(7L); // 소셜 첫 로그인도 가입 선물을 받는다
     }
 
     @Test
