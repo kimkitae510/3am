@@ -243,7 +243,7 @@ export function StoryListPage() {
 
         {/* 문의 창구는 도움말 모달 안에만 있으면 못 찾는다 — 첫 화면 하단에 상시 노출 */}
         <a className={styles.contactLink} href={CONTACT_OPENCHAT_URL} target="_blank" rel="noreferrer">
-          불편사항이나 오류가 있다면 알려주세요. 1:1 문의
+          불편사항이나 오류가 있다면 알려주세요. <span className={styles.contactAccent}>1:1 문의</span>
         </a>
 
         {showHelp && (

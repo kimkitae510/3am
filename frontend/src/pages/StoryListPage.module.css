@@ -280,6 +280,13 @@
   margin: 0 24px 26px;
   color: var(--text-muted);
   font-size: 12px;
+  text-decoration: none;
+}
+
+/* 행동 지점("1:1 문의")만 보라로 — 안내문 전체가 링크처럼 보이던 것을 정리 */
+.contactAccent {
+  color: var(--accent);
+  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
