@@ -82,7 +82,6 @@ public class AuthService {
         }
         User saved = userRepository.save(User.builder()
                 .email(profile.email())
-                .nickname(normalizeNickname(profile.nickname()))
                 .role(Role.USER)
                 .provider(profile.provider())
                 .providerId(profile.providerId())
@@ -90,15 +89,6 @@ public class AuthService {
         // 이메일 가입과 동일한 가입 선물 — 첫 로그인이 곧 가입인 소셜 경로도 빠뜨리지 않는다.
         welcomeGiftService.grant(saved.getId());
         return saved;
-    }
-
-    // 소셜 닉네임은 우리 규칙(2~30자 컬럼, 화면 기준 2~20자)을 벗어날 수 있어 맞춰 자른다.
-    private String normalizeNickname(String nickname) {
-        String cleaned = nickname == null ? "" : nickname.trim();
-        if (cleaned.length() < 2) {
-            return "새벽손님";
-        }
-        return cleaned.length() > 20 ? cleaned.substring(0, 20) : cleaned;
     }
 
     @Transactional

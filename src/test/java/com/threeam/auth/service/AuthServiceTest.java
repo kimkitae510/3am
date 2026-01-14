@@ -66,7 +66,7 @@ class AuthServiceTest {
     void oauthLogin_registersNewUser() {
         given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.KAKAO, "code1", "st", "http://r"))
                 .willReturn(new com.threeam.auth.oauth.OAuthProfile(
-                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", "카카오닉네임", null));
+                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", null));
         given(userRepository.findByProviderAndProviderId(
                 com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.empty());
         given(userRepository.save(any(User.class))).willAnswer(inv -> {
@@ -94,7 +94,7 @@ class AuthServiceTest {
         User user = socialUser(7L, null);
         given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.NAVER, "code1", "st", "http://r"))
                 .willReturn(new com.threeam.auth.oauth.OAuthProfile(
-                        com.threeam.user.entity.AuthProvider.NAVER, "naver-1", "닉", "n@n.com"));
+                        com.threeam.user.entity.AuthProvider.NAVER, "naver-1", "n@n.com"));
         given(userRepository.findByProviderAndProviderId(
                 com.threeam.user.entity.AuthProvider.NAVER, "naver-1")).willReturn(Optional.of(user));
         stubTokenIssue(7L);
@@ -109,7 +109,7 @@ class AuthServiceTest {
     void oauthLogin_emailConflict() {
         given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.NAVER, "code1", "st", "http://r"))
                 .willReturn(new com.threeam.auth.oauth.OAuthProfile(
-                        com.threeam.user.entity.AuthProvider.NAVER, "naver-9", "닉", "dup@a.com"));
+                        com.threeam.user.entity.AuthProvider.NAVER, "naver-9", "dup@a.com"));
         given(userRepository.findByProviderAndProviderId(
                 com.threeam.user.entity.AuthProvider.NAVER, "naver-9")).willReturn(Optional.empty());
         given(userRepository.existsByEmail("dup@a.com")).willReturn(true);
@@ -128,7 +128,7 @@ class AuthServiceTest {
         user.withdraw(LocalDateTime.now());
         given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.KAKAO, "code1", null, "http://r"))
                 .willReturn(new com.threeam.auth.oauth.OAuthProfile(
-                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", "닉", null));
+                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", null));
         given(userRepository.findByProviderAndProviderId(
                 com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.of(user));
 
@@ -146,7 +146,7 @@ class AuthServiceTest {
 
     private User socialUser(Long id, String email) {
         User user = User.builder()
-                .email(email).nickname("소셜닉")
+                .email(email)
                 .role(Role.USER)
                 .provider(com.threeam.user.entity.AuthProvider.KAKAO)
                 .providerId("kakao-1")
@@ -285,7 +285,7 @@ class AuthServiceTest {
 
     private User userWithId(Long id, String email, String password) {
         User user = User.builder()
-                .email(email).password(password).nickname("닉네임").role(Role.USER).build();
+                .email(email).password(password).role(Role.USER).build();
         ReflectionTestUtils.setField(user, "id", id);
         return user;
     }

@@ -122,9 +122,8 @@ public class HttpOAuthClient implements OAuthClient {
             throw new BusinessException(ErrorCode.OAUTH_FAILED);
         }
         JsonNode account = root.path("kakao_account");
-        String nickname = account.path("profile").path("nickname").asText(null);
         String email = account.path("email").asText(null);
-        return new OAuthProfile(AuthProvider.KAKAO, id.asText(), nickname, email);
+        return new OAuthProfile(AuthProvider.KAKAO, id.asText(), email);
     }
 
     static OAuthProfile parseNaverProfile(String json) throws Exception {
@@ -133,9 +132,8 @@ public class HttpOAuthClient implements OAuthClient {
         if (id == null) {
             throw new BusinessException(ErrorCode.OAUTH_FAILED);
         }
-        String nickname = response.path("nickname").asText(null);
         String email = response.path("email").asText(null);
-        return new OAuthProfile(AuthProvider.NAVER, id, nickname, email);
+        return new OAuthProfile(AuthProvider.NAVER, id, email);
     }
 
     private String encodeForm(Map<String, String> form) {

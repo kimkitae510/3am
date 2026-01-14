@@ -16,7 +16,6 @@ export function SignupPage() {
   const [sendingCode, setSendingCode] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [password, setPassword] = useState('');
-  const [nickname, setNickname] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreeDisclaimer, setAgreeDisclaimer] = useState(false);
   const [showTerms, setShowTerms] = useState(false); // 오버레이로 열어 입력값이 안 날아가게 한다
@@ -64,7 +63,6 @@ export function SignupPage() {
     email.trim() !== '' &&
     /^\d{6}$/.test(code) &&
     password.length >= 8 &&
-    nickname.trim().length >= 2 &&
     agreeTerms &&
     agreeDisclaimer &&
     !submitting;
@@ -78,7 +76,6 @@ export function SignupPage() {
       await signup({
         email: email.trim(),
         password,
-        nickname: nickname.trim(),
         verificationCode: code,
       });
       // 가입 선물(이용권)은 로그인 화면 안내로 알린다 — 받은 걸 모르면 준 게 아니다.
@@ -150,15 +147,6 @@ export function SignupPage() {
               placeholder="비밀번호 (영문, 숫자 포함 8자 이상)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div className={styles.field}>
-            <input
-              className={styles.input}
-              type="text"
-              placeholder="닉네임 (2~20자)"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
             />
           </div>
         </div>

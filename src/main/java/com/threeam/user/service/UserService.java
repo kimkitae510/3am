@@ -46,7 +46,6 @@ public class UserService {
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .nickname(request.getNickname())
                 .role(Role.USER)
                 .provider(AuthProvider.EMAIL)
                 .build();

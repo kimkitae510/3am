@@ -15,6 +15,6 @@ public class MockOAuthClient implements OAuthClient {
     public OAuthProfile fetchProfile(AuthProvider provider, String code, String state, String redirectUri) {
         String providerId = "mock-" + code;
         log.info("[MOCK OAUTH] provider={} providerId={}", provider, providerId);
-        return new OAuthProfile(provider, providerId, "새벽테스터", null);
+        return new OAuthProfile(provider, providerId, null);
     }
 }

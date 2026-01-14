@@ -53,7 +53,7 @@ class UserServiceTest {
     @Test
     @DisplayName("회원가입 성공 - 비밀번호를 암호화해 저장하고 응답을 반환한다")
     void signup_success() {
-        SignupRequest request = signupRequest("a@a.com", "password123", "닉네임");
+        SignupRequest request = signupRequest("a@a.com", "password123");
         given(userRepository.existsByEmail("a@a.com")).willReturn(false);
         given(passwordEncoder.encode("password123")).willReturn("encodedPw");
         given(userRepository.save(any(User.class))).willAnswer(invocation -> {
@@ -66,7 +66,6 @@ class UserServiceTest {
 
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getEmail()).isEqualTo("a@a.com");
-        assertThat(response.getNickname()).isEqualTo("닉네임");
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
@@ -79,7 +78,7 @@ class UserServiceTest {
     @Test
     @DisplayName("회원가입 실패 - 인증 코드 검증에 실패하면 저장하지 않는다")
     void signup_verificationFailed() {
-        SignupRequest request = signupRequest("a@a.com", "password123", "닉네임");
+        SignupRequest request = signupRequest("a@a.com", "password123");
         given(userRepository.existsByEmail("a@a.com")).willReturn(false);
         org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.VERIFICATION_CODE_INVALID))
                 .given(emailVerificationService).verifyAndConsume("a@a.com", "123456");
@@ -93,7 +92,7 @@ class UserServiceTest {
     @Test
     @DisplayName("회원가입 실패 - 이미 존재하는 이메일이면 EMAIL_ALREADY_EXISTS 예외")
     void signup_duplicateEmail() {
-        SignupRequest request = signupRequest("dup@a.com", "password123", "닉네임");
+        SignupRequest request = signupRequest("dup@a.com", "password123");
         given(userRepository.existsByEmail("dup@a.com")).willReturn(true);
 
         assertThatThrownBy(() -> userService.signup(request, "1.1.1.1"))
@@ -104,7 +103,7 @@ class UserServiceTest {
     @Test
     @DisplayName("회원가입 실패 - IP 가입 한도를 넘으면 SIGNUP_RATE_LIMITED 예외")
     void signup_rateLimited() {
-        SignupRequest request = signupRequest("a@a.com", "password123", "닉네임");
+        SignupRequest request = signupRequest("a@a.com", "password123");
         org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.SIGNUP_RATE_LIMITED))
                 .given(signupRateLimiter).check("9.9.9.9");
 
@@ -145,7 +144,7 @@ class UserServiceTest {
     @DisplayName("비밀번호 변경 실패 - 소셜 계정(비밀번호 없음)은 명시적으로 거부한다")
     void changePassword_socialAccount() {
         User user = User.builder()
-                .nickname("소셜닉").role(Role.USER)
+                .role(Role.USER)
                 .provider(com.threeam.user.entity.AuthProvider.KAKAO).providerId("kakao-1")
                 .build();
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -171,7 +170,7 @@ class UserServiceTest {
 
     private User userWithId(Long id, String password) {
         User user = User.builder()
-                .email("a@a.com").password(password).nickname("닉네임").role(Role.USER).build();
+                .email("a@a.com").password(password).role(Role.USER).build();
         ReflectionTestUtils.setField(user, "id", id);
         return user;
     }
@@ -183,11 +182,10 @@ class UserServiceTest {
         return request;
     }
 
-    private SignupRequest signupRequest(String email, String password, String nickname) {
+    private SignupRequest signupRequest(String email, String password) {
         SignupRequest request = new SignupRequest();
         ReflectionTestUtils.setField(request, "email", email);
         ReflectionTestUtils.setField(request, "password", password);
-        ReflectionTestUtils.setField(request, "nickname", nickname);
         ReflectionTestUtils.setField(request, "verificationCode", "123456");
         return request;
     }

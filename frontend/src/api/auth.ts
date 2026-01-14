@@ -15,7 +15,6 @@ export interface TokenResponse {
 export interface SignupRequest {
   email: string;
   password: string;
-  nickname: string;
   verificationCode: string;
 }
 
@@ -30,7 +29,6 @@ export interface OAuthLoginRequest {
 export interface SignupResponse {
   id: number;
   email: string;
-  nickname: string;
 }
 
 export async function login(body: LoginRequest): Promise<TokenResponse> {

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class HttpOAuthClientTest {
 
     @Test
-    @DisplayName("카카오 프로필 - id는 숫자여도 문자열로, 이메일/닉네임은 없으면 null")
+    @DisplayName("카카오 프로필 - id는 숫자여도 문자열로, 이메일은 없으면 null")
     void parseKakao() throws Exception {
         String json = """
                 {"id":123456789,"kakao_account":{"profile":{"nickname":"밤손님"}}}
@@ -22,12 +22,11 @@ class HttpOAuthClientTest {
 
         assertThat(profile.provider()).isEqualTo(AuthProvider.KAKAO);
         assertThat(profile.providerId()).isEqualTo("123456789");
-        assertThat(profile.nickname()).isEqualTo("밤손님");
         assertThat(profile.email()).isNull(); // 기본 앱은 이메일 미제공이 정상 경로
     }
 
     @Test
-    @DisplayName("네이버 프로필 - response 안의 id/nickname/email을 읽는다")
+    @DisplayName("네이버 프로필 - response 안의 id/email을 읽는다")
     void parseNaver() throws Exception {
         String json = """
                 {"resultcode":"00","message":"success",

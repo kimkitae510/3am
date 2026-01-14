@@ -36,9 +36,6 @@ public class User {
     @Column
     private String password;
 
-    @Column(nullable = false, length = 30)
-    private String nickname;
-
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
@@ -62,11 +59,10 @@ public class User {
     private LocalDateTime deletedAt;
 
     @Builder
-    private User(String email, String password, String nickname, Role role,
+    private User(String email, String password, Role role,
                  AuthProvider provider, String providerId) {
         this.email = email;
         this.password = password;
-        this.nickname = nickname;
         this.role = role;
         this.provider = provider == null ? AuthProvider.EMAIL : provider;
         this.providerId = providerId;

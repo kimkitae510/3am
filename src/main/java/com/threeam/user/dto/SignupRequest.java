@@ -22,10 +22,6 @@ public class SignupRequest {
             message = "비밀번호는 영문자와 숫자를 각각 하나 이상 포함해야 합니다.")
     private String password;
 
-    @NotBlank(message = "닉네임은 필수입니다.")
-    @Size(min = 2, max = 20, message = "닉네임은 2자 이상 20자 이하여야 합니다.")
-    private String nickname;
-
     @NotBlank(message = "이메일 인증 코드는 필수입니다.")
     @Pattern(regexp = "^\\d{6}$", message = "인증 코드는 숫자 6자리입니다.")
     private String verificationCode;
