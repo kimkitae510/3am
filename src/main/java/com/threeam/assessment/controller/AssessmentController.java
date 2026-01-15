@@ -36,13 +36,14 @@ public class AssessmentController {
         return ResponseEntity.ok(assessmentService.getHistory(userId, storyId));
     }
 
-    // "사귀는 중" 잠금을 유저가 직접 번복한다(진단이 오해했을 수 있다). 원장에 확인 기록만 남고,
-    // 확률은 헤어진 경위를 대화한 뒤의 다음 진단에서 열린다.
+    // "만나는 중" 잠금을 유저가 직접 번복한다(진단이 오해했을 수 있다). 오판이던 잠금 판정을
+    // 지우고 직전 확률 진단을 돌려준다 — 직전 진단이 없으면 204(첫 진단 안내로 복귀).
     @PostMapping("/confirm-breakup")
-    public ResponseEntity<Void> confirmBreakup(@AuthenticationPrincipal Long userId,
-                                               @PathVariable Long storyId) {
-        assessmentService.confirmBreakup(userId, storyId);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<AssessmentResponse> confirmBreakup(@AuthenticationPrincipal Long userId,
+                                                             @PathVariable Long storyId) {
+        return assessmentService.confirmBreakup(userId, storyId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     // "상대의 재회 제안 유효(100%)" 확정을 유저가 직접 번복한다(제안이 아니었거나 없던 일이 됨).

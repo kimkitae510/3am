@@ -184,16 +184,31 @@ class AssessmentTxServiceTest {
     }
 
     @Test
-    @DisplayName("헤어짐 확인 - 마지막 판정이 DATING이면 원장에 확인 사실을 남긴다")
-    void confirmBreakup_appendsFactWhenDating() {
+    @DisplayName("헤어짐 확인 - 잠금 판정을 지우고 직전 확률 진단으로 즉시 복귀한다")
+    void confirmBreakup_deletesLockAndRestoresPrevious() {
         givenOwnedStory();
+        Assessment dating = datingAssessment();
+        // 1차 조회: 잠금 판정 확인, 2차 조회(삭제 후): 직전 확률 진단이 최신이 된다.
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
-                .willReturn(Optional.of(datingAssessment()));
+                .willReturn(Optional.of(dating), Optional.of(lastAssessment()));
 
-        txService.confirmBreakup(1L, STORY_ID);
+        var restored = txService.confirmBreakup(1L, STORY_ID);
 
+        assertThat(restored).isPresent();
+        assertThat(restored.get().getProbability()).isEqualTo(20); // 재진단 없이 직전 확률로
+        verify(assessmentRepository).delete(dating);
         verify(storyFactService).appendFacts(STORY_ID, null,
                 List.of(AssessmentTxService.BREAKUP_CONFIRMED_FACT));
+    }
+
+    @Test
+    @DisplayName("헤어짐 확인 - 직전 확률 진단이 없으면 빈 값(첫 진단 안내로 복귀)")
+    void confirmBreakup_emptyWhenNoPrevious() {
+        givenOwnedStory();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(datingAssessment()), Optional.empty());
+
+        assertThat(txService.confirmBreakup(1L, STORY_ID)).isEmpty();
     }
 
     @Test

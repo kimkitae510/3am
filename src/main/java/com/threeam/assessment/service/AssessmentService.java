@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
@@ -105,10 +106,10 @@ public class AssessmentService {
         }
     }
 
-    // "사귀는 중" 잠금을 유저가 직접 번복하는 창구. 즉석에서 확률을 만들어주지 않고
-    // 원장에 확인 기록만 남긴다 — 확률은 헤어진 경위를 대화로 들은 다음 진단에서 열린다.
-    public void confirmBreakup(Long userId, Long storyId) {
-        txService.confirmBreakup(userId, storyId);
+    // "만나는 중" 잠금을 유저가 직접 번복하는 창구. 오판이던 잠금 판정을 지우고
+    // 직전 확률 진단으로 즉시 복귀시킨다(없으면 빈 값 — 첫 진단 안내로).
+    public Optional<AssessmentResponse> confirmBreakup(Long userId, Long storyId) {
+        return txService.confirmBreakup(userId, storyId);
     }
 
     // "재회 제안 유효(100%)" 확정을 유저가 직접 번복하는 창구. 저장된 신호의 재합산 값으로

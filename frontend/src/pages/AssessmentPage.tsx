@@ -53,7 +53,6 @@ export function AssessmentPage() {
   const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
   const [showHelp, setShowHelp] = useState(false);
   const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
-  const [breakupConfirmed, setBreakupConfirmed] = useState(false); // 이 DATING 결과에 대해 이미 번복함
   const [retracting, setRetracting] = useState(false); // 제안 번복 API 진행 중
   const aliveRef = useRef(true);
 
@@ -64,23 +63,15 @@ export function AssessmentPage() {
     return () => clearTimeout(timer);
   }, [error]);
 
-  // "이미 번복했는지"는 결과(createdAt) 단위로 기억한다 — 새 DATING 판정이 나오면 질문이 다시 열린다.
-  // (100% 번복은 서버가 확률을 즉시 되돌려주므로 이런 기억이 필요 없다.)
-  const confirmKey = `breakup-confirmed-${storyId}`;
-
-  useEffect(() => {
-    if (result?.verdict === 'DATING' || result?.verdict === 'REUNITED') {
-      setBreakupConfirmed(localStorage.getItem(confirmKey) === (result.createdAt ?? ''));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result]);
-
   async function handleConfirmBreakup() {
     setConfirming(true);
     try {
-      await confirmBreakup(storyId);
-      localStorage.setItem(confirmKey, result?.createdAt ?? '');
-      if (aliveRef.current) setBreakupConfirmed(true);
+      // 서버가 오판이던 잠금 판정을 지우고 직전 확률 진단을 돌려준다 — 화면이 즉시 복귀한다.
+      const res = await confirmBreakup(storyId);
+      if (aliveRef.current) {
+        setResult(res);
+        refreshUsage();
+      }
     } catch (e) {
       if (aliveRef.current) setError(extractErrorMessage(e, '처리하지 못했어요. 잠시 후 다시 시도해 주세요.'));
     } finally {
@@ -292,27 +283,21 @@ export function AssessmentPage() {
           {reunited ? (
             <>
               {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
-              {/* 재회 후 다시 헤어질 수도 있다 — 커플 잠금과 같은 번복 창구를 열어둔다 */}
+              {/* 재회 후 다시 헤어질 수도, 재회로 오해했을 수도 있다 — 누르면 즉시 확률로 복귀 */}
               <div className={styles.lockCard}>
                 <div className={styles.lockTitle}>혹시 다시 헤어지게 됐다면</div>
-                {breakupConfirmed ? (
-                  <div className={styles.lockAskRow}>
-                    <span className={styles.lockAskText}>
-                      확인했어요. 어쩌다 다시 헤어졌는지 대화로 들려준 뒤 진단해 주세요.
-                    </span>
-                  </div>
-                ) : (
-                  <div className={styles.lockAskRow}>
-                    <span className={styles.lockAskText}>알려주시면 확률 진단을 다시 열게요.</span>
-                    <button
-                      className={styles.lockConfirmBtn}
-                      onClick={handleConfirmBreakup}
-                      disabled={confirming}
-                    >
-                      {confirming ? '반영 중…' : '헤어졌어요'}
-                    </button>
-                  </div>
-                )}
+                <div className={styles.lockAskRow}>
+                  <span className={styles.lockAskText}>
+                    다시 헤어졌거나 제가 오해한 거라면 알려주세요. 확률 진단을 바로 다시 열게요.
+                  </span>
+                  <button
+                    className={styles.lockConfirmBtn}
+                    onClick={handleConfirmBreakup}
+                    disabled={confirming}
+                  >
+                    {confirming ? '반영 중…' : '헤어진 게 맞아요'}
+                  </button>
+                </div>
               </div>
             </>
           ) : dating ? (
@@ -323,27 +308,19 @@ export function AssessmentPage() {
                 <div className={styles.lockDesc}>
                   재회 확률은 이별을 전제로 한 진단이라 헤어진 뒤에 다시 열려요.
                 </div>
-                {/* 진단이 오해했을 수 있다 — 잠금은 서비스가 걸지만, 푸는 열쇠는 유저에게 준다 */}
-                {breakupConfirmed ? (
-                  <div className={styles.lockAskRow}>
-                    <span className={styles.lockAskText}>
-                      확인했어요. 어쩌다 헤어졌는지 대화로 들려준 뒤 다시 진단해 주세요.
-                    </span>
-                  </div>
-                ) : (
-                  <div className={styles.lockAskRow}>
-                    <span className={styles.lockAskText}>
-                      제가 오해했을 수도 있어요. 헤어지신 게 맞나요?
-                    </span>
-                    <button
-                      className={styles.lockConfirmBtn}
-                      onClick={handleConfirmBreakup}
-                      disabled={confirming}
-                    >
-                      {confirming ? '반영 중…' : '네, 헤어졌어요'}
-                    </button>
-                  </div>
-                )}
+                {/* 진단이 오해했을 수 있다 — 누르면 오판 기록을 지우고 즉시 직전 확률로 복귀 */}
+                <div className={styles.lockAskRow}>
+                  <span className={styles.lockAskText}>
+                    혹시 제가 오해한 거라면 알려주세요. 확률 진단을 바로 다시 열게요.
+                  </span>
+                  <button
+                    className={styles.lockConfirmBtn}
+                    onClick={handleConfirmBreakup}
+                    disabled={confirming}
+                  >
+                    {confirming ? '반영 중…' : '헤어진 게 맞아요'}
+                  </button>
+                </div>
               </div>
               {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
             </>

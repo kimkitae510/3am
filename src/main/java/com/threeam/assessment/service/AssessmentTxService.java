@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -108,18 +109,21 @@ public class AssessmentTxService {
 
     // 마지막 판정이 "만나는 중"(DATING 또는 재회 성공 REUNITED)일 때만 받는다 —
     // 아무 때나 열어두면 원장에 무의미한 확인 기록이 쌓인다. 재회했다가 다시 헤어지는 경우도 이 창구다.
-    // 확률을 즉석 산출하지 않는 이유: 오해를 정정해도 '헤어진 경위'가 대화에 없으면 진단 근거가 없다.
+    // 유저가 "헤어진 게 맞다"고 정정하면 그 잠금 판정은 오판이므로 기록에서 지우고,
+    // 직전 확률 진단이 다시 최신이 되게 한다(100% 번복과 같은 즉시 복귀 — 재진단 불필요).
+    // 직전 확률 진단이 없으면(첫 진단부터 잠금) 빈 값 — 화면은 첫 진단 안내로 돌아간다.
     @Transactional
-    public void confirmBreakup(Long userId, Long storyId) {
+    public Optional<AssessmentResponse> confirmBreakup(Long userId, Long storyId) {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
-        ReunionVerdict lastVerdict = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                .map(Assessment::getVerdict)
-                .orElse(null);
-        if (lastVerdict != ReunionVerdict.DATING && lastVerdict != ReunionVerdict.REUNITED) {
-            throw new BusinessException(ErrorCode.ASSESSMENT_NOT_DATING);
-        }
+        Assessment last = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .filter(a -> a.getVerdict() == ReunionVerdict.DATING
+                        || a.getVerdict() == ReunionVerdict.REUNITED)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ASSESSMENT_NOT_DATING));
+        assessmentRepository.delete(last);
         storyFactService.appendFacts(storyId, null, List.of(BREAKUP_CONFIRMED_FACT));
+        return assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .map(AssessmentResponse::from);
     }
 
     // 유저가 "상대의 재회 제안 유효(100%)" 확정을 번복할 때 원장에 남기는 문장.

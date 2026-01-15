@@ -34,10 +34,13 @@ export async function getAssessments(storyId: number): Promise<AssessmentRespons
   return data;
 }
 
-// "사귀는 중" 잠금을 유저가 직접 번복한다(진단이 오해했을 수 있음).
-// 원장에 확인 기록만 남고, 확률은 헤어진 경위를 대화한 뒤의 다음 진단에서 열린다.
-export async function confirmBreakup(storyId: number): Promise<void> {
-  await api.post(`/api/stories/${storyId}/assessments/confirm-breakup`);
+// "만나는 중" 잠금을 유저가 직접 번복한다(진단이 오해했을 수 있음).
+// 오판이던 잠금 판정이 지워지고 직전 확률 진단이 돌아온다(없으면 null — 첫 진단 안내로).
+export async function confirmBreakup(storyId: number): Promise<AssessmentResponse | null> {
+  const { data } = await api.post<AssessmentResponse | ''>(
+    `/api/stories/${storyId}/assessments/confirm-breakup`,
+  );
+  return data || null;
 }
 
 // "상대의 재회 제안 유효(100%)" 확정을 유저가 직접 번복한다(제안이 아니었거나 없던 일이 됨).
