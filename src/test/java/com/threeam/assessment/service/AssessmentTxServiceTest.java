@@ -129,32 +129,13 @@ class AssessmentTxServiceTest {
     }
 
     @Test
-    @DisplayName("재진단 가드 - 새 대화가 있어도 원장에 새 사실이 없으면 거부한다(확률 변동 근거 없음)")
-    void loadContext_rejectsWhenNoNewFacts() {
+    @DisplayName("재진단 가드 - 새 대화가 있으면 통과하고 맥락을 정상 조립한다(원장 새 사실 여부는 보지 않음)")
+    void loadContext_passesWithNewMessages() {
         givenOwnedStory();
         Assessment last = lastAssessment();
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
                 .willReturn(Optional.of(last));
         given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, last.getCreatedAt()))
-                .willReturn(true);
-        given(storyFactRepository.existsNewFactSince(STORY_ID, last.getCreatedAt(), 77L))
-                .willReturn(false);
-
-        assertThatThrownBy(() -> txService.loadContext(1L, STORY_ID))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ASSESSMENT_NO_NEW_FACTS);
-    }
-
-    @Test
-    @DisplayName("재진단 가드 - 새 사실이 있으면 통과하고 맥락을 정상 조립한다")
-    void loadContext_passesWithNewFacts() {
-        givenOwnedStory();
-        Assessment last = lastAssessment();
-        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
-                .willReturn(Optional.of(last));
-        given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, last.getCreatedAt()))
-                .willReturn(true);
-        given(storyFactRepository.existsNewFactSince(STORY_ID, last.getCreatedAt(), 77L))
                 .willReturn(true);
         givenConversation();
 

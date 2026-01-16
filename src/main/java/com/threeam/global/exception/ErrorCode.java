@@ -45,8 +45,8 @@ public enum ErrorCode {
     ASSESSMENT_NO_MESSAGES(HttpStatus.BAD_REQUEST, "AS001", "진단할 대화 내용이 없습니다."),
     ASSESSMENT_NO_NEW_MESSAGES(HttpStatus.CONFLICT, "AS002",
             "마지막 진단 이후 새로운 대화가 없어요. 이야기를 나눈 뒤 다시 진단해 주세요."),
-    ASSESSMENT_NO_NEW_FACTS(HttpStatus.CONFLICT, "AS003",
-            "지난 진단과 비교해 확률을 바꿀 만한 새로운 사실이 없었어요. 어떤 일이 있었는지 들려주시면 다시 진단해 드릴게요."),
+    // AS003(새 사실 없음 거부)은 폐지 — temperature 0으로 출렁임이 해소됐고, 추출 누락 시
+    // 진단의 자가 복구를 막는 부작용이 있었다. 코드 번호는 결번으로 남긴다.
     ASSESSMENT_NOT_DATING(HttpStatus.CONFLICT, "AS004", "지금은 만나는 중으로 진단된 상태가 아니에요."),
     ASSESSMENT_NOT_OFFER(HttpStatus.CONFLICT, "AS005", "지금은 상대의 재회 제안으로 확정된 상태가 아니에요."),
 

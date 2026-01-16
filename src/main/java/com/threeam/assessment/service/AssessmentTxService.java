@@ -65,10 +65,16 @@ public class AssessmentTxService {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
 
-        // 재진단 가드: 확률을 바꾸는 건 수다의 양이 아니라 '사건'이다. 같은 근거로 다시 진단해
-        // 확률이 출렁이는 것을 막고, LLM 쿼터도 아낀다. 첫 진단(기록 없음)은 그대로 통과.
+        // 재진단 가드: 지난 진단 이후 새 대화가 없으면 같은 재료라 거부한다(AS002).
+        // "원장에 새 사실이 없어도 거부"(구 AS003)는 폐지 — temperature 0으로 같은 재료면 같은
+        // 점수가 나와 출렁임 문제가 사라졌고, 채팅 추출이 사실을 놓쳤을 때 진단이 대화에서
+        // 직접 사실을 뽑아 복구하는 길을 가드가 막는 부작용이 실측됐다(재회 성사 미기재 사건).
         assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                .ifPresent(last -> assertNewBasisSince(storyId, last));
+                .ifPresent(last -> {
+                    if (!messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, last.getCreatedAt())) {
+                        throw new BusinessException(ErrorCode.ASSESSMENT_NO_NEW_MESSAGES);
+                    }
+                });
 
         List<Message> recent = messageRepository
                 .findByStoryIdOrderByIdDesc(storyId, PageRequest.of(0, HISTORY_WINDOW))
@@ -144,17 +150,6 @@ public class AssessmentTxService {
         last.retractOffer(scorer.apply(last.getDeductions()));
         storyFactService.appendFacts(storyId, null, List.of(OFFER_RETRACTED_FACT));
         return AssessmentResponse.from(last);
-    }
-
-    // 새 대화가 없으면 진단 근거 자체가 없고, 대화가 있어도 원장에 새 사실이 없으면
-    // "확률을 바꿀 사건"이 없다는 뜻이라 거부한다(채팅 추출이 대화에서 사실을 실시간으로 적재하는 전제).
-    private void assertNewBasisSince(Long storyId, Assessment last) {
-        if (!messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, last.getCreatedAt())) {
-            throw new BusinessException(ErrorCode.ASSESSMENT_NO_NEW_MESSAGES);
-        }
-        if (!storyFactRepository.existsNewFactSince(storyId, last.getCreatedAt(), last.getId())) {
-            throw new BusinessException(ErrorCode.ASSESSMENT_NO_NEW_FACTS);
-        }
     }
 
     // 프롬프트용: "(11/10) 상대가 먼저 이별 통보" — 상대 시점 표현("일주일 전")을 기록일로 보정할 수 있게.
