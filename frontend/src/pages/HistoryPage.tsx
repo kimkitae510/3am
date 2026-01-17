@@ -99,7 +99,7 @@ export function HistoryPage() {
                   {totalDelta}
                   <span className={styles.deltaUnit}>%p</span>
                 </div>
-                <div className={styles.summaryCaption}>{items.length}번의 진단 동안</div>
+                <div className={styles.summaryCaption}>첫 진단과 비교한 변화 (진단 {items.length}회)</div>
               </div>
 
               {asc.length >= 2 && (
@@ -132,6 +132,10 @@ export function HistoryPage() {
                 </div>
               )}
 
+              {/* 행 오른쪽 증감의 기준(직전 진단 대비)이 안 보이면 숫자가 수수께끼가 된다 */}
+              {items.length >= 2 && (
+                <div className={styles.listCaption}>오른쪽 증감은 직전 진단과의 차이(%p)예요</div>
+              )}
               <div className={styles.list}>
                 {items.map((a, i) => {
                   const prev = items[i + 1]; // 바로 이전(더 과거) 진단

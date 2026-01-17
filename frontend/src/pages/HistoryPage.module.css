@@ -66,6 +66,13 @@
   font-size: 13px;
 }
 
+/* 목록 증감(직전 대비)의 기준 안내 한 줄 */
+.listCaption {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  margin: 14px 2px 8px;
+}
+
 .chartCard {
   background: var(--card);
   border: 1px solid var(--border);
