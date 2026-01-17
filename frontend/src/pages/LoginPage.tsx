@@ -48,19 +48,22 @@ export function LoginPage() {
   return (
     <PhoneFrame>
       <form className={styles.body} onSubmit={handleLogin}>
-        <div className={styles.brand}>
-          <div className={styles.logo}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="8.5" stroke="#ECEAF0" strokeWidth="1.6" />
-              <path d="M12 12V7.5M12 12l3 1.8" stroke="#ECEAF0" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-          </div>
-          <div className={styles.title}>새벽 세시</div>
-          <div className={styles.subtitle}>
-            이별한 마음, 밤에 혼자
-            <br />
-            삼키지 않게 도와주는 채팅
-          </div>
+        {/* 월페이퍼 컨셉: 새벽 세시를 가리키는 시계 하나, 초침만 흐른다 */}
+        <div className={styles.clockBrand}>
+          <svg viewBox="0 0 120 120" width="132" height="132" aria-label="새벽 세시">
+            <circle cx="60" cy="60" r="56" fill="none" stroke="#2A2833" strokeWidth="1.5" />
+            <line x1="60" y1="9" x2="60" y2="17" stroke="#4A4754" strokeWidth="2" strokeLinecap="round" />
+            <line x1="111" y1="60" x2="103" y2="60" stroke="#4A4754" strokeWidth="2" strokeLinecap="round" />
+            <line x1="60" y1="111" x2="60" y2="103" stroke="#4A4754" strokeWidth="2" strokeLinecap="round" />
+            <line x1="9" y1="60" x2="17" y2="60" stroke="#4A4754" strokeWidth="2" strokeLinecap="round" />
+            <line x1="60" y1="60" x2="84" y2="60" stroke="#ECEAF0" strokeWidth="3.4" strokeLinecap="round" />
+            <line x1="60" y1="60" x2="60" y2="24" stroke="#ECEAF0" strokeWidth="2.4" strokeLinecap="round" />
+            <g className={styles.secondHand}>
+              <line x1="60" y1="67" x2="60" y2="15" stroke="#B89DD1" strokeWidth="1.3" strokeLinecap="round" />
+            </g>
+            <circle cx="60" cy="60" r="2.8" fill="#B89DD1" />
+          </svg>
+          <div className={styles.titleAm}>3AM</div>
         </div>
 
         <div className={styles.spacer} />
@@ -129,7 +132,6 @@ export function LoginPage() {
           이메일로 가입하기
         </button>
 
-        <div className={styles.footer}>잠 안 오는 밤에 열어보세요.</div>
       </form>
     </PhoneFrame>
   );
