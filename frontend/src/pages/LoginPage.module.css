@@ -9,6 +9,12 @@
   margin-top: 96px;
 }
 
+/* 밤하늘 월페이퍼(NightSky) 위로 콘텐츠를 올린다 — 가입 화면과 공유하는 .body는 건드리지 않는다 */
+.aboveSky {
+  position: relative;
+  z-index: 1;
+}
+
 /* 로그인 전용 월페이퍼 시계 — 가입 화면과 공유하는 .brand는 건드리지 않는다 */
 .clockBrand {
   margin-top: 84px;

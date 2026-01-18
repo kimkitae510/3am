@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
+import { NightSky } from '../components/NightSky';
 import { login, oauthLogin, type OAuthProvider } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import { redirectUriFor, startSocialLogin } from '../utils/socialAuth';
@@ -47,7 +48,8 @@ export function LoginPage() {
 
   return (
     <PhoneFrame>
-      <form className={styles.body} onSubmit={handleLogin}>
+      <NightSky />
+      <form className={`${styles.body} ${styles.aboveSky}`} onSubmit={handleLogin}>
         {/* 월페이퍼 컨셉: 새벽 세시를 가리키는 시계 하나, 초침만 흐른다 */}
         <div className={styles.clockBrand}>
           <svg viewBox="0 0 120 120" width="132" height="132" aria-label="새벽 세시">

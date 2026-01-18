@@ -1,0 +1,20 @@
+/* 폰 프레임 전체(상태바 뒤까지)를 덮는 월페이퍼 층 — 프레임의 position: relative에 붙는다 */
+.sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* 새벽 세시의 하늘 — 위는 깊고, 지평선 쪽은 도시 불빛으로 아주 살짝 밝다 */
+  background:
+    radial-gradient(340px 260px at 76% 16%, rgba(184, 157, 209, 0.09), transparent 65%),
+    radial-gradient(300px 240px at 18% 58%, rgba(126, 138, 205, 0.07), transparent 60%),
+    radial-gradient(420px 200px at 50% 104%, rgba(214, 160, 130, 0.06), transparent 70%),
+    linear-gradient(180deg, #0a0912 0%, #100e1a 55%, #151222 100%);
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
