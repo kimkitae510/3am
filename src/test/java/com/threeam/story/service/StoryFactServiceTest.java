@@ -91,6 +91,18 @@ class StoryFactServiceTest {
     }
 
     @Test
+    @DisplayName("정정 기록 - 같은 문장이 이미 있어도 중복 제거 없이 매번 새 줄로 남긴다")
+    void appendCorrection_alwaysAppends() {
+        storyFactService.appendCorrection(STORY_ID, "유저가 직접 확인함: 사귀는 중이 아니라 헤어진 상태다");
+
+        ArgumentCaptor<StoryFact> captor = ArgumentCaptor.forClass(StoryFact.class);
+        verify(storyFactRepository).save(captor.capture());
+        assertThat(captor.getValue().getFact()).isEqualTo("유저가 직접 확인함: 사귀는 중이 아니라 헤어진 상태다");
+        assertThat(captor.getValue().getSourceAssessmentId()).isNull();
+        verify(storyFactRepository, never()).findByStoryIdOrderByIdAsc(any()); // 기존 원장과 비교하지 않는다
+    }
+
+    @Test
     @DisplayName("새 사실이 없으면(빈 목록/null) 원장을 조회조차 하지 않는다")
     void appendFacts_skipsWhenEmpty() {
         storyFactService.appendFacts(STORY_ID, 99L, List.of());

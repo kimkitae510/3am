@@ -10,6 +10,7 @@ import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
+import com.threeam.story.entity.StoryFact;
 import com.threeam.story.entity.StoryMemory;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryFactRepository;
@@ -21,7 +22,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -69,9 +72,21 @@ public class AssessmentTxService {
         // "원장에 새 사실이 없어도 거부"(구 AS003)는 폐지 — temperature 0으로 같은 재료면 같은
         // 점수가 나와 출렁임 문제가 사라졌고, 채팅 추출이 사실을 놓쳤을 때 진단이 대화에서
         // 직접 사실을 뽑아 복구하는 길을 가드가 막는 부작용이 실측됐다(재회 성사 미기재 사건).
-        assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                .ifPresent(last -> {
-                    if (!messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, last.getCreatedAt())) {
+        // 기준은 마지막 진단과 마지막 헤어짐 확인(번복) 중 늦은 쪽 — 번복이 잠금 진단을 지우면
+        // 그 진단을 소진시킨 메시지들이 미소진으로 되돌아가, 진단 시각만 보면 새 대화 없이
+        // 진단과 번복이 무한 반복된다(실측).
+        LocalDateTime lastAssessedAt = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .map(Assessment::getCreatedAt)
+                .orElse(null);
+        LocalDateTime lastConfirmedAt = storyFactRepository
+                .findFirstByStoryIdAndFactOrderByIdDesc(storyId, BREAKUP_CONFIRMED_FACT)
+                .map(StoryFact::getCreatedAt)
+                .orElse(null);
+        Stream.of(lastAssessedAt, lastConfirmedAt)
+                .filter(Objects::nonNull)
+                .max(LocalDateTime::compareTo)
+                .ifPresent(since -> {
+                    if (!messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, since)) {
                         throw new BusinessException(ErrorCode.ASSESSMENT_NO_NEW_MESSAGES);
                     }
                 });
@@ -127,7 +142,7 @@ public class AssessmentTxService {
                         || a.getVerdict() == ReunionVerdict.REUNITED)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ASSESSMENT_NOT_DATING));
         assessmentRepository.delete(last);
-        storyFactService.appendFacts(storyId, null, List.of(BREAKUP_CONFIRMED_FACT));
+        storyFactService.appendCorrection(storyId, BREAKUP_CONFIRMED_FACT);
         return assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
                 .map(AssessmentResponse::from);
     }
@@ -148,7 +163,7 @@ public class AssessmentTxService {
                         && Integer.valueOf(100).equals(a.getProbability()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.ASSESSMENT_NOT_OFFER));
         last.retractOffer(scorer.apply(last.getDeductions()));
-        storyFactService.appendFacts(storyId, null, List.of(OFFER_RETRACTED_FACT));
+        storyFactService.appendCorrection(storyId, OFFER_RETRACTED_FACT);
         return AssessmentResponse.from(last);
     }
 

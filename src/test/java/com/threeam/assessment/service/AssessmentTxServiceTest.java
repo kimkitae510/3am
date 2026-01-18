@@ -17,6 +17,7 @@ import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.Story;
+import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryFactRepository;
 import com.threeam.story.repository.StoryMemoryRepository;
@@ -142,6 +143,49 @@ class AssessmentTxServiceTest {
         assertThatCode(() -> txService.loadContext(1L, STORY_ID)).doesNotThrowAnyException();
     }
 
+    private StoryFact breakupConfirmedFact(LocalDateTime createdAt) {
+        StoryFact fact = StoryFact.of(STORY_ID, AssessmentTxService.BREAKUP_CONFIRMED_FACT, null);
+        ReflectionTestUtils.setField(fact, "createdAt", createdAt);
+        return fact;
+    }
+
+    @Test
+    @DisplayName("재진단 가드 - 번복(헤어짐 확인)이 진단보다 늦으면 번복 이후 새 대화를 요구한다(진단, 번복 루프 차단)")
+    void loadContext_rejectsWhenNoNewMessagesAfterBreakupConfirm() {
+        givenOwnedStory();
+        Assessment last = lastAssessment(); // 2025-11-10 12:00
+        LocalDateTime confirmedAt = LocalDateTime.of(2025, 11, 11, 3, 0);
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(last));
+        given(storyFactRepository.findFirstByStoryIdAndFactOrderByIdDesc(
+                STORY_ID, AssessmentTxService.BREAKUP_CONFIRMED_FACT))
+                .willReturn(Optional.of(breakupConfirmedFact(confirmedAt)));
+        given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, confirmedAt))
+                .willReturn(false); // 늦은 쪽(번복 시각)을 기준으로 물어야 한다
+
+        assertThatThrownBy(() -> txService.loadContext(1L, STORY_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ASSESSMENT_NO_NEW_MESSAGES);
+    }
+
+    @Test
+    @DisplayName("재진단 가드 - 진단 기록이 없어도 번복 기록이 있으면 그 이후 새 대화를 요구한다(첫 진단부터 잠금이던 사연)")
+    void loadContext_guardsWithOnlyBreakupConfirm() {
+        givenOwnedStory();
+        LocalDateTime confirmedAt = LocalDateTime.of(2025, 11, 11, 3, 0);
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.empty());
+        given(storyFactRepository.findFirstByStoryIdAndFactOrderByIdDesc(
+                STORY_ID, AssessmentTxService.BREAKUP_CONFIRMED_FACT))
+                .willReturn(Optional.of(breakupConfirmedFact(confirmedAt)));
+        given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, confirmedAt))
+                .willReturn(false);
+
+        assertThatThrownBy(() -> txService.loadContext(1L, STORY_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ASSESSMENT_NO_NEW_MESSAGES);
+    }
+
     @Test
     @DisplayName("재진단 가드 - 첫 진단(기록 없음)은 가드 없이 통과한다")
     void loadContext_firstAssessmentSkipsGuard() {
@@ -178,8 +222,8 @@ class AssessmentTxServiceTest {
         assertThat(restored).isPresent();
         assertThat(restored.get().getProbability()).isEqualTo(20); // 재진단 없이 직전 확률로
         verify(assessmentRepository).delete(dating);
-        verify(storyFactService).appendFacts(STORY_ID, null,
-                List.of(AssessmentTxService.BREAKUP_CONFIRMED_FACT));
+        verify(storyFactService).appendCorrection(STORY_ID,
+                AssessmentTxService.BREAKUP_CONFIRMED_FACT);
     }
 
     @Test
@@ -242,8 +286,8 @@ class AssessmentTxServiceTest {
         var response = txService.retractOffer(1L, STORY_ID);
 
         assertThat(response.getProbability()).isEqualTo(40); // 재진단(LLM) 없이 즉시 복귀
-        verify(storyFactService).appendFacts(STORY_ID, null,
-                List.of(AssessmentTxService.OFFER_RETRACTED_FACT));
+        verify(storyFactService).appendCorrection(STORY_ID,
+                AssessmentTxService.OFFER_RETRACTED_FACT);
     }
 
     @Test
