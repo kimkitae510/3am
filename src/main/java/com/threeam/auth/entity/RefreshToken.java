@@ -25,6 +25,8 @@ public class RefreshToken {
     @Column(nullable = false, unique = true)
     private Long userId;
 
+    // 토큰 원문이 아니라 SHA-256 해시(64자 hex)를 저장한다 — DB가 유출돼도 토큰 재사용 불가.
+    // 컬럼 길이는 기존 512를 유지(스키마 변경 불필요, 해시는 64자라 여유롭게 들어감).
     @Column(nullable = false, length = 512)
     private String token;
 

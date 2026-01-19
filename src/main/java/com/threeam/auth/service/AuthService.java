@@ -10,6 +10,7 @@ import com.threeam.auth.repository.RefreshTokenRepository;
 import com.threeam.global.config.JwtProperties;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
+import com.threeam.global.util.TokenHasher;
 import com.threeam.security.jwt.JwtTokenProvider;
 import com.threeam.security.jwt.TokenInvalidationRegistry;
 import com.threeam.usage.WelcomeGiftService;
@@ -93,7 +94,8 @@ public class AuthService {
 
     @Transactional
     public TokenResponse reissue(String refreshToken) {
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        // 서명, 만료뿐 아니라 타입도 검사 — access 토큰으로 재발급을 시도하는 경로를 막는다.
+        if (!jwtTokenProvider.validateToken(refreshToken) || !jwtTokenProvider.isRefreshToken(refreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
 
@@ -101,8 +103,8 @@ public class AuthService {
         RefreshToken stored = refreshTokenRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
 
-        // DB에 저장된 현재 토큰과 일치하고, 만료되지 않았을 때만 재발급 (탈취, 구버전 차단)
-        if (stored.isExpired() || !stored.matches(refreshToken)) {
+        // DB엔 해시만 저장한다 — 제시된 원문을 해시해 대조(DB 유출 시 토큰 재사용 차단).
+        if (stored.isExpired() || !stored.matches(TokenHasher.sha256(refreshToken))) {
             throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
 
@@ -128,13 +130,15 @@ public class AuthService {
     private void saveOrRotate(Long userId, String refreshToken) {
         LocalDateTime expiresAt = LocalDateTime.now()
                 .plusSeconds(jwtProperties.getRefreshTokenValiditySeconds());
+        // 원문이 아니라 해시를 저장한다. 원문은 유저만 갖고, 서버는 대조용 지문만 보관한다.
+        String tokenHash = TokenHasher.sha256(refreshToken);
 
         refreshTokenRepository.findByUserId(userId)
                 .ifPresentOrElse(
-                        stored -> stored.rotate(refreshToken, expiresAt),
+                        stored -> stored.rotate(tokenHash, expiresAt),
                         () -> refreshTokenRepository.save(RefreshToken.builder()
                                 .userId(userId)
-                                .token(refreshToken)
+                                .token(tokenHash)
                                 .expiresAt(expiresAt)
                                 .build()));
     }

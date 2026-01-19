@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+import com.threeam.global.util.TokenHasher;
 import com.threeam.auth.dto.LoginRequest;
 import com.threeam.auth.dto.TokenResponse;
 import com.threeam.auth.entity.RefreshToken;
@@ -221,10 +222,13 @@ class AuthServiceTest {
     @DisplayName("재발급 성공 - DB의 RefreshToken과 일치하면 새 토큰 발급 후 회전한다")
     void reissue_success() {
         String oldRefresh = "refresh";
+        // DB엔 해시가 저장돼 있고, 제시된 원문을 해시해 대조한다.
         RefreshToken stored = RefreshToken.builder()
-                .userId(1L).token(oldRefresh).expiresAt(LocalDateTime.now().plusDays(1)).build();
+                .userId(1L).token(TokenHasher.sha256(oldRefresh))
+                .expiresAt(LocalDateTime.now().plusDays(1)).build();
         User user = userWithId(1L, "a@a.com", "encodedPw");
         given(jwtTokenProvider.validateToken(oldRefresh)).willReturn(true);
+        given(jwtTokenProvider.isRefreshToken(oldRefresh)).willReturn(true);
         given(jwtTokenProvider.getUserId(oldRefresh)).willReturn(1L);
         given(refreshTokenRepository.findByUserId(1L)).willReturn(Optional.of(stored));
         given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(user));
@@ -236,7 +240,19 @@ class AuthServiceTest {
 
         assertThat(response.getAccessToken()).isEqualTo("newAccess");
         assertThat(response.getRefreshToken()).isEqualTo("newRefresh");
-        assertThat(stored.getToken()).isEqualTo("newRefresh"); // 회전됨
+        // 회전 후 저장값도 새 원문의 해시여야 한다(원문 저장 금지).
+        assertThat(stored.getToken()).isEqualTo(TokenHasher.sha256("newRefresh"));
+    }
+
+    @Test
+    @DisplayName("재발급 실패 - refresh가 아닌 토큰(access)으로 재발급 시도하면 INVALID_TOKEN")
+    void reissue_wrongTokenType() {
+        given(jwtTokenProvider.validateToken("accessToken")).willReturn(true);
+        given(jwtTokenProvider.isRefreshToken("accessToken")).willReturn(false);
+
+        assertThatThrownBy(() -> authService.reissue("accessToken"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TOKEN);
     }
 
     @Test
@@ -253,6 +269,7 @@ class AuthServiceTest {
     @DisplayName("재발급 실패 - DB에 저장된 토큰이 없으면 INVALID_TOKEN")
     void reissue_notStored() {
         given(jwtTokenProvider.validateToken("refresh")).willReturn(true);
+        given(jwtTokenProvider.isRefreshToken("refresh")).willReturn(true);
         given(jwtTokenProvider.getUserId("refresh")).willReturn(1L);
         given(refreshTokenRepository.findByUserId(1L)).willReturn(Optional.empty());
 
@@ -265,8 +282,10 @@ class AuthServiceTest {
     @DisplayName("재발급 실패 - DB 토큰과 불일치하면 INVALID_TOKEN")
     void reissue_mismatch() {
         RefreshToken stored = RefreshToken.builder()
-                .userId(1L).token("otherToken").expiresAt(LocalDateTime.now().plusDays(1)).build();
+                .userId(1L).token(TokenHasher.sha256("otherToken"))
+                .expiresAt(LocalDateTime.now().plusDays(1)).build();
         given(jwtTokenProvider.validateToken("refresh")).willReturn(true);
+        given(jwtTokenProvider.isRefreshToken("refresh")).willReturn(true);
         given(jwtTokenProvider.getUserId("refresh")).willReturn(1L);
         given(refreshTokenRepository.findByUserId(1L)).willReturn(Optional.of(stored));
 

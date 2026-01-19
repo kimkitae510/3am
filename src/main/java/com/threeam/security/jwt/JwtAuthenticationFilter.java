@@ -26,7 +26,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = resolveToken(request);
-        if (token != null && jwtTokenProvider.validateToken(token)) {
+        // access 토큰만 인증에 쓴다. 수명 긴 refresh 토큰을 Bearer로 넣어 API를 통과하려는
+        // 시도를 막는다(유출된 refresh의 피해 범위를 재발급 한 곳으로 가둔다).
+        if (token != null && jwtTokenProvider.validateToken(token) && jwtTokenProvider.isAccessToken(token)) {
             Long userId = jwtTokenProvider.getUserId(token);
             // 로그아웃/비밀번호 변경/탈퇴로 무효화된 유저의 옛 토큰이면 인증을 세우지 않는다(→ 401).
             if (!tokenInvalidationRegistry.isInvalid(userId, jwtTokenProvider.getIssuedAtMillis(token))) {

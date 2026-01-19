@@ -14,6 +14,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtTokenProvider {
 
+    // 토큰 용도 구분. 수명 긴 refresh 토큰을 access처럼 API 인증에 쓰지 못하게 막는 근거.
+    public static final String TYPE_ACCESS = "access";
+    public static final String TYPE_REFRESH = "refresh";
+
     private final SecretKey key;
     private final long accessValidityMs;
     private final long refreshValidityMs;
@@ -25,11 +29,23 @@ public class JwtTokenProvider {
     }
 
     public String generateAccessToken(Long userId, Role role) {
-        return build(userId, role.name(), accessValidityMs);
+        return build(userId, role.name(), TYPE_ACCESS, accessValidityMs);
     }
 
     public String generateRefreshToken(Long userId) {
-        return build(userId, null, refreshValidityMs);
+        return build(userId, null, TYPE_REFRESH, refreshValidityMs);
+    }
+
+    public boolean isAccessToken(String token) {
+        return TYPE_ACCESS.equals(getType(token));
+    }
+
+    public boolean isRefreshToken(String token) {
+        return TYPE_REFRESH.equals(getType(token));
+    }
+
+    private String getType(String token) {
+        return parse(token).get("typ", String.class);
     }
 
     public boolean validateToken(String token) {
@@ -57,10 +73,11 @@ public class JwtTokenProvider {
         return accessValidityMs;
     }
 
-    private String build(Long userId, String role, long validityMs) {
+    private String build(Long userId, String role, String type, long validityMs) {
         long now = System.currentTimeMillis();
         var builder = Jwts.builder()
                 .subject(String.valueOf(userId))
+                .claim("typ", type)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + validityMs))
                 .signWith(key);
