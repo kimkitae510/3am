@@ -72,7 +72,11 @@ public class SecurityConfig {
                         // PG 웹훅 — 토스 서버가 호출하므로 JWT가 없다. 페이로드를 신뢰하지 않고
                         // PG 조회로 재확인하는 구조라(PaymentWebhookController) 열어도 상태 위조가 불가능하다.
                         .requestMatchers("/api/payments/webhook/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
+                        // health만 공개(로드밸런서 헬스체크용). prometheus, info 등 내부 메트릭은
+                        // 인증 뒤로 둔다 — 무인증 노출 시 트래픽 패턴, JVM, URI별 요청수가 새어 나간다.
+                        // 모니터링 스크래핑은 인증 토큰 또는 내부망에서 호출한다.
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/**").authenticated()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint)
