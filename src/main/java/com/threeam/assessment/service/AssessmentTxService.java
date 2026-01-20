@@ -10,6 +10,7 @@ import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
+import com.threeam.story.entity.Story;
 import com.threeam.story.entity.StoryFact;
 import com.threeam.story.entity.StoryMemory;
 import com.threeam.story.repository.MessageRepository;
@@ -38,6 +39,9 @@ public class AssessmentTxService {
 
     private static final int HISTORY_WINDOW = 20;
 
+    // 진단 프롬프트에 싣는 사실 원장 상한(최근 N개). 진단은 사실이 확률의 근거라 채팅(30)보다 넉넉히.
+    private static final int FACT_INJECT_LIMIT = 50;
+
     private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
 
     private final StoryRepository storyRepository;
@@ -49,10 +53,24 @@ public class AssessmentTxService {
     private final AssessmentRepository assessmentRepository;
     private final ReunionScorer scorer;
 
-    // INSUFFICIENT 재시도 가드용: 이 시점 이후 새 대화가 있었는지.
+    // INSUFFICIENT 재시도 가드: 지난 근거부족 시점 이후 새 대화가 없으면 막는다(같은 재료 = 같은 답).
+    // 표시는 stories.last_insufficient_at(DB)에 있어 재시작, 멀티인스턴스에서도 유지된다.
     @Transactional(readOnly = true)
-    public boolean hasNewMessageAfter(Long storyId, LocalDateTime since) {
-        return messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, since);
+    public boolean isInsufficientRetryBlocked(Long storyId) {
+        LocalDateTime since = storyRepository.findById(storyId)
+                .map(Story::getLastInsufficientAt)
+                .orElse(null);
+        return since != null && !messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, since);
+    }
+
+    @Transactional
+    public void markInsufficient(Long storyId) {
+        storyRepository.updateLastInsufficientAt(storyId, LocalDateTime.now());
+    }
+
+    @Transactional
+    public void clearInsufficient(Long storyId) {
+        storyRepository.updateLastInsufficientAt(storyId, null);
     }
 
     // 히스토리 조회 전 소유권만 확인한다.
@@ -168,10 +186,16 @@ public class AssessmentTxService {
     }
 
     // 프롬프트용: "(11/10) 상대가 먼저 이별 통보" — 상대 시점 표현("일주일 전")을 기록일로 보정할 수 있게.
+    // 최근 FACT_INJECT_LIMIT개만 싣고(비용 상한), 시간순으로 뒤집어 오래된 것부터 나열한다.
     private List<String> factLines(Long storyId) {
-        return storyFactRepository.findByStoryIdOrderByIdAsc(storyId).stream()
-                .map(fact -> "(" + FACT_DATE.format(fact.getCreatedAt()) + ") " + fact.getFact())
-                .toList();
+        List<StoryFact> recent = storyFactRepository.findByStoryIdOrderByIdDesc(
+                storyId, PageRequest.of(0, FACT_INJECT_LIMIT));
+        List<String> lines = new ArrayList<>();
+        for (int i = recent.size() - 1; i >= 0; i--) {
+            StoryFact fact = recent.get(i);
+            lines.add("(" + FACT_DATE.format(fact.getCreatedAt()) + ") " + fact.getFact());
+        }
+        return lines;
     }
 
 }

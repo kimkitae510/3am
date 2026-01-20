@@ -51,6 +51,12 @@ public class Story {
     @Column
     private LocalDateTime lastReadAt;
 
+    // 마지막으로 진단이 "근거 부족(INSUFFICIENT)"을 받은 시각. 이후 새 대화가 없으면 재진단을
+    // LLM 없이 거부하는 근거(무차감 재호출로 비싼 진단이 반복되는 것 방지). 성공 진단 시 null로 지운다.
+    // 인메모리 맵을 대체 — 재시작, 멀티인스턴스에서도 유지된다.
+    @Column
+    private LocalDateTime lastInsufficientAt;
+
     @Builder
     private Story(Long userId, String title) {
         this.userId = userId;
