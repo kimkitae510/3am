@@ -11,13 +11,10 @@ import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.llm.LlmRole;
 import com.threeam.usage.UsageKind;
 import com.threeam.usage.UsageLimiter;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,11 +30,6 @@ public class AssessmentService {
     // 대화가 한 번이라도 있으면 LLM에 보낸다 — 부족 여부는 횟수가 아니라 내용(원장)이 정한다.
     private static final int MIN_USER_TURNS = 1;
 
-    // INSUFFICIENT를 받은 사연의 시각. 새 대화 없이 재시도하면 LLM 없이 거부한다 —
-    // INSUFFICIENT를 쿼터 미차감으로 바꾸면서 생기는 무한 호출 구멍을 이걸로 막는다.
-    // (인메모리 = 단일 인스턴스 전제. in-flight 잠금과 같은 전제이며, 재시작 시 초기화돼도 해는 없다.)
-    private final Map<Long, LocalDateTime> insufficientAt = new ConcurrentHashMap<>();
-
     private final AssessmentTxService txService;
     private final ReunionLlm reunionLlm;
     private final ReunionScorer scorer;
@@ -48,8 +40,8 @@ public class AssessmentService {
     // DB 저장은 txService의 짧은 트랜잭션, 느린 LLM 호출은 그 사이에서 논블로킹으로.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CompletableFuture<AssessmentResponse> assess(Long userId, Long storyId) {
-        // 같은 사연의 진단 동시 실행 차단(연타 차단 + 기억 upsert 레이스 방지) + 유저 동시 생성 상한.
-        usageLimiter.acquireInFlight(UsageKind.ASSESSMENT, userId, storyId);
+        // 이 유저가 이미 진단을 생성 중이면 거부(연타 차단 + 기억 upsert 레이스 방지 + 동시 발사 한도 우회 차단).
+        usageLimiter.acquireInFlight(UsageKind.ASSESSMENT, userId);
         try {
             // 후차감: 여기서는 한도 검사만. 기록은 진단이 정상 처리된 뒤에 한다(LLM 장애 시 미차감).
             usageLimiter.checkDaily(UsageKind.ASSESSMENT, userId);
@@ -60,13 +52,13 @@ public class AssessmentService {
                     .count();
             if (userTurns < MIN_USER_TURNS) {
                 // LLM 비용이 없으므로 쿼터도 차감하지 않는다. 잠금만 풀고 안내를 돌려준다.
-                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
+                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId);
                 return CompletableFuture.completedFuture(insufficientGuide(storyId, TURNS_GUIDE));
             }
             // 지난 INSUFFICIENT 이후 새 대화가 없으면 다시 물어봐도 같은 답이다 — LLM 없이 거부.
-            LocalDateTime lastGuide = insufficientAt.get(storyId);
-            if (lastGuide != null && !txService.hasNewMessageAfter(storyId, lastGuide)) {
-                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
+            // 이 표시는 DB(stories.last_insufficient_at)에 있어 재시작, 멀티인스턴스에서도 유지된다.
+            if (txService.isInsufficientRetryBlocked(storyId)) {
+                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId);
                 return CompletableFuture.completedFuture(insufficientGuide(storyId, NO_BASIS_GUIDE));
             }
             return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(), context.conversation())
@@ -74,10 +66,10 @@ public class AssessmentService {
                         AssessmentResponse response = persist(storyId, diagnosis);
                         if (diagnosis.verdict() == ReunionVerdict.INSUFFICIENT) {
                             // 진단을 제공하지 못했으니 쿼터를 깎지 않는다(유저 억울함 방지).
-                            // 대신 시점을 기록해 새 대화 없는 재시도를 위에서 공짜로 막는다.
-                            insufficientAt.put(storyId, LocalDateTime.now());
+                            // 대신 시점을 DB에 남겨 새 대화 없는 재시도를 위에서 공짜로 막는다.
+                            txService.markInsufficient(storyId);
                         } else {
-                            insufficientAt.remove(storyId);
+                            txService.clearInsufficient(storyId);
                             recordUsageQuietly(userId);
                         }
                         return response;
@@ -88,11 +80,11 @@ public class AssessmentService {
                         if (ex != null) {
                             log.error("진단 처리 실패 storyId={} userId={}", storyId, userId, ex);
                         }
-                        usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
+                        usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId);
                     });
         } catch (RuntimeException e) {
             // 후차감이라 되돌릴 차감이 없다. 잠금만 풀고 그대로 던진다.
-            usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId, storyId);
+            usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId);
             throw e;
         }
     }

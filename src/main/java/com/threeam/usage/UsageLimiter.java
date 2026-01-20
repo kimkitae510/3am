@@ -1,20 +1,18 @@
 package com.threeam.usage;
 
 // LLM 호출 어뷰징 방지. 두 겹으로 막는다:
-// 1) in-flight 잠금 — 사연당 동시에 1건만 생성. 연타, 중복요청을 접수 단계에서 거부한다.
+// 1) 생성 락 — 유저+종류당 동시에 1건만 생성. 연타, 중복요청, 여러 사연 동시 발사를 접수 단계에서 거부한다.
+//    DB 분산 락(GenerationLock)이라 재시작, 멀티인스턴스에서도 유효하다. 유저 단위라
+//    "검사 통과 → 기록" 사이에 다른 요청이 끼어들 수 없어 후차감 한도 초과(TOCTOU)도 함께 막힌다.
 // 2) 일일 쿼터 — 유저, 종류별 하루 호출 횟수 제한. 후차감: 접수 시점엔 검사만 하고,
 //    LLM이 정상 답을 만들어 저장까지 성공했을 때만 1회 기록한다.
 //    LLM 장애(폴백)에 유저 쿼터가 깎이지 않게 하기 위한 결정 — 실패는 유저 잘못이 아니다.
-//    검사와 기록 사이의 틈으로 동시 요청이 한도를 순간 초과할 수 있다. 그 초과 폭을 두 겹으로 조인다:
-//    사연당 1건(아래 in-flight 잠금)에 더해, 유저당 동시 생성 수도 상한을 둔다(사연 여러 개로
-//    동시에 쏘아 한도를 크게 넘기는 것을 막는다). 남는 미세 초과는 수용한다.
 public interface UsageLimiter {
 
-    // 잠금 획득 실패 시 GENERATION_IN_PROGRESS(429)를 던진다.
-    // 사연당 1건 + 유저당 동시 생성 상한을 함께 검사한다(둘 중 하나라도 걸리면 거부).
-    void acquireInFlight(UsageKind kind, Long userId, Long storyId);
+    // 잠금 획득 실패(이미 생성 중) 시 GENERATION_IN_PROGRESS(429)를 던진다. 유저+종류 단위.
+    void acquireInFlight(UsageKind kind, Long userId);
 
-    void releaseInFlight(UsageKind kind, Long userId, Long storyId);
+    void releaseInFlight(UsageKind kind, Long userId);
 
     // 접수 관문: 오늘 한도를 이미 다 썼으면 QUOTA_EXCEEDED(429)를 던진다. 차감하지 않는다.
     void checkDaily(UsageKind kind, Long userId);

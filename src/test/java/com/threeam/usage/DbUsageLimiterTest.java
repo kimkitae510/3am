@@ -14,14 +14,10 @@ import static org.mockito.Mockito.verify;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.global.exception.ErrorCode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +37,9 @@ class DbUsageLimiterTest {
     @Mock
     private EntitlementRepository entitlementRepository;
 
+    @Mock
+    private GenerationLockRepository generationLockRepository;
+
     private UsageProperties properties;
     private DbUsageLimiter limiter;
 
@@ -49,8 +48,8 @@ class DbUsageLimiterTest {
         properties = new UsageProperties();
         properties.setChatDailyLimit(30);
         properties.setAssessmentDailyLimit(3);
-        properties.setInFlightTtlSeconds(120);
-        limiter = new DbUsageLimiter(properties, quotaRepository, entitlementRepository);
+        limiter = new DbUsageLimiter(properties, quotaRepository, entitlementRepository,
+                generationLockRepository);
     }
 
     private UsageQuota quota(LocalDate date, int used) {
@@ -197,63 +196,45 @@ class DbUsageLimiterTest {
     }
 
     @Test
-    @DisplayName("in-flight - 동시 100 요청이 같은 사연 잠금을 다퉈도 1건만 획득한다")
-    void acquireInFlight_concurrent() throws InterruptedException {
-        int threads = 100;
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
-        CountDownLatch ready = new CountDownLatch(threads);
-        CountDownLatch start = new CountDownLatch(1);
-        AtomicInteger acquired = new AtomicInteger();
+    @DisplayName("생성 락 - 락 획득에 성공(반환 1)하면 통과한다")
+    void acquireInFlight_acquired() {
+        given(generationLockRepository.acquire(eq("CHAT:1"), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(1);
 
-        for (int i = 0; i < threads; i++) {
-            pool.submit(() -> {
-                ready.countDown();
-                try {
-                    start.await();
-                    limiter.acquireInFlight(UsageKind.CHAT, 1L, 10L);
-                    acquired.incrementAndGet();
-                } catch (Exception ignored) {
-                }
-            });
-        }
-        ready.await();
-        start.countDown();
-        pool.shutdown();
-        assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
-
-        assertThat(acquired.get()).isEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("in-flight - 해제하면 다시 획득할 수 있고, TTL이 지난 잠금은 무시된다")
-    void acquireInFlight_releaseAndTtl() {
-        limiter.acquireInFlight(UsageKind.CHAT, 1L, 10L);
-        limiter.releaseInFlight(UsageKind.CHAT, 1L, 10L);
-        assertThatCode(() -> limiter.acquireInFlight(UsageKind.CHAT, 1L, 10L))
-                .doesNotThrowAnyException();
-
-        // TTL 0으로 만들면 방금 잡은 잠금도 만료로 취급 → 재획득 가능(서버 죽음 대비 자동 해제)
-        properties.setInFlightTtlSeconds(0);
-        limiter.acquireInFlight(UsageKind.CHAT, 2L, 20L);
-        assertThatCode(() -> limiter.acquireInFlight(UsageKind.CHAT, 2L, 20L))
+        assertThatCode(() -> limiter.acquireInFlight(UsageKind.CHAT, 1L))
                 .doesNotThrowAnyException();
     }
 
     @Test
-    @DisplayName("in-flight - 한 유저가 서로 다른 사연으로 동시 생성해도 상한(3)을 넘으면 거부한다")
-    void acquireInFlight_perUserConcurrencyCap() {
-        // 사연이 달라 사연 잠금은 각각 통과하지만, 유저 동시 상한이 4번째를 막는다.
-        limiter.acquireInFlight(UsageKind.CHAT, 7L, 101L);
-        limiter.acquireInFlight(UsageKind.CHAT, 7L, 102L);
-        limiter.acquireInFlight(UsageKind.CHAT, 7L, 103L);
+    @DisplayName("생성 락 - 유효한 락이 이미 있어(반환 0) 획득 실패면 GENERATION_IN_PROGRESS")
+    void acquireInFlight_alreadyLocked() {
+        given(generationLockRepository.acquire(eq("ASSESSMENT:1"), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(0);
 
-        assertThatThrownBy(() -> limiter.acquireInFlight(UsageKind.CHAT, 7L, 104L))
+        assertThatThrownBy(() -> limiter.acquireInFlight(UsageKind.ASSESSMENT, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENERATION_IN_PROGRESS);
+    }
 
-        // 하나 해제하면 다시 한 자리가 열린다.
-        limiter.releaseInFlight(UsageKind.CHAT, 7L, 101L);
-        assertThatCode(() -> limiter.acquireInFlight(UsageKind.CHAT, 7L, 104L))
-                .doesNotThrowAnyException();
+    @Test
+    @DisplayName("생성 락 - 종류별 TTL을 만료 시각에 반영한다(진단이 채팅보다 길다)")
+    void acquireInFlight_ttlPerKind() {
+        var untilCaptor = org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
+        var nowCaptor = org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
+        given(generationLockRepository.acquire(anyString(), nowCaptor.capture(), untilCaptor.capture()))
+                .willReturn(1);
+
+        limiter.acquireInFlight(UsageKind.ASSESSMENT, 1L);
+
+        long ttlSeconds = java.time.Duration.between(nowCaptor.getValue(), untilCaptor.getValue()).getSeconds();
+        assertThat(ttlSeconds).isEqualTo(properties.getAssessmentLockTtlSeconds());   // 70초(> 채팅 20)
+    }
+
+    @Test
+    @DisplayName("생성 락 - 해제는 리포지토리 release에 위임한다")
+    void releaseInFlight_delegates() {
+        limiter.releaseInFlight(UsageKind.CHAT, 5L);
+
+        verify(generationLockRepository).release("CHAT:5");
     }
 }

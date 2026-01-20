@@ -3,17 +3,16 @@ package com.threeam.usage;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-// 일일 쿼터는 DB(usage_quota 단일 행), in-flight 잠금은 인메모리.
-// 쿼터를 DB에 두는 이유: 재시작해도 유지되고 차감 기록이 서버 밖에 남는다.
-// 잠금은 수 초짜리 휘발 상태라 인메모리로 충분하다(재시작으로 날아가도 TTL 의미와 같다).
+// 일일 쿼터와 생성 락 모두 DB에 둔다. 재시작, 멀티인스턴스에서도 유지되고, 인메모리 잠금이
+// 인스턴스마다 따로 세던 문제(한도 우회)를 없앤다. 생성 락은 유저+종류 단위 분산 락으로,
+// 같은 유저의 동시 생성을 하나로 직렬화해 후차감 한도 초과(TOCTOU)까지 함께 막는다.
 //
 // 결제 이용권(entitlements)은 무료 한도의 연장선: 검사와 차감 모두 "무료 먼저, 그다음 이용권".
 // 무료를 먼저 태워야 유저에게 유리하고(이용권은 이월되는 자산), 환불 계산도 단순해진다.
@@ -28,47 +27,27 @@ public class DbUsageLimiter implements UsageLimiter {
     private final UsageProperties properties;
     private final UsageQuotaRepository quotaRepository;
     private final EntitlementRepository entitlementRepository;
-
-    // 사연별 "생성 진행 중" 표시. 값은 만료 시각(epoch ms) — 지난 값은 풀린 것으로 취급한다.
-    private final ConcurrentHashMap<String, Long> inFlight = new ConcurrentHashMap<>();
-
-    // 유저별 동시 생성 카운터. 사연 여러 개로 동시에 쏘아 한도를 넘기는 것을 막는 상한.
-    private final ConcurrentHashMap<String, AtomicInteger> userConcurrency = new ConcurrentHashMap<>();
+    private final GenerationLockRepository generationLockRepository;
 
     @Override
-    public void acquireInFlight(UsageKind kind, Long userId, Long storyId) {
-        // 먼저 유저 동시 상한을 잡는다. 사연 잠금에 실패하면 이 슬롯을 반드시 되돌린다.
-        AtomicInteger counter = userConcurrency.computeIfAbsent(key(kind, userId), k -> new AtomicInteger());
-        if (counter.incrementAndGet() > properties.getMaxConcurrentGenerationsPerUser()) {
-            counter.decrementAndGet();
-            throw new BusinessException(ErrorCode.GENERATION_IN_PROGRESS);
-        }
-
-        long now = System.currentTimeMillis();
-        long expireAt = now + properties.getInFlightTtlSeconds() * 1000;
-        // compute가 원자적이라, 동시에 들어와도 한 요청만 acquired가 된다.
-        boolean[] acquired = {false};
-        inFlight.compute(key(kind, storyId), (key, expiry) -> {
-            if (expiry == null || expiry <= now) {
-                acquired[0] = true;
-                return expireAt;
-            }
-            return expiry;
-        });
-        if (!acquired[0]) {
-            counter.decrementAndGet();
+    @Transactional
+    public void acquireInFlight(UsageKind kind, Long userId) {
+        LocalDateTime now = LocalDateTime.now(KST);
+        LocalDateTime until = now.plusSeconds(properties.lockTtlSeconds(kind));
+        // 원자 upsert. 반환 0이면 아직 유효한 락이 있다는 뜻 — 이미 생성 중이므로 거부한다.
+        if (generationLockRepository.acquire(lockKey(kind, userId), now, until) == 0) {
             throw new BusinessException(ErrorCode.GENERATION_IN_PROGRESS);
         }
     }
 
     @Override
-    public void releaseInFlight(UsageKind kind, Long userId, Long storyId) {
-        inFlight.remove(key(kind, storyId));
-        // 음수로 내려가지 않게 0 바닥에서 멈춘다(중복 release 방어).
-        userConcurrency.computeIfPresent(key(kind, userId), (k, counter) -> {
-            counter.updateAndGet(v -> v > 0 ? v - 1 : 0);
-            return counter;
-        });
+    @Transactional
+    public void releaseInFlight(UsageKind kind, Long userId) {
+        generationLockRepository.release(lockKey(kind, userId));
+    }
+
+    private String lockKey(UsageKind kind, Long userId) {
+        return kind.name() + ":" + userId;
     }
 
     @Override
@@ -132,9 +111,5 @@ public class DbUsageLimiter implements UsageLimiter {
         return kind == UsageKind.CHAT
                 ? properties.getChatDailyLimit()
                 : properties.getAssessmentDailyLimit();
-    }
-
-    private String key(UsageKind kind, Long id) {
-        return kind.name() + ":" + id;
     }
 }

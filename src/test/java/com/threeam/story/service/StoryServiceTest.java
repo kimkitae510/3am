@@ -137,7 +137,7 @@ class StoryServiceTest {
         // 답이 저장된 턴만 사실 추출이 돈다(별도 호출, 쿼터 미차감)
         verify(factExtractor).extractAsync(10L);
         // 답 저장까지 끝났으니 in-flight 잠금도 해제된다
-        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
     }
 
     @Test
@@ -153,14 +153,14 @@ class StoryServiceTest {
         verify(llmClient, never()).generate(anyList());
         // 후차감이라 성공 전에 실패하면 기록할 것이 없다. 잠금만 해제.
         verify(usageLimiter, never()).recordDaily(any(), any());
-        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
     }
 
     @Test
     @DisplayName("메시지 전송 - 이 사연의 답변이 생성 중이면 접수를 거부한다(연타 차단)")
     void sendMessage_inFlightRejected() {
         org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.GENERATION_IN_PROGRESS))
-                .given(usageLimiter).acquireInFlight(UsageKind.CHAT, 1L, 10L);
+                .given(usageLimiter).acquireInFlight(UsageKind.CHAT, 1L);
 
         assertThatThrownBy(() -> storyService.sendMessage(1L, 10L, sendRequest("hi")))
                 .isInstanceOf(BusinessException.class)
@@ -182,7 +182,7 @@ class StoryServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
 
-        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
         verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any());
         verify(llmClient, never()).generate(anyList());
     }
@@ -200,7 +200,7 @@ class StoryServiceTest {
 
         // 실패 시 폴백 메시지가 저장되고(폴링 정상 종료), 잠금도 풀린다
         verify(messageTxService).appendAssistantReply(eq(10L), any(String.class));
-        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
         // 성공 시만 차감: LLM 장애로 폴백이 나간 턴은 유저 쿼터를 쓰지 않는다
         verify(usageLimiter, never()).recordDaily(any(), any());
         // 답이 없는 턴은 추출할 것도 없다

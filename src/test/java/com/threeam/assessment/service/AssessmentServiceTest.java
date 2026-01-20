@@ -188,7 +188,8 @@ class AssessmentServiceTest {
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, null, null, false,
                         List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
-        given(txService.hasNewMessageAfter(eq(10L), any())).willReturn(false);
+        // 1차엔 아직 표시 없음(false) → LLM 판정, 2차엔 표시됨(true) → LLM 없이 거부.
+        given(txService.isInsufficientRetryBlocked(10L)).willReturn(false, true);
 
         assessmentService.assess(1L, 10L).join(); // 1차: LLM이 INSUFFICIENT 판정
         AssessmentResponse retry = assessmentService.assess(1L, 10L).join(); // 2차: 새 대화 없음
@@ -205,7 +206,8 @@ class AssessmentServiceTest {
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, null, null, false,
                         List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
-        given(txService.hasNewMessageAfter(eq(10L), any())).willReturn(true);
+        // 새 대화가 계속 있으니 표시가 있어도 재시도가 막히지 않는다(항상 false).
+        given(txService.isInsufficientRetryBlocked(10L)).willReturn(false);
 
         assessmentService.assess(1L, 10L).join();
         assessmentService.assess(1L, 10L).join();
@@ -225,7 +227,7 @@ class AssessmentServiceTest {
         assertThat(response.getReason()).contains("이야기가 없어요");
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList()); // LLM 비용 없음
         verify(usageLimiter, never()).recordDaily(any(), any());          // 쿼터 미차감
-        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
     }
 
     @Test
@@ -241,14 +243,14 @@ class AssessmentServiceTest {
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList());
         // 후차감이라 성공 전에 실패하면 기록할 것이 없다. 잠금만 해제.
         verify(usageLimiter, never()).recordDaily(any(), any());
-        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
     }
 
     @Test
     @DisplayName("진단 - 같은 사연의 진단이 진행 중이면 접수를 거부한다(연타 차단)")
     void assess_inFlightRejected() {
         org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.GENERATION_IN_PROGRESS))
-                .given(usageLimiter).acquireInFlight(UsageKind.ASSESSMENT, 1L, 10L);
+                .given(usageLimiter).acquireInFlight(UsageKind.ASSESSMENT, 1L);
 
         assertThatThrownBy(() -> assessmentService.assess(1L, 10L))
                 .isInstanceOf(BusinessException.class)
@@ -268,7 +270,7 @@ class AssessmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
 
-        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList());
     }
 
@@ -282,7 +284,7 @@ class AssessmentServiceTest {
         assessmentService.assess(1L, 10L).join();
 
         verify(usageLimiter).checkDaily(UsageKind.ASSESSMENT, 1L);
-        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L, 10L);
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
         // INSUFFICIENT는 진단을 제공하지 못했으니 차감하지 않는다
         verify(usageLimiter, never()).recordDaily(UsageKind.ASSESSMENT, 1L);
     }

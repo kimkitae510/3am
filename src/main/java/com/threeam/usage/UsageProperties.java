@@ -15,10 +15,15 @@ public class UsageProperties {
     private int chatDailyLimit = 5;
     private int assessmentDailyLimit = 1;
 
-    // in-flight 잠금의 자동 만료. 서버가 죽어 해제가 유실돼도 이 시간이 지나면 풀린 것으로 본다.
-    private long inFlightTtlSeconds = 120;
+    // 생성 락의 자동 만료(TTL). LLM 호출이 실패로 락을 못 풀어도 이 시간이 지나면 풀린 것으로 본다.
+    // 종류별로 다르게 둔다 — TTL이 LLM 타임아웃보다 짧으면, 아직 진행 중인 생성 위로 두 번째
+    // 요청이 락을 뺏어 동시 생성(쿼터 초과, 원장 레이스)이 생기기 때문이다.
+    // 채팅은 응답이 수 초라 20초로 짧게(좀비 락도 빨리 풀림), 진단은 deep 타임아웃(60초)보다
+    // 넉넉한 70초로 둔다. 정상 생성은 끝나면 즉시 락을 반납하므로 이 값은 실패 시 상한일 뿐이다.
+    private long chatLockTtlSeconds = 20;
+    private long assessmentLockTtlSeconds = 70;
 
-    // 한 유저가 동시에 진행할 수 있는 생성(대화 답변, 진단) 최대 건수. 사연 여러 개로 동시에 쏘아
-    // 후차감 검사를 한꺼번에 통과시켜 한도를 크게 넘기는 것을 막는 상한.
-    private int maxConcurrentGenerationsPerUser = 3;
+    public long lockTtlSeconds(UsageKind kind) {
+        return kind == UsageKind.CHAT ? chatLockTtlSeconds : assessmentLockTtlSeconds;
+    }
 }
