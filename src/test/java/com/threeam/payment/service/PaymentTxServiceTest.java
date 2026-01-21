@@ -198,4 +198,27 @@ class PaymentTxServiceTest {
 
         assertThat(inProgress.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS);
     }
+
+    @Test
+    @DisplayName("주문 생성 - 미결 주문이 상한 미만이면 저장한다")
+    void createOrder_underPendingLimit() {
+        given(paymentRepository.countByUserIdAndStatus(1L, PaymentStatus.READY)).willReturn(4);
+        given(paymentRepository.save(any(Payment.class))).willAnswer(inv -> inv.getArgument(0));
+
+        Payment created = service.createOrder(1L, PaymentItem.BUNDLE_STANDARD, 5);
+
+        assertThat(created.getStatus()).isEqualTo(PaymentStatus.READY);
+        verify(paymentRepository).save(any(Payment.class));
+    }
+
+    @Test
+    @DisplayName("주문 생성 - 미결 주문이 상한에 닿았으면 TOO_MANY_PENDING_ORDERS로 거절한다")
+    void createOrder_pendingLimitReached() {
+        given(paymentRepository.countByUserIdAndStatus(1L, PaymentStatus.READY)).willReturn(5);
+
+        assertThatThrownBy(() -> service.createOrder(1L, PaymentItem.BUNDLE_STANDARD, 5))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOO_MANY_PENDING_ORDERS);
+        verify(paymentRepository, never()).save(any());
+    }
 }
