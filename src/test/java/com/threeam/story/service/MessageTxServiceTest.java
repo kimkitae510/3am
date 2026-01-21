@@ -95,7 +95,8 @@ class MessageTxServiceTest {
                         PageRequest.of(0, 20), false));
         StoryFact fact = StoryFact.of(10L, "상대가 먼저 이별을 통보함", 1L);
         ReflectionTestUtils.setField(fact, "createdAt", java.time.LocalDateTime.of(2025, 11, 10, 3, 0));
-        given(storyFactRepository.findByStoryIdOrderByIdAsc(10L)).willReturn(List.of(fact));
+        given(storyFactRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(List.of(fact));
 
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "안녕").prompt();
 

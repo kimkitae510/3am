@@ -323,6 +323,7 @@ class AssessmentTxServiceTest {
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(STORY_ID), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(message), PageRequest.of(0, 20), false));
         given(storyMemoryRepository.findByStoryId(STORY_ID)).willReturn(Optional.empty());
-        given(storyFactRepository.findByStoryIdOrderByIdAsc(STORY_ID)).willReturn(List.of());
+        given(storyFactRepository.findByStoryIdOrderByIdDesc(eq(STORY_ID), any(Pageable.class)))
+                .willReturn(List.of());
     }
 }

@@ -35,6 +35,10 @@ public class MessageTxService {
     // LLM에 실어 보낼 직전 맥락의 크기(메시지 수). 토큰, 비용을 제한하기 위한 window.
     private static final int HISTORY_WINDOW = 20;
 
+    // 채팅 프롬프트에 싣는 사실 원장 상한(최근 N개). 원장은 무제한으로 쌓이므로 통째로 실으면
+    // 대화가 길수록 호출당 입력 토큰이 선형 증가한다. 채팅은 맥락용이라 진단(50)보다 적은 30.
+    private static final int FACT_INJECT_LIMIT = 30;
+
     private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
 
     // 진단 설명용: 유저가 "계속 대화하면 진단도 갱신된다"고 오해하기 쉬워, 이 결과가 언제 것인지 말하게 한다.
@@ -89,10 +93,13 @@ public class MessageTxService {
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(personaProperties.getPersona()));
         // 사실 원장: 창 밖으로 밀려나도 잊으면 안 되는 사건, 사실들. 괄호는 기록일.
-        List<StoryFact> facts = storyFactRepository.findByStoryIdOrderByIdAsc(storyId);
-        if (!facts.isEmpty()) {
+        // 최근 N개만 최신순으로 가져와 시간순으로 뒤집는다(비용 상한).
+        List<StoryFact> recentFacts = storyFactRepository.findByStoryIdOrderByIdDesc(
+                storyId, PageRequest.of(0, FACT_INJECT_LIMIT));
+        if (!recentFacts.isEmpty()) {
             StringBuilder block = new StringBuilder("기록된 사실(괄호는 기록일):");
-            for (StoryFact fact : facts) {
+            for (int i = recentFacts.size() - 1; i >= 0; i--) {
+                StoryFact fact = recentFacts.get(i);
                 block.append("\n- (").append(FACT_DATE.format(fact.getCreatedAt())).append(") ")
                         .append(fact.getFact());
             }
