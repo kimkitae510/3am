@@ -48,6 +48,54 @@
   margin-bottom: 28px;
 }
 
+/* 랜딩 모드 — 폼 없이 카피와 소셜 시작 버튼만 */
+.tagline {
+  margin: 0;
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.giftNote {
+  margin: 0 0 12px;
+  text-align: center;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.socialNote {
+  margin: 12px 0 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.emailEntry {
+  margin-top: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  align-self: center;
+  padding: 4px 8px;
+}
+
+/* 이메일 모드 좌상단 뒤로가기 — 랜딩으로 복귀. .aboveSky(position: relative) 기준 배치 */
+.backLanding {
+  position: absolute;
+  top: 8px;
+  left: -14px; /* body 좌우 패딩(34px) 안쪽으로 너무 들어가지 않게 살짝 당김 */
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+}
+
 .title {
   font-size: 30px;
   font-weight: 700;
