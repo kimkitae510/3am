@@ -32,6 +32,7 @@
   color: var(--text-sub);
   font-size: 13px;
   line-height: 1.65;
+  white-space: pre-line; /* 애착유형처럼 항목을 줄로 나누는 섹션 지원 */
 }
 
 .heading {
