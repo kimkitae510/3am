@@ -127,6 +127,12 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    # SMTP 연결 상태를 health에 넣지 않는다. 액추에이터는 mail 설정이 있으면 매 체크마다
+    # gmail 접속을 시도하는데, mock 메일(키 없음)에선 반드시 실패해 전체 status를 DOWN으로 만든다.
+    # 실연동 후에도 health마다 외부 SMTP를 두드리는 건 부하라 끈다(발송 기능 자체와는 무관).
+    mail:
+      enabled: false
 
 # 로그 레벨, 출력(콘솔/파일), traceId 패턴은 logback-spring.xml에서 프로파일별로 관리한다.
 # show-sql은 개발 기본값만 여기 두고, 운영(prod)에서는 application-prod.yml이 꺼서 개인정보(사연) 쿼리 노출을 막는다.
