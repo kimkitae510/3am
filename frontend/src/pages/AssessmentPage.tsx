@@ -235,7 +235,7 @@ export function AssessmentPage() {
         <BackBar onBack={toChat} onHelp={() => setShowHelp(true)} />
         {error && <div className={styles.errorBanner}>{error}</div>}
         <div className={styles.body}>
-          <div className={styles.meta}>이 대화방 기준, 마지막 진단 {metaDate}</div>
+          <div className={styles.meta}>마지막 진단 - {metaDate}</div>
 
           {/* 재회 성공은 확률 화면이 아니라 축하 화면 — 게이지 자체를 두지 않는다 */}
           {reunited ? (
