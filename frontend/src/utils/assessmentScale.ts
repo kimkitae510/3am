@@ -3,8 +3,8 @@
 
 export const GAUGE_MAX = 80; // 확률 상한(정책, 백엔드 클램프와 동일)
 
-// 확률은 5~80 사이로만 나온다(백엔드 클램프). 80이 만점인 척도라 60부터가 체감 "높음"이다.
+// 확률은 5~80 사이로만 나온다(백엔드 클램프). BASE 50(중립)이 "보통" 한가운데 오도록 경계를 잡았다.
 export function bandLabel(prob: number): string {
   if (prob >= 100) return '상대의 재회 제안 유효';
-  return prob < 30 ? '낮음' : prob < 60 ? '보통' : '높음';
+  return prob < 25 ? '매우 낮음' : prob < 45 ? '낮음' : prob < 65 ? '보통' : '높음';
 }
