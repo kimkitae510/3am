@@ -1,0 +1,34 @@
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.backButton {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.topTitle {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 28px;
+}

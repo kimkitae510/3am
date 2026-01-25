@@ -55,8 +55,15 @@ export function TermsContent() {
       <div className={styles.clauseTitle}>제5조 (이용 한도와 이용권)</div>
       <p className={styles.para}>
         무료 이용 한도는 하루 단위로 제공되며 서비스 사정에 따라 변경될 수 있습니다. 유료
-        이용권은 결제 시 안내된 횟수만큼 사용할 수 있습니다. 이용권을 한 번도 사용하지 않은
-        경우에만 전액 환불할 수 있으며, 한 번이라도 사용한 뒤에는 환불되지 않습니다.
+        이용권은 결제 시 안내된 횟수만큼 사용할 수 있습니다.
+      </p>
+
+      <div className={styles.clauseTitle}>제5조의2 (환불과 청약철회)</div>
+      <p className={styles.para}>
+        이용권은 결제 즉시 지급되는 디지털 콘텐츠입니다. 한 번도 사용하지 않은 이용권은 기간
+        제한 없이 전액 환불받을 수 있으며, 환불은 1:1 문의로 접수하면 처리해 드립니다. 사용을
+        시작한 이용권은 결제 시 이 내용을 안내받고 동의한 경우 전자상거래 등에서의 소비자보호에
+        관한 법률 제17조 제2항에 따라 청약철회가 제한됩니다.
       </p>
 
       <div className={styles.clauseTitle}>제6조 (금지 행위)</div>
@@ -85,8 +92,20 @@ export function TermsContent() {
         서비스를 계속 이용하면 변경된 약관에 동의한 것으로 봅니다.
       </p>
 
-      <div className={styles.clauseTitle}>제10조 (준거법)</div>
-      <p className={styles.para}>이 약관은 대한민국 법령에 따라 해석되고 적용됩니다.</p>
+      <div className={styles.clauseTitle}>제10조 (개인정보 보호)</div>
+      <p className={styles.para}>
+        개인정보의 수집, 이용, 보관, 파기에 관한 사항은 개인정보처리방침에 따릅니다.
+        개인정보처리방침은 로그인 화면과 서비스 안내에서 언제든지 볼 수 있습니다.
+      </p>
+
+      <div className={styles.clauseTitle}>제11조 (준거법)</div>
+      <p className={styles.para}>이 약관은 대한민국 법령에 따라 해석되고 적용됩니다. 문서 버전 1.0.</p>
+
+      <div className={styles.section}>운영자 정보</div>
+      <p className={styles.para}>
+        상호: 케이케이티랩 / 대표: 김기태 / 사업자등록번호: (발급 후 기재) / 통신판매업
+        신고번호: (신고 후 기재)
+      </p>
 
       <div className={styles.section}>문의</div>
       <p className={styles.para}>
