@@ -23,6 +23,8 @@ public enum ErrorCode {
     VERIFICATION_RESEND_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "U006", "인증 메일을 방금 보냈어요. 1분 뒤에 다시 요청해 주세요."),
     VERIFICATION_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "U007", "인증 시도가 너무 많았어요. 코드를 다시 요청해 주세요."),
     MAIL_SEND_FAILED(HttpStatus.BAD_GATEWAY, "U008", "인증 메일 발송에 실패했어요. 잠시 후 다시 시도해 주세요."),
+    // 가입 필수 동의와 결제 청약철회 고지 동의가 공용으로 쓴다
+    CONSENT_REQUIRED(HttpStatus.BAD_REQUEST, "U009", "필수 동의 항목이 누락됐어요."),
 
     // 인증
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "A001", "비밀번호가 올바르지 않습니다."),

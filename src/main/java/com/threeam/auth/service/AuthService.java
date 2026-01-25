@@ -7,6 +7,7 @@ import com.threeam.auth.entity.RefreshToken;
 import com.threeam.auth.oauth.OAuthClient;
 import com.threeam.auth.oauth.OAuthProfile;
 import com.threeam.auth.repository.RefreshTokenRepository;
+import com.threeam.consent.service.ConsentService;
 import com.threeam.global.config.JwtProperties;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
@@ -38,6 +39,7 @@ public class AuthService {
     private final TokenInvalidationRegistry tokenInvalidationRegistry;
     private final OAuthClient oAuthClient;
     private final WelcomeGiftService welcomeGiftService;
+    private final ConsentService consentService;
 
     @Transactional
     public TokenResponse login(LoginRequest request, String clientIp) {
@@ -66,7 +68,7 @@ public class AuthService {
         User user = userRepository.findByProviderAndProviderId(provider, profile.providerId())
                 .orElse(null);
         if (user == null) {
-            user = registerSocialUser(profile);
+            user = registerSocialUser(profile, request.getConsents());
         } else if (user.isWithdrawn()) {
             // 이메일 가입과 같은 정책: 탈퇴 계정은 재사용 불가. 본인이 카카오/네이버 인증을
             // 마친 상태라 사유를 그대로 알려줘도 계정 열거 문제가 없다.
@@ -75,7 +77,9 @@ public class AuthService {
         return issueTokens(user);
     }
 
-    private User registerSocialUser(OAuthProfile profile) {
+    private User registerSocialUser(OAuthProfile profile, java.util.Set<String> consents) {
+        // 첫 로그인이 곧 가입 — 이메일 가입과 같은 필수 동의 세트를 계정 생성 전에 요구한다.
+        consentService.requireSignupConsents(consents);
         // 소셜 이메일이 기존 계정(이메일 가입 또는 다른 소셜)과 겹치면 통합하지 않고 거부한다
         // (사용자 확정 정책 — 소셜 제공자의 이메일 검증 수준을 신뢰 조건에서 뺀다).
         if (profile.email() != null && userRepository.existsByEmail(profile.email())) {
@@ -87,6 +91,7 @@ public class AuthService {
                 .provider(profile.provider())
                 .providerId(profile.providerId())
                 .build());
+        consentService.recordSignupConsents(saved.getId());
         // 이메일 가입과 동일한 가입 선물 — 첫 로그인이 곧 가입인 소셜 경로도 빠뜨리지 않는다.
         welcomeGiftService.grant(saved.getId());
         return saved;

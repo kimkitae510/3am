@@ -1,6 +1,7 @@
 package com.threeam.user.service;
 
 import com.threeam.auth.repository.RefreshTokenRepository;
+import com.threeam.consent.service.ConsentService;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.security.jwt.TokenInvalidationRegistry;
@@ -30,10 +31,13 @@ public class UserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final TokenInvalidationRegistry tokenInvalidationRegistry;
     private final WelcomeGiftService welcomeGiftService;
+    private final ConsentService consentService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request, String clientIp) {
         signupRateLimiter.check(clientIp);
+        // 인증 코드가 소비되기 전에 거른다 — 동의 누락으로 실패했는데 코드만 날아가는 상황 방지.
+        consentService.requireSignupConsents(request.getConsents());
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
@@ -51,6 +55,7 @@ public class UserService {
                 .build();
 
         User saved = userRepository.save(user);
+        consentService.recordSignupConsents(saved.getId());
         welcomeGiftService.grant(saved.getId());
         return SignupResponse.from(saved);
     }

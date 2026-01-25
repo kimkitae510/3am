@@ -59,6 +59,9 @@ class AuthServiceTest {
     @Mock
     private com.threeam.usage.WelcomeGiftService welcomeGiftService;
 
+    @Mock
+    private com.threeam.consent.service.ConsentService consentService;
+
     @InjectMocks
     private AuthService authService;
 
@@ -86,7 +89,42 @@ class AuthServiceTest {
         assertThat(captor.getValue().getProvider()).isEqualTo(com.threeam.user.entity.AuthProvider.KAKAO);
         assertThat(captor.getValue().getProviderId()).isEqualTo("kakao-1");
         assertThat(captor.getValue().hasPassword()).isFalse(); // 소셜 계정은 비밀번호 없음
+        verify(consentService).recordSignupConsents(7L); // 소셜 첫 로그인도 동의 이력을 남긴다
         verify(welcomeGiftService).grant(7L); // 소셜 첫 로그인도 가입 선물을 받는다
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 - 신규 가입인데 필수 동의가 없으면 계정을 만들지 않는다")
+    void oauthLogin_consentMissing() {
+        given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.KAKAO, "code1", "st", "http://r"))
+                .willReturn(new com.threeam.auth.oauth.OAuthProfile(
+                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", null));
+        given(userRepository.findByProviderAndProviderId(
+                com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.empty());
+        org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.CONSENT_REQUIRED))
+                .given(consentService).requireSignupConsents(any());
+
+        assertThatThrownBy(() -> authService.oauthLogin(
+                com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CONSENT_REQUIRED);
+        verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 - 기존 계정 로그인은 동의를 다시 요구하지 않는다")
+    void oauthLogin_existingUserSkipsConsent() {
+        User user = socialUser(7L, null);
+        given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.KAKAO, "code1", "st", "http://r"))
+                .willReturn(new com.threeam.auth.oauth.OAuthProfile(
+                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", null));
+        given(userRepository.findByProviderAndProviderId(
+                com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.of(user));
+        stubTokenIssue(7L);
+
+        authService.oauthLogin(com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r"));
+
+        org.mockito.Mockito.verifyNoInteractions(consentService);
     }
 
     @Test

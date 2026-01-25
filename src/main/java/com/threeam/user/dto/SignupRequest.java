@@ -25,4 +25,8 @@ public class SignupRequest {
     @NotBlank(message = "이메일 인증 코드는 필수입니다.")
     @Pattern(regexp = "^\\d{6}$", message = "인증 코드는 숫자 6자리입니다.")
     private String verificationCode;
+
+    // 가입 화면 체크박스와 1:1(ConsentType 이름). 필수 세트 검증은 ConsentService가 한다 —
+    // enum 대신 String으로 받아 모르는 값이 역직렬화 500으로 새지 않게 한다.
+    private java.util.Set<String> consents;
 }

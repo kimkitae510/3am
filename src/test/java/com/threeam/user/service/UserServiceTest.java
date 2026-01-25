@@ -47,6 +47,9 @@ class UserServiceTest {
     @Mock
     private com.threeam.usage.WelcomeGiftService welcomeGiftService;
 
+    @Mock
+    private com.threeam.consent.service.ConsentService consentService;
+
     @InjectMocks
     private UserService userService;
 
@@ -72,7 +75,23 @@ class UserServiceTest {
         assertThat(captor.getValue().getPassword()).isEqualTo("encodedPw"); // 평문 저장 안 함
         assertThat(captor.getValue().getRole()).isEqualTo(Role.USER);
         verify(emailVerificationService).verifyAndConsume("a@a.com", "123456"); // 인증 코드 검증을 거친다
+        verify(consentService).recordSignupConsents(1L); // 동의 이력을 남긴다
         verify(welcomeGiftService).grant(1L); // 가입 선물 이용권 지급
+    }
+
+    @Test
+    @DisplayName("회원가입 실패 - 필수 동의 누락이면 인증 코드가 소비되기 전에 거른다")
+    void signup_consentMissing() {
+        SignupRequest request = signupRequest("a@a.com", "password123");
+        org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.CONSENT_REQUIRED))
+                .given(consentService).requireSignupConsents(any());
+
+        assertThatThrownBy(() -> userService.signup(request, "1.1.1.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CONSENT_REQUIRED);
+        verify(emailVerificationService, org.mockito.Mockito.never())
+                .verifyAndConsume(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+        verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
     }
 
     @Test
@@ -187,6 +206,8 @@ class UserServiceTest {
         ReflectionTestUtils.setField(request, "email", email);
         ReflectionTestUtils.setField(request, "password", password);
         ReflectionTestUtils.setField(request, "verificationCode", "123456");
+        ReflectionTestUtils.setField(request, "consents",
+                java.util.Set.of("TERMS", "PRIVACY", "SENSITIVE", "DISCLAIMER"));
         return request;
     }
 }
