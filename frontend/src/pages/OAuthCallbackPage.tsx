@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
-import { oauthLogin, type OAuthProvider } from '../api/auth';
+import { oauthLogin, SIGNUP_CONSENTS, type OAuthProvider } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import { consumeStoredState } from '../utils/socialAuth';
 import styles from './LoginPage.module.css';
@@ -44,6 +44,9 @@ export function OAuthCallbackPage() {
       code,
       state: state ?? undefined,
       redirectUri: stored.redirectUri ?? window.location.origin + window.location.pathname,
+      // 인가 페이지로 넘어왔다는 것 자체가 로그인 화면의 동의 시트를 통과했다는 뜻 —
+      // 신규 가입이면 서버가 이 동의를 기록하고, 기존 계정이면 무시한다.
+      consents: [...SIGNUP_CONSENTS],
     })
       .then(() => navigate('/stories', { replace: true }))
       .catch((err) => setError(extractErrorMessage(err, '소셜 로그인에 실패했어요.')));

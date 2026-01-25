@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { TermsContent } from '../components/TermsContent';
-import { requestEmailVerification, signup } from '../api/auth';
+import { PrivacyContent } from '../components/PrivacyContent';
+import { requestEmailVerification, signup, SIGNUP_CONSENTS } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import styles from './LoginPage.module.css';
 
@@ -17,8 +18,11 @@ export function SignupPage() {
   const [cooldown, setCooldown] = useState(0);
   const [password, setPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
+  const [agreeSensitive, setAgreeSensitive] = useState(false);
   const [agreeDisclaimer, setAgreeDisclaimer] = useState(false);
-  const [showTerms, setShowTerms] = useState(false); // 오버레이로 열어 입력값이 안 날아가게 한다
+  // 오버레이로 열어 입력값이 안 날아가게 한다. terms/privacy 두 문서를 같은 시트로 돌려쓴다.
+  const [showDoc, setShowDoc] = useState<'terms' | 'privacy' | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const cooldownTimer = useRef<number | null>(null);
@@ -59,12 +63,20 @@ export function SignupPage() {
     }
   }
 
+  const allAgreed = agreeTerms && agreePrivacy && agreeSensitive && agreeDisclaimer;
+
+  function setAllAgreed(value: boolean) {
+    setAgreeTerms(value);
+    setAgreePrivacy(value);
+    setAgreeSensitive(value);
+    setAgreeDisclaimer(value);
+  }
+
   const canSubmit =
     email.trim() !== '' &&
     /^\d{6}$/.test(code) &&
     password.length >= 8 &&
-    agreeTerms &&
-    agreeDisclaimer &&
+    allAgreed &&
     !submitting;
 
   async function handleSignup(e: React.FormEvent) {
@@ -77,6 +89,7 @@ export function SignupPage() {
         email: email.trim(),
         password,
         verificationCode: code,
+        consents: [...SIGNUP_CONSENTS],
       });
       // 가입 선물(이용권)은 로그인 화면 안내로 알린다 — 받은 걸 모르면 준 게 아니다.
       navigate('/login', { state: { welcomeGift: true } });
@@ -152,6 +165,15 @@ export function SignupPage() {
         </div>
 
         <div className={styles.consentBox}>
+          <label className={`${styles.consentRow} ${styles.consentAll}`}>
+            <input
+              type="checkbox"
+              className={styles.consentCheck}
+              checked={allAgreed}
+              onChange={(e) => setAllAgreed(e.target.checked)}
+            />
+            <span>모두 동의합니다</span>
+          </label>
           <label className={styles.consentRow}>
             <input
               type="checkbox"
@@ -160,6 +182,39 @@ export function SignupPage() {
               onChange={(e) => setAgreeTerms(e.target.checked)}
             />
             <span>(필수) 이용약관에 동의합니다</span>
+            {/* label 안의 버튼 — 기본 동작이 체크 토글로 번지지 않게 막는다 */}
+            <button
+              type="button"
+              className={styles.consentView}
+              onClick={(e) => { e.preventDefault(); setShowDoc('terms'); }}
+            >
+              보기
+            </button>
+          </label>
+          <label className={styles.consentRow}>
+            <input
+              type="checkbox"
+              className={styles.consentCheck}
+              checked={agreePrivacy}
+              onChange={(e) => setAgreePrivacy(e.target.checked)}
+            />
+            <span>(필수) 개인정보 수집, 이용에 동의합니다</span>
+            <button
+              type="button"
+              className={styles.consentView}
+              onClick={(e) => { e.preventDefault(); setShowDoc('privacy'); }}
+            >
+              보기
+            </button>
+          </label>
+          <label className={styles.consentRow}>
+            <input
+              type="checkbox"
+              className={styles.consentCheck}
+              checked={agreeSensitive}
+              onChange={(e) => setAgreeSensitive(e.target.checked)}
+            />
+            <span>(필수) 이별, 연애 이야기(민감할 수 있는 정보) 수집, 이용에 동의합니다</span>
           </label>
           <label className={styles.consentRow}>
             <input
@@ -168,11 +223,8 @@ export function SignupPage() {
               checked={agreeDisclaimer}
               onChange={(e) => setAgreeDisclaimer(e.target.checked)}
             />
-            <span>(필수) 면책 고지를 확인했습니다</span>
+            <span>(필수) AI 답변은 참고 정보라는 면책 고지를 확인했습니다</span>
           </label>
-          <button type="button" className={styles.consentView} onClick={() => setShowTerms(true)}>
-            전문 보기
-          </button>
         </div>
 
         <div className={styles.error}>{error}</div>
@@ -181,23 +233,17 @@ export function SignupPage() {
           {submitting ? '가입 중…' : '가입하기'}
         </button>
 
-        {showTerms && (
-          <div className={styles.sheetOverlay} onClick={() => setShowTerms(false)}>
+        {showDoc && (
+          <div className={styles.sheetOverlay} onClick={() => setShowDoc(null)}>
             <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.sheetTitle}>이용약관과 면책 고지</div>
-              <div className={styles.sheetBody}>
-                <TermsContent />
+              <div className={styles.sheetTitle}>
+                {showDoc === 'terms' ? '이용약관과 면책 고지' : '개인정보처리방침'}
               </div>
-              <button
-                type="button"
-                className={styles.sheetAgree}
-                onClick={() => {
-                  setAgreeTerms(true);
-                  setAgreeDisclaimer(true);
-                  setShowTerms(false);
-                }}
-              >
-                모두 확인했으며 동의합니다
+              <div className={styles.sheetBody}>
+                {showDoc === 'terms' ? <TermsContent /> : <PrivacyContent />}
+              </div>
+              <button type="button" className={styles.sheetAgree} onClick={() => setShowDoc(null)}>
+                확인했어요
               </button>
             </div>
           </div>

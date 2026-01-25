@@ -12,10 +12,14 @@ export interface TokenResponse {
   refreshToken: string;
 }
 
+// 서버 ConsentType 이름과 1:1. 가입이 성립하려면 전부 필요하다(서버가 다시 검증).
+export const SIGNUP_CONSENTS = ['TERMS', 'PRIVACY', 'SENSITIVE', 'DISCLAIMER'] as const;
+
 export interface SignupRequest {
   email: string;
   password: string;
   verificationCode: string;
+  consents: string[];
 }
 
 export type OAuthProvider = 'kakao' | 'naver';
@@ -24,6 +28,8 @@ export interface OAuthLoginRequest {
   code: string;
   state?: string;
   redirectUri: string;
+  // 소셜은 첫 로그인이 곧 가입이라 동의를 같이 싣는다. 기존 계정 로그인이면 서버가 무시한다.
+  consents?: string[];
 }
 
 export interface SignupResponse {

@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { NightSky } from '../components/NightSky';
-import { login, oauthLogin, type OAuthProvider } from '../api/auth';
+import { login, oauthLogin, SIGNUP_CONSENTS, type OAuthProvider } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import { redirectUriFor, startSocialLogin } from '../utils/socialAuth';
 import styles from './LoginPage.module.css';
+
+// 소셜은 첫 로그인이 곧 가입이라 인가로 넘어가기 전에 동의를 받는다.
+// 이 기기에서 한 번 동의했으면 다음부터 시트를 생략한다(서버는 신규 가입일 때만 검사).
+const SOCIAL_CONSENT_KEY = 'social-consent-v1';
 
 function Clock() {
   // 월페이퍼 컨셉: 새벽 세시를 가리키는 시계 하나, 초침만 흐른다
@@ -41,19 +45,46 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // 동의 시트가 열려 있으면 어느 소셜로 이어갈지 기억한다
+  const [consentFor, setConsentFor] = useState<OAuthProvider | null>(null);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
+  const [agreeSensitive, setAgreeSensitive] = useState(false);
+  const [agreeDisclaimer, setAgreeDisclaimer] = useState(false);
+  const allAgreed = agreeTerms && agreePrivacy && agreeSensitive && agreeDisclaimer;
 
   const canSubmit = email.trim() !== '' && password !== '' && !submitting;
 
-  async function handleSocial(provider: OAuthProvider) {
+  function handleSocial(provider: OAuthProvider) {
     setError('');
+    if (!localStorage.getItem(SOCIAL_CONSENT_KEY)) {
+      setConsentFor(provider);
+      return;
+    }
+    void proceedSocial(provider);
+  }
+
+  async function proceedSocial(provider: OAuthProvider) {
     if (startSocialLogin(provider) === 'redirected') return;
     // 키 미설정(개발) — 백엔드 mock 프로바이더로 바로 교환한다. 같은 code라 항상 같은 개발 계정.
     try {
-      await oauthLogin(provider, { code: `dev-${provider}`, redirectUri: redirectUriFor(provider) });
+      await oauthLogin(provider, {
+        code: `dev-${provider}`,
+        redirectUri: redirectUriFor(provider),
+        consents: [...SIGNUP_CONSENTS],
+      });
       navigate('/stories');
     } catch (err) {
       setError(extractErrorMessage(err, '소셜 로그인에 실패했어요.'));
     }
+  }
+
+  function agreeAndStart() {
+    if (!allAgreed || !consentFor) return;
+    localStorage.setItem(SOCIAL_CONSENT_KEY, '1');
+    const provider = consentFor;
+    setConsentFor(null);
+    void proceedSocial(provider);
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -93,6 +124,96 @@ export function LoginPage() {
           <button className={styles.emailEntry} type="button" onClick={() => { setError(''); setMode('email'); }}>
             이메일로 계속하기
           </button>
+          <div className={styles.docLinks}>
+            <button className={styles.docLink} type="button" onClick={() => navigate('/terms')}>
+              이용약관
+            </button>
+            <button className={styles.docLink} type="button" onClick={() => navigate('/privacy')}>
+              개인정보처리방침
+            </button>
+          </div>
+
+          {consentFor && (
+            <div className={styles.sheetOverlay} onClick={() => setConsentFor(null)}>
+              <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
+                <div className={styles.sheetTitle}>시작하기 전에 확인해 주세요</div>
+                <div className={styles.consentBox}>
+                  <label className={`${styles.consentRow} ${styles.consentAll}`}>
+                    <input
+                      type="checkbox"
+                      className={styles.consentCheck}
+                      checked={allAgreed}
+                      onChange={(e) => {
+                        setAgreeTerms(e.target.checked);
+                        setAgreePrivacy(e.target.checked);
+                        setAgreeSensitive(e.target.checked);
+                        setAgreeDisclaimer(e.target.checked);
+                      }}
+                    />
+                    <span>모두 동의합니다</span>
+                  </label>
+                  <label className={styles.consentRow}>
+                    <input
+                      type="checkbox"
+                      className={styles.consentCheck}
+                      checked={agreeTerms}
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                    />
+                    <span>(필수) 이용약관에 동의합니다</span>
+                    <button
+                      type="button"
+                      className={styles.consentView}
+                      onClick={(e) => { e.preventDefault(); navigate('/terms'); }}
+                    >
+                      보기
+                    </button>
+                  </label>
+                  <label className={styles.consentRow}>
+                    <input
+                      type="checkbox"
+                      className={styles.consentCheck}
+                      checked={agreePrivacy}
+                      onChange={(e) => setAgreePrivacy(e.target.checked)}
+                    />
+                    <span>(필수) 개인정보 수집, 이용에 동의합니다</span>
+                    <button
+                      type="button"
+                      className={styles.consentView}
+                      onClick={(e) => { e.preventDefault(); navigate('/privacy'); }}
+                    >
+                      보기
+                    </button>
+                  </label>
+                  <label className={styles.consentRow}>
+                    <input
+                      type="checkbox"
+                      className={styles.consentCheck}
+                      checked={agreeSensitive}
+                      onChange={(e) => setAgreeSensitive(e.target.checked)}
+                    />
+                    <span>(필수) 이별, 연애 이야기(민감할 수 있는 정보) 수집, 이용에 동의합니다</span>
+                  </label>
+                  <label className={styles.consentRow}>
+                    <input
+                      type="checkbox"
+                      className={styles.consentCheck}
+                      checked={agreeDisclaimer}
+                      onChange={(e) => setAgreeDisclaimer(e.target.checked)}
+                    />
+                    <span>(필수) AI 답변은 참고 정보라는 면책 고지를 확인했습니다</span>
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className={styles.sheetAgree}
+                  disabled={!allAgreed}
+                  onClick={agreeAndStart}
+                >
+                  동의하고 시작하기
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </PhoneFrame>
     );
