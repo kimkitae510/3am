@@ -302,3 +302,25 @@
   color: #e07a7a;
   font-size: 12px;
 }
+
+/* 청약철회 제한 고지 — 구매 버튼을 여는 관문이라 상품 카드 바로 아래에 둔다 */
+.refundConsent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.6;
+  cursor: pointer;
+  user-select: none;
+}
+
+.refundCheck {
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}

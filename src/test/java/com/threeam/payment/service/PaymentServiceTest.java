@@ -51,11 +51,14 @@ class PaymentServiceTest {
     @Mock
     private PaymentGateway paymentGateway;
 
+    @Mock
+    private com.threeam.consent.service.ConsentService consentService;
+
     private PaymentService service;
 
     @BeforeEach
     void setUp() {
-        service = new PaymentService(txService, paymentGateway, new PaymentProperties());
+        service = new PaymentService(txService, paymentGateway, new PaymentProperties(), consentService);
     }
 
     private Payment payment(PaymentStatus status) {
@@ -89,13 +92,43 @@ class PaymentServiceTest {
     @Test
     @DisplayName("주문 생성 - 없는 상품 코드는 PAYMENT_ITEM_NOT_FOUND")
     void createOrder_unknownItem() {
-        OrderCreateRequest request = new OrderCreateRequest();
-        ReflectionTestUtils.setField(request, "item", "NOPE");
+        OrderCreateRequest request = orderRequest("NOPE", true);
 
         assertThatThrownBy(() -> service.createOrder(1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_ITEM_NOT_FOUND);
         verifyNoInteractions(paymentGateway);
+    }
+
+    @Test
+    @DisplayName("주문 생성 - 청약철회 고지 미동의면 주문을 만들지 않는다")
+    void createOrder_withoutRefundConsent() {
+        OrderCreateRequest request = orderRequest("BUNDLE_STANDARD", false);
+
+        assertThatThrownBy(() -> service.createOrder(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CONSENT_REQUIRED);
+        verifyNoInteractions(txService);
+        verifyNoInteractions(consentService);
+    }
+
+    @Test
+    @DisplayName("주문 생성 - 성공 시 고지 동의를 주문 번호와 묶어 기록한다")
+    void createOrder_recordsConsent() {
+        OrderCreateRequest request = orderRequest("BUNDLE_STANDARD", true);
+        given(txService.createOrder(eq(1L), eq(PaymentItem.BUNDLE_STANDARD), anyInt()))
+                .willReturn(payment(PaymentStatus.READY));
+
+        service.createOrder(1L, request);
+
+        verify(consentService).recordPurchaseConsent(1L, "order-1");
+    }
+
+    private OrderCreateRequest orderRequest(String item, boolean refundPolicyAgreed) {
+        OrderCreateRequest request = new OrderCreateRequest();
+        ReflectionTestUtils.setField(request, "item", item);
+        ReflectionTestUtils.setField(request, "refundPolicyAgreed", refundPolicyAgreed);
+        return request;
     }
 
     @Test

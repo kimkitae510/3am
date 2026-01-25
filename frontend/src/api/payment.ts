@@ -66,8 +66,9 @@ export async function getPaymentConfig(): Promise<PaymentConfig> {
   return data;
 }
 
-export async function createOrder(item: string): Promise<OrderCreateResponse> {
-  const { data } = await api.post<OrderCreateResponse>('/api/payments/orders', { item });
+// refundPolicyAgreed: 청약철회 제한(디지털 콘텐츠) 고지 동의 — 서버가 이 값 없이는 주문을 안 만든다.
+export async function createOrder(item: string, refundPolicyAgreed: boolean): Promise<OrderCreateResponse> {
+  const { data } = await api.post<OrderCreateResponse>('/api/payments/orders', { item, refundPolicyAgreed });
   return data;
 }
 

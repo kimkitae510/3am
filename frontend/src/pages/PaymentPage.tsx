@@ -59,6 +59,8 @@ export function PaymentPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [buying, setBuying] = useState(false);
+  // 청약철회 제한 고지 동의 — 전자상거래법상 결제 전에 받아야 해서 구매 버튼의 관문이다
+  const [agreeRefundPolicy, setAgreeRefundPolicy] = useState(false);
   // 실결제(toss) 모드에서만: 주문을 만들고 위젯을 펼친 상태
   const [widgetOrder, setWidgetOrder] = useState<OrderCreateResponse | null>(null);
   const [widgetReady, setWidgetReady] = useState(false);
@@ -118,12 +120,12 @@ export function PaymentPage() {
   }, [widgetOrder, config]);
 
   async function buy(itemCode: string) {
-    if (buying || !config) return;
+    if (buying || !config || !agreeRefundPolicy) return;
     setBuying(true);
     setError('');
     setNotice('');
     try {
-      const order = await createOrder(itemCode);
+      const order = await createOrder(itemCode, agreeRefundPolicy);
       if (!config.clientKey) {
         // mock 모드: PG 없이 서버 mock 게이트웨이가 즉시 승인한다 — 키 없이 전체 흐름 확인용.
         const done = await confirmPayment({
@@ -219,11 +221,28 @@ export function PaymentPage() {
                       <div className={styles.itemName}>{item.name}</div>
                       <div className={styles.itemGrants}>{grantsText(item)} / 기한 없음</div>
                     </div>
-                    <button className={styles.buyButton} onClick={() => buy(item.code)} disabled={buying}>
+                    <button
+                      className={styles.buyButton}
+                      onClick={() => buy(item.code)}
+                      disabled={buying || !agreeRefundPolicy}
+                    >
                       {buying ? '진행 중…' : `${item.amount.toLocaleString()}원`}
                     </button>
                   </div>
                 ))}
+                <label className={styles.refundConsent}>
+                  <input
+                    type="checkbox"
+                    className={styles.refundCheck}
+                    checked={agreeRefundPolicy}
+                    onChange={(e) => setAgreeRefundPolicy(e.target.checked)}
+                  />
+                  <span>
+                    (필수) 이용권은 결제 즉시 지급되는 디지털 콘텐츠로, 사용을 시작하면
+                    환불(청약철회)이 제한되는 것에 동의합니다. 사용하지 않은 이용권은 1:1 문의로
+                    전액 환불받을 수 있어요.
+                  </span>
+                </label>
               </>
             )}
 

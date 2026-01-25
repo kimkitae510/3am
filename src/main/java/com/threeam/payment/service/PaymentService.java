@@ -1,5 +1,6 @@
 package com.threeam.payment.service;
 
+import com.threeam.consent.service.ConsentService;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.payment.client.PaymentGateway;
@@ -34,6 +35,7 @@ public class PaymentService {
     private final PaymentTxService txService;
     private final PaymentGateway paymentGateway;
     private final PaymentProperties properties;
+    private final ConsentService consentService;
 
     public PaymentConfigResponse config() {
         return new PaymentConfigResponse(properties.getProvider(), properties.getToss().getClientKey());
@@ -41,9 +43,15 @@ public class PaymentService {
 
     // 금액은 여기서(서버 상품 정의로) 확정된다. 프론트는 orderId와 금액을 받아 위젯만 띄운다.
     public OrderCreateResponse createOrder(Long userId, OrderCreateRequest request) {
+        // 청약철회 제한은 결제 전 동의가 있어야 성립한다(전자상거래법) — 동의 없인 주문 자체를 안 만든다.
+        if (!request.isRefundPolicyAgreed()) {
+            throw new BusinessException(ErrorCode.CONSENT_REQUIRED);
+        }
         PaymentItem item = PaymentItem.parse(request.getItem());
-        return OrderCreateResponse.from(
-                txService.createOrder(userId, item, properties.getMaxPendingOrdersPerUser()));
+        Payment payment = txService.createOrder(userId, item, properties.getMaxPendingOrdersPerUser());
+        // 주문과 동의를 묶어 증빙으로 남긴다. 여기 도달했다는 것 자체가 동의 후이므로 순서는 안전.
+        consentService.recordPurchaseConsent(userId, payment.getOrderId());
+        return OrderCreateResponse.from(payment);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
