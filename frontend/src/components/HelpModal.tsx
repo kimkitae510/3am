@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { getMe } from '../api/auth';
 import styles from './HelpModal.module.css';
 
 export interface HelpSection {
@@ -18,6 +20,19 @@ export function HelpModal({
   sections: HelpSection[];
   onClose: () => void;
 }) {
+  // 오픈채팅은 익명이라 유저를 특정할 열쇠가 없다 — 문의 안내에 회원번호를 같이 보여준다.
+  // 조회 실패(비로그인 등)면 조용히 생략한다.
+  const [memberId, setMemberId] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getMe()
+      .then((me) => alive && setMemberId(me.id))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
@@ -34,6 +49,7 @@ export function HelpModal({
             카카오 오픈채팅 1:1 문의
           </a>
           로 보내주세요.
+          {memberId !== null && <> 문의하실 때 회원번호 {memberId}번을 알려주시면 확인이 빨라요.</>}
         </div>
         <button className={styles.close} onClick={onClose}>
           확인

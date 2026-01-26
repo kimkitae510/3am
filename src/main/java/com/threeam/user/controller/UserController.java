@@ -5,6 +5,7 @@ import com.threeam.user.dto.EmailVerificationRequest;
 import com.threeam.user.dto.PasswordChangeRequest;
 import com.threeam.user.dto.SignupRequest;
 import com.threeam.user.dto.SignupResponse;
+import com.threeam.user.dto.UserMeResponse;
 import com.threeam.user.service.EmailVerificationService;
 import com.threeam.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,6 +42,11 @@ public class UserController {
                                                  HttpServletRequest httpRequest) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(userService.signup(request, ClientIp.of(httpRequest)));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserMeResponse> me(@AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(userService.me(userId));
     }
 
     @PatchMapping("/me/password")

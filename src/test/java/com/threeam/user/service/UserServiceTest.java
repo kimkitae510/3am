@@ -132,6 +132,29 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("내 정보 조회 - 회원번호, 이메일, 가입 방법을 돌려준다")
+    void me_success() {
+        User user = userWithId(7L, "encodedPw");
+        given(userRepository.findByIdAndDeletedAtIsNull(7L)).willReturn(java.util.Optional.of(user));
+
+        com.threeam.user.dto.UserMeResponse response = userService.me(7L);
+
+        assertThat(response.getId()).isEqualTo(7L);
+        assertThat(response.getEmail()).isEqualTo("a@a.com");
+        assertThat(response.getProvider()).isEqualTo("EMAIL");
+    }
+
+    @Test
+    @DisplayName("내 정보 조회 - 탈퇴/미존재 계정이면 USER_NOT_FOUND")
+    void me_notFound() {
+        given(userRepository.findByIdAndDeletedAtIsNull(9L)).willReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> userService.me(9L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("비밀번호 변경 성공 - 현재 비번 확인 후 교체하고 세션을 모두 끊는다")
     void changePassword_success() {
         User user = userWithId(1L, "encodedOld");

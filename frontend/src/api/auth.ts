@@ -58,6 +58,18 @@ export async function oauthLogin(provider: OAuthProvider, body: OAuthLoginReques
   return data;
 }
 
+export interface UserMeResponse {
+  id: number;
+  email: string | null; // 소셜 가입은 이메일 미제공일 수 있다
+  provider: 'EMAIL' | 'KAKAO' | 'NAVER';
+}
+
+// 문의 대응용 회원번호 조회 — 유저가 자기 식별자(소셜 계정)를 알 방법이 없어서 필요하다
+export async function getMe(): Promise<UserMeResponse> {
+  const { data } = await api.get<UserMeResponse>('/api/users/me');
+  return data;
+}
+
 export async function logout(): Promise<void> {
   try {
     await api.post('/api/auth/logout');

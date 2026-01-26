@@ -9,6 +9,7 @@ import com.threeam.usage.WelcomeGiftService;
 import com.threeam.user.dto.PasswordChangeRequest;
 import com.threeam.user.dto.SignupRequest;
 import com.threeam.user.dto.SignupResponse;
+import com.threeam.user.dto.UserMeResponse;
 import com.threeam.user.entity.AuthProvider;
 import com.threeam.user.entity.Role;
 import com.threeam.user.entity.User;
@@ -58,6 +59,12 @@ public class UserService {
         consentService.recordSignupConsents(saved.getId());
         welcomeGiftService.grant(saved.getId());
         return SignupResponse.from(saved);
+    }
+
+    public UserMeResponse me(Long userId) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return UserMeResponse.from(user);
     }
 
     @Transactional
