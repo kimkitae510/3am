@@ -48,42 +48,6 @@
   margin-bottom: 28px;
 }
 
-/* 랜딩 모드 — 폼 없이 카피와 소셜 시작 버튼만 */
-.tagline {
-  margin: 0;
-  text-align: center;
-  color: var(--text-sub);
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-.giftNote {
-  margin: 0 0 12px;
-  text-align: center;
-  color: var(--accent);
-  font-size: 13px;
-}
-
-.socialNote {
-  margin: 12px 0 0;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.emailEntry {
-  margin-top: 16px;
-  border: none;
-  background: transparent;
-  color: var(--text-sub);
-  font-size: 14px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-  align-self: center;
-  padding: 4px 8px;
-}
-
 /* 이메일 모드 좌상단 뒤로가기 — 랜딩으로 복귀. .aboveSky(position: relative) 기준 배치 */
 .backLanding {
   position: absolute;
@@ -199,28 +163,106 @@
 }
 
 /* 소셜 로그인 — 각 브랜드 가이드 색상 고정(테마 변수 미사용) */
-.kakao {
-  margin-top: 10px;
-  height: 54px;
-  border: none;
-  border-radius: 14px;
-  background: #fee500;
-  color: #191919;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
+/* 홈(랜딩) — 디자인 시안(LoginHome.jsx) 이식. 값은 시안 그대로 쓴다 */
+.landBg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(130% 100% at 50% 0%, #101016 0%, #0a0a0e 52%, #08080b 100%);
 }
 
-.naver {
-  margin-top: 10px;
-  height: 54px;
-  border: none;
-  border-radius: 14px;
-  background: #03c75a;
-  color: #ffffff;
+.landing {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.landTagline {
+  margin: 0;
+  /* 시안 236px은 상태바 포함 기준 — 콘텐츠 영역(상태바 54px 제외)으로 환산 */
+  padding-top: 182px;
+  text-align: center;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+  color: #f0f0f2;
+}
+
+.landLogo {
+  padding-top: 20px;
+  text-align: center;
+  font-size: 64px;
+  font-weight: 200;
+  letter-spacing: 14px;
+  text-indent: 14px;
+  color: #fff;
+  line-height: 1;
+}
+
+.landError {
+  text-align: center;
+  margin: 0 28px 8px;
+}
+
+.landButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 0 28px 26px;
+}
+
+.landBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 54px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
   cursor: pointer;
+  border: none;
+  width: 100%;
+  font-family: inherit;
+}
+
+.landKakao {
+  background: #fee500;
+  color: #191600;
+}
+
+.landNaver {
+  background: #03c75a;
+  color: #fff;
+}
+
+.landEmail {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: rgba(236, 237, 237, 0.85);
+  font-weight: 500;
+}
+
+.landFooter {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 0 28px 14px;
+  font-size: 12.5px;
+  color: rgba(236, 237, 237, 0.32);
+}
+
+.landLogin {
+  border: none;
+  background: transparent;
+  color: rgba(183, 164, 227, 0.85);
+  cursor: pointer;
+  font-size: 12.5px;
+  padding: 0;
+  font-family: inherit;
 }
 
 /* 가입 이메일 인증 — 입력칸 안 오른쪽의 코드 요청 버튼 */
@@ -320,7 +362,7 @@
   display: flex;
   justify-content: center;
   gap: 14px;
-  margin-top: 12px;
+  padding-bottom: 30px;
 }
 
 .docLink {

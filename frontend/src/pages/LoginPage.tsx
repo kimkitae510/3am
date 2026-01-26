@@ -105,25 +105,58 @@ export function LoginPage() {
   if (mode === 'landing') {
     return (
       <PhoneFrame>
-        <NightSky />
-        <div className={`${styles.body} ${styles.aboveSky}`}>
-          <Clock />
-          <p className={styles.tagline}>잠이 안 오는 새벽, 이야기가 필요한 시간</p>
+        {/* 디자인 시안(LoginHome.jsx) 기준 — 월페이퍼 대신 라디얼 그라데이션 한 장 */}
+        <div className={styles.landBg} />
+        <div className={styles.landing}>
+          <p className={styles.landTagline}>이별 고민 상담 및 재회 진단</p>
+          <div className={styles.landLogo}>3am</div>
 
           <div className={styles.spacer} />
 
-          <div className={styles.error}>{error}</div>
-          <p className={styles.giftNote}>처음 시작하면 무료 대화 5회와 진단 1회를 드려요</p>
-          <button className={styles.kakao} type="button" onClick={() => handleSocial('kakao')}>
-            카카오로 3초 만에 시작하기
-          </button>
-          <button className={styles.naver} type="button" onClick={() => handleSocial('naver')}>
-            네이버로 시작하기
-          </button>
-          <p className={styles.socialNote}>카카오와 네이버에 아무것도 공유되지 않아요</p>
-          <button className={styles.emailEntry} type="button" onClick={() => { setError(''); setMode('email'); }}>
-            이메일로 계속하기
-          </button>
+          <div className={`${styles.error} ${styles.landError}`}>{error}</div>
+          <div className={styles.landButtons}>
+            <button
+              className={`${styles.landBtn} ${styles.landKakao}`}
+              type="button"
+              onClick={() => handleSocial('kakao')}
+            >
+              <svg width="17" height="16" viewBox="0 0 24 22" aria-hidden="true">
+                <path
+                  d="M12 1 C5.9 1 1 4.9 1 9.7 c0 3.1 2 5.8 5.1 7.3 L5 21 l4.7-3 c.7 .1 1.5 .2 2.3 .2 6.1 0 11-3.9 11-8.5 C23 4.9 18.1 1 12 1 Z"
+                  fill="#191600"
+                />
+              </svg>
+              카카오로 시작하기
+            </button>
+            <button
+              className={`${styles.landBtn} ${styles.landNaver}`}
+              type="button"
+              onClick={() => handleSocial('naver')}
+            >
+              <svg width="13" height="13" viewBox="0 0 18 18" aria-hidden="true">
+                <path d="M2 1 h4.6 l4.7 7 V1 H16 v16 h-4.6 L6.7 10 v7 H2 Z" fill="#fff" />
+              </svg>
+              네이버로 시작하기
+            </button>
+            <button
+              className={`${styles.landBtn} ${styles.landEmail}`}
+              type="button"
+              onClick={() => navigate('/signup')}
+            >
+              이메일로 시작하기
+            </button>
+          </div>
+
+          <div className={styles.landFooter}>
+            <span>이미 계정이 있나요?</span>
+            <button
+              className={styles.landLogin}
+              type="button"
+              onClick={() => { setError(''); setMode('email'); }}
+            >
+              로그인
+            </button>
+          </div>
           <div className={styles.docLinks}>
             <button className={styles.docLink} type="button" onClick={() => navigate('/terms')}>
               이용약관
