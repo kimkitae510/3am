@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
-import { NightSky } from '../components/NightSky';
 import { login, oauthLogin, SIGNUP_CONSENTS, type OAuthProvider } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import { redirectUriFor, startSocialLogin } from '../utils/socialAuth';
@@ -10,28 +9,6 @@ import styles from './LoginPage.module.css';
 // 소셜은 첫 로그인이 곧 가입이라 인가로 넘어가기 전에 동의를 받는다.
 // 이 기기에서 한 번 동의했으면 다음부터 시트를 생략한다(서버는 신규 가입일 때만 검사).
 const SOCIAL_CONSENT_KEY = 'social-consent-v1';
-
-function Clock() {
-  // 월페이퍼 컨셉: 새벽 세시를 가리키는 시계 하나, 초침만 흐른다
-  return (
-    <div className={styles.clockBrand}>
-      <svg viewBox="0 0 120 120" width="132" height="132" aria-label="새벽 세시">
-        <circle cx="60" cy="60" r="56" fill="none" stroke="#2A2833" strokeWidth="1.5" />
-        <line x1="60" y1="9" x2="60" y2="17" stroke="#4A4754" strokeWidth="2" strokeLinecap="round" />
-        <line x1="111" y1="60" x2="103" y2="60" stroke="#4A4754" strokeWidth="2" strokeLinecap="round" />
-        <line x1="60" y1="111" x2="60" y2="103" stroke="#4A4754" strokeWidth="2" strokeLinecap="round" />
-        <line x1="9" y1="60" x2="17" y2="60" stroke="#4A4754" strokeWidth="2" strokeLinecap="round" />
-        <line x1="60" y1="60" x2="84" y2="60" stroke="#ECEAF0" strokeWidth="3.4" strokeLinecap="round" />
-        <line x1="60" y1="60" x2="60" y2="24" stroke="#ECEAF0" strokeWidth="2.4" strokeLinecap="round" />
-        <g className={styles.secondHand}>
-          <line x1="60" y1="67" x2="60" y2="15" stroke="#B89DD1" strokeWidth="1.3" strokeLinecap="round" />
-        </g>
-        <circle cx="60" cy="60" r="2.8" fill="#B89DD1" />
-      </svg>
-      <div className={styles.titleAm}>3AM</div>
-    </div>
-  );
-}
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -114,6 +91,7 @@ export function LoginPage() {
           <div className={styles.spacer} />
 
           <div className={`${styles.error} ${styles.landError}`}>{error}</div>
+          <p className={styles.landGift}>처음 시작하면 무료 대화 5회와 진단 1회를 드려요</p>
           <div className={styles.landButtons}>
             <button
               className={`${styles.landBtn} ${styles.landKakao}`}
@@ -146,6 +124,7 @@ export function LoginPage() {
               이메일로 시작하기
             </button>
           </div>
+          <p className={styles.landNote}>카카오와 네이버에 아무것도 공유되지 않아요</p>
 
           <div className={styles.landFooter}>
             <span>이미 계정이 있나요?</span>
@@ -254,7 +233,7 @@ export function LoginPage() {
 
   return (
     <PhoneFrame>
-      <NightSky />
+      <div className={styles.landBg} />
       <form className={`${styles.body} ${styles.aboveSky}`} onSubmit={handleLogin}>
         <button
           type="button"
@@ -267,7 +246,7 @@ export function LoginPage() {
           </svg>
         </button>
 
-        <Clock />
+        <div className={styles.formLogo}>3am</div>
 
         <div className={styles.spacer} />
 

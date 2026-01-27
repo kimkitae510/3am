@@ -102,7 +102,9 @@ export function SignupPage() {
 
   return (
     <PhoneFrame>
-      <form className={styles.body} onSubmit={handleSignup}>
+      {/* 홈과 같은 새벽 남색 그라데이션 — 로그인 계열 화면의 톤을 맞춘다 */}
+      <div className={styles.landBg} />
+      <form className={`${styles.body} ${styles.aboveSky}`} onSubmit={handleSignup}>
         <button type="button" className={styles.backTop} onClick={() => navigate('/login')} aria-label="뒤로">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M15 5l-7 7 7 7" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />

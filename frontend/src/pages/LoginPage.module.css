@@ -9,43 +9,22 @@
   margin-top: 96px;
 }
 
-/* 밤하늘 월페이퍼(NightSky) 위로 콘텐츠를 올린다 — 가입 화면과 공유하는 .body는 건드리지 않는다 */
+/* 프레임 전체를 덮는 배경 층(.landBg) 위로 콘텐츠를 올린다 */
 .aboveSky {
   position: relative;
   z-index: 1;
 }
 
-/* 로그인 전용 월페이퍼 시계 — 가입 화면과 공유하는 .brand는 건드리지 않는다 */
-.clockBrand {
-  margin-top: 84px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-@keyframes sc-sweep {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 초침만 흐른다 — steps(60)로 1초에 한 칸씩 똑딱이게 */
-.secondHand {
-  transform-origin: 60px 60px;
-  animation: sc-sweep 60s steps(60, end) infinite;
-}
-
-.titleAm {
-  margin-top: 20px;
-  color: var(--text);
-  font-size: 27px;
-  font-weight: 700;
-  letter-spacing: 12px;
-  padding-left: 12px; /* letter-spacing이 마지막 글자 뒤에도 붙어 중심이 밀리는 것 보정 */
-  margin-bottom: 28px;
+/* 이메일 로그인 폼 상단 로고 — 랜딩 타이포와 같은 결, 폼이라 한 단계 작게 */
+.formLogo {
+  margin-top: 118px;
+  text-align: center;
+  font-size: 42px;
+  font-weight: 200;
+  letter-spacing: 10px;
+  text-indent: 10px;
+  color: #fff;
+  line-height: 1;
 }
 
 /* 이메일 모드 좌상단 뒤로가기 — 랜딩으로 복귀. .aboveSky(position: relative) 기준 배치 */
@@ -163,11 +142,11 @@
 }
 
 /* 소셜 로그인 — 각 브랜드 가이드 색상 고정(테마 변수 미사용) */
-/* 홈(랜딩) — 디자인 시안(LoginHome.jsx) 이식. 값은 시안 그대로 쓴다 */
+/* 홈(랜딩) — 디자인 시안(LoginHome.jsx) 이식. 배경만 새벽하늘 남색으로 살짝 틀었다(시안 원본: #101016/#0a0a0e/#08080b) */
 .landBg {
   position: absolute;
   inset: 0;
-  background: radial-gradient(130% 100% at 50% 0%, #101016 0%, #0a0a0e 52%, #08080b 100%);
+  background: radial-gradient(130% 100% at 50% 0%, #131829 0%, #0c0f1b 52%, #090b12 100%);
 }
 
 .landing {
@@ -205,11 +184,27 @@
   margin: 0 28px 8px;
 }
 
+/* 가입 유인 한 줄 — 시안엔 없지만 전환 문구는 유지하기로 함(이상하면 빼기로) */
+.landGift {
+  margin: 0 28px 10px;
+  text-align: center;
+  font-size: 12.5px;
+  color: rgba(183, 164, 227, 0.8);
+}
+
 .landButtons {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  padding: 0 28px 26px;
+  padding: 0 28px 12px;
+}
+
+/* 소셜 안심 문구 — 민감 서비스라 공유 걱정을 버튼 바로 아래에서 눌러준다 */
+.landNote {
+  margin: 0 28px 16px;
+  text-align: center;
+  font-size: 11.5px;
+  color: rgba(236, 237, 237, 0.28);
 }
 
 .landBtn {

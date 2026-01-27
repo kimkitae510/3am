@@ -54,7 +54,8 @@ export function OAuthCallbackPage() {
 
   return (
     <PhoneFrame>
-      <div className={styles.body}>
+      <div className={styles.landBg} />
+      <div className={`${styles.body} ${styles.aboveSky}`}>
         <div className={styles.brand}>
           <div className={styles.title}>새벽 세시</div>
           <div className={styles.subtitle}>{error ? '로그인에 문제가 생겼어요.' : '로그인하는 중이에요…'}</div>

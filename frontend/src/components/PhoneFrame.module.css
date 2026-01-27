@@ -19,7 +19,7 @@
 }
 
 .statusBar {
-  position: relative; /* 프레임 전체를 덮는 월페이퍼 층(NightSky)보다 위에 */
+  position: relative; /* 프레임 전체를 덮는 배경 층(그라데이션)보다 위에 */
   z-index: 1;
   height: 54px;
   display: flex;
