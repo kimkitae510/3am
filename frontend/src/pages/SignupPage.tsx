@@ -115,8 +115,6 @@ export function SignupPage() {
           <div className={styles.subtitle}>이메일로 새벽 세시를 시작해요.</div>
         </div>
 
-        <div className={styles.spacer} />
-
         <div className={styles.fields}>
           <div className={styles.field}>
             <input

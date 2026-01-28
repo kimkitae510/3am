@@ -5,26 +5,15 @@
   flex-direction: column;
 }
 
+/* 로그인/가입/콜백 공용 헤더 — 뒤로가기 아래 좌측 정렬 제목. 폼은 위에서부터 흐른다(바닥 고정 폐지) */
 .brand {
-  margin-top: 96px;
+  margin-top: 64px;
 }
 
 /* 프레임 전체를 덮는 배경 층(.landBg) 위로 콘텐츠를 올린다 */
 .aboveSky {
   position: relative;
   z-index: 1;
-}
-
-/* 이메일 로그인 폼 상단 로고 — 랜딩 타이포와 같은 결, 폼이라 한 단계 작게 */
-.formLogo {
-  margin-top: 118px;
-  text-align: center;
-  font-size: 42px;
-  font-weight: 200;
-  letter-spacing: 10px;
-  text-indent: 10px;
-  color: #fff;
-  line-height: 1;
 }
 
 /* 이메일 모드 좌상단 뒤로가기 — 랜딩으로 복귀. 가입(.backTop)과 같은 자리 */
@@ -58,16 +47,18 @@
 }
 
 .fields {
+  margin-top: 32px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
+/* 전역 카드색(회갈색)은 남색 그라데이션 위에서 둥둥 뜬다 — 로그인 계열만 남색 반투명 톤 */
 .field {
   height: 54px;
   border-radius: 14px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: rgba(139, 152, 199, 0.08);
+  border: 1px solid rgba(139, 152, 199, 0.16);
   display: flex;
   align-items: center;
   padding: 0 18px;
@@ -83,7 +74,7 @@
 }
 
 .input::placeholder {
-  color: var(--text-muted);
+  color: rgba(206, 212, 235, 0.38);
 }
 
 .eyeButton {
@@ -132,7 +123,7 @@
 .secondary {
   margin-top: 10px;
   height: 54px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(139, 152, 199, 0.22);
   border-radius: 14px;
   background: transparent;
   color: var(--text);
@@ -246,7 +237,7 @@
 
 /* 가입 이메일 인증 — 입력칸 안 오른쪽의 코드 요청 버튼 */
 .fieldButton {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(139, 152, 199, 0.28);
   border-radius: 9px;
   background: transparent;
   color: var(--text);

@@ -260,9 +260,10 @@ export function LoginPage() {
           </svg>
         </button>
 
-        <div className={styles.formLogo}>3am</div>
-
-        <div className={styles.spacer} />
+        <div className={styles.brand}>
+          <div className={styles.title}>로그인</div>
+          <div className={styles.subtitle}>이메일로 계속해요.</div>
+        </div>
 
         <div className={styles.fields}>
           <div className={styles.field}>
@@ -294,10 +295,10 @@ export function LoginPage() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"
-                  stroke="#6E6B76"
+                  stroke="#7E86A8"
                   strokeWidth="1.5"
                 />
-                <circle cx="12" cy="12" r="2.4" stroke="#6E6B76" strokeWidth="1.5" />
+                <circle cx="12" cy="12" r="2.4" stroke="#7E86A8" strokeWidth="1.5" />
               </svg>
             </button>
           </div>
