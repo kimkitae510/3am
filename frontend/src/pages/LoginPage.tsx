@@ -124,7 +124,6 @@ export function LoginPage() {
               이메일로 시작하기
             </button>
           </div>
-          <p className={styles.landNote}>카카오와 네이버에 아무것도 공유되지 않아요</p>
 
           <div className={styles.landFooter}>
             <span>이미 계정이 있나요?</span>
