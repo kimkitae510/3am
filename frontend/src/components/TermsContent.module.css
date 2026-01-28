@@ -29,6 +29,14 @@
   margin: 0;
 }
 
+/* 본문 속 링크(1:1 문의 등) — 브라우저 기본 남보라는 어두운 배경에서 안 보인다. 도움말 모달과 같은 강조 */
+.content a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* 면책 고지는 약관보다 먼저 읽혀야 해서 박스로 분리 강조 */
 .noticeBox {
   border: 1px solid var(--border);

@@ -260,9 +260,11 @@ export function LoginPage() {
           </svg>
         </button>
 
-        <div className={styles.brand}>
-          <div className={styles.title}>로그인</div>
-          <div className={styles.subtitle}>이메일로 계속해요.</div>
+        <div className={styles.spacerTop} />
+
+        <div className={`${styles.brand} ${styles.brandLogin}`}>
+          <div className={styles.title}>Login</div>
+          <div className={styles.subtitle}>이메일로 3am 로그인</div>
         </div>
 
         <div className={styles.fields}>
@@ -320,9 +322,10 @@ export function LoginPage() {
           type="button"
           onClick={() => navigate('/signup')}
         >
-          이메일로 가입하기
+          회원가입
         </button>
 
+        <div className={styles.spacer} />
       </form>
     </PhoneFrame>
   );

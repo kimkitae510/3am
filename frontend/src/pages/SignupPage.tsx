@@ -111,8 +111,8 @@ export function SignupPage() {
           </svg>
         </button>
         <div className={styles.brand}>
-          <div className={styles.title}>가입하기</div>
-          <div className={styles.subtitle}>이메일로 새벽 세시를 시작해요.</div>
+          <div className={styles.title}>Sign up</div>
+          <div className={styles.subtitle}>이메일로 3am 회원가입</div>
         </div>
 
         <div className={styles.fields}>
@@ -246,7 +246,7 @@ export function SignupPage() {
         <div className={styles.error}>{error}</div>
 
         <button className={styles.primary} type="submit" disabled={!canSubmit}>
-          {submitting ? '가입 중…' : '가입하기'}
+          {submitting ? '가입 중…' : '회원가입'}
         </button>
 
         {showDoc && (

@@ -46,6 +46,15 @@
   flex: 1;
 }
 
+/* 로그인 전용 — 내용이 적어 위에 붙이면 아래가 텅 빈다(횡한 느낌). 위 0.65 : 아래 1 비율로 세로 균형 */
+.spacerTop {
+  flex: 0.65;
+}
+
+.brandLogin {
+  margin-top: 0;
+}
+
 .fields {
   margin-top: 32px;
   display: flex;
@@ -53,15 +62,25 @@
   gap: 10px;
 }
 
-/* 전역 카드색(회갈색)은 남색 그라데이션 위에서 둥둥 뜬다 — 로그인 계열만 남색 반투명 톤 */
+/* 전역 카드색(회갈색)은 남색 그라데이션 위에서 둥둥 뜬다 — 로그인 계열만 남색 반투명 톤.
+   밝기는 "입력이 찬 상태"에 가깝게 — 비어 있을 때만 흐릿한 게 횡해 보인다는 피드백 */
 .field {
   height: 54px;
   border-radius: 14px;
-  background: rgba(139, 152, 199, 0.08);
-  border: 1px solid rgba(139, 152, 199, 0.16);
+  background: rgba(139, 152, 199, 0.14);
+  border: 1px solid rgba(139, 152, 199, 0.28);
   display: flex;
   align-items: center;
   padding: 0 18px;
+}
+
+/* 크롬 자동완성이 입력칸을 제멋대로 밝게 칠하는 것 차단 — 채워도 같은 색 유지 */
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  transition: background-color 9999s ease-out;
 }
 
 .input {
@@ -115,8 +134,8 @@
   cursor: pointer;
 }
 
+/* 비활성도 같은 색 — 입력을 채워야 색이 살아나는 게 횡해 보인다는 피드백. 제출 차단은 로직이 한다 */
 .primary:disabled {
-  opacity: 0.55;
   cursor: default;
 }
 
@@ -314,14 +333,15 @@
   cursor: pointer;
 }
 
-/* 문장 속 문서 이름이 곧 링크 — 목록 하단 1:1 문의와 같은 강조(액센트 + 600) */
+/* 문장 속 문서 이름이 곧 링크 — 색 강조 대신 밑줄만(보라 강조는 사용자 기각) */
 .consentLink {
   border: none;
   background: transparent;
   padding: 0;
   font: inherit;
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--text-sub);
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
 }
 
@@ -344,9 +364,9 @@
 .docLink {
   border: none;
   background: transparent;
-  color: var(--accent); /* 목록 하단 1:1 문의와 같은 강조 — muted는 남색 배경에서 죽는다 */
+  color: var(--text-muted); /* 심사 요건용 상시 링크 — 히어로에서 조용히. 보라 강조는 사용자 기각 */
   font-size: 12px;
-  font-weight: 600;
+  text-decoration: underline;
   cursor: pointer;
   padding: 0;
 }
