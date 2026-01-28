@@ -85,13 +85,12 @@ export function LoginPage() {
         {/* 디자인 시안(LoginHome.jsx) 기준 — 월페이퍼 대신 라디얼 그라데이션 한 장 */}
         <div className={styles.landBg} />
         <div className={styles.landing}>
-          <p className={styles.landTagline}>이별 고민 상담 및 재회 진단</p>
+          <p className={styles.landTagline}>이별 상담 및 재회 진단</p>
           <div className={styles.landLogo}>3am</div>
 
           <div className={styles.spacer} />
 
           <div className={`${styles.error} ${styles.landError}`}>{error}</div>
-          <p className={styles.landGift}>처음 시작하면 무료 대화 5회와 진단 1회를 드려요</p>
           <div className={styles.landButtons}>
             <button
               className={`${styles.landBtn} ${styles.landKakao}`}
