@@ -183,15 +183,18 @@ export function SignupPage() {
               checked={agreeTerms}
               onChange={(e) => setAgreeTerms(e.target.checked)}
             />
-            <span>(필수) 이용약관에 동의합니다</span>
             {/* label 안의 버튼 — 기본 동작이 체크 토글로 번지지 않게 막는다 */}
-            <button
-              type="button"
-              className={styles.consentView}
-              onClick={(e) => { e.preventDefault(); setShowDoc('terms'); }}
-            >
-              보기
-            </button>
+            <span>
+              (필수){' '}
+              <button
+                type="button"
+                className={styles.consentLink}
+                onClick={(e) => { e.preventDefault(); setShowDoc('terms'); }}
+              >
+                이용약관
+              </button>
+              에 동의합니다
+            </span>
           </label>
           <label className={styles.consentRow}>
             <input
@@ -200,14 +203,17 @@ export function SignupPage() {
               checked={agreePrivacy}
               onChange={(e) => setAgreePrivacy(e.target.checked)}
             />
-            <span>(필수) 개인정보 수집, 이용에 동의합니다</span>
-            <button
-              type="button"
-              className={styles.consentView}
-              onClick={(e) => { e.preventDefault(); setShowDoc('privacy'); }}
-            >
-              보기
-            </button>
+            <span>
+              (필수){' '}
+              <button
+                type="button"
+                className={styles.consentLink}
+                onClick={(e) => { e.preventDefault(); setShowDoc('privacy'); }}
+              >
+                개인정보 수집, 이용
+              </button>
+              에 동의합니다
+            </span>
           </label>
           <label className={styles.consentRow}>
             <input
@@ -225,7 +231,17 @@ export function SignupPage() {
               checked={agreeDisclaimer}
               onChange={(e) => setAgreeDisclaimer(e.target.checked)}
             />
-            <span>(필수) AI 답변은 참고 정보라는 면책 고지를 확인했습니다</span>
+            <span>
+              (필수) AI 답변은 참고 정보라는{' '}
+              <button
+                type="button"
+                className={styles.consentLink}
+                onClick={(e) => { e.preventDefault(); setShowDoc('terms'); }}
+              >
+                면책 고지
+              </button>
+              를 확인했습니다
+            </span>
           </label>
         </div>
 

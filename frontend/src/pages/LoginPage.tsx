@@ -169,14 +169,17 @@ export function LoginPage() {
                       checked={agreeTerms}
                       onChange={(e) => setAgreeTerms(e.target.checked)}
                     />
-                    <span>(필수) 이용약관에 동의합니다</span>
-                    <button
-                      type="button"
-                      className={styles.consentView}
-                      onClick={(e) => { e.preventDefault(); navigate('/terms'); }}
-                    >
-                      보기
-                    </button>
+                    <span>
+                      (필수){' '}
+                      <button
+                        type="button"
+                        className={styles.consentLink}
+                        onClick={(e) => { e.preventDefault(); navigate('/terms'); }}
+                      >
+                        이용약관
+                      </button>
+                      에 동의합니다
+                    </span>
                   </label>
                   <label className={styles.consentRow}>
                     <input
@@ -185,14 +188,17 @@ export function LoginPage() {
                       checked={agreePrivacy}
                       onChange={(e) => setAgreePrivacy(e.target.checked)}
                     />
-                    <span>(필수) 개인정보 수집, 이용에 동의합니다</span>
-                    <button
-                      type="button"
-                      className={styles.consentView}
-                      onClick={(e) => { e.preventDefault(); navigate('/privacy'); }}
-                    >
-                      보기
-                    </button>
+                    <span>
+                      (필수){' '}
+                      <button
+                        type="button"
+                        className={styles.consentLink}
+                        onClick={(e) => { e.preventDefault(); navigate('/privacy'); }}
+                      >
+                        개인정보 수집, 이용
+                      </button>
+                      에 동의합니다
+                    </span>
                   </label>
                   <label className={styles.consentRow}>
                     <input
@@ -210,7 +216,17 @@ export function LoginPage() {
                       checked={agreeDisclaimer}
                       onChange={(e) => setAgreeDisclaimer(e.target.checked)}
                     />
-                    <span>(필수) AI 답변은 참고 정보라는 면책 고지를 확인했습니다</span>
+                    <span>
+                      (필수) AI 답변은 참고 정보라는{' '}
+                      <button
+                        type="button"
+                        className={styles.consentLink}
+                        onClick={(e) => { e.preventDefault(); navigate('/terms'); }}
+                      >
+                        면책 고지
+                      </button>
+                      를 확인했습니다
+                    </span>
                   </label>
                 </div>
                 <button
@@ -239,8 +255,8 @@ export function LoginPage() {
           onClick={() => { setError(''); setMode('landing'); }}
           aria-label="처음으로"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M15 5l-7 7 7 7" stroke="#9B98A3" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M15 5l-7 7 7 7" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
 

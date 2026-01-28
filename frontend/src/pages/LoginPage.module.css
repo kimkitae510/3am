@@ -27,11 +27,11 @@
   line-height: 1;
 }
 
-/* 이메일 모드 좌상단 뒤로가기 — 랜딩으로 복귀. .aboveSky(position: relative) 기준 배치 */
+/* 이메일 모드 좌상단 뒤로가기 — 랜딩으로 복귀. 가입(.backTop)과 같은 자리 */
 .backLanding {
   position: absolute;
-  top: 8px;
-  left: -14px; /* body 좌우 패딩(34px) 안쪽으로 너무 들어가지 않게 살짝 당김 */
+  top: 6px;
+  left: 18px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -276,11 +276,11 @@
   font-size: 13.5px;
 }
 
-/* 가입 화면 좌상단 뒤로가기 — 로그인과 공유하는 brand 레이아웃을 건드리지 않게 절대 배치 */
+/* 가입 화면 좌상단 뒤로가기 — 폼(.aboveSky) 기준 배치라 상태바 바로 아래에 온다. 로그인(.backLanding)과 같은 자리 */
 .backTop {
   position: absolute;
-  top: 58px; /* 상태바(54px) 바로 아래 */
-  left: 22px;
+  top: 6px;
+  left: 18px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -294,45 +294,51 @@
   margin-top: 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   position: relative;
 }
 
+/* 두 줄로 감기는 행도 체크박스가 첫 줄에 붙게 위 정렬 — 행마다 모양이 달라지던 원인 */
 .consentRow {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
   color: var(--text-sub);
   font-size: 13px;
+  line-height: 1.5;
   cursor: pointer;
   user-select: none;
+}
+
+.consentRow > span {
+  flex: 1;
 }
 
 .consentCheck {
   width: 16px;
   height: 16px;
-  margin: 0;
+  margin: 2px 0 0; /* 첫 줄 텍스트(13px x 1.5)와 눈높이 맞춤 */
+  flex-shrink: 0;
   accent-color: var(--accent);
   cursor: pointer;
 }
 
-/* 행마다 하나씩 붙는 문서 보기 링크 — 행 오른쪽 끝으로 민다 */
-.consentView {
-  margin-left: auto;
+/* 문장 속 문서 이름이 곧 링크 — 목록 하단 1:1 문의와 같은 강조(액센트 + 600) */
+.consentLink {
   border: none;
   background: transparent;
-  color: var(--text-muted);
-  font-size: 12.5px;
-  text-decoration: underline;
-  cursor: pointer;
   padding: 0;
-  flex-shrink: 0;
+  font: inherit;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .consentAll {
+  align-items: center;
   color: var(--text);
   font-weight: 700;
-  padding-bottom: 8px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -347,9 +353,9 @@
 .docLink {
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--accent); /* 목록 하단 1:1 문의와 같은 강조 — muted는 남색 배경에서 죽는다 */
   font-size: 12px;
-  text-decoration: underline;
+  font-weight: 600;
   cursor: pointer;
   padding: 0;
 }
@@ -371,10 +377,10 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 18px;
-  padding: 18px 16px;
+  padding: 20px 18px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .sheetTitle {
