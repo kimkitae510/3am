@@ -6,13 +6,6 @@ spring:
   application:
     name: 3am
 
-  # Spring AI 자동설정 끄기 — ChatModel 빈은 GoogleGenAiLlmConfig가 LLM_PROVIDER 기준으로 직접 조립한다
-  # (자동설정은 채워진 속성으로 인증 경로를 골라, 키가 둘 다 있는 장비에서 과금 경로가 비결정적으로 갈린다).
-  ai:
-    model:
-      chat: none
-      embedding: none   # 스타터에 딸려오는 임베딩 자동설정 — 미사용
-
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
@@ -63,19 +56,24 @@ jwt:
   refresh-token-validity-seconds: 1209600   # 14일
 
 # LLM — 기본은 mock(무료, 키 불필요). 실연동 시 LLM_PROVIDER=gemini + LLM_API_KEY 주입.
-# 인증 경로와 무관하게 설정은 한 벌: gemini는 api-key, vertex는 project-id + GOOGLE_APPLICATION_CREDENTIALS
-# (서비스 계정 키 파일 경로) 표준 환경변수. 크레딧 소진/만료 시 LLM_PROVIDER=gemini로 복귀.
 llm:
   provider: ${LLM_PROVIDER:mock}   # mock | gemini | vertex
-  api-key: ${LLM_API_KEY:}
-  project-id: ${GCP_PROJECT_ID:}
-  location: ${GCP_LOCATION:global}
-  # 개발 기본값은 flash. 최저가인 lite는 무료 티어에서 피크 503과 일일 한도 소진이 잦아
-  # 개발 흐름을 끊는다(2025-11 실측). 비용 최적화(역할별 lite 분리)는 유료 전환 뒤 실측으로 결정.
-  model: ${LLM_MODEL:gemini-2.5-flash}
-  # 진단 전용 모델(선택). 비우면 model 사용. 진단은 긴 루브릭이라 강한 모델 배정 가능.
-  assessment-model: ${LLM_ASSESSMENT_MODEL:}
-  timeout-seconds: 30   # 응답 대기 상한. 초과 시 실패 처리 → 대화는 폴백 메시지 저장
+  gemini:
+    api-key: ${LLM_API_KEY:}
+    # 개발 기본값은 flash. 최저가인 lite는 무료 티어에서 피크 503과 일일 한도 소진이 잦아
+    # 개발 흐름을 끊는다(2025-11 실측). 비용 최적화(역할별 lite 분리)는 유료 전환 뒤 실측으로 결정.
+    model: ${LLM_MODEL:gemini-2.5-flash}
+    base-url: https://generativelanguage.googleapis.com/v1beta
+    timeout-seconds: 30   # 응답 대기 상한. 초과 시 실패 처리 → 대화는 폴백 메시지 저장
+  # Vertex AI — 같은 Gemini를 GCP 상품 경로로(크레딧 결제). 인증은 GOOGLE_APPLICATION_CREDENTIALS
+  # (서비스 계정 키 파일 경로) 표준 환경변수. 크레딧 소진/만료 시 LLM_PROVIDER=gemini로 복귀.
+  vertex:
+    project-id: ${GCP_PROJECT_ID:}
+    location: ${GCP_LOCATION:global}
+    model: ${LLM_MODEL:gemini-2.5-flash}
+    # 진단 전용 모델(선택). 비우면 model 사용. 진단은 긴 루브릭이라 강한 모델 배정 가능.
+    assessment-model: ${LLM_ASSESSMENT_MODEL:}
+    timeout-seconds: 30
 
 # 인증 메일 — 기본은 mock(발송 없이 서버 로그로 코드 확인). 실발송 시 MAIL_PROVIDER=smtp
 # + MAIL_USERNAME(Gmail 주소), MAIL_PASSWORD(앱 비밀번호) 주입.

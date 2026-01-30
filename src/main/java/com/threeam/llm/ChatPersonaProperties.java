@@ -11,5 +11,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "llm.chat")
 public class ChatPersonaProperties {
 
-    private String persona = "당신은 이별을 겪은 사람의 곁을 지키는 다정한 대화 상대입니다.";
+    private String persona = "당신은 이별을 겪은 사람의 곁을 지키는 대화 상대입니다.";
 }

@@ -64,17 +64,13 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
 	// === LLM ===
-	// Spring AI Google GenAI — Gemini를 AI Studio(API 키)와 Vertex(ADC) 두 경로 모두 지원.
-	// Vertex 인증(서비스 계정 → 토큰 발급/갱신)도 SDK가 맡아 google-auth 직접 의존이 사라졌다.
-	// 자동설정은 쓰지 않고(spring.ai.model.chat=none) 빈을 직접 조립한다 — 인증 경로 선택을
-	// 기존 LLM_PROVIDER 스위치가 결정론적으로 쥐기 위해.
-	implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
-}
-
-dependencyManagement {
-	imports {
-		mavenBom "org.springframework.ai:spring-ai-bom:1.1.8"
-	}
+	// Vertex AI 인증(서비스 계정 → 액세스 토큰). SDK 전체 대신 인증 라이브러리만 쓴다 —
+	// 호출 자체는 기존 java.net.http로 하고, 토큰 발급/갱신만 맡긴다.
+	implementation 'com.google.auth:google-auth-library-oauth2-http:1.48.0'
+	// Spring AI(1.1) 전환을 시도했다가 철회함(2026-01 실측): ChatModel.call()은 블로킹이고,
+	// GenAI SDK의 async는 OkHttp 디스패처 풀 위임, stream()은 블로킹 반복자 랩이라 — 어느 경로로도
+	// sendAsync(NIO)의 "대기 중 스레드 무점유"를 얻을 수 없다. LLM은 호출당 수 초에서 수십 초를
+	// 기다리는 워크로드라 무점유를 우선했다. RAG나 멀티 프로바이더가 필요해지면 재검토.
 }
 
 // === QueryDSL 생성 경로 설정 ===
