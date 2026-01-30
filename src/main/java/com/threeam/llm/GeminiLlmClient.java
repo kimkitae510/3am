@@ -20,7 +20,18 @@ public class GeminiLlmClient extends GoogleGenerateContentClient {
 
     @Override
     String endpoint() {
-        return properties.getBaseUrl() + "/models/" + properties.getModel() + ":generateContent";
+        return endpointFor(properties.getModel());
+    }
+
+    @Override
+    String deepEndpoint() {
+        String assessmentModel = properties.getAssessmentModel();
+        return endpointFor(assessmentModel == null || assessmentModel.isBlank()
+                ? properties.getModel() : assessmentModel);
+    }
+
+    private String endpointFor(String model) {
+        return properties.getBaseUrl() + "/models/" + model + ":generateContent";
     }
 
     @Override

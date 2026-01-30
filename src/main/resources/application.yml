@@ -63,6 +63,8 @@ llm:
     # 개발 기본값은 flash. 최저가인 lite는 무료 티어에서 피크 503과 일일 한도 소진이 잦아
     # 개발 흐름을 끊는다(2025-11 실측). 비용 최적화(역할별 lite 분리)는 유료 전환 뒤 실측으로 결정.
     model: ${LLM_MODEL:gemini-2.5-flash}
+    # 진단 전용 모델(선택). 비우면 model 사용 — vertex와 동일한 분리를 gemini 경로에도 지원.
+    assessment-model: ${LLM_ASSESSMENT_MODEL:}
     base-url: https://generativelanguage.googleapis.com/v1beta
     timeout-seconds: 30   # 응답 대기 상한. 초과 시 실패 처리 → 대화는 폴백 메시지 저장
   # Vertex AI — 같은 Gemini를 GCP 상품 경로로(크레딧 결제). 인증은 GOOGLE_APPLICATION_CREDENTIALS
