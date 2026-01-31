@@ -111,7 +111,7 @@ export function SignupPage() {
           </svg>
         </button>
         <div className={styles.brand}>
-          <div className={styles.title}>Sign up</div>
+          <div className={styles.title}>회원가입</div>
           <div className={styles.subtitle}>이메일로 3am 회원가입</div>
         </div>
 

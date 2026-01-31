@@ -263,7 +263,7 @@ export function LoginPage() {
         <div className={styles.spacerTop} />
 
         <div className={`${styles.brand} ${styles.brandLogin}`}>
-          <div className={styles.title}>Login</div>
+          <div className={styles.title}>로그인</div>
           <div className={styles.subtitle}>이메일로 3am 로그인</div>
         </div>
 
