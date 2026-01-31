@@ -100,7 +100,9 @@ export function PrivacyContent() {
 
       <div className={styles.clauseTitle}>제8조 (개인정보 보호책임자와 문의)</div>
       <p className={styles.para}>
-        개인정보 보호책임자: 김기태. 개인정보에 관한 문의, 불만, 피해 구제 요청은{' '}
+        {/* 법(30조 1항 6호)은 성명 또는 담당 부서와 연락처 중 택일 — 운영자 실명 노출을 피해 담당 창구로 표기 */}
+        개인정보 보호 업무는 서비스 운영자가 직접 담당합니다. 개인정보에 관한 문의, 불만, 피해
+        구제 요청은{' '}
         <a href={CONTACT_OPENCHAT_URL} target="_blank" rel="noreferrer">
           카카오 오픈채팅 1:1 문의
         </a>
