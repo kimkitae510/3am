@@ -174,35 +174,26 @@
   text-align: center;
 }
 
-/* inline-flex 세로 묶음: 폭이 가장 넓은 줄(로고)에 맞춰지므로 태그라인 폭이 로고와 자동 일치 */
-.brandLockup {
-  display: inline-flex;
-  flex-direction: column;
-}
-
-/* 양끝 정렬로 로고 폭에 맞춰 글자를 펼친다 */
 .brandTagline {
-  align-self: stretch;
   margin: 0 0 14px;
   font-size: 14px;
   font-weight: 400;
+  letter-spacing: 0.2px;
   color: #f0f0f2;
-  text-align: justify;
-  text-align-last: justify;
 }
 
 .brandLogo {
   font-size: 64px;
   font-weight: 200;
   letter-spacing: 14px;
-  margin-right: -14px; /* 마지막 글자 뒤에 붙는 자간만큼 당겨 컨테이너 폭을 실제 글자 폭에 맞춘다 */
+  text-indent: 14px; /* 마지막 글자 뒤 자간으로 중심이 밀리는 것 보정 */
   color: #fff;
   line-height: 1;
 }
 
-/* 숫자는 소문자보다 키가 커서 튄다 — am의 x-높이에 맞춰 축소(같은 베이스라인) */
+/* 숫자가 소문자보다 커서 튀는 것만 살짝 눌러준다 — x-높이까지 줄이면 쪼그라들어 보임(실측 피드백) */
 .brandDigit {
-  font-size: 0.74em;
+  font-size: 0.87em;
 }
 
 .landError {

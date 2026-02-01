@@ -85,13 +85,11 @@ export function LoginPage() {
         {/* 디자인 시안(LoginHome.jsx) 기준 — 월페이퍼 대신 라디얼 그라데이션 한 장 */}
         <div className={styles.landBg} />
         <div className={styles.landing}>
-          {/* 로고 락업: 태그라인이 로고 위에 얹히고 가로폭이 로고와 자동으로 일치한다 */}
+          {/* 로고 락업: 태그라인을 로고 위에, 둘 다 가운데 정렬 */}
           <div className={styles.brandWrap}>
-            <div className={styles.brandLockup}>
-              <p className={styles.brandTagline}>이별 상담 및 재회 진단</p>
-              <div className={styles.brandLogo}>
-                <span className={styles.brandDigit}>3</span>am
-              </div>
+            <p className={styles.brandTagline}>이별 상담 및 재회 진단</p>
+            <div className={styles.brandLogo}>
+              <span className={styles.brandDigit}>3</span>am
             </div>
           </div>
 
