@@ -185,8 +185,8 @@
 .brandLogo {
   font-size: 64px;
   font-weight: 200;
-  letter-spacing: 14px;
-  text-indent: 14px; /* 마지막 글자 뒤 자간으로 중심이 밀리는 것 보정 */
+  letter-spacing: 7px; /* 시안의 14px은 과하게 벌어져 보임(실측 피드백) */
+  text-indent: 7px; /* 마지막 글자 뒤 자간으로 중심이 밀리는 것 보정 */
   color: #fff;
   line-height: 1;
 }
