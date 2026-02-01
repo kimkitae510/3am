@@ -62,13 +62,13 @@
   gap: 10px;
 }
 
-/* 전역 카드색(회갈색)은 남색 그라데이션 위에서 둥둥 뜬다 — 로그인 계열만 남색 반투명 톤.
+/* 전역 카드색(회갈색)은 시안 그라데이션 위에서 둥둥 뜬다 — 로그인 계열만 무채색 반투명 톤.
    밝기는 "입력이 찬 상태"에 가깝게 — 비어 있을 때만 흐릿한 게 횡해 보인다는 피드백 */
 .field {
   height: 54px;
   border-radius: 14px;
-  background: rgba(139, 152, 199, 0.14);
-  border: 1px solid rgba(139, 152, 199, 0.28);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   display: flex;
   align-items: center;
   padding: 0 18px;
@@ -93,7 +93,7 @@
 }
 
 .input::placeholder {
-  color: rgba(206, 212, 235, 0.38);
+  color: rgba(236, 237, 242, 0.38);
 }
 
 .eyeButton {
@@ -142,7 +142,7 @@
 .secondary {
   margin-top: 10px;
   height: 54px;
-  border: 1px solid rgba(139, 152, 199, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 14px;
   background: transparent;
   color: var(--text);
@@ -152,11 +152,12 @@
 }
 
 /* 소셜 로그인 — 각 브랜드 가이드 색상 고정(테마 변수 미사용) */
-/* 홈(랜딩) — 디자인 시안(LoginHome.jsx) 이식. 배경만 새벽하늘 남색으로 살짝 틀었다(시안 원본: #101016/#0a0a0e/#08080b) */
+/* 홈(랜딩) — 디자인 시안(LoginHome.jsx)의 무채색 결. 남색 틴트는 기각, 시안 원본(#101016/#0a0a0e/#08080b)은
+   "너무 까맣다" 피드백이라 한 단계 밝힌 값(원본이 낫으면 되돌리기) */
 .landBg {
   position: absolute;
   inset: 0;
-  background: radial-gradient(130% 100% at 50% 0%, #131829 0%, #0c0f1b 52%, #090b12 100%);
+  background: radial-gradient(130% 100% at 50% 0%, #16161e 0%, #0e0e13 52%, #0a0a0d 100%);
 }
 
 .landing {
@@ -167,26 +168,41 @@
   flex-direction: column;
 }
 
-.landTagline {
-  margin: 0;
-  /* 시안 236px은 상태바 포함 기준 — 콘텐츠 영역(상태바 54px 제외)으로 환산 */
+/* 로고 락업 — 시안 236px은 상태바 포함 기준이라 콘텐츠 영역으로 환산(182) */
+.brandWrap {
   padding-top: 182px;
   text-align: center;
-  font-size: 15px;
-  font-weight: 400;
-  letter-spacing: -0.2px;
-  color: #f0f0f2;
 }
 
-.landLogo {
-  padding-top: 20px;
-  text-align: center;
+/* inline-flex 세로 묶음: 폭이 가장 넓은 줄(로고)에 맞춰지므로 태그라인 폭이 로고와 자동 일치 */
+.brandLockup {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+/* 양끝 정렬로 로고 폭에 맞춰 글자를 펼친다 */
+.brandTagline {
+  align-self: stretch;
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #f0f0f2;
+  text-align: justify;
+  text-align-last: justify;
+}
+
+.brandLogo {
   font-size: 64px;
   font-weight: 200;
   letter-spacing: 14px;
-  text-indent: 14px;
+  margin-right: -14px; /* 마지막 글자 뒤에 붙는 자간만큼 당겨 컨테이너 폭을 실제 글자 폭에 맞춘다 */
   color: #fff;
   line-height: 1;
+}
+
+/* 숫자는 소문자보다 키가 커서 튄다 — am의 x-높이에 맞춰 축소(같은 베이스라인) */
+.brandDigit {
+  font-size: 0.74em;
 }
 
 .landError {
@@ -256,7 +272,7 @@
 
 /* 가입 이메일 인증 — 입력칸 안 오른쪽의 코드 요청 버튼 */
 .fieldButton {
-  border: 1px solid rgba(139, 152, 199, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 9px;
   background: transparent;
   color: var(--text);

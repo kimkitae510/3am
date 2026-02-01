@@ -85,8 +85,15 @@ export function LoginPage() {
         {/* 디자인 시안(LoginHome.jsx) 기준 — 월페이퍼 대신 라디얼 그라데이션 한 장 */}
         <div className={styles.landBg} />
         <div className={styles.landing}>
-          <p className={styles.landTagline}>이별 상담 및 재회 진단</p>
-          <div className={styles.landLogo}>3am</div>
+          {/* 로고 락업: 태그라인이 로고 위에 얹히고 가로폭이 로고와 자동으로 일치한다 */}
+          <div className={styles.brandWrap}>
+            <div className={styles.brandLockup}>
+              <p className={styles.brandTagline}>이별 상담 및 재회 진단</p>
+              <div className={styles.brandLogo}>
+                <span className={styles.brandDigit}>3</span>am
+              </div>
+            </div>
+          </div>
 
           <div className={styles.spacer} />
 
@@ -297,10 +304,10 @@ export function LoginPage() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"
-                  stroke="#7E86A8"
+                  stroke="#8B8A92"
                   strokeWidth="1.5"
                 />
-                <circle cx="12" cy="12" r="2.4" stroke="#7E86A8" strokeWidth="1.5" />
+                <circle cx="12" cy="12" r="2.4" stroke="#8B8A92" strokeWidth="1.5" />
               </svg>
             </button>
           </div>

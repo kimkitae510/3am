@@ -102,7 +102,7 @@ export function SignupPage() {
 
   return (
     <PhoneFrame>
-      {/* 홈과 같은 새벽 남색 그라데이션 — 로그인 계열 화면의 톤을 맞춘다 */}
+      {/* 홈과 같은 시안 그라데이션 — 로그인 계열 화면의 톤을 맞춘다 */}
       <div className={styles.landBg} />
       <form className={`${styles.body} ${styles.aboveSky}`} onSubmit={handleSignup}>
         <button type="button" className={styles.backTop} onClick={() => navigate('/login')} aria-label="뒤로">
