@@ -10,8 +10,11 @@ spring:
     timeout-per-shutdown-phase: 20s
 
   config:
-    # 페르소나 실문구 등 저장소 밖에서 관리하는 설정. 파일이 없으면 조용히 무시된다.
-    import: optional:file:./persona.yml
+    # 저장소 밖에서 관리하는 설정. 파일이 없으면 조용히 무시된다.
+    # persona.yml: 페르소나 실문구 / application-secret.yml: 실연동 키(메일, 소셜 등 — gitignore)
+    import:
+      - optional:file:./persona.yml
+      - optional:file:./application-secret.yml
 
   datasource:
     url: jdbc:mysql://localhost:3306/threeam?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
