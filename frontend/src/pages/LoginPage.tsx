@@ -85,60 +85,56 @@ export function LoginPage() {
         {/* 디자인 시안(LoginHome.jsx) 기준 — 월페이퍼 대신 라디얼 그라데이션 한 장 */}
         <div className={styles.landBg} />
         <div className={styles.landing}>
-          {/* 로고 락업: 태그라인을 로고 위에, 둘 다 가운데 정렬 */}
+          {/* 로고 락업: 화면 세로 중심에 로고, 태그라인은 그 아래(인프런 결) */}
           <div className={styles.brandWrap}>
-            <p className={styles.brandTagline}>이별 상담 및 재회 진단</p>
             <div className={styles.brandLogo}>
               <span className={styles.brandDigit}>3</span>am
             </div>
+            <p className={styles.brandTagline}>이별 상담 및 재회 진단</p>
           </div>
-
-          <div className={styles.spacer} />
 
           <div className={`${styles.error} ${styles.landError}`}>{error}</div>
           <div className={styles.landButtons}>
-            <button
-              className={`${styles.landBtn} ${styles.landKakao}`}
-              type="button"
-              onClick={() => handleSocial('kakao')}
-            >
-              <svg width="17" height="16" viewBox="0 0 24 22" aria-hidden="true">
-                <path
-                  d="M12 1 C5.9 1 1 4.9 1 9.7 c0 3.1 2 5.8 5.1 7.3 L5 21 l4.7-3 c.7 .1 1.5 .2 2.3 .2 6.1 0 11-3.9 11-8.5 C23 4.9 18.1 1 12 1 Z"
-                  fill="#191600"
-                />
-              </svg>
-              카카오로 시작하기
-            </button>
-            <button
-              className={`${styles.landBtn} ${styles.landNaver}`}
-              type="button"
-              onClick={() => handleSocial('naver')}
-            >
-              <svg width="13" height="13" viewBox="0 0 18 18" aria-hidden="true">
-                <path d="M2 1 h4.6 l4.7 7 V1 H16 v16 h-4.6 L6.7 10 v7 H2 Z" fill="#fff" />
-              </svg>
-              네이버로 시작하기
-            </button>
+            {/* 소셜은 원형 아이콘 — 문구 없이 브랜드 색으로만 말한다 */}
+            <div className={styles.socialRow}>
+              <button
+                className={`${styles.circleBtn} ${styles.circleKakao}`}
+                type="button"
+                aria-label="카카오로 시작하기"
+                onClick={() => handleSocial('kakao')}
+              >
+                <svg width="24" height="22" viewBox="0 0 24 22" aria-hidden="true">
+                  <path
+                    d="M12 1 C5.9 1 1 4.9 1 9.7 c0 3.1 2 5.8 5.1 7.3 L5 21 l4.7-3 c.7 .1 1.5 .2 2.3 .2 6.1 0 11-3.9 11-8.5 C23 4.9 18.1 1 12 1 Z"
+                    fill="#191600"
+                  />
+                </svg>
+              </button>
+              <button
+                className={`${styles.circleBtn} ${styles.circleNaver}`}
+                type="button"
+                aria-label="네이버로 시작하기"
+                onClick={() => handleSocial('naver')}
+              >
+                <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+                  <path d="M2 1 h4.6 l4.7 7 V1 H16 v16 h-4.6 L6.7 10 v7 H2 Z" fill="#fff" />
+                </svg>
+              </button>
+            </div>
+
+            <div className={styles.orDivider}>
+              <span>또는</span>
+            </div>
+
             <button
               className={`${styles.landBtn} ${styles.landEmail}`}
               type="button"
-              onClick={() => navigate('/signup')}
+              onClick={() => { setError(''); setMode('email'); }}
             >
               이메일로 시작하기
             </button>
           </div>
 
-          <div className={styles.landFooter}>
-            <span>이미 계정이 있나요?</span>
-            <button
-              className={styles.landLogin}
-              type="button"
-              onClick={() => { setError(''); setMode('email'); }}
-            >
-              로그인
-            </button>
-          </div>
           <div className={styles.docLinks}>
             <button className={styles.docLink} type="button" onClick={() => navigate('/terms')}>
               이용약관
@@ -268,8 +264,7 @@ export function LoginPage() {
         <div className={styles.spacerTop} />
 
         <div className={`${styles.brand} ${styles.brandLogin}`}>
-          <div className={styles.title}>로그인</div>
-          <div className={styles.subtitle}>이메일로 3am 로그인</div>
+          <div className={styles.title}>이메일로 시작하기</div>
         </div>
 
         <div className={styles.fields}>
@@ -322,13 +317,11 @@ export function LoginPage() {
         <button className={styles.primary} type="submit" disabled={!canSubmit}>
           {submitting ? '로그인 중…' : '로그인'}
         </button>
-        <button
-          className={styles.secondary}
-          type="button"
-          onClick={() => navigate('/signup')}
-        >
-          회원가입
-        </button>
+        <div className={styles.linkRow}>
+          <button className={styles.textLink} type="button" onClick={() => navigate('/signup')}>
+            회원가입
+          </button>
+        </div>
 
         <div className={styles.spacer} />
       </form>
