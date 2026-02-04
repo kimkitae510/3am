@@ -111,6 +111,19 @@
   align-items: center;
 }
 
+/* 글자 필 버튼(이용권) — 채팅 헤더의 진단 버튼과 같은 결 */
+.pillButton {
+  padding: 7px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .list {
   flex: 1;
   overflow-y: auto;

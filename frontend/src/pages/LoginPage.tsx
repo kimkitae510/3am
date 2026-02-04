@@ -90,7 +90,7 @@ export function LoginPage() {
             <div className={styles.brandLogo}>
               <span className={styles.brandDigit}>3</span>am
             </div>
-            <p className={styles.brandTagline}>이별 상담 및 재회 진단</p>
+            <p className={styles.brandTagline}>이별 상담 및 재회진단 서비스</p>
           </div>
 
           <div className={`${styles.error} ${styles.landError}`}>{error}</div>

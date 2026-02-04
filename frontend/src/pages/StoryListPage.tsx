@@ -148,16 +148,9 @@ export function StoryListPage() {
         <div className={styles.header}>
           <div className={styles.title}>대화</div>
           <div className={styles.headerActions}>
-            <button className={styles.iconButton} onClick={() => navigate('/payment')} aria-label="이용권">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M4 9a1 1 0 011-1h14a1 1 0 011 1v1.5a1.5 1.5 0 000 3V15a1 1 0 01-1 1H5a1 1 0 01-1-1v-1.5a1.5 1.5 0 000-3V9z"
-                  stroke="#9B98A3"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
-                />
-                <path d="M14.5 8.5v7" stroke="#9B98A3" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2.4" />
-              </svg>
+            {/* 티켓 도형은 결제 진입점으로 안 읽힌다는 피드백 — 글자 필로 */}
+            <button className={styles.pillButton} onClick={() => navigate('/payment')}>
+              이용권
             </button>
             <button className={styles.iconButton} onClick={() => setShowHelp(true)} aria-label="도움말">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -261,7 +254,7 @@ export function StoryListPage() {
               },
               {
                 heading: '이용권',
-                text: '무료 횟수를 다 쓰면 이용권으로 이어서 쓸 수 있습니다. 위 카드 모양 버튼에서 구매할 수 있습니다.',
+                text: '무료 횟수를 다 쓰면 이용권으로 이어서 쓸 수 있습니다. 오른쪽 위 이용권 버튼에서 구매할 수 있습니다.',
               },
             ]}
           />

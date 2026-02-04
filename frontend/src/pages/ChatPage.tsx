@@ -195,26 +195,16 @@ export function ChatPage() {
             <div className={styles.storyTitle}>{title}</div>
           </div>
           <div className={styles.topRight}>
+            {/* 도형 아이콘은 뜻이 안 읽힌다는 피드백 — 진단/이용권 둘 다 글자 필로 통일 */}
             <button
               className={styles.diagButton}
               onClick={() => navigate(`/stories/${storyId}/assessment`)}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M4 19V9m5 10V5m5 14v-7m5 7V11" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
               진단
             </button>
             {/* 이용권 구매 상시 진입점 — 소진 배너만으로는 평소에 어디서 사는지 안 보인다 */}
-            <button className={styles.helpButton} onClick={() => navigate('/payment')} aria-label="이용권">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M4 9a1 1 0 011-1h14a1 1 0 011 1v1.5a1.5 1.5 0 000 3V15a1 1 0 01-1 1H5a1 1 0 01-1-1v-1.5a1.5 1.5 0 000-3V9z"
-                  stroke="#9B98A3"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
-                />
-                <path d="M14.5 8.5v7" stroke="#9B98A3" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2.4" />
-              </svg>
+            <button className={styles.diagButton} onClick={() => navigate('/payment')}>
+              이용권
             </button>
             <button className={styles.helpButton} onClick={() => setShowHelp(true)} aria-label="도움말">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
