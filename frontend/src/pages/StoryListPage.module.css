@@ -111,15 +111,15 @@
   align-items: center;
 }
 
-/* 글자 필 버튼(이용권) — 채팅 헤더의 진단 버튼과 같은 결 */
+/* 이용권(결제 진입점) 글자 필 — 채팅 헤더와 같은 보라 틴트. 투명 필은 배경에 묻힌다는 피드백 */
 .pillButton {
   padding: 7px 12px;
   border-radius: 12px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
+  border: 1px solid rgba(184, 157, 209, 0.45);
+  background: rgba(184, 157, 209, 0.16);
+  color: var(--accent);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
 }

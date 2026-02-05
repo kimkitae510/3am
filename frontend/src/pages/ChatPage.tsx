@@ -203,7 +203,7 @@ export function ChatPage() {
               진단
             </button>
             {/* 이용권 구매 상시 진입점 — 소진 배너만으로는 평소에 어디서 사는지 안 보인다 */}
-            <button className={styles.diagButton} onClick={() => navigate('/payment')}>
+            <button className={styles.payButton} onClick={() => navigate('/payment')}>
               이용권
             </button>
             <button className={styles.helpButton} onClick={() => setShowHelp(true)} aria-label="도움말">
