@@ -41,33 +41,33 @@
   white-space: nowrap;
 }
 
-/* 헤더 글자 필 — 투명 배경 + 어두운 테두리는 배경에 묻힌다는 피드백에 채움색으로 존재감을 준다 */
+/* 헤더 액션은 박스 없이 글자 그 자체(iOS 내비게이션 결) — 필 채움은 화면에서 과했다.
+   존재감은 채움이 아니라 색과 굵기로 준다 */
 .diagButton {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.08);
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: -0.2px;
   cursor: pointer;
   flex-shrink: 0;
 }
 
-/* 이용권(결제 진입점)만 보라 틴트 — 진단과 나란히 있어도 "여기가 충전"이 먼저 읽히게 */
+/* 이용권(결제 진입점)만 보라 — 나란히 있어도 충전 자리가 먼저 읽히게 */
 .payButton {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(184, 157, 209, 0.45);
-  background: rgba(184, 157, 209, 0.16);
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
   color: var(--accent);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
+  letter-spacing: -0.2px;
   cursor: pointer;
   flex-shrink: 0;
 }
