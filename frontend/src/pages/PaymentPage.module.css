@@ -70,21 +70,17 @@
   padding: 14px 14px 24px;
 }
 
-/* 보유 현황은 이 화면의 첫인상 — 포인트 색을 살짝 입혀 일반 카드와 구분한다 */
+/* 박스/틴트 카드 대신 맨 행 + 헤어라인 — 화면 전체를 타이포 위계로 정리(헤더 액션과 같은 결) */
 .balanceCard {
-  background: linear-gradient(150deg, rgba(184, 157, 209, 0.1), rgba(184, 157, 209, 0.02) 65%),
-    var(--card);
-  border: 1px solid rgba(184, 157, 209, 0.28);
-  border-radius: 18px;
-  padding: 15px 16px;
-  margin-bottom: 20px;
+  padding: 0 4px;
+  margin-bottom: 26px;
 }
 
 .balanceRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 0;
+  padding: 11px 0;
 }
 
 .balanceRow + .balanceRow {
@@ -105,19 +101,16 @@
   gap: 6px;
 }
 
+/* 배지 필 대신 보라 글자 — 색이 곧 "유료 잔여"의 표시 */
 .paidBadge {
-  background: rgba(184, 157, 209, 0.16);
-  border: 1px solid rgba(184, 157, 209, 0.4);
   color: var(--accent);
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
 }
 
 .balanceHint {
-  margin-top: 9px;
-  padding-top: 9px;
+  margin-top: 6px;
+  padding-top: 10px;
   border-top: 1px solid rgba(48, 46, 56, 0.6);
   color: var(--text-muted);
   font-size: 11.5px;
@@ -132,18 +125,15 @@
   margin: 4px 4px 10px;
 }
 
-/* 판매 카드가 화면의 주인공 — 살짝 띄워 보이게 */
+/* 상품도 맨 행 — 채움색은 가격(CTA) 버튼 하나로 모은다 */
 .itemCard {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 17px 16px;
-  margin-bottom: 22px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  padding: 6px 4px 20px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(48, 46, 56, 0.6);
 }
 
 .itemInfo {
@@ -226,13 +216,13 @@
   padding: 8px 2px 16px;
 }
 
-/* 내역은 조연 — 판매 카드보다 낮은 대비로 가라앉힌다 */
+/* 내역도 맨 행 목록 — 행 사이는 헤어라인으로만 */
 .historyCard {
-  background: rgba(33, 31, 39, 0.55);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 12px 14px;
-  margin-bottom: 8px;
+  padding: 12px 4px;
+}
+
+.historyCard + .historyCard {
+  border-top: 1px solid rgba(48, 46, 56, 0.6);
 }
 
 .historyTop {
@@ -248,36 +238,27 @@
   font-weight: 700;
 }
 
-/* 상태 배지 — 색으로 상태를 구분한다(무채색 시안은 너무 안 보여서 사용자 결정으로 색 복귀) */
+/* 상태는 필 없이 색 글자로만 — 상태 구분(색)은 유지하되 배지 장식은 뺀다 */
 .statusBadge {
   flex-shrink: 0;
-  border-radius: 999px;
-  padding: 2px 9px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  border: 1px solid var(--border);
   color: var(--text-sub);
 }
 
 .stDONE {
-  border-color: rgba(184, 157, 209, 0.5);
   color: var(--accent);
-  background: rgba(184, 157, 209, 0.12);
 }
 
 .stWAITING_FOR_DEPOSIT,
 .stIN_PROGRESS,
 .stCANCEL_REQUESTED {
-  border-color: rgba(230, 200, 120, 0.4);
   color: #e6c878;
-  background: rgba(230, 200, 120, 0.08);
 }
 
 .stFAILED,
 .stEXPIRED {
-  border-color: rgba(224, 122, 122, 0.4);
   color: #e07a7a;
-  background: rgba(224, 122, 122, 0.08);
 }
 
 .historyMeta {
