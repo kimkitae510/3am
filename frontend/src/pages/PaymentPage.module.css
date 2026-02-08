@@ -73,7 +73,6 @@
 /* 박스/틴트 카드 대신 맨 행 + 헤어라인 — 화면 전체를 타이포 위계로 정리(헤더 액션과 같은 결) */
 .balanceCard {
   padding: 0 4px;
-  margin-bottom: 26px;
 }
 
 .balanceRow {
@@ -117,12 +116,13 @@
   line-height: 1.5;
 }
 
+/* 섹션 경계는 제목 위 큰 여백이 담당 — 박스를 걷어낸 화면에서 붙어 보이지 않게 */
 .sectionTitle {
   color: var(--text-sub);
   font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  margin: 4px 4px 10px;
+  margin: 34px 4px 12px;
 }
 
 /* 상품도 맨 행 — 채움색은 가격(CTA) 버튼 하나로 모은다 */
@@ -131,9 +131,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 4px 20px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(48, 46, 56, 0.6);
+  padding: 6px 4px;
+  margin-bottom: 12px;
 }
 
 .itemInfo {
@@ -284,12 +283,15 @@
   font-size: 12px;
 }
 
-/* 청약철회 제한 고지 — 구매 버튼을 여는 관문이라 상품 카드 바로 아래에 둔다 */
+/* 청약철회 제한 고지 — 구매 버튼을 여는 관문이라 상품 행 바로 아래.
+   구매 섹션의 마지막 요소라 여기서 헤어라인으로 섹션을 닫는다 */
 .refundConsent {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 4px;
+  margin: 4px 4px 0;
+  padding-bottom: 26px;
+  border-bottom: 1px solid rgba(48, 46, 56, 0.6);
   color: var(--text-sub);
   font-size: 12px;
   line-height: 1.6;
