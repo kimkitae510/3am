@@ -19,6 +19,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  padding-right: 16px; /* 말줄임된 제목이 우측 액션에 닿기 전에 끊기게 */
 }
 
 .backButton {
@@ -42,14 +43,15 @@
 }
 
 /* 헤더 액션은 박스 없이 글자 그 자체(iOS 내비게이션 결) — 필 채움은 화면에서 과했다.
-   존재감은 채움이 아니라 색과 굵기로 준다 */
+   진단을 제목과 같은 흰색으로 두면 긴 제목과 한 덩어리로 읽혀서, 액션은 한 톤 가라앉힌다.
+   (제목 흰색 / 진단 회색 / 이용권 보라 — 색이 곧 역할 구분) */
 .diagButton {
   display: flex;
   align-items: center;
   padding: 8px 4px;
   border: none;
   background: transparent;
-  color: var(--text);
+  color: var(--text-sub);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -152,7 +154,8 @@
 .topRight {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
+  flex-shrink: 0;
 }
 
 .helpButton {
