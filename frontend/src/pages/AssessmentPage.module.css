@@ -374,25 +374,20 @@
   margin-top: 16px;
 }
 
-/* 남은 횟수 알약 배지 */
+/* 남은 횟수 — 알약 배지 없이 흐린 글자만(채팅 입력창 위 안내와 같은 결) */
 .hintCount {
-  padding: 3px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--text-sub);
+  color: var(--text-muted);
   font-size: 11.5px;
 }
 
-/* 소진 전에도 보이는 이용권 구매 링크 — 테두리만 있는 알약은 비어 보여서 은은한 채움으로 */
+/* 충전 링크 — 알약 채움 없이 보라 글자만(액션은 색으로 말하는 체계) */
 .topupLink {
-  padding: 4px 12px;
+  padding: 2px 0;
   border: none;
-  border-radius: 999px;
-  background: rgba(184, 157, 209, 0.16);
+  background: transparent;
   color: var(--accent);
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 

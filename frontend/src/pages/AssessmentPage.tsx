@@ -405,9 +405,9 @@ export function AssessmentPage() {
               {remaining != null ? `오늘 ${remaining}회 남음` : '하루 1회'}
               {paidRemaining > 0 && ` + 이용권 ${paidRemaining}회`}
             </div>
-            {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅 상단 아이콘과 같은 동선 */}
+            {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅의 충전하기와 같은 동선 */}
             <button className={styles.topupLink} onClick={() => navigate('/payment')}>
-              추가 이용권 구매
+              충전하기
             </button>
           </div>
 
