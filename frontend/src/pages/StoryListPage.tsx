@@ -172,6 +172,18 @@ export function StoryListPage() {
           </div>
         </div>
 
+        {/* 잔여 현황 + 충전 진입점 — 목록 들어오자마자 보이게 헤더 바로 아래.
+            표시는 오늘 쓸 수 있는 총량(무료+이용권) — 상세 구분은 이용권 화면이 담당 */}
+        {usage && (
+          <div className={styles.usageLine}>
+            오늘 남은 대화 {usage.chatRemaining + usage.chatPaidRemaining}회, 진단{' '}
+            {usage.assessmentRemaining + usage.assessmentPaidRemaining}회
+            <button className={styles.topupLink} onClick={() => navigate('/payment')}>
+              충전하기
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className={styles.state}>불러오는 중…</div>
         ) : error ? (
@@ -234,18 +246,6 @@ export function StoryListPage() {
           {creating ? '시작하는 중…' : '새 이야기'}
         </button>
 
-        {/* 잔여 현황 + 충전 진입점 — 헤더의 외딴 "이용권" 글자 대신 맥락(남은 횟수) 옆에 둔다.
-            표시는 오늘 쓸 수 있는 총량(무료+이용권) — 상세 구분은 이용권 화면이 담당 */}
-        {usage && (
-          <div className={styles.usageLine}>
-            오늘 남은 대화 {usage.chatRemaining + usage.chatPaidRemaining}회, 진단{' '}
-            {usage.assessmentRemaining + usage.assessmentPaidRemaining}회
-            <button className={styles.topupLink} onClick={() => navigate('/payment')}>
-              충전하기
-            </button>
-          </div>
-        )}
-
         {/* 문의 창구는 도움말 모달 안에만 있으면 못 찾는다 — 첫 화면 하단에 상시 노출 */}
         <a className={styles.contactLink} href={CONTACT_OPENCHAT_URL} target="_blank" rel="noreferrer">
           불편사항이나 오류가 있다면 알려주세요. <span className={styles.contactAccent}>1:1 문의</span>
@@ -266,7 +266,7 @@ export function StoryListPage() {
               },
               {
                 heading: '이용권',
-                text: '무료 횟수를 다 쓰면 이용권으로 이어서 쓸 수 있습니다. 화면 아래 충전하기에서 구매할 수 있습니다.',
+                text: '무료 횟수를 다 쓰면 이용권으로 이어서 쓸 수 있습니다. 목록 위 충전하기에서 구매할 수 있습니다.',
               },
             ]}
           />
