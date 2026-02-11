@@ -3,6 +3,7 @@
   flex-direction: column;
   height: 100%;
   background: var(--surface);
+  position: relative; /* 동의 시트 오버레이 기준 */
 }
 
 .topbar {
@@ -125,14 +126,14 @@
   margin: 34px 4px 12px;
 }
 
-/* 상품도 맨 행 — 채움색은 가격(CTA) 버튼 하나로 모은다 */
+/* 상품도 맨 행 — 채움색은 가격(CTA) 버튼 하나로 모은다. 구매 섹션의 마지막 요소라 여기서 닫는다 */
 .itemCard {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 4px;
-  margin-bottom: 12px;
+  padding: 6px 4px 22px;
+  border-bottom: 1px solid rgba(48, 46, 56, 0.6);
 }
 
 .itemInfo {
@@ -283,27 +284,46 @@
   font-size: 12px;
 }
 
-/* 청약철회 제한 고지 — 구매 버튼을 여는 관문이라 상품 행 바로 아래.
-   구매 섹션의 마지막 요소라 여기서 헤어라인으로 섹션을 닫는다 */
-.refundConsent {
+/* 청약철회 고지 시트 — 결제 직전에만 노출(상시 체크박스는 화면만 어지럽혔다) */
+.sheetOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 4px 4px 0;
-  padding-bottom: 26px;
-  border-bottom: 1px solid rgba(48, 46, 56, 0.6);
-  color: var(--text-sub);
-  font-size: 12px;
-  line-height: 1.6;
-  cursor: pointer;
-  user-select: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
 }
 
-.refundCheck {
-  width: 15px;
-  height: 15px;
-  margin: 2px 0 0;
-  accent-color: var(--accent);
+.sheet {
+  width: 86%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheetTitle {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sheetText {
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.sheetCancel {
+  height: 42px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  flex-shrink: 0;
 }

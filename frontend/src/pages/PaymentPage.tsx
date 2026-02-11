@@ -59,8 +59,9 @@ export function PaymentPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [buying, setBuying] = useState(false);
-  // 청약철회 제한 고지 동의 — 전자상거래법상 결제 전에 받아야 해서 구매 버튼의 관문이다
-  const [agreeRefundPolicy, setAgreeRefundPolicy] = useState(false);
+  // 청약철회 제한 고지 동의 — 전자상거래법상 결제 전에 받아야 한다.
+  // 상시 체크박스 대신 가격 버튼을 누른 순간 시트로 물어본다(동의하고 결제 = 명시적 동의).
+  const [consentItem, setConsentItem] = useState<string | null>(null);
   // 실결제(toss) 모드에서만: 주문을 만들고 위젯을 펼친 상태
   const [widgetOrder, setWidgetOrder] = useState<OrderCreateResponse | null>(null);
   const [widgetReady, setWidgetReady] = useState(false);
@@ -120,12 +121,13 @@ export function PaymentPage() {
   }, [widgetOrder, config]);
 
   async function buy(itemCode: string) {
-    if (buying || !config || !agreeRefundPolicy) return;
+    if (buying || !config) return;
     setBuying(true);
     setError('');
     setNotice('');
     try {
-      const order = await createOrder(itemCode, agreeRefundPolicy);
+      // 시트의 "동의하고 결제"를 거쳐서만 호출된다 — 동의는 항상 참
+      const order = await createOrder(itemCode, true);
       if (!config.clientKey) {
         // mock 모드: PG 없이 서버 mock 게이트웨이가 즉시 승인한다 — 키 없이 전체 흐름 확인용.
         const done = await confirmPayment({
@@ -223,26 +225,13 @@ export function PaymentPage() {
                     </div>
                     <button
                       className={styles.buyButton}
-                      onClick={() => buy(item.code)}
-                      disabled={buying || !agreeRefundPolicy}
+                      onClick={() => setConsentItem(item.code)}
+                      disabled={buying}
                     >
                       {buying ? '진행 중…' : `${item.amount.toLocaleString()}원`}
                     </button>
                   </div>
                 ))}
-                <label className={styles.refundConsent}>
-                  <input
-                    type="checkbox"
-                    className={styles.refundCheck}
-                    checked={agreeRefundPolicy}
-                    onChange={(e) => setAgreeRefundPolicy(e.target.checked)}
-                  />
-                  <span>
-                    (필수) 이용권은 결제 즉시 지급되는 디지털 콘텐츠로, 사용을 시작하면
-                    환불(청약철회)이 제한되는 것에 동의합니다. 사용하지 않은 이용권은 1:1 문의로
-                    전액 환불받을 수 있어요.
-                  </span>
-                </label>
               </>
             )}
 
@@ -302,6 +291,31 @@ export function PaymentPage() {
                 </div>
               ))
             )}
+          </div>
+        )}
+
+        {consentItem && (
+          <div className={styles.sheetOverlay} onClick={() => setConsentItem(null)}>
+            <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.sheetTitle}>결제 전에 확인해 주세요</div>
+              <div className={styles.sheetText}>
+                이용권은 결제 즉시 지급되는 디지털 콘텐츠로, 사용을 시작하면 환불(청약철회)이
+                제한됩니다. 사용하지 않은 이용권은 1:1 문의로 전액 환불받을 수 있어요.
+              </div>
+              <button
+                className={styles.btnPrimary}
+                onClick={() => {
+                  const code = consentItem;
+                  setConsentItem(null);
+                  void buy(code);
+                }}
+              >
+                동의하고 결제하기
+              </button>
+              <button className={styles.sheetCancel} onClick={() => setConsentItem(null)}>
+                취소
+              </button>
+            </div>
           </div>
         )}
       </div>
