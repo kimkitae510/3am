@@ -58,20 +58,6 @@
   flex-shrink: 0;
 }
 
-/* 이용권(결제 진입점)만 보라 — 나란히 있어도 충전 자리가 먼저 읽히게 */
-.payButton {
-  display: flex;
-  align-items: center;
-  padding: 8px 4px;
-  border: none;
-  background: transparent;
-  color: var(--accent);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
 
 .messages {
   flex: 1;

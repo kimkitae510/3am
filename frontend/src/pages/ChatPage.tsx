@@ -202,10 +202,7 @@ export function ChatPage() {
             >
               진단
             </button>
-            {/* 이용권 구매 상시 진입점 — 소진 배너만으로는 평소에 어디서 사는지 안 보인다 */}
-            <button className={styles.payButton} onClick={() => navigate('/payment')}>
-              이용권
-            </button>
+            {/* 이용권 진입점은 입력창 위 충전하기가 담당 — 헤더는 진단 하나만 */}
             <button className={styles.helpButton} onClick={() => setShowHelp(true)} aria-label="도움말">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />
