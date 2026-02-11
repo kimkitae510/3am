@@ -49,7 +49,12 @@ export function HelpModal({
             카카오 오픈채팅 1:1 문의
           </a>
           로 보내주세요.
-          {memberId !== null && <> 문의하실 때 회원번호 {memberId}번을 알려주시면 확인이 빨라요.</>}
+          {memberId !== null && (
+            <>
+              {' '}문의하실 때 <span className={styles.memberId}>회원번호 {memberId}번</span>을
+              알려주시면 확인이 빨라요.
+            </>
+          )}
         </div>
         <button className={styles.close} onClick={onClose}>
           확인

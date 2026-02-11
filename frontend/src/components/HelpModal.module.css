@@ -55,6 +55,12 @@
   text-decoration: underline;
 }
 
+/* 문의 시 알려줄 회원번호 — 흘려 읽지 않게 강조 */
+.memberId {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .close {
   margin-top: 6px;
   height: 44px;
