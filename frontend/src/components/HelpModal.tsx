@@ -51,8 +51,8 @@ export function HelpModal({
           로 보내주세요.
           {memberId !== null && (
             <>
-              {' '}문의하실 때 <span className={styles.memberId}>회원번호 {memberId}번</span>을
-              알려주시면 확인이 빨라요.
+              {' '}문의하실 때 회원번호를 알려주시면 확인이 빨라요.
+              <span className={styles.memberId}>회원번호 {memberId}번</span>
             </>
           )}
         </div>
