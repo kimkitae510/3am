@@ -241,6 +241,14 @@
   font-weight: 600;
 }
 
+/* 유형 판정의 근거가 된 행동 패턴 한 줄 */
+.typeEvidence {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 /* 감점 신호 */
 .dedTitle {
   color: var(--text-sub);

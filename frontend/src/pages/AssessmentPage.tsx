@@ -355,6 +355,9 @@ export function AssessmentPage() {
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
               <div className={styles.typeName}>{result.partnerAttachment ?? '미확정'}</div>
+              {result.partnerAttachmentEvidence && (
+                <div className={styles.typeEvidence}>{result.partnerAttachmentEvidence}</div>
+              )}
             </div>
           </div>
 
