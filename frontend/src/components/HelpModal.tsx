@@ -52,7 +52,7 @@ export function HelpModal({
           {memberId !== null && (
             <>
               {' '}문의하실 때 회원번호를 알려주시면 확인이 빨라요.
-              <span className={styles.memberId}>회원번호 {memberId}번</span>
+              <span className={styles.memberId}>회원번호 - {memberId}번</span>
             </>
           )}
         </div>

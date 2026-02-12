@@ -55,10 +55,11 @@
   text-decoration: underline;
 }
 
-/* 문의 시 알려줄 회원번호 — 문장에 섞이면 흘려 읽혀서 아래 줄에 따로 크게 */
+/* 문의 시 알려줄 회원번호 — 문장에 섞이면 흘려 읽혀서 아래 줄 가운데에 따로 크게 */
 .memberId {
   display: block;
-  margin-top: 6px;
+  margin-top: 8px;
+  text-align: center;
   color: var(--accent);
   font-size: 14px;
   font-weight: 700;
