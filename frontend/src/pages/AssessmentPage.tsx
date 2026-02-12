@@ -350,16 +350,10 @@ export function AssessmentPage() {
             <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
           )}
 
-          {/* 유형은 나/상대 모두 애착유형 하나로 통일(커스텀 유형 폐기). 일반 설명은 도움말 모달로.
-              판정 근거는 화면에 늘어놓지 않는다 — 채팅 주입에 실려 있어 "왜 이 결과인지 물어보기"로 들을 수 있다. */}
-          <div className={styles.dedTitle}>애착유형</div>
+          {/* 상대 유형만 판정한다(내 유형 폐기 — 여기서 궁금한 건 상대다). 일반 설명은 도움말 모달로. */}
+          <div className={styles.dedTitle}>상대 애착유형</div>
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
-              <div className={styles.typeKey}>나</div>
-              <div className={styles.typeName}>{result.myAttachment ?? '미확정'}</div>
-            </div>
-            <div className={styles.typeCard}>
-              <div className={styles.typeKey}>상대</div>
               <div className={styles.typeName}>{result.partnerAttachment ?? '미확정'}</div>
             </div>
           </div>
@@ -446,8 +440,8 @@ export function AssessmentPage() {
                 text: '상대가 재회 의사를 실제로 나에게 밝힌 경우입니다. 남은 것은 내 마음이기 때문입니다. 제안이 없던 일이 되면 다시 내려갑니다.',
               },
               {
-                heading: '애착유형',
-                text: '안정형 : 감정을 말로 풀고 갈등을 대화로 다루는 편\n불안형 : 확인받고 싶어 하고 거리가 생기면 매달리는 편\n거부회피형 : 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편\n공포회피형 : 밀어내고 다시 찾기를 반복하는 편\n행동 패턴이 여러 번 보여야 잡히기 때문에 처음에는 미확정으로 나올 수 있습니다.',
+                heading: '상대 애착유형',
+                text: '안정형 : 감정을 말로 풀고 갈등을 대화로 다루는 편\n불안형 : 확인받고 싶어 하고 거리가 생기면 매달리는 편\n거부회피형 : 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편\n공포회피형 : 밀어내고 다시 찾기를 반복하는 편\n상대의 행동 패턴이 여러 번 보여야 잡히기 때문에 처음에는 미확정으로 나올 수 있습니다.',
               },
               {
                 heading: '진단 횟수',

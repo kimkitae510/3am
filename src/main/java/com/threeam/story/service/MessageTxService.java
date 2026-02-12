@@ -160,10 +160,6 @@ public class MessageTxService {
         if (assessment.getProbability() != null) {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
         }
-        if (assessment.getMyAttachment() != null) {
-            block.append("- 유저 애착유형: ").append(assessment.getMyAttachment().getLabel());
-            appendAttachmentEvidence(block, assessment.getMyAttachmentEvidence());
-        }
         if (assessment.getPartnerAttachment() != null) {
             block.append("- 상대 애착유형: ").append(assessment.getPartnerAttachment().getLabel());
             appendAttachmentEvidence(block, assessment.getPartnerAttachmentEvidence());

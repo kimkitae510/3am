@@ -49,21 +49,13 @@ public class Assessment {
     @Column
     private Integer probability;
 
-    // 애착유형은 LLM이 행동 패턴으로 판정한다. 근거가 부족하면 null.
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(length = 20)
-    private AttachmentStyle myAttachment;
-
+    // 상대 애착유형만 판정한다(유저 유형은 폐기 — 유저가 궁금한 건 상대다). 행동 근거 부족이면 null.
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(length = 20)
     private AttachmentStyle partnerAttachment;
 
     // 유형 판정의 근거가 된 행동 패턴 한 줄. 유형이 null이면 함께 null.
-    @Column(length = 200)
-    private String myAttachmentEvidence;
-
     @Column(length = 200)
     private String partnerAttachmentEvidence;
 
@@ -82,15 +74,12 @@ public class Assessment {
 
     @Builder
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
-                       AttachmentStyle myAttachment, AttachmentStyle partnerAttachment,
-                       String myAttachmentEvidence, String partnerAttachmentEvidence,
+                       AttachmentStyle partnerAttachment, String partnerAttachmentEvidence,
                        String reason, @Singular List<Deduction> deductions) {
         this.storyId = storyId;
         this.verdict = verdict;
         this.probability = probability;
-        this.myAttachment = myAttachment;
         this.partnerAttachment = partnerAttachment;
-        this.myAttachmentEvidence = myAttachmentEvidence;
         this.partnerAttachmentEvidence = partnerAttachmentEvidence;
         this.reason = reason;
         this.deductions = deductions != null ? deductions : new ArrayList<>();

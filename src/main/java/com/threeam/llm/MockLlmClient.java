@@ -35,8 +35,6 @@ public class MockLlmClient implements LlmClient {
         return CompletableFuture.completedFuture("""
                 {
                   "verdict": "POSSIBLE",
-                  "myAttachment": "ANXIOUS",
-                  "myAttachmentEvidence": "(개발용 임시 근거) 답장이 늦으면 반복해서 확인 연락",
                   "partnerAttachment": "AVOIDANT",
                   "partnerAttachmentEvidence": "(개발용 임시 근거) 갈등 얘기를 꺼내면 화제를 돌리는 패턴",
                   "activeReunionOffer": false,

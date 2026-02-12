@@ -235,12 +235,6 @@
   padding: 14px;
 }
 
-.typeKey {
-  color: var(--text-muted);
-  font-size: 12px;
-  margin-bottom: 6px;
-}
-
 .typeName {
   color: var(--text);
   font-size: 15px;

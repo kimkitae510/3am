@@ -13,10 +13,8 @@ export interface DeductionView {
 export interface AssessmentResponse {
   verdict: Verdict;
   probability: number | null; // POSSIBLE일 때만
-  myAttachment: string | null; // 유저 애착유형 라벨(한국어). 행동 근거 부족이면 null
-  partnerAttachment: string | null; // 상대 애착유형 라벨
-  myAttachmentEvidence: string | null; // 유형 판정 근거 한 줄. 유형이 null이면 null
-  partnerAttachmentEvidence: string | null;
+  partnerAttachment: string | null; // 상대 애착유형 라벨(한국어). 행동 근거 부족이면 null (내 유형은 폐기)
+  partnerAttachmentEvidence: string | null; // 유형 판정 근거 한 줄. 유형이 null이면 null
   reason: string;
   deductions: DeductionView[];
   createdAt: string | null; // INSUFFICIENT는 저장 안 돼서 null

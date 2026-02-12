@@ -52,8 +52,6 @@ public class ReunionLlm {
             아래 JSON 스키마로만 답하라(다른 텍스트 금지):
             {
               "verdict": "POSSIBLE" | "INSUFFICIENT" | "DATING" | "REUNITED",
-              "myAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
-              "myAttachmentEvidence": "유형 판정 근거 한 줄" | null,
               "partnerAttachment": "SECURE" | "ANXIOUS" | "AVOIDANT" | "FEARFUL" | null,
               "partnerAttachmentEvidence": "유형 판정 근거 한 줄" | null,
               "activeReunionOffer": true | false,
@@ -90,8 +88,8 @@ public class ReunionLlm {
               그 이후 새로운 제안 기록이 없으면 false다(유저가 100% 확정을 직접 정정한 기록이다).
             - true면 deductions, boosts와 무관하게 백엔드가 확률을 100으로 확정한다.
 
-            애착유형(myAttachment, partnerAttachment) 판정 — 유저와 상대 각각:
-            - 근거는 기록된 사실과 대화 속 '행동 패턴'만이다:
+            애착유형(partnerAttachment) 판정 — 상대만 판정한다(유저 유형은 안 낸다):
+            - 근거는 기록된 사실과 대화 속 상대의 '행동 패턴'만이다:
               갈등이 생기면 대화를 피하고 잠수, 이별 후 뒤도 안 돌아보는 듯 단호하고 무심(AVOIDANT),
               확인을 반복 요구하고 거리가 생기면 매달림(ANXIOUS),
               감정을 명확히 말하고 갈등을 대화로 풂(SECURE),
@@ -99,9 +97,9 @@ public class ReunionLlm {
             - AVOIDANT와 FEARFUL의 구분: 떠난 뒤 일관되게 무심하면 AVOIDANT,
               밀어냈다가 다시 찾아오기를 반복하면 FEARFUL.
             - 서로 다른 행동 근거가 두 개 이상일 때만 판정하라. 애매하면 null — 억지로 붙이지 마라.
-            - 유형을 판정했으면 그 근거가 된 행동 패턴을 myAttachmentEvidence,
-              partnerAttachmentEvidence에 각각 한 줄로 적어라. 대화와 기록에서 실제 관찰된
-              행동만 담아라(예: "감정 얘기를 꺼내면 화제를 돌리는 패턴이 반복됨").
+            - 유형을 판정했으면 그 근거가 된 행동 패턴을 partnerAttachmentEvidence에
+              한 줄로 적어라. 대화와 기록에서 실제 관찰된 행동만 담아라
+              (예: "감정 얘기를 꺼내면 화제를 돌리는 패턴이 반복됨").
               해석이나 유형 정의의 반복("회피 성향이라서")은 근거가 아니다.
               유형이 null이면 근거도 null이다.
             - 이것도 도덕 평가가 아니라 패턴 분류다. 유형이 나쁜 사람이라는 뜻이 아니다.
@@ -110,7 +108,7 @@ public class ReunionLlm {
             - 유저가 아직 헤어지지 않은 상태(사귀는 중의 싸움, 갈등 고민, 뒤늦게 "사실 안 헤어졌어"
               고백 포함)면 DATING이다. 재회 확률은 이별을 전제로 하므로 절대 만들지 마라 —
               deductions, boosts는 빈 배열, activeReunionOffer는 false로 둬라.
-              단, 애착유형(나/상대)은 관계 상태와 무관한 행동 패턴이므로 근거가 충분하면
+              단, 상대 애착유형은 관계 상태와 무관한 행동 패턴이므로 근거가 충분하면
               평소 규칙대로 판정하고 근거도 적어라. summary와 newFacts도 평소대로 채워라
               (사귀는 중이라는 사실 자체가 기록할 사실이다).
               reason에는 "아직 헤어진 게 아니라면 재회 확률은 의미가 없어요. 지금 갈등은
@@ -124,14 +122,14 @@ public class ReunionLlm {
             - 헤어졌던 두 사람이 다시 만나기로 한 상태(재회 성공 — "다시 만나기로 했어",
               "우리 다시 사귀기로 했어")면 DATING이 아니라 REUNITED다. 목표를 이룬 상태라
               확률은 절대 만들지 마라 — deductions, boosts는 빈 배열, activeReunionOffer는 false.
-              애착유형, summary, newFacts는 DATING과 같은 규칙으로 채워라(재회 사실 자체가 기록할 사실이다).
+              상대 애착유형, summary, newFacts는 DATING과 같은 규칙으로 채워라(재회 사실 자체가 기록할 사실이다).
               reason에는 재회를 담담하게 축하하고, 같은 문제로 다시 흔들리지 않게 관계를
               이어가는 조언을 한두 문장으로 담아라.
               위 DATING의 정정 예외는 REUNITED에도 똑같이 적용된다 — 헤어진 상태라는 유저
               확인 기록이 있고 그 이후 다시 만나기로 했다는 새 기록이나 새 대화가 없으면
               REUNITED로 판정하지 마라.
             - INSUFFICIENT: 대화에 이별, 관계 정보가 거의 없어 판단 근거가 부족할 때. 억지로 확률을 내지 마라.
-              이때 myAttachment, partnerAttachment, deductions, boosts는 비우고, reason에는 무엇을 더 이야기하면 좋을지
+              이때 partnerAttachment, deductions, boosts는 비우고, reason에는 무엇을 더 이야기하면 좋을지
               부드러운 가이드를 담아라(예: 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일).
             - POSSIBLE: 판단 근거가 충분한 그 외 모든 경우. 감점 항목을 채워라.
               ※ "놓아줘라"는 판정은 하지 마라. 상대가 새 사람이 있거나 신뢰가 크게 무너졌어도
@@ -267,11 +265,8 @@ public class ReunionLlm {
             JsonNode root = objectMapper.readTree(LlmJson.salvage(json));
             ReunionVerdict verdict = enumValue(ReunionVerdict.class, root.path("verdict").asText(null),
                     ReunionVerdict.POSSIBLE);
-            AttachmentStyle myAttachment =
-                    enumValue(AttachmentStyle.class, root.path("myAttachment").asText(null), null);
             AttachmentStyle partnerAttachment =
                     enumValue(AttachmentStyle.class, root.path("partnerAttachment").asText(null), null);
-            String myAttachmentEvidence = attachmentEvidence(root, "myAttachmentEvidence", myAttachment);
             String partnerAttachmentEvidence =
                     attachmentEvidence(root, "partnerAttachmentEvidence", partnerAttachment);
             boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
@@ -301,8 +296,8 @@ public class ReunionLlm {
                         : fact);
             }
 
-            return new ReunionDiagnosis(verdict, myAttachment, partnerAttachment,
-                    myAttachmentEvidence, partnerAttachmentEvidence, activeReunionOffer,
+            return new ReunionDiagnosis(verdict, partnerAttachment,
+                    partnerAttachmentEvidence, activeReunionOffer,
                     deductions, boosts,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
