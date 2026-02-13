@@ -350,14 +350,12 @@ export function AssessmentPage() {
             <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
           )}
 
-          {/* 상대 유형만 판정한다(내 유형 폐기 — 여기서 궁금한 건 상대다). 일반 설명은 도움말 모달로. */}
+          {/* 상대 유형만 판정한다(내 유형 폐기 — 여기서 궁금한 건 상대다). 일반 설명은 도움말 모달로.
+              판정 근거는 화면에 안 싣는다 — 채팅 주입에 실려 있어 "왜 이 결과인지 물어보기"에서 답한다. */}
           <div className={styles.dedTitle}>상대 애착유형</div>
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
               <div className={styles.typeName}>{result.partnerAttachment ?? '미확정'}</div>
-              {result.partnerAttachmentEvidence && (
-                <div className={styles.typeEvidence}>{result.partnerAttachmentEvidence}</div>
-              )}
             </div>
           </div>
 
