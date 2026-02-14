@@ -54,11 +54,16 @@ class PaymentServiceTest {
     @Mock
     private com.threeam.consent.service.ConsentService consentService;
 
+    // 게스트 결제 차단용 조회 — 스텁 없으면 Optional.empty()라 일반 회원으로 취급된다
+    @Mock
+    private com.threeam.user.repository.UserRepository userRepository;
+
     private PaymentService service;
 
     @BeforeEach
     void setUp() {
-        service = new PaymentService(txService, paymentGateway, new PaymentProperties(), consentService);
+        service = new PaymentService(txService, paymentGateway, new PaymentProperties(), consentService,
+                userRepository);
     }
 
     private Payment payment(PaymentStatus status) {
@@ -110,6 +115,22 @@ class PaymentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CONSENT_REQUIRED);
         verifyNoInteractions(txService);
         verifyNoInteractions(consentService);
+    }
+
+    @Test
+    @DisplayName("주문 생성 - 게스트는 결제할 수 없다(토큰 유실 시 자산 복구 불가 — 계정 연결 유도)")
+    void createOrder_guestBlocked() {
+        given(userRepository.findById(9L)).willReturn(java.util.Optional.of(
+                com.threeam.user.entity.User.builder()
+                        .role(com.threeam.user.entity.Role.USER)
+                        .provider(com.threeam.user.entity.AuthProvider.GUEST)
+                        .providerId("guest-uuid")
+                        .build()));
+
+        assertThatThrownBy(() -> service.createOrder(9L, orderRequest("BUNDLE_STANDARD", true)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GUEST_LINK_REQUIRED);
+        verifyNoInteractions(txService);
     }
 
     @Test

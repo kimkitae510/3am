@@ -16,6 +16,8 @@ import com.threeam.payment.entity.Payment;
 import com.threeam.payment.entity.PaymentItem;
 import com.threeam.payment.entity.PaymentStatus;
 import com.threeam.usage.Entitlement;
+import com.threeam.user.entity.User;
+import com.threeam.user.repository.UserRepository;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -36,6 +38,7 @@ public class PaymentService {
     private final PaymentGateway paymentGateway;
     private final PaymentProperties properties;
     private final ConsentService consentService;
+    private final UserRepository userRepository;
 
     public PaymentConfigResponse config() {
         return new PaymentConfigResponse(properties.getProvider(), properties.getToss().getClientKey());
@@ -43,6 +46,11 @@ public class PaymentService {
 
     // 금액은 여기서(서버 상품 정의로) 확정된다. 프론트는 orderId와 금액을 받아 위젯만 띄운다.
     public OrderCreateResponse createOrder(Long userId, OrderCreateRequest request) {
+        // 게스트 결제 차단 — 토큰이 날아가면 계정 복구 수단이 없어 결제 자산이 유실된다.
+        // 계정 연결 후에만 판다.
+        if (userRepository.findById(userId).map(User::isGuest).orElse(false)) {
+            throw new BusinessException(ErrorCode.GUEST_LINK_REQUIRED);
+        }
         // 청약철회 제한은 결제 전 동의가 있어야 성립한다(전자상거래법) — 동의 없인 주문 자체를 안 만든다.
         if (!request.isRefundPolicyAgreed()) {
             throw new BusinessException(ErrorCode.CONSENT_REQUIRED);
