@@ -15,6 +15,10 @@ public class UsageProperties {
     private int chatDailyLimit = 5;
     private int assessmentDailyLimit = 1;
 
+    // 게스트는 일일이 아니라 '총량'이다 — 체험 후 계정 연결로 넘어가게 하는 장치라 리셋되지 않는다.
+    // 진단은 게스트에게 0회(계정 연결 유도 지점)라 별도 한도 없이 코드에서 차단한다.
+    private int guestChatTotalLimit = 3;
+
     // 생성 락의 자동 만료(TTL). LLM 호출이 실패로 락을 못 풀어도 이 시간이 지나면 풀린 것으로 본다.
     // 종류별로 다르게 둔다 — TTL이 LLM 타임아웃보다 짧으면, 아직 진행 중인 생성 위로 두 번째
     // 요청이 락을 뺏어 동시 생성(쿼터 초과, 원장 레이스)이 생기기 때문이다.

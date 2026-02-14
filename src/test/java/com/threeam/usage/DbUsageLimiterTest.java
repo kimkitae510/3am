@@ -40,6 +40,10 @@ class DbUsageLimiterTest {
     @Mock
     private GenerationLockRepository generationLockRepository;
 
+    // 게스트 판별용 조회 — 스텁 없으면 Optional.empty()라 일반 회원으로 취급된다
+    @Mock
+    private com.threeam.user.repository.UserRepository userRepository;
+
     private UsageProperties properties;
     private DbUsageLimiter limiter;
 
@@ -49,7 +53,7 @@ class DbUsageLimiterTest {
         properties.setChatDailyLimit(30);
         properties.setAssessmentDailyLimit(3);
         limiter = new DbUsageLimiter(properties, quotaRepository, entitlementRepository,
-                generationLockRepository);
+                generationLockRepository, userRepository);
     }
 
     private UsageQuota quota(LocalDate date, int used) {
@@ -67,6 +71,52 @@ class DbUsageLimiterTest {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    // 게스트 총량 카운터가 쌓이는 고정 날짜(DbUsageLimiter.GUEST_TOTAL_DATE와 동일해야 한다)
+    private static final LocalDate GUEST_DATE = LocalDate.of(2000, 1, 1);
+
+    private com.threeam.user.entity.User guestUser() {
+        return com.threeam.user.entity.User.builder()
+                .role(com.threeam.user.entity.Role.USER)
+                .provider(com.threeam.user.entity.AuthProvider.GUEST)
+                .providerId("guest-uuid")
+                .build();
+    }
+
+    @Test
+    @DisplayName("게스트 - 대화 총량(리셋 없음)을 다 쓰면 이용권 경로 없이 GUEST_LINK_REQUIRED")
+    void checkDaily_guestChatTotalExhausted() {
+        given(userRepository.findById(9L)).willReturn(Optional.of(guestUser()));
+        // 고정 날짜 행이라 며칠이 지나도 그대로 남아 있다 — 총량 3회 소진 상태
+        given(quotaRepository.findByUserIdAndKind(9L, UsageKind.CHAT))
+                .willReturn(Optional.of(quota(GUEST_DATE, 3)));
+
+        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.CHAT, 9L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GUEST_LINK_REQUIRED);
+        verify(entitlementRepository, never()).remainingOf(anyLong(), any()); // 게스트에게 이용권 경로는 없다
+    }
+
+    @Test
+    @DisplayName("게스트 - 진단은 횟수와 무관하게 GUEST_LINK_REQUIRED(계정 연결 유도 지점)")
+    void checkDaily_guestAssessmentBlocked() {
+        given(userRepository.findById(9L)).willReturn(Optional.of(guestUser()));
+
+        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 9L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GUEST_LINK_REQUIRED);
+    }
+
+    @Test
+    @DisplayName("게스트 - 차감은 고정 날짜 행에 쌓인다(날짜가 바뀌어도 리셋되지 않는 총량)")
+    void recordDaily_guestUsesFixedDateRow() {
+        given(userRepository.findById(9L)).willReturn(Optional.of(guestUser()));
+        given(quotaRepository.findByUserIdAndKind(9L, UsageKind.CHAT)).willReturn(Optional.empty());
+
+        limiter.recordDaily(UsageKind.CHAT, 9L);
+
+        verify(quotaRepository).recordUsage(9L, "CHAT", GUEST_DATE);
     }
 
     @Test

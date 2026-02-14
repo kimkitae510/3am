@@ -13,15 +13,18 @@ public class UsageStatusResponse {
     private final int assessmentRemaining;
     private final int assessmentDailyLimit;
     private final int assessmentPaidRemaining;
+    // 게스트면 화면이 잔여 대신 '계정 연결' 동선을 보여주도록 표시(진단/결제는 게스트 차단).
+    private final boolean guest;
 
     public UsageStatusResponse(int chatRemaining, int chatDailyLimit, int chatPaidRemaining,
                                int assessmentRemaining, int assessmentDailyLimit,
-                               int assessmentPaidRemaining) {
+                               int assessmentPaidRemaining, boolean guest) {
         this.chatRemaining = chatRemaining;
         this.chatDailyLimit = chatDailyLimit;
         this.chatPaidRemaining = chatPaidRemaining;
         this.assessmentRemaining = assessmentRemaining;
         this.assessmentDailyLimit = assessmentDailyLimit;
         this.assessmentPaidRemaining = assessmentPaidRemaining;
+        this.guest = guest;
     }
 }

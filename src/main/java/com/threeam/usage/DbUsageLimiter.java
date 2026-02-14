@@ -2,6 +2,8 @@ package com.threeam.usage;
 
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
+import com.threeam.user.entity.User;
+import com.threeam.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -24,10 +26,14 @@ public class DbUsageLimiter implements UsageLimiter {
     // 일일 쿼터의 하루 경계. DB 타임존에 묶이지 않게 날짜는 항상 여기서 계산해 넘긴다.
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    // 게스트 총량 카운터 — 날짜 리셋을 타지 않도록 고정 날짜 행 하나에 계속 쌓는다.
+    private static final LocalDate GUEST_TOTAL_DATE = LocalDate.of(2000, 1, 1);
+
     private final UsageProperties properties;
     private final UsageQuotaRepository quotaRepository;
     private final EntitlementRepository entitlementRepository;
     private final GenerationLockRepository generationLockRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -53,20 +59,27 @@ public class DbUsageLimiter implements UsageLimiter {
     @Override
     @Transactional(readOnly = true)
     public void checkDaily(UsageKind kind, Long userId) {
-        if (freeUsedToday(kind, userId) < dailyLimit(kind, userId)) {
+        boolean guest = isGuest(userId);
+        // 게스트에게 진단은 0회 — 여기가 계정 연결 유도 지점이다.
+        if (guest && kind == UsageKind.ASSESSMENT) {
+            throw new BusinessException(ErrorCode.GUEST_LINK_REQUIRED);
+        }
+        if (freeUsed(kind, userId, guest) < limitOf(kind, guest)) {
             return;
         }
-        if (entitlementRepository.remainingOf(userId, kind) > 0) {
+        if (!guest && entitlementRepository.remainingOf(userId, kind) > 0) {
             return;
         }
-        throw new BusinessException(ErrorCode.QUOTA_EXCEEDED);
+        // 게스트 소진은 충전(결제)이 아니라 계정 연결로 풀린다 — 코드로 안내를 가른다.
+        throw new BusinessException(guest ? ErrorCode.GUEST_LINK_REQUIRED : ErrorCode.QUOTA_EXCEEDED);
     }
 
     @Override
     @Transactional
     public void recordDaily(UsageKind kind, Long userId) {
-        if (freeUsedToday(kind, userId) < dailyLimit(kind, userId)) {
-            quotaRepository.recordUsage(userId, kind.name(), LocalDate.now(KST));
+        boolean guest = isGuest(userId);
+        if (freeUsed(kind, userId, guest) < limitOf(kind, guest)) {
+            quotaRepository.recordUsage(userId, kind.name(), quotaDate(guest));
             return;
         }
         // 조건부 UPDATE가 0이면(동시 차감 경합, 그 사이 환불) 다음 이용권으로 넘어간다.
@@ -78,13 +91,14 @@ public class DbUsageLimiter implements UsageLimiter {
         // 검사 시점엔 있던 이용권이 사라진 극단 케이스. 이미 성공한 생성을 무를 수는 없으니
         // 무료 카운터에 초과 기록으로 남긴다(한도 위 1회 허용 — 유저를 막는 것보다 낫다).
         log.warn("이용권 차감 실패, 무료 쿼터 초과 기록 userId={} kind={}", userId, kind);
-        quotaRepository.recordUsage(userId, kind.name(), LocalDate.now(KST));
+        quotaRepository.recordUsage(userId, kind.name(), quotaDate(guest));
     }
 
     @Override
     @Transactional(readOnly = true)
     public int remainingDaily(UsageKind kind, Long userId) {
-        return Math.max(0, dailyLimit(kind, userId) - freeUsedToday(kind, userId));
+        boolean guest = isGuest(userId);
+        return Math.max(0, limitOf(kind, guest) - freeUsed(kind, userId, guest));
     }
 
     @Override
@@ -93,23 +107,36 @@ public class DbUsageLimiter implements UsageLimiter {
         return (int) entitlementRepository.remainingOf(userId, kind);
     }
 
-    private int freeUsedToday(UsageKind kind, Long userId) {
-        LocalDate today = LocalDate.now(KST);
+    private int freeUsed(UsageKind kind, Long userId, boolean guest) {
+        LocalDate window = quotaDate(guest);
         return quotaRepository.findByUserIdAndKind(userId, kind)
-                .filter(quota -> today.equals(quota.getQuotaDate()))   // 지난 날짜 행은 리셋 대상 = 0회
+                .filter(quota -> window.equals(quota.getQuotaDate()))   // 지난 날짜 행은 리셋 대상 = 0회
                 .map(UsageQuota::getUsedCount)
                 .orElse(0);
+    }
+
+    // 게스트는 고정 날짜 행이라 리셋이 없다(총량). 회원은 오늘 날짜 행(일일).
+    // 게스트가 회원으로 승격되면 quota_date가 과거라 자연히 0에서 다시 시작한다.
+    private LocalDate quotaDate(boolean guest) {
+        return guest ? GUEST_TOTAL_DATE : LocalDate.now(KST);
     }
 
     // 한도는 종류별 고정 — 가입 첫날 상향은 폐지(가입 선물 이용권으로 대체).
     @Override
     public int dailyLimit(UsageKind kind, Long userId) {
-        return limitOf(kind);
+        return limitOf(kind, isGuest(userId));
     }
 
-    private int limitOf(UsageKind kind) {
+    private int limitOf(UsageKind kind, boolean guest) {
+        if (guest) {
+            return kind == UsageKind.CHAT ? properties.getGuestChatTotalLimit() : 0;
+        }
         return kind == UsageKind.CHAT
                 ? properties.getChatDailyLimit()
                 : properties.getAssessmentDailyLimit();
+    }
+
+    private boolean isGuest(Long userId) {
+        return userRepository.findById(userId).map(User::isGuest).orElse(false);
     }
 }
