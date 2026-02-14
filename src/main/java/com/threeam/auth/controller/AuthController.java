@@ -31,10 +31,19 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request, ClientIp.of(httpRequest)));
     }
 
+    // 로그인 없이 시작 — 게스트 계정을 만들고 바로 토큰을 준다.
+    @PostMapping("/guest")
+    public ResponseEntity<TokenResponse> guestStart(HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(authService.guestStart(ClientIp.of(httpRequest)));
+    }
+
+    // 게스트가 토큰을 지닌 채 소셜 로그인하면(userId 존재) 새 계정 대신 게스트 행을 승격한다.
     @PostMapping("/oauth/{provider}")
     public ResponseEntity<TokenResponse> oauthLogin(@PathVariable String provider,
-                                                    @Valid @RequestBody OAuthLoginRequest request) {
-        return ResponseEntity.ok(authService.oauthLogin(AuthProvider.fromOAuthPath(provider), request));
+                                                    @Valid @RequestBody OAuthLoginRequest request,
+                                                    @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(
+                authService.oauthLogin(AuthProvider.fromOAuthPath(provider), request, userId));
     }
 
     @PostMapping("/reissue")

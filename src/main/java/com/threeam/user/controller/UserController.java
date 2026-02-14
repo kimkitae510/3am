@@ -44,6 +44,15 @@ public class UserController {
                 .body(userService.signup(request, ClientIp.of(httpRequest)));
     }
 
+    // 게스트를 이메일 계정으로 승격 — 가입과 같은 검증(인증 코드, 동의)을 거치되 새 계정을
+    // 만들지 않고 현재 게스트 행을 교체한다. 로그인 상태(토큰)는 그대로 유효하다.
+    @PostMapping("/guest-link")
+    public ResponseEntity<Void> linkGuestEmail(@AuthenticationPrincipal Long userId,
+                                               @Valid @RequestBody SignupRequest request) {
+        userService.linkGuestEmail(userId, request);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/me")
     public ResponseEntity<UserMeResponse> me(@AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(userService.me(userId));

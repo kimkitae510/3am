@@ -61,6 +61,28 @@ public class UserService {
         return SignupResponse.from(saved);
     }
 
+    // 게스트 → 이메일 계정 승격. 가입과 같은 관문(동의, 이메일 중복, 인증 코드)을 통과시키되
+    // 새 계정을 만들지 않고 게스트 행의 신원을 교체한다 — 사연과 사용량 기록이 그대로 이어진다.
+    // IP 가입 상한은 안 건다(게스트 발급 때 이미 셌고, 계정 수가 늘지 않는다).
+    @Transactional
+    public void linkGuestEmail(Long userId, SignupRequest request) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if (!user.isGuest()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        consentService.requireSignupConsents(request.getConsents());
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+        emailVerificationService.verifyAndConsume(request.getEmail(), request.getVerificationCode());
+
+        user.linkEmail(request.getEmail(), passwordEncoder.encode(request.getPassword()));
+        // 여기가 게스트의 실질적 가입 시점 — 동의 이력과 가입 선물을 이때 처리한다.
+        consentService.recordSignupConsents(user.getId());
+        welcomeGiftService.grant(user.getId());
+    }
+
     public UserMeResponse me(Long userId) {
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));

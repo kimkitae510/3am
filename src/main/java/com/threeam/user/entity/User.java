@@ -72,6 +72,24 @@ public class User {
         return password != null;
     }
 
+    public boolean isGuest() {
+        return provider == AuthProvider.GUEST;
+    }
+
+    // 게스트 승격 — 새 계정을 만들지 않고 이 행의 신원을 교체한다(사연, 쿼터 기록이 그대로 이어진다).
+    public void linkEmail(String email, String encodedPassword) {
+        this.email = email;
+        this.password = encodedPassword;
+        this.provider = AuthProvider.EMAIL;
+        this.providerId = null;
+    }
+
+    public void linkSocial(AuthProvider provider, String providerId, String email) {
+        this.email = email;
+        this.provider = provider;
+        this.providerId = providerId;
+    }
+
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
     }

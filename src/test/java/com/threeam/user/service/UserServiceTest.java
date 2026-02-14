@@ -210,6 +210,44 @@ class UserServiceTest {
         verify(tokenInvalidationRegistry).invalidateAll(1L);
     }
 
+    @Test
+    @DisplayName("게스트 승격 - 새 계정 없이 게스트 행을 이메일 계정으로 교체하고, 동의와 가입 선물을 처리한다")
+    void linkGuestEmail_success() {
+        User guest = User.builder()
+                .role(Role.USER)
+                .provider(com.threeam.user.entity.AuthProvider.GUEST)
+                .providerId("guest-uuid")
+                .build();
+        ReflectionTestUtils.setField(guest, "id", 9L);
+        SignupRequest request = signupRequest("a@a.com", "password123");
+        given(userRepository.findByIdAndDeletedAtIsNull(9L)).willReturn(java.util.Optional.of(guest));
+        given(userRepository.existsByEmail("a@a.com")).willReturn(false);
+        given(passwordEncoder.encode("password123")).willReturn("encodedPw");
+
+        userService.linkGuestEmail(9L, request);
+
+        verify(userRepository, org.mockito.Mockito.never()).save(any(User.class)); // 행 교체지 신규 생성이 아니다
+        assertThat(guest.getProvider()).isEqualTo(com.threeam.user.entity.AuthProvider.EMAIL);
+        assertThat(guest.getEmail()).isEqualTo("a@a.com");
+        assertThat(guest.getPassword()).isEqualTo("encodedPw");
+        assertThat(guest.getProviderId()).isNull();
+        verify(emailVerificationService).verifyAndConsume("a@a.com", "123456"); // 가입과 같은 관문
+        verify(consentService).recordSignupConsents(9L);
+        verify(welcomeGiftService).grant(9L); // 승격이 실질적 가입 — 선물은 이때
+    }
+
+    @Test
+    @DisplayName("게스트 승격 실패 - 게스트가 아닌 계정의 요청은 거부한다")
+    void linkGuestEmail_notGuest() {
+        User member = userWithId(1L, "encodedPw");
+        given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(java.util.Optional.of(member));
+
+        assertThatThrownBy(() -> userService.linkGuestEmail(1L, signupRequest("a@a.com", "password123")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        verify(welcomeGiftService, org.mockito.Mockito.never()).grant(any());
+    }
+
     private User userWithId(Long id, String password) {
         User user = User.builder()
                 .email("a@a.com").password(password).role(Role.USER).build();

@@ -62,8 +62,83 @@ class AuthServiceTest {
     @Mock
     private com.threeam.consent.service.ConsentService consentService;
 
+    @Mock
+    private com.threeam.user.service.SignupRateLimiter signupRateLimiter;
+
     @InjectMocks
     private AuthService authService;
+
+    @Test
+    @DisplayName("게스트 시작 - 계정을 만들어 토큰을 발급하고, 동의와 가입 선물은 없다(연결 시점 처리)")
+    void guestStart_createsGuestAndIssuesTokens() {
+        given(userRepository.save(any(User.class))).willAnswer(inv -> {
+            User saved = inv.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 9L);
+            return saved;
+        });
+        stubTokenIssue(9L);
+
+        TokenResponse response = authService.guestStart("1.1.1.1");
+
+        assertThat(response.getAccessToken()).isEqualTo("access");
+        verify(signupRateLimiter).check("1.1.1.1"); // 게스트 재발급 어뷰징도 가입 IP 상한을 공유
+        org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().isGuest()).isTrue();
+        assertThat(captor.getValue().getProviderId()).isNotBlank(); // (provider, providerId) 유니크 충족
+        org.mockito.Mockito.verifyNoInteractions(consentService, welcomeGiftService);
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 - 게스트가 토큰을 지닌 채 처음 온 소셜이면 새 계정 대신 게스트 행을 승격한다")
+    void oauthLogin_upgradesGuest() {
+        User guest = guestUser(9L);
+        given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.KAKAO, "code1", "st", "http://r"))
+                .willReturn(new com.threeam.auth.oauth.OAuthProfile(
+                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", null));
+        given(userRepository.findByProviderAndProviderId(
+                com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.empty());
+        given(userRepository.findByIdAndDeletedAtIsNull(9L)).willReturn(Optional.of(guest));
+        stubTokenIssue(9L);
+
+        authService.oauthLogin(com.threeam.user.entity.AuthProvider.KAKAO,
+                oauthRequest("code1", "st", "http://r"), 9L);
+
+        verify(userRepository, org.mockito.Mockito.never()).save(any(User.class)); // 새 계정 없음
+        assertThat(guest.getProvider()).isEqualTo(com.threeam.user.entity.AuthProvider.KAKAO);
+        assertThat(guest.getProviderId()).isEqualTo("kakao-1");
+        verify(consentService).recordSignupConsents(9L); // 승격이 실질적 가입 — 동의 이력
+        verify(welcomeGiftService).grant(9L);            // 가입 선물도 이때
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 - 게스트여도 이미 그 소셜로 가입된 계정이 있으면 그 계정으로 로그인한다(병합 없음)")
+    void oauthLogin_guestWithExistingAccountJustLogsIn() {
+        User existing = socialUser(7L, null);
+        given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.KAKAO, "code1", "st", "http://r"))
+                .willReturn(new com.threeam.auth.oauth.OAuthProfile(
+                        com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", null));
+        given(userRepository.findByProviderAndProviderId(
+                com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.of(existing));
+        stubTokenIssue(7L);
+
+        TokenResponse response = authService.oauthLogin(com.threeam.user.entity.AuthProvider.KAKAO,
+                oauthRequest("code1", "st", "http://r"), 9L);
+
+        assertThat(response.getAccessToken()).isEqualTo("access"); // 기존 계정(7L) 토큰
+        verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
+        org.mockito.Mockito.verifyNoInteractions(welcomeGiftService); // 승격 아님
+    }
+
+    private User guestUser(Long id) {
+        User user = User.builder()
+                .role(Role.USER)
+                .provider(com.threeam.user.entity.AuthProvider.GUEST)
+                .providerId("guest-uuid")
+                .build();
+        ReflectionTestUtils.setField(user, "id", id);
+        return user;
+    }
 
     @Test
     @DisplayName("소셜 로그인 - 처음 온 계정이면 그 자리에서 가입하고 토큰을 발급한다")
@@ -81,7 +156,7 @@ class AuthServiceTest {
         stubTokenIssue(7L);
 
         TokenResponse response = authService.oauthLogin(
-                com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r"));
+                com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r"), null);
 
         assertThat(response.getAccessToken()).isEqualTo("access");
         org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
@@ -105,7 +180,7 @@ class AuthServiceTest {
                 .given(consentService).requireSignupConsents(any());
 
         assertThatThrownBy(() -> authService.oauthLogin(
-                com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r")))
+                com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r"), null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CONSENT_REQUIRED);
         verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
@@ -122,7 +197,7 @@ class AuthServiceTest {
                 com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.of(user));
         stubTokenIssue(7L);
 
-        authService.oauthLogin(com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r"));
+        authService.oauthLogin(com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r"), null);
 
         org.mockito.Mockito.verifyNoInteractions(consentService);
     }
@@ -138,7 +213,7 @@ class AuthServiceTest {
                 com.threeam.user.entity.AuthProvider.NAVER, "naver-1")).willReturn(Optional.of(user));
         stubTokenIssue(7L);
 
-        authService.oauthLogin(com.threeam.user.entity.AuthProvider.NAVER, oauthRequest("code1", "st", "http://r"));
+        authService.oauthLogin(com.threeam.user.entity.AuthProvider.NAVER, oauthRequest("code1", "st", "http://r"), null);
 
         verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
     }
@@ -154,7 +229,7 @@ class AuthServiceTest {
         given(userRepository.existsByEmail("dup@a.com")).willReturn(true);
 
         assertThatThrownBy(() -> authService.oauthLogin(
-                com.threeam.user.entity.AuthProvider.NAVER, oauthRequest("code1", "st", "http://r")))
+                com.threeam.user.entity.AuthProvider.NAVER, oauthRequest("code1", "st", "http://r"), null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.OAUTH_EMAIL_CONFLICT);
         verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
@@ -172,7 +247,7 @@ class AuthServiceTest {
                 com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.of(user));
 
         assertThatThrownBy(() -> authService.oauthLogin(
-                com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", null, "http://r")))
+                com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", null, "http://r"), null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.OAUTH_WITHDRAWN_ACCOUNT);
     }

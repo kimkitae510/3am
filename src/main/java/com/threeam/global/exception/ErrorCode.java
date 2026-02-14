@@ -25,6 +25,9 @@ public enum ErrorCode {
     MAIL_SEND_FAILED(HttpStatus.BAD_GATEWAY, "U008", "인증 메일 발송에 실패했어요. 잠시 후 다시 시도해 주세요."),
     // 가입 필수 동의와 결제 청약철회 고지 동의가 공용으로 쓴다
     CONSENT_REQUIRED(HttpStatus.BAD_REQUEST, "U009", "필수 동의 항목이 누락됐어요."),
+    // 게스트 차단(진단, 결제)과 게스트 대화 소진이 공용으로 쓴다 — 프론트는 이 코드로 계정 연결을 유도한다
+    GUEST_LINK_REQUIRED(HttpStatus.FORBIDDEN, "U010",
+            "게스트로 이용할 수 있는 범위를 넘었어요. 계정을 연결하면 지금까지의 대화를 그대로 이어갈 수 있어요."),
 
     // 인증
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "A001", "비밀번호가 올바르지 않습니다."),
