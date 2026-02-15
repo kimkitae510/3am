@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { GuestLinkPage } from './pages/GuestLinkPage';
 import { StoryListPage } from './pages/StoryListPage';
 import { ChatPage } from './pages/ChatPage';
 import { AssessmentPage } from './pages/AssessmentPage';
@@ -17,6 +18,8 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      {/* 게스트 → 계정 연결(소셜 또는 이메일). 대화를 그대로 이어간다 */}
+      <Route path="/guest-link" element={<GuestLinkPage />} />
       {/* 카카오/네이버 인가 리다이렉트 도착지 */}
       <Route path="/oauth/callback/:provider" element={<OAuthCallbackPage />} />
       <Route path="/terms" element={<TermsPage />} />

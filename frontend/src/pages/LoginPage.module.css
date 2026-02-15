@@ -273,6 +273,19 @@
   font-weight: 500;
 }
 
+/* 로그인 없이 둘러보기 — 보조 동선이라 테두리 없이 텍스트 링크로만 */
+.landGuest {
+  margin-top: 4px;
+  border: none;
+  background: transparent;
+  color: rgba(236, 237, 237, 0.6);
+  font-size: 13.5px;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* 이메일 화면 하단 텍스트 링크(회원가입 등) — 인프런의 "이메일 찾기|비밀번호 찾기" 자리 */
 .linkRow {
   display: flex;

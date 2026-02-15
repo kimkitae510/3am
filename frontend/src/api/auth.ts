@@ -58,10 +58,22 @@ export async function oauthLogin(provider: OAuthProvider, body: OAuthLoginReques
   return data;
 }
 
+// 로그인 없이 시작 — 서버가 게스트 계정을 만들어 토큰을 준다(대화 총 3회, 진단/결제는 계정 연결 후).
+export async function guestStart(): Promise<TokenResponse> {
+  const { data } = await api.post<TokenResponse>('/api/auth/guest');
+  tokenStore.set(data.accessToken, data.refreshToken);
+  return data;
+}
+
+// 게스트 → 이메일 계정 승격. 성공하면 같은 계정이 회원이 되므로 토큰 재발급이 필요 없다.
+export async function linkGuestEmail(body: SignupRequest): Promise<void> {
+  await api.post('/api/users/guest-link', body);
+}
+
 export interface UserMeResponse {
   id: number;
   email: string | null; // 소셜 가입은 이메일 미제공일 수 있다
-  provider: 'EMAIL' | 'KAKAO' | 'NAVER';
+  provider: 'EMAIL' | 'KAKAO' | 'NAVER' | 'GUEST';
 }
 
 // 문의 대응용 회원번호 조회 — 유저가 자기 식별자(소셜 계정)를 알 방법이 없어서 필요하다

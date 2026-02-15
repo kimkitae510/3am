@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
-import { login, oauthLogin, SIGNUP_CONSENTS, type OAuthProvider } from '../api/auth';
+import { guestStart, login, oauthLogin, SIGNUP_CONSENTS, type OAuthProvider } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import { redirectUriFor, startSocialLogin } from '../utils/socialAuth';
 import styles from './LoginPage.module.css';
@@ -62,6 +62,17 @@ export function LoginPage() {
     const provider = consentFor;
     setConsentFor(null);
     void proceedSocial(provider);
+  }
+
+  async function handleGuest() {
+    setError('');
+    // 게스트는 동의 시트 없이 바로 시작(사용자 확정). 실질적 동의는 계정 연결 시점에 받는다.
+    try {
+      await guestStart();
+      navigate('/stories');
+    } catch (err) {
+      setError(extractErrorMessage(err, '게스트로 시작하는 데 실패했어요.'));
+    }
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -132,6 +143,15 @@ export function LoginPage() {
               onClick={() => { setError(''); setMode('email'); }}
             >
               이메일로 시작하기
+            </button>
+
+            {/* 새벽에 충동적으로 들어온 사람이 계정부터 요구받지 않게 — 로그인 없이 바로 체험 */}
+            <button
+              className={styles.landGuest}
+              type="button"
+              onClick={handleGuest}
+            >
+              로그인 없이 둘러보기
             </button>
           </div>
 
