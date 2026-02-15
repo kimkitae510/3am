@@ -51,6 +51,7 @@ export function AssessmentPage() {
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState<number | null>(null); // 오늘 남은 진단 횟수
   const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
+  const [isGuest, setIsGuest] = useState(false); // 게스트는 진단 잠금 — 계정 연결 유도
   const [showHelp, setShowHelp] = useState(false);
   const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
   const [retracting, setRetracting] = useState(false); // 제안 번복 API 진행 중
@@ -98,6 +99,7 @@ export function AssessmentPage() {
         if (!aliveRef.current) return;
         setRemaining(u.assessmentRemaining);
         setPaidRemaining(u.assessmentPaidRemaining);
+        setIsGuest(u.guest);
       })
       .catch(() => {});
   }
@@ -187,6 +189,29 @@ export function AssessmentPage() {
             </button>
             <button className={styles.btnPrimary} onClick={diagnose}>
               다시 진단 (1회 차감)
+            </button>
+          </div>
+        </div>
+      </PhoneFrame>
+    );
+  }
+
+  // 게스트는 진단이 잠겨 있다 — 계정 연결로 유도한다(진단 버튼 대신).
+  if (isGuest) {
+    return (
+      <PhoneFrame>
+        <div className={styles.wrap}>
+          <BackBar onBack={toChat} />
+          <div className={styles.state}>
+            재회 진단은 계정을 연결하면 받을 수 있어요.
+            <br />
+            연결하면 지금까지의 대화가 그대로 이어지고,
+            <br />
+            대화 5회와 진단 1회도 선물로 드려요.
+          </div>
+          <div className={styles.footer}>
+            <button className={styles.btnPrimary} onClick={() => navigate('/guest-link')}>
+              계정 연결하고 진단받기
             </button>
           </div>
         </div>

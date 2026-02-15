@@ -50,6 +50,8 @@ export function ChatPage() {
   const [chatRemaining, setChatRemaining] = useState<number | null>(null); // 오늘 남은 대화 횟수
   const [chatPaidRemaining, setChatPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
   const [quotaOver, setQuotaOver] = useState(false); // 무료+이용권 모두 소진(Q001) → 구매 유도
+  const [isGuest, setIsGuest] = useState(false); // 게스트면 충전 대신 '계정 연결' 동선
+  const [guestBlocked, setGuestBlocked] = useState(false); // 게스트 대화 소진(U010) → 계정 연결 유도
   const [showHelp, setShowHelp] = useState(false);
 
   function refreshUsage() {
@@ -58,6 +60,7 @@ export function ChatPage() {
         if (!aliveRef.current) return;
         setChatRemaining(u.chatRemaining);
         setChatPaidRemaining(u.chatPaidRemaining);
+        setIsGuest(u.guest);
       })
       .catch(() => {}); // 표시용 정보라 실패는 조용히 무시
   }
@@ -163,6 +166,7 @@ export function ChatPage() {
     setInput('');
     setError('');
     setQuotaOver(false);
+    setGuestBlocked(false);
     try {
       const userMsg = await sendMessage(storyId, content);
       setMessages((prev) => [...prev, userMsg]);
@@ -170,8 +174,14 @@ export function ChatPage() {
       pollForReply(userMsg.id);
     } catch (e) {
       setInput(content); // 실패 시 입력 복구
-      setError(extractErrorMessage(e, '메시지를 보내지 못했어요.'));
-      setQuotaOver(extractErrorCode(e) === 'Q001');
+      const code = extractErrorCode(e);
+      // 게스트 소진(U010)은 충전이 아니라 계정 연결로 푼다 — 배너를 다르게 띄운다.
+      if (code === 'U010') {
+        setGuestBlocked(true);
+      } else {
+        setError(extractErrorMessage(e, '메시지를 보내지 못했어요.'));
+        setQuotaOver(code === 'Q001');
+      }
     }
   }
 
@@ -277,16 +287,37 @@ export function ChatPage() {
 
         {chatRemaining != null && (
           <div className={styles.usageHint}>
-            오늘 남은 대화 {chatRemaining}회
-            {chatPaidRemaining > 0 && ` + 이용권 ${chatPaidRemaining}회`}
-            {/* 남은 횟수를 보는 그 자리에서 바로 살 수 있게 — 소진 배너가 뜨기 전의 진입점 */}
-            <button className={styles.usageTopup} onClick={() => navigate('/payment')}>
-              충전하기
-            </button>
+            {isGuest ? (
+              <>
+                둘러보기 남은 대화 {chatRemaining}회
+                {/* 게스트는 충전이 아니라 계정 연결로 이어간다 */}
+                <button className={styles.usageTopup} onClick={() => navigate('/guest-link')}>
+                  계정 연결
+                </button>
+              </>
+            ) : (
+              <>
+                오늘 남은 대화 {chatRemaining}회
+                {chatPaidRemaining > 0 && ` + 이용권 ${chatPaidRemaining}회`}
+                {/* 남은 횟수를 보는 그 자리에서 바로 살 수 있게 — 소진 배너가 뜨기 전의 진입점 */}
+                <button className={styles.usageTopup} onClick={() => navigate('/payment')}>
+                  충전하기
+                </button>
+              </>
+            )}
           </div>
         )}
-        {/* 소진 상태(잔여 0 또는 Q001 거절) — 안내만. 구매 버튼은 위 "추가 이용권 구매"가 담당(중복 제거) */}
-        {(quotaOver || (chatRemaining === 0 && chatPaidRemaining === 0)) && (
+        {/* 게스트 대화 소진(U010) — 충전이 아니라 계정 연결로 이어간다 */}
+        {(guestBlocked || (isGuest && chatRemaining === 0)) && (
+          <div className={styles.quotaBanner}>
+            <div className={styles.quotaText}>
+              둘러보기로 나눌 수 있는 대화를 다 썼어요. 계정을 연결하면 지금까지의 대화를 그대로
+              이어갈 수 있어요. 연결하면 대화 5회와 진단 1회도 선물로 드려요.
+            </div>
+          </div>
+        )}
+        {/* 소진 상태(잔여 0 또는 Q001 거절) — 안내만. 구매 버튼은 위 충전하기가 담당(중복 제거) */}
+        {!isGuest && (quotaOver || (chatRemaining === 0 && chatPaidRemaining === 0)) && (
           <div className={styles.quotaBanner}>
             <div className={styles.quotaText}>
               오늘 무료 대화를 다 썼어요. 위의 충전하기로 이어서 대화할 수 있어요.

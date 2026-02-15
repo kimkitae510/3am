@@ -176,11 +176,23 @@ export function StoryListPage() {
             표시는 오늘 쓸 수 있는 총량(무료+이용권) — 상세 구분은 이용권 화면이 담당 */}
         {usage && (
           <div className={styles.usageLine}>
-            오늘 남은 대화 {usage.chatRemaining + usage.chatPaidRemaining}회, 진단{' '}
-            {usage.assessmentRemaining + usage.assessmentPaidRemaining}회
-            <button className={styles.topupLink} onClick={() => navigate('/payment')}>
-              충전하기
-            </button>
+            {usage.guest ? (
+              <>
+                {/* 게스트는 진단이 잠겨 있어 대화 잔여만 — 진단은 계정 연결 후 */}
+                둘러보기 남은 대화 {usage.chatRemaining}회
+                <button className={styles.topupLink} onClick={() => navigate('/guest-link')}>
+                  계정 연결
+                </button>
+              </>
+            ) : (
+              <>
+                오늘 남은 대화 {usage.chatRemaining + usage.chatPaidRemaining}회, 진단{' '}
+                {usage.assessmentRemaining + usage.assessmentPaidRemaining}회
+                <button className={styles.topupLink} onClick={() => navigate('/payment')}>
+                  충전하기
+                </button>
+              </>
+            )}
           </div>
         )}
 
