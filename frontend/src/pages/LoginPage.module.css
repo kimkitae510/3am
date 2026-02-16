@@ -266,24 +266,35 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-.landEmail {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  color: rgba(236, 237, 237, 0.85);
-  font-weight: 500;
+/* 게스트 진입이 메인 — 채움형 히어로 버튼으로 시선을 여기에 */
+.landStart {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 15.5px;
 }
 
-/* 로그인 없이 둘러보기 — 보조 동선이라 테두리 없이 텍스트 링크로만 */
-.landGuest {
-  margin-top: 4px;
+/* 히어로 아래 한 줄 설명 — 무료 체험이라는 안심 + 다음 동선 예고 */
+.landStartSub {
+  margin: -2px 0 2px;
+  text-align: center;
+  color: rgba(236, 237, 237, 0.5);
+  font-size: 12.5px;
+  letter-spacing: -0.2px;
+}
+
+/* 이미 계정이 있는 사람의 이메일 로그인 — 소셜 아래 보조 텍스트 링크 */
+.landEmailLink {
+  margin-top: 2px;
   border: none;
   background: transparent;
-  color: rgba(236, 237, 237, 0.6);
+  color: rgba(236, 237, 237, 0.7);
   font-size: 13.5px;
   letter-spacing: -0.2px;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
+  font-family: inherit;
 }
 
 /* 이메일 화면 하단 텍스트 링크(회원가입 등) — 인프런의 "이메일 찾기|비밀번호 찾기" 자리 */

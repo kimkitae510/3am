@@ -106,12 +106,26 @@ export function LoginPage() {
 
           <div className={`${styles.error} ${styles.landError}`}>{error}</div>
           <div className={styles.landButtons}>
+            {/* 새벽에 충동적으로 들어온 사람이 계정부터 요구받지 않게 — 게스트가 메인 진입 */}
+            <button
+              className={`${styles.landBtn} ${styles.landStart}`}
+              type="button"
+              onClick={handleGuest}
+            >
+              로그인 없이 시작하기
+            </button>
+            <p className={styles.landStartSub}>가입 없이 대화를 시작하고, 마음에 들면 계정을 연결해요</p>
+
+            <div className={styles.orDivider}>
+              <span>이미 계정이 있나요?</span>
+            </div>
+
             {/* 소셜은 원형 아이콘 — 문구 없이 브랜드 색으로만 말한다 */}
             <div className={styles.socialRow}>
               <button
                 className={`${styles.circleBtn} ${styles.circleKakao}`}
                 type="button"
-                aria-label="카카오로 시작하기"
+                aria-label="카카오로 로그인"
                 onClick={() => handleSocial('kakao')}
               >
                 <svg width="24" height="22" viewBox="0 0 24 22" aria-hidden="true">
@@ -124,7 +138,7 @@ export function LoginPage() {
               <button
                 className={`${styles.circleBtn} ${styles.circleNaver}`}
                 type="button"
-                aria-label="네이버로 시작하기"
+                aria-label="네이버로 로그인"
                 onClick={() => handleSocial('naver')}
               >
                 <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
@@ -133,25 +147,12 @@ export function LoginPage() {
               </button>
             </div>
 
-            <div className={styles.orDivider}>
-              <span>또는</span>
-            </div>
-
             <button
-              className={`${styles.landBtn} ${styles.landEmail}`}
+              className={styles.landEmailLink}
               type="button"
               onClick={() => { setError(''); setMode('email'); }}
             >
-              이메일로 시작하기
-            </button>
-
-            {/* 새벽에 충동적으로 들어온 사람이 계정부터 요구받지 않게 — 로그인 없이 바로 체험 */}
-            <button
-              className={styles.landGuest}
-              type="button"
-              onClick={handleGuest}
-            >
-              로그인 없이 둘러보기
+              이메일로 로그인
             </button>
           </div>
 
