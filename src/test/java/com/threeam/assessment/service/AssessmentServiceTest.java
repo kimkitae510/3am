@@ -14,9 +14,11 @@ import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.AttachmentSignalItem;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
+import com.threeam.assessment.dto.ReunionDiagnosis.GuidanceEntry;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AttachmentConfidence;
 import com.threeam.assessment.entity.AttachmentStyle;
+import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -77,6 +79,7 @@ class AssessmentServiceTest {
                         false,
                         List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")),
                         List.of(new DeductionItem("상대가 먼저 연락", 10, "근거2")),
+                        List.of(new GuidanceEntry(GuidanceKind.DONT, "지금 연락은 미뤄봐", "매달림 신호")),
                         "총평", "갱신요약", List.of("상대가 먼저 통보함"))));
         given(scorer.apply(anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
@@ -93,6 +96,8 @@ class AssessmentServiceTest {
         assertThat(response.getDeductions()).hasSize(2);
         assertThat(response.getDeductions().get(0).getDelta()).isEqualTo(-15); // 감점: 양수 points → 음수 delta
         assertThat(response.getDeductions().get(1).getDelta()).isEqualTo(10);  // 가점: 양수 delta로 합류
+        assertThat(response.getGuidance()).hasSize(1); // 행동 가이드도 응답까지 전달
+        assertThat(response.getGuidance().get(0).getKind()).isEqualTo(GuidanceKind.DONT);
     }
 
     @Test
@@ -105,7 +110,7 @@ class AssessmentServiceTest {
                         List.of(new AttachmentSignalItem("밀당 반복", "잠수와 재연락 반복")),
                         true,
                         List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")),
-                        List.of(),
+                        List.of(), List.of(),
                         "수락만 남았어", "", List.of())));
         given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
                 .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
@@ -131,6 +136,7 @@ class AssessmentServiceTest {
                         true,
                         List.of(new DeductionItem("권태", 15, "근거")),
                         List.of(new DeductionItem("먼저 연락", 5, "근거2")),
+                        List.of(new GuidanceEntry(GuidanceKind.DO, "실수로 보낸 가이드", null)),
                         "아직 만나는 중이면 재회 확률은 의미가 없어", "사귀는 중 갈등 상담",
                         List.of("유저와 상대는 아직 사귀는 중"))));
         given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
@@ -141,6 +147,7 @@ class AssessmentServiceTest {
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.DATING);
         assertThat(response.getProbability()).isNull();          // activeReunionOffer=true여도 100이 안 된다
         assertThat(response.getDeductions()).isEmpty();          // 감점/가점 폐기
+        assertThat(response.getGuidance()).isEmpty();            // 가이드는 확률 진단의 부속이라 함께 폐기
         assertThat(response.getPartnerAttachment()).isEqualTo("거부회피형");
         assertThat(response.getAttachmentSignals()).hasSize(1); // 유형 근거는 관계 상태와 무관하게 남는다
         verify(scorer, never()).apply(anyList());                // 확률 계산 자체를 건너뛴다
@@ -154,7 +161,7 @@ class AssessmentServiceTest {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.REUNITED, null, null, List.of(), false,
-                        List.of(), List.of(), "다시 만나게 됐네", "재회 성공", List.of("두 사람이 다시 만나기로 함"))));
+                        List.of(), List.of(), List.of(), "다시 만나게 됐네", "재회 성공", List.of("두 사람이 다시 만나기로 함"))));
         given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
                 .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
 
@@ -172,7 +179,7 @@ class AssessmentServiceTest {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), false,
-                        List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
+                        List.of(), List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
@@ -191,7 +198,7 @@ class AssessmentServiceTest {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), false,
-                        List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
+                        List.of(), List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
         // 1차엔 아직 표시 없음(false) → LLM 판정, 2차엔 표시됨(true) → LLM 없이 거부.
         given(txService.isInsufficientRetryBlocked(10L)).willReturn(false, true);
 
@@ -209,7 +216,7 @@ class AssessmentServiceTest {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
                 new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), false,
-                        List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
+                        List.of(), List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
         // 새 대화가 계속 있으니 표시가 있어도 재시도가 막히지 않는다(항상 false).
         given(txService.isInsufficientRetryBlocked(10L)).willReturn(false);
 
@@ -283,7 +290,7 @@ class AssessmentServiceTest {
     void assess_releasesLockOnCompletion() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
-                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), false, List.of(), List.of(), "가이드", "", List.of())));
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), false, List.of(), List.of(), List.of(), "가이드", "", List.of())));
 
         assessmentService.assess(1L, 10L).join();
 

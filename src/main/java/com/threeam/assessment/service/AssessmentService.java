@@ -7,6 +7,7 @@ import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AttachmentSignal;
 import com.threeam.assessment.entity.Deduction;
+import com.threeam.assessment.entity.GuidanceItem;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.llm.LlmRole;
@@ -200,6 +201,11 @@ public class AssessmentService {
                 ? (offerConfirmed ? 100 : scorer.apply(deductions))
                 : null;
 
+        // 행동 가이드는 확률 진단의 부속이다 — POSSIBLE에서만 저장한다(다른 판정은 루브릭이 비우지만 방어).
+        List<GuidanceItem> guidanceItems = diagnosis.guidance().stream()
+                .map(g -> GuidanceItem.of(g.kind(), g.advice(), g.basis()))
+                .toList();
+
         Assessment assessment = Assessment.builder()
                 .storyId(storyId)
                 .verdict(diagnosis.verdict())
@@ -209,6 +215,7 @@ public class AssessmentService {
                 .attachmentSignals(toAttachmentSignals(diagnosis))
                 .reason(diagnosis.reason())
                 .deductions(deductions)
+                .guidanceItems(guidanceItems)
                 .build();
 
         return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts());

@@ -49,6 +49,14 @@ public class MockLlmClient implements LlmClient {
                   "boosts": [
                     {"signal": "상대가 먼저 안부 연락", "axis": "마음", "points": 5, "evidence": "(개발용 임시 근거)"}
                   ],
+                  "guidance": {
+                    "do": [
+                      {"text": "(개발용 임시 가이드) 지금은 네 일상 리듬부터 챙겨", "basis": "이별 직후 회복 우선"}
+                    ],
+                    "dont": [
+                      {"text": "(개발용 임시 가이드) 상대 SNS를 반복해서 확인하는 건 잠시 멈춰봐", "basis": "감시는 회복을 늦춤"}
+                    ]
+                  },
                   "reason": "개발용 임시 진단 — 실제 LLM 연동 전 고정 응답입니다.",
                   "summary": "개발용 임시 요약.",
                   "newFacts": ["상대가 먼저 이별을 통보함 (개발용 임시 사실)"]

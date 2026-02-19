@@ -6,8 +6,10 @@ import com.threeam.assessment.AssessmentProperties;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.AttachmentSignalItem;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
+import com.threeam.assessment.dto.ReunionDiagnosis.GuidanceEntry;
 import com.threeam.assessment.entity.AttachmentConfidence;
 import com.threeam.assessment.entity.AttachmentStyle;
+import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
@@ -91,9 +93,13 @@ public class ReunionLlm {
                         : fact);
             }
 
+            List<GuidanceEntry> guidance = new ArrayList<>();
+            appendGuidance(guidance, root, "do", GuidanceKind.DO);
+            appendGuidance(guidance, root, "dont", GuidanceKind.DONT);
+
             return new ReunionDiagnosis(verdict, partnerAttachment,
                     attachmentConfidence, attachmentSignals, activeReunionOffer,
-                    deductions, boosts,
+                    deductions, boosts, guidance,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
             // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 로그에 원문을 남기지 않고 길이만 남긴다.
@@ -129,6 +135,26 @@ public class ReunionLlm {
             items.add(new DeductionItem(signal, points, node.path("evidence").asText("")));
         }
         return items;
+    }
+
+    // 방향별 가이드 개수 상한(폭주 방어). 루브릭은 1~3개를 지시한다.
+    private static final int MAX_GUIDANCE_PER_KIND = 3;
+
+    // 근거 컬럼 길이(VARCHAR(200)) — 넘치면 잘라서 저장 실패를 막는다.
+    private static final int GUIDANCE_BASIS_MAX = 200;
+
+    private void appendGuidance(List<GuidanceEntry> guidance, JsonNode root, String field, GuidanceKind kind) {
+        int added = 0;
+        for (JsonNode node : root.path("guidance").path(field)) {
+            String advice = node.path("text").asText("").trim();
+            if (advice.isBlank() || added >= MAX_GUIDANCE_PER_KIND) {
+                continue;
+            }
+            String basis = node.path("basis").asText("").trim();
+            guidance.add(new GuidanceEntry(kind, advice, basis.isBlank() ? null
+                    : basis.length() > GUIDANCE_BASIS_MAX ? basis.substring(0, GUIDANCE_BASIS_MAX) : basis));
+            added++;
+        }
     }
 
     // 유형 근거 개수 상한(폭주 방어). 루브릭은 2~4개를 지시한다.

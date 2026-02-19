@@ -2,6 +2,7 @@ package com.threeam.assessment.dto;
 
 import com.threeam.assessment.entity.AttachmentConfidence;
 import com.threeam.assessment.entity.AttachmentStyle;
+import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.util.List;
 
@@ -16,6 +17,7 @@ public record ReunionDiagnosis(
         boolean activeReunionOffer,         // 상대가 먼저 만남/재회를 제안했고 철회되지 않음
         List<DeductionItem> deductions,
         List<DeductionItem> boosts,
+        List<GuidanceEntry> guidance,       // 행동 가이드(do/dont). POSSIBLE 외에는 빈 목록
         String reason,
         String summary,           // 감정 흐름, 현재 상태 요약 → StoryMemory에 반영
         List<String> newFacts) {  // 새로 드러난 사실 → StoryFact 원장에 append
@@ -26,5 +28,9 @@ public record ReunionDiagnosis(
 
     // 애착유형 판정에 실제로 쓰인 행동 근거 하나(신호명 + 관찰된 행동).
     public record AttachmentSignalItem(String signal, String evidence) {
+    }
+
+    // 행동 가이드 한 항목. basis = 어떤 신호/유형에서 나온 조언인지(없으면 null).
+    public record GuidanceEntry(GuidanceKind kind, String advice, String basis) {
     }
 }

@@ -10,6 +10,7 @@ import com.threeam.assessment.AssessmentProperties;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.entity.AttachmentConfidence;
 import com.threeam.assessment.entity.AttachmentStyle;
+import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.LlmClient;
 import com.threeam.llm.LlmException;
@@ -267,6 +268,48 @@ class ReunionLlmTest {
 
         assertThat(missing.attachmentConfidence()).isEqualTo(AttachmentConfidence.TENTATIVE);
         assertThat(invalid.attachmentConfidence()).isEqualTo(AttachmentConfidence.TENTATIVE);
+    }
+
+    @Test
+    @DisplayName("행동 가이드(do/dont)를 파싱한다 — 빈 항목은 버리고, 방향별 상한(3개)을 지키고, basis는 컬럼 길이로 자른다")
+    void parse_guidance() {
+        String longBasis = "가".repeat(250);
+        String json = """
+                {"verdict": "POSSIBLE", "deductions": [], "reason": "", "summary": "",
+                 "guidance": {
+                   "do": [
+                     {"text": "네 일상 리듬부터 챙겨", "basis": "%s"},
+                     {"text": "  ", "basis": "본문 없음 - 버려짐"},
+                     {"text": "do2"}, {"text": "do3"}, {"text": "상한 초과 - 버려짐"}
+                   ],
+                   "dont": [
+                     {"text": "SNS 반복 확인은 멈춰봐", "basis": "감시는 회복을 늦춤"}
+                   ]
+                 }}
+                """.formatted(longBasis);
+        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        assertThat(diagnosis.guidance()).hasSize(4); // do 3(상한) + dont 1
+        assertThat(diagnosis.guidance().get(0).kind()).isEqualTo(GuidanceKind.DO);
+        assertThat(diagnosis.guidance().get(0).basis()).hasSize(200); // 250자 → 컬럼 길이
+        assertThat(diagnosis.guidance().get(1).advice()).isEqualTo("do2"); // 빈 본문은 건너뜀
+        assertThat(diagnosis.guidance().get(1).basis()).isNull(); // basis 누락 허용
+        assertThat(diagnosis.guidance().get(3).kind()).isEqualTo(GuidanceKind.DONT);
+    }
+
+    @Test
+    @DisplayName("guidance 필드가 아예 없으면 빈 목록으로 파싱한다")
+    void parse_guidance_missing() {
+        String json = """
+                {"verdict": "POSSIBLE", "deductions": [], "reason": "", "summary": ""}
+                """;
+        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        assertThat(diagnosis.guidance()).isEmpty();
     }
 
     @Test

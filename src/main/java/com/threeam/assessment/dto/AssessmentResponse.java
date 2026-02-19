@@ -3,6 +3,7 @@ package com.threeam.assessment.dto;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AttachmentConfidence;
 import com.threeam.assessment.entity.AttachmentStyle;
+import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,12 +19,14 @@ public class AssessmentResponse {
     private final List<AttachmentSignalView> attachmentSignals; // 유형 판정 근거 목록
     private final String reason;
     private final List<DeductionView> deductions;
+    private final List<GuidanceView> guidance; // 행동 가이드(do/dont). POSSIBLE 외에는 빈 목록
     private final LocalDateTime createdAt;
 
     private AssessmentResponse(ReunionVerdict verdict, Integer probability,
                               String partnerAttachment, String attachmentConfidence,
                               List<AttachmentSignalView> attachmentSignals,
-                              String reason, List<DeductionView> deductions, LocalDateTime createdAt) {
+                              String reason, List<DeductionView> deductions,
+                              List<GuidanceView> guidance, LocalDateTime createdAt) {
         this.verdict = verdict;
         this.probability = probability;
         this.partnerAttachment = partnerAttachment;
@@ -31,6 +34,7 @@ public class AssessmentResponse {
         this.attachmentSignals = attachmentSignals;
         this.reason = reason;
         this.deductions = deductions;
+        this.guidance = guidance;
         this.createdAt = createdAt;
     }
 
@@ -41,6 +45,9 @@ public class AssessmentResponse {
         List<AttachmentSignalView> attachmentSignals = assessment.getAttachmentSignals().stream()
                 .map(s -> new AttachmentSignalView(s.getSignal(), s.getEvidence()))
                 .toList();
+        List<GuidanceView> guidance = assessment.getGuidanceItems().stream()
+                .map(g -> new GuidanceView(g.getKind(), g.getAdvice(), g.getBasis()))
+                .toList();
         AttachmentConfidence confidence = assessment.getAttachmentConfidence();
         return new AssessmentResponse(
                 assessment.getVerdict(),
@@ -50,6 +57,7 @@ public class AssessmentResponse {
                 attachmentSignals,
                 assessment.getReason(),
                 deductions,
+                guidance,
                 assessment.getCreatedAt());
     }
 
@@ -78,6 +86,19 @@ public class AssessmentResponse {
         private AttachmentSignalView(String signal, String evidence) {
             this.signal = signal;
             this.evidence = evidence;
+        }
+    }
+
+    @Getter
+    public static class GuidanceView {
+        private final GuidanceKind kind;
+        private final String advice;
+        private final String basis;
+
+        private GuidanceView(GuidanceKind kind, String advice, String basis) {
+            this.kind = kind;
+            this.advice = advice;
+            this.basis = basis;
         }
     }
 }
