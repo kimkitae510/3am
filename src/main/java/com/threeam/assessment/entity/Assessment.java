@@ -55,9 +55,17 @@ public class Assessment {
     @Column(length = 20)
     private AttachmentStyle partnerAttachment;
 
-    // 유형 판정의 근거가 된 행동 패턴 한 줄. 유형이 null이면 함께 null.
-    @Column(length = 200)
-    private String partnerAttachmentEvidence;
+    // 유형 판정 확신도. 유형이 null이면 함께 null.
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 20)
+    private AttachmentConfidence attachmentConfidence;
+
+    // 유형 판정의 근거가 된 행동 패턴 목록(한 줄 근거의 후신 — 감점처럼 조목조목 보여준다).
+    @ElementCollection
+    @CollectionTable(name = "assessment_attachment_signals", joinColumns = @JoinColumn(name = "assessment_id"))
+    @BatchSize(size = 100)
+    private List<AttachmentSignal> attachmentSignals = new ArrayList<>();
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
@@ -74,13 +82,15 @@ public class Assessment {
 
     @Builder
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
-                       AttachmentStyle partnerAttachment, String partnerAttachmentEvidence,
+                       AttachmentStyle partnerAttachment, AttachmentConfidence attachmentConfidence,
+                       List<AttachmentSignal> attachmentSignals,
                        String reason, @Singular List<Deduction> deductions) {
         this.storyId = storyId;
         this.verdict = verdict;
         this.probability = probability;
         this.partnerAttachment = partnerAttachment;
-        this.partnerAttachmentEvidence = partnerAttachmentEvidence;
+        this.attachmentConfidence = attachmentConfidence;
+        this.attachmentSignals = attachmentSignals != null ? attachmentSignals : new ArrayList<>();
         this.reason = reason;
         this.deductions = deductions != null ? deductions : new ArrayList<>();
     }

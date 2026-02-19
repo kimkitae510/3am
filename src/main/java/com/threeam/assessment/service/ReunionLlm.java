@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.AssessmentProperties;
 import com.threeam.assessment.dto.ReunionDiagnosis;
+import com.threeam.assessment.dto.ReunionDiagnosis.AttachmentSignalItem;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
+import com.threeam.assessment.entity.AttachmentConfidence;
 import com.threeam.assessment.entity.AttachmentStyle;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.ChatMessage;
@@ -57,16 +59,19 @@ public class ReunionLlm {
                     ReunionVerdict.POSSIBLE);
             AttachmentStyle partnerAttachment =
                     enumValue(AttachmentStyle.class, root.path("partnerAttachment").asText(null), null);
-            String partnerAttachmentEvidence =
-                    attachmentEvidence(root, "partnerAttachmentEvidence", partnerAttachment);
+            // 확신도 누락/오타는 TENTATIVE로 — 행동 관찰만의 판정이라 과신 쪽보다 보수가 안전하다.
+            AttachmentConfidence attachmentConfidence = partnerAttachment == null ? null
+                    : enumValue(AttachmentConfidence.class,
+                            root.path("attachmentConfidence").asText(null), AttachmentConfidence.TENTATIVE);
+            List<AttachmentSignalItem> attachmentSignals = attachmentSignals(root, partnerAttachment);
             boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
 
             int[] dropped = {0};
             List<DeductionItem> deductions = parseItems(root, "deductions", dropped);
             List<DeductionItem> boosts = parseItems(root, "boosts", dropped);
 
-            // LLM이 감점/가점을 냈는데 축을 못 붙여 전부 폐기되면, 남은 근거가 0이라 점수가 BASE(70)로 나온다.
-            // 그 70은 "재회 가능성 70%"가 아니라 "근거가 유실됨"이다 — 근거 없는 확률을 유저에게 보이지 않도록
+            // LLM이 감점/가점을 냈는데 축을 못 붙여 전부 폐기되면, 남은 근거가 0이라 점수가 BASE(50)로 나온다.
+            // 그 50은 "재회 가능성 50%"가 아니라 "근거가 유실됨"이다 — 근거 없는 확률을 유저에게 보이지 않도록
             // 진단 자체를 INSUFFICIENT로 강등한다(활성 재회 제안이면 감점과 무관하게 100이므로 예외).
             if (verdict == ReunionVerdict.POSSIBLE && !activeReunionOffer
                     && deductions.isEmpty() && boosts.isEmpty() && dropped[0] > 0) {
@@ -87,7 +92,7 @@ public class ReunionLlm {
             }
 
             return new ReunionDiagnosis(verdict, partnerAttachment,
-                    partnerAttachmentEvidence, activeReunionOffer,
+                    attachmentConfidence, attachmentSignals, activeReunionOffer,
                     deductions, boosts,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
@@ -126,21 +131,29 @@ public class ReunionLlm {
         return items;
     }
 
-    // 근거는 유형이 판정된 경우에만 의미가 있다 — 유형 없는 근거는 버린다(스키마 일관성).
-    // 길이는 저장 컬럼(VARCHAR(200))에 맞춰 자른다.
-    private static final int ATTACHMENT_EVIDENCE_MAX = 200;
+    // 유형 근거 개수 상한(폭주 방어). 루브릭은 2~4개를 지시한다.
+    private static final int MAX_ATTACHMENT_SIGNALS = 5;
 
-    private String attachmentEvidence(JsonNode root, String field, AttachmentStyle attachment) {
+    // 신호명 저장 컬럼 길이(VARCHAR(100)) — 넘치면 잘라서 저장 실패를 막는다.
+    private static final int SIGNAL_NAME_MAX = 100;
+
+    // 근거는 유형이 판정된 경우에만 의미가 있다 — 유형 없는 근거는 버린다(스키마 일관성).
+    private List<AttachmentSignalItem> attachmentSignals(JsonNode root, AttachmentStyle attachment) {
+        List<AttachmentSignalItem> items = new ArrayList<>();
         if (attachment == null) {
-            return null;
+            return items;
         }
-        String evidence = root.path(field).asText("").trim();
-        if (evidence.isBlank()) {
-            return null;
+        for (JsonNode node : root.path("attachmentSignals")) {
+            String signal = node.path("signal").asText("").trim();
+            String evidence = node.path("evidence").asText("").trim();
+            if (signal.isBlank() || evidence.isBlank() || items.size() >= MAX_ATTACHMENT_SIGNALS) {
+                continue;
+            }
+            items.add(new AttachmentSignalItem(
+                    signal.length() > SIGNAL_NAME_MAX ? signal.substring(0, SIGNAL_NAME_MAX) : signal,
+                    evidence));
         }
-        return evidence.length() > ATTACHMENT_EVIDENCE_MAX
-                ? evidence.substring(0, ATTACHMENT_EVIDENCE_MAX)
-                : evidence;
+        return items;
     }
 
     private <E extends Enum<E>> E enumValue(Class<E> type, String raw, E fallback) {

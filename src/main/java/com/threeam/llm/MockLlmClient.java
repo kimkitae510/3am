@@ -36,7 +36,11 @@ public class MockLlmClient implements LlmClient {
                 {
                   "verdict": "POSSIBLE",
                   "partnerAttachment": "AVOIDANT",
-                  "partnerAttachmentEvidence": "(개발용 임시 근거) 갈등 얘기를 꺼내면 화제를 돌리는 패턴",
+                  "attachmentConfidence": "TENTATIVE",
+                  "attachmentSignals": [
+                    {"signal": "갈등 시 대화 회피", "evidence": "(개발용 임시 근거) 갈등 얘기를 꺼내면 화제를 돌리는 패턴"},
+                    {"signal": "이별 후 일관된 무심함", "evidence": "(개발용 임시 근거) 이별 후 연락 시도에 반응 없음"}
+                  ],
                   "activeReunionOffer": false,
                   "deductions": [
                     {"signal": "상대가 먼저 이별을 통보", "axis": "마음", "points": 15, "evidence": "(개발용 임시 근거)"},

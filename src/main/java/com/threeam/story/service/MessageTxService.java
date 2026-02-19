@@ -1,6 +1,7 @@
 package com.threeam.story.service;
 
 import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.AttachmentSignal;
 import com.threeam.assessment.entity.Deduction;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
@@ -165,7 +166,15 @@ public class MessageTxService {
         }
         if (assessment.getPartnerAttachment() != null) {
             block.append("- 상대 애착유형: ").append(assessment.getPartnerAttachment().getLabel());
-            appendAttachmentEvidence(block, assessment.getPartnerAttachmentEvidence());
+            if (assessment.getAttachmentConfidence() != null) {
+                block.append(" [").append(assessment.getAttachmentConfidence().getLabel()).append(']');
+            }
+            block.append('\n');
+            // 판정 근거 목록 — "왜 이 유형이야?"에 즉석 재구성 대신 실제 판정 근거로 답하게.
+            for (AttachmentSignal signal : assessment.getAttachmentSignals()) {
+                block.append("  - 유형 근거: ").append(signal.getSignal())
+                        .append(" (").append(signal.getEvidence()).append(")\n");
+            }
         }
         for (Deduction deduction : assessment.getDeductions()) {
             // 가점(양수 delta)까지 "감점"으로 라벨링하면 모순된 데이터가 주입된다
@@ -182,11 +191,4 @@ public class MessageTxService {
         return block.toString().trim();
     }
 
-    // 유형 근거가 저장돼 있으면 라벨 옆에 붙인다 — "왜 이 유형이야?"에 즉석 재구성 대신 실제 판정 근거로 답하게.
-    private void appendAttachmentEvidence(StringBuilder block, String evidence) {
-        if (evidence != null && !evidence.isBlank()) {
-            block.append(" (판정 근거: ").append(evidence).append(')');
-        }
-        block.append('\n');
-    }
 }

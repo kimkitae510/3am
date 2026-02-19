@@ -5,6 +5,7 @@ import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
 import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.AttachmentSignal;
 import com.threeam.assessment.entity.Deduction;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
@@ -173,7 +174,8 @@ public class AssessmentService {
                     .storyId(storyId)
                     .verdict(diagnosis.verdict())
                     .partnerAttachment(diagnosis.partnerAttachment())
-                    .partnerAttachmentEvidence(diagnosis.partnerAttachmentEvidence())
+                    .attachmentConfidence(diagnosis.attachmentConfidence())
+                    .attachmentSignals(toAttachmentSignals(diagnosis))
                     .reason(reason)
                     .build();
             return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts());
@@ -203,7 +205,8 @@ public class AssessmentService {
                 .verdict(diagnosis.verdict())
                 .probability(probability)
                 .partnerAttachment(diagnosis.partnerAttachment())
-                .partnerAttachmentEvidence(diagnosis.partnerAttachmentEvidence())
+                .attachmentConfidence(diagnosis.attachmentConfidence())
+                .attachmentSignals(toAttachmentSignals(diagnosis))
                 .reason(diagnosis.reason())
                 .deductions(deductions)
                 .build();
@@ -213,5 +216,11 @@ public class AssessmentService {
 
     private Deduction toDeduction(DeductionItem item) {
         return Deduction.of(item.signal(), item.points(), item.evidence());
+    }
+
+    private List<AttachmentSignal> toAttachmentSignals(ReunionDiagnosis diagnosis) {
+        return diagnosis.attachmentSignals().stream()
+                .map(s -> AttachmentSignal.of(s.signal(), s.evidence()))
+                .toList();
     }
 }
