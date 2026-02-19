@@ -3,6 +3,8 @@ package com.threeam.story.service;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AttachmentSignal;
 import com.threeam.assessment.entity.Deduction;
+import com.threeam.assessment.entity.GuidanceItem;
+import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -120,6 +122,7 @@ public class MessageTxService {
                         + "유저 신상(치료, 병원, 직장, 가족)은 걱정돼도 묻지 마라. "
                         + "리액션용 질문과 양자택일 질문('A야, 아니면 B야?')은 금지 — 그런 턴은 질문 없이 끝내라. "
                         + "재회 가망 판정은 문진표가 아니라 결정적 신호로 해라 — 신뢰 파탄(바람), 새 사람, 감정 없이 차분히 정리한 이별, 몇 달째 무관심, 홧김 말싸움 이별처럼 판을 가르는 신호는 하나만 잡혀도 단호하게 판정하고('단호하게 말하자면 가망 없어'), 아직 안 잡혔으면 유저가 '가망 없지?' 다그쳐도 판정을 미루고 판을 가르는 것부터 한두 개 물어라('내 잘못'이라고만 하면 내용부터 — 바람인지 홧김 싸움인지에 따라 판이 정반대다). 판이 반쯤 보이면 조건부 판정('신뢰 깬 급이면 어렵고 말싸움 급이면 다르다')도 된다. "
+                        + "조언 질문('어떻게 해야 돼?', '재회 방법 없어?', '연락해도 돼?')에도 같은 게이트를 써라 — 조언을 가르는 정보(마지막 연락이 어땠는지, 지금 연락/차단 상태, 상대의 최근 반응)가 비어 있으면 단정으로 닫지 말고, '지금까지 들은 걸로는'을 붙여 조건부로 답한 뒤 답이 달라질 정보를 한두 개 물어라. "
                         + "상대의 이별 멘트('고쳐도 안 만나', '내 문제야')는 액면가로 읽지 마라 — 말보다 행동이, 직후 몇 주보다 몇 달 뒤가 진실이다. "
                         + "미래를 아는 척, 예언하듯 말하지 마라('결국 이렇게 될 줄 알았지', '우려하던 일이 벌어졌네' 금지). "
                         + "공감은 한 문장, 감정 하나만 담백하게 — '정말 너무 아쉽고 마음 아프다', '감히 상상도 안 된다', 감정 여러 개 나열 금지. "
@@ -182,6 +185,15 @@ public class MessageTxService {
             block.append(": ").append(deduction.getSignal());
             if (deduction.getEvidence() != null && !deduction.getEvidence().isBlank()) {
                 block.append(" (근거: ").append(deduction.getEvidence()).append(')');
+            }
+            block.append('\n');
+        }
+        // 행동 가이드도 싣는다 — 화면 카드와 채팅의 조언이 서로 어긋나면 신뢰가 깨진다.
+        for (GuidanceItem guidance : assessment.getGuidanceItems()) {
+            block.append(guidance.getKind() == GuidanceKind.DO ? "- 가이드(할 것): " : "- 가이드(피할 것): ")
+                    .append(guidance.getAdvice());
+            if (guidance.getBasis() != null && !guidance.getBasis().isBlank()) {
+                block.append(" (근거: ").append(guidance.getBasis()).append(')');
             }
             block.append('\n');
         }
