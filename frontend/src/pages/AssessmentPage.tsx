@@ -376,11 +376,30 @@ export function AssessmentPage() {
           )}
 
           {/* 상대 유형만 판정한다(내 유형 폐기 — 여기서 궁금한 건 상대다). 일반 설명은 도움말 모달로.
-              판정 근거는 화면에 안 싣는다 — 채팅 주입에 실려 있어 "왜 이 결과인지 물어보기"에서 답한다. */}
+              판정 근거도 감점 신호처럼 목록으로 보여준다. 추정(TENTATIVE)이면 단정 대신 "~로 보여요" 톤. */}
           <div className={styles.dedTitle}>상대 애착유형</div>
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
-              <div className={styles.typeName}>{result.partnerAttachment ?? '미확정'}</div>
+              <div className={styles.typeName}>
+                {result.partnerAttachment
+                  ? result.attachmentConfidence === 'TENTATIVE'
+                    ? `${result.partnerAttachment}으로 보여요`
+                    : result.partnerAttachment
+                  : '미확정'}
+              </div>
+              {result.partnerAttachment && result.attachmentConfidence === 'TENTATIVE' && (
+                <div className={styles.typeNote}>아직 추정이에요. 이야기가 더 쌓이면 분명해져요.</div>
+              )}
+              {result.attachmentSignals.length > 0 && (
+                <div className={styles.typeSignals}>
+                  {result.attachmentSignals.map((s, i) => (
+                    <div className={styles.typeSignal} key={i}>
+                      <div className={styles.typeSignalName}>{s.signal}</div>
+                      {s.evidence && <div className={styles.typeSignalEvidence}>{s.evidence}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -467,7 +486,7 @@ export function AssessmentPage() {
               },
               {
                 heading: '상대 애착유형',
-                text: '안정형 : 감정을 말로 풀고 갈등을 대화로 다루는 편\n불안형 : 확인받고 싶어 하고 거리가 생기면 매달리는 편\n거부회피형 : 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편\n공포회피형 : 밀어내고 다시 찾기를 반복하는 편\n상대의 행동 패턴이 여러 번 보여야 잡히기 때문에 처음에는 미확정으로 나올 수 있습니다.',
+                text: '안정형 : 감정을 말로 풀고 갈등을 대화로 다루는 편\n불안형 : 확인받고 싶어 하고 거리가 생기면 매달리는 편\n거부회피형 : 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편\n공포회피형 : 밀어내고 다시 찾기를 반복하는 편\n판정에 쓰인 행동 근거는 유형 카드에 함께 보여드립니다. 근거가 아직 얇으면 단정 대신 "~로 보여요"(추정)로 표시되고, 이야기가 쌓이면 분명해집니다.',
               },
               {
                 heading: '진단 횟수',

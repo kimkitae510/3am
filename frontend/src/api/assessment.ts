@@ -10,11 +10,21 @@ export interface DeductionView {
   evidence: string;
 }
 
+// 유형 판정에 실제로 쓰인 행동 근거 하나(감점 신호와 같은 문법)
+export interface AttachmentSignalView {
+  signal: string;
+  evidence: string;
+}
+
+// CONFIRMED = 근거가 여러 상황에 걸쳐 충분, TENTATIVE = 아직 추정("~로 보여요" 톤으로 표시)
+export type AttachmentConfidence = 'CONFIRMED' | 'TENTATIVE';
+
 export interface AssessmentResponse {
   verdict: Verdict;
   probability: number | null; // POSSIBLE일 때만
   partnerAttachment: string | null; // 상대 애착유형 라벨(한국어). 행동 근거 부족이면 null (내 유형은 폐기)
-  partnerAttachmentEvidence: string | null; // 유형 판정 근거 한 줄. 유형이 null이면 null
+  attachmentConfidence: AttachmentConfidence | null; // 유형이 null이면 null
+  attachmentSignals: AttachmentSignalView[]; // 유형 판정 근거 목록
   reason: string;
   deductions: DeductionView[];
   createdAt: string | null; // INSUFFICIENT는 저장 안 돼서 null
