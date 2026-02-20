@@ -253,6 +253,8 @@ export function AssessmentPage() {
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
   const minus = result.deductions.filter((d) => d.delta < 0);
   const plus = result.deductions.filter((d) => d.delta > 0);
+  const doItems = result.guidance.filter((g) => g.kind === 'DO');
+  const dontItems = result.guidance.filter((g) => g.kind === 'DONT');
 
   return (
     <PhoneFrame>
@@ -438,6 +440,36 @@ export function AssessmentPage() {
             </>
           )}
 
+          {/* 행동 가이드 — 판정(무엇이다) 다음에 행동(그래서 뭐)을 붙인다. 재회 기술이 아니라
+              회복을 지키는 프레임으로 생성되고(루브릭), 여기선 그대로 보여주기만 한다 */}
+          {doItems.length > 0 && (
+            <>
+              <div className={styles.dedTitle}>지금 도움이 되는 것</div>
+              <div className={styles.dedList}>
+                {doItems.map((g, i) => (
+                  <div className={styles.guideItem} key={i}>
+                    <div className={styles.guideText}>{g.advice}</div>
+                    {g.basis && <div className={styles.guideBasis}>{g.basis}</div>}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {dontItems.length > 0 && (
+            <>
+              <div className={styles.dedTitle}>지금은 피할 것</div>
+              <div className={styles.dedList}>
+                {dontItems.map((g, i) => (
+                  <div className={styles.guideItem} key={i}>
+                    <div className={styles.guideText}>{g.advice}</div>
+                    {g.basis && <div className={styles.guideBasis}>{g.basis}</div>}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           {/* 갱신 안내 문구는 제거 — 새 이야기 없이 다시 진단하면 서버가 사유를 설명하며 거부해서 중복 안내였다 */}
           <div className={styles.hintRow}>
             <div className={styles.hintCount}>
@@ -487,6 +519,10 @@ export function AssessmentPage() {
               {
                 heading: '상대 애착유형',
                 text: '안정형 : 감정을 말로 풀고 갈등을 대화로 다루는 편\n불안형 : 확인받고 싶어 하고 거리가 생기면 매달리는 편\n거부회피형 : 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편\n공포회피형 : 밀어내고 다시 찾기를 반복하는 편\n판정에 쓰인 행동 근거는 유형 카드에 함께 보여드립니다. 근거가 아직 얇으면 단정 대신 "~로 보여요"(추정)로 표시되고, 이야기가 쌓이면 분명해집니다.',
+              },
+              {
+                heading: '행동 가이드',
+                text: '이번 진단의 신호와 상대 유형을 근거로 "지금 도움이 되는 것"과 "지금은 피할 것"을 제안합니다. 상대를 되돌리는 기술이 아니라 나를 지키면서 남은 가능성을 깎지 않는 방향의 제안이고, 결정은 언제나 내 몫입니다.',
               },
               {
                 heading: '진단 횟수',

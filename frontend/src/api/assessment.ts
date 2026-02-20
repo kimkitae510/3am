@@ -19,6 +19,13 @@ export interface AttachmentSignalView {
 // CONFIRMED = 근거가 여러 상황에 걸쳐 충분, TENTATIVE = 아직 추정("~로 보여요" 톤으로 표시)
 export type AttachmentConfidence = 'CONFIRMED' | 'TENTATIVE';
 
+// 행동 가이드 한 항목. DO = 지금 도움이 되는 것, DONT = 지금은 피할 것.
+export interface GuidanceView {
+  kind: 'DO' | 'DONT';
+  advice: string;
+  basis: string | null; // 어떤 신호/유형에서 나온 조언인지 한 줄
+}
+
 export interface AssessmentResponse {
   verdict: Verdict;
   probability: number | null; // POSSIBLE일 때만
@@ -27,6 +34,7 @@ export interface AssessmentResponse {
   attachmentSignals: AttachmentSignalView[]; // 유형 판정 근거 목록
   reason: string;
   deductions: DeductionView[];
+  guidance: GuidanceView[]; // 행동 가이드. POSSIBLE 외에는 빈 목록
   createdAt: string | null; // INSUFFICIENT는 저장 안 돼서 null
 }
 

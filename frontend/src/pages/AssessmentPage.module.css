@@ -328,6 +328,26 @@
   flex-shrink: 0;
 }
 
+/* 행동 가이드 항목 — 신호 카드와 같은 결이되, 점수 없이 문장이 주인공이라 굵기를 낮춘다 */
+.guideItem {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 13px 15px;
+}
+
+.guideText {
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.guideBasis {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  margin-top: 4px;
+}
+
 /* 키프레임을 모듈 안에 둬야 참조 이름이 함께 스코핑되어 실제로 매칭된다 */
 @keyframes sc-blink {
   0%,
