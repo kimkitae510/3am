@@ -108,6 +108,35 @@
   margin-top: 6px;
 }
 
+/* 직전 진단 대비 변화 — 배지 없이 글자만(보조 정보는 흐리게, 오름만 보라로) */
+.deltaChip {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 5px;
+}
+
+.deltaChipUp {
+  color: #b89dd1;
+}
+
+.deltaChipDown {
+  color: var(--text-sub);
+}
+
+/* 확률 화면 총평 — 잠금 화면의 총평 카드(datingReason)와 같은 결 */
+.reasonCard {
+  margin: 14px 4px 0;
+  padding: 13px 15px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
 /* 확률 범위/계산 방식은 화면에 공개하지 않는다 — 설명은 도움말 모달에서 숫자 없이 */
 
 /* 사귀는 중(DATING) — 확률 영역만 하얗게 씌워 잠근다(잠긴 게 한눈에 보이게) */

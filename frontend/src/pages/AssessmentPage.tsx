@@ -46,6 +46,9 @@ export function AssessmentPage() {
   const navigate = useNavigate();
 
   const [result, setResult] = useState<AssessmentResponse | null>(null);
+  // 직전 진단의 확률 — 게이지 옆 "지난 진단보다 ±N" 표시용. 번복(잠금 해제, 제안 철회) 뒤에는
+  // 비교 기준이 흐려져서 null로 지운다(엉뚱한 증감이 뜨는 것보다 안 뜨는 게 낫다).
+  const [prevProb, setPrevProb] = useState<number | null>(null);
   const [loading, setLoading] = useState(true); // 진입 시 저장된 기록 조회(공짜 GET)
   const [diagnosing, setDiagnosing] = useState(false); // 새 진단(LLM 호출, 쿼터 차감) 실행 중
   const [error, setError] = useState('');
@@ -71,6 +74,7 @@ export function AssessmentPage() {
       const res = await confirmBreakup(storyId);
       if (aliveRef.current) {
         setResult(res);
+        setPrevProb(null);
         refreshUsage();
       }
     } catch (e) {
@@ -85,7 +89,10 @@ export function AssessmentPage() {
     try {
       // 서버가 신호 재합산 값으로 되돌린 결과를 주므로, 그걸로 교체하면 게이지가 즉시 바뀐다.
       const res = await retractOffer(storyId);
-      if (aliveRef.current) setResult(res);
+      if (aliveRef.current) {
+        setResult(res);
+        setPrevProb(null);
+      }
     } catch (e) {
       if (aliveRef.current) setError(extractErrorMessage(e, '처리하지 못했어요. 잠시 후 다시 시도해 주세요.'));
     } finally {
@@ -116,6 +123,8 @@ export function AssessmentPage() {
         if (res.verdict === 'INSUFFICIENT') {
           setError(res.reason);
         } else {
+          // 새 결과로 갈아끼우기 전, 화면에 있던 확률이 이번 결과의 비교 기준이 된다.
+          setPrevProb(result?.probability ?? null);
           setResult(res);
         }
         refreshUsage(); // 후차감이라 성공 시점에 갱신
@@ -135,7 +144,12 @@ export function AssessmentPage() {
     refreshUsage();
     // 진입 시엔 저장된 최신 진단만 보여준다. LLM 호출 없음.
     getAssessments(storyId)
-      .then((all) => aliveRef.current && setResult(all[0] ?? null))
+      .then((all) => {
+        if (!aliveRef.current) return;
+        setResult(all[0] ?? null);
+        // 비교 기준은 "직전의 확률 있는 진단" — 사이에 낀 잠금 판정(DATING 등)은 건너뛴다.
+        setPrevProb(all.slice(1).find((a) => a.probability != null)?.probability ?? null);
+      })
       .catch((e) => aliveRef.current && setError(extractErrorMessage(e, '진단 기록을 불러오지 못했어요.')))
       .finally(() => aliveRef.current && setLoading(false));
     return () => {
@@ -305,6 +319,18 @@ export function AssessmentPage() {
                 )}
               </div>
               <div className={styles.gaugeLabel}>재회 가능성</div>
+              {/* 직전 진단 대비 변화 — 정지 사진이던 결과에 흐름을 붙인다(전체 추이는 기록 화면) */}
+              {!dating && prevProb != null && prob < 100 && (
+                <div
+                  className={`${styles.deltaChip} ${
+                    prob > prevProb ? styles.deltaChipUp : prob < prevProb ? styles.deltaChipDown : ''
+                  }`}
+                >
+                  {prob === prevProb
+                    ? '지난 진단과 같아요'
+                    : `지난 진단보다 ${prob > prevProb ? '+' : ''}${prob - prevProb}%p`}
+                </div>
+              )}
             </>
           )}
           {reunited ? (
@@ -375,6 +401,11 @@ export function AssessmentPage() {
             </div>
           ) : (
             <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
+          )}
+
+          {/* 확률 화면에도 총평을 싣는다 — 신호 조각들만으론 서사가 없어 숫자가 건조하게 남는다 */}
+          {!dating && !reunited && result.reason && (
+            <div className={styles.reasonCard}>{result.reason}</div>
           )}
 
           {/* 상대 유형만 판정한다(내 유형 폐기 — 여기서 궁금한 건 상대다). 일반 설명은 도움말 모달로.
