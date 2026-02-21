@@ -138,7 +138,7 @@ class MessageTxServiceTest {
     }
 
     @Test
-    @DisplayName("프롬프트 조립 - 직전 답변이 질문으로 끝났으면 이번 턴 질문 금지 지시를 싣는다")
+    @DisplayName("프롬프트 조립 - 직전 답변이 질문으로 끝났으면 이번 턴은 질문으로 끝내지 말라는 배치 지시를 싣는다")
     void buildPrompt_bansQuestionAfterQuestionReply() {
         Story story = story(10L);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
@@ -153,11 +153,11 @@ class MessageTxServiceTest {
 
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
-                .anyMatch(c -> c.contains("질문을 넣지 마라"));
+                .anyMatch(c -> c.contains("질문으로 끝내지 마라"));
     }
 
     @Test
-    @DisplayName("프롬프트 조립 - 직전 답변이 질문이 아니면 질문 금지 지시를 싣지 않는다")
+    @DisplayName("프롬프트 조립 - 직전 답변이 질문이 아니면 질문 배치 지시를 싣지 않는다")
     void buildPrompt_noBanWhenLastReplyNotQuestion() {
         Story story = story(10L);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
@@ -172,7 +172,7 @@ class MessageTxServiceTest {
 
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
-                .noneMatch(c -> c.contains("질문을 넣지 마라"));
+                .noneMatch(c -> c.contains("질문으로 끝내지 마라"));
     }
 
     @Test
