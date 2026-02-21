@@ -423,6 +423,14 @@ export function AssessmentPage() {
               {result.partnerAttachment && result.attachmentConfidence === 'TENTATIVE' && (
                 <div className={styles.typeNote}>아직 추정이에요. 이야기가 더 쌓이면 분명해져요.</div>
               )}
+              {/* 미확정은 빈칸이 아니라 안내 — 뭘 더 들려주면 잡히는지 알려줘야 다음 진단으로 이어진다 */}
+              {!result.partnerAttachment && (
+                <div className={styles.typeNote}>
+                  아직 행동 근거가 부족해서 유형을 잡지 못했어요. 갈등이 있을 때 상대가
+                  어떻게 반응했는지, 이별을 어떤 방식으로 전했는지 들려주면 다음 진단에서
+                  잡힐 수 있어요.
+                </div>
+              )}
               {result.attachmentSignals.length > 0 && (
                 <div className={styles.typeSignals}>
                   {result.attachmentSignals.map((s, i) => (
