@@ -114,13 +114,12 @@ export function LoginPage() {
             >
               로그인 없이 시작하기
             </button>
-            <p className={styles.landStartSub}>가입 없이 대화를 시작하고, 마음에 들면 계정을 연결해요</p>
 
             <div className={styles.orDivider}>
               <span>이미 계정이 있나요?</span>
             </div>
 
-            {/* 소셜은 원형 아이콘 — 문구 없이 브랜드 색으로만 말한다 */}
+            {/* 로그인 수단은 원형 아이콘 한 줄 — 카카오, 네이버, 이메일 */}
             <div className={styles.socialRow}>
               <button
                 className={`${styles.circleBtn} ${styles.circleKakao}`}
@@ -145,15 +144,18 @@ export function LoginPage() {
                   <path d="M2 1 h4.6 l4.7 7 V1 H16 v16 h-4.6 L6.7 10 v7 H2 Z" fill="#fff" />
                 </svg>
               </button>
+              <button
+                className={`${styles.circleBtn} ${styles.circleEmail}`}
+                type="button"
+                aria-label="이메일로 로그인"
+                onClick={() => { setError(''); setMode('email'); }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="3" y="5.5" width="18" height="13" rx="2.5" stroke="#ECEAF0" strokeWidth="1.6" />
+                  <path d="M4 7l8 6 8-6" stroke="#ECEAF0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
-
-            <button
-              className={styles.landEmailLink}
-              type="button"
-              onClick={() => { setError(''); setMode('email'); }}
-            >
-              이메일로 로그인
-            </button>
           </div>
 
           <div className={styles.docLinks}>
