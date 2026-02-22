@@ -13,6 +13,7 @@ import { getUsage } from '../api/usage';
 import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import { GAUGE_MAX, bandLabel } from '../utils/assessmentScale';
+import { ATTACHMENT_PROFILES, ATTACHMENT_PROFILE_NOTE } from '../utils/attachmentProfiles';
 import styles from './AssessmentPage.module.css';
 
 // 수치 계산 방식(범위, 단계 기준)은 화면에 공개하지 않는다 — "왜 80이 최대냐" 같은 질문만 만든다.
@@ -56,6 +57,7 @@ export function AssessmentPage() {
   const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
   const [isGuest, setIsGuest] = useState(false); // 게스트는 진단 잠금 — 계정 연결 유도
   const [showHelp, setShowHelp] = useState(false);
+  const [showTypeDetail, setShowTypeDetail] = useState(false); // 유형 상세 프로필 펼침
   const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
   const [retracting, setRetracting] = useState(false); // 제안 번복 API 진행 중
   const aliveRef = useRef(true);
@@ -440,6 +442,37 @@ export function AssessmentPage() {
                     </div>
                   ))}
                 </div>
+              )}
+              {/* 유형 상세 — "아 그래서 걔가 그랬구나"를 주는 정적 프로필. 근거 없는 통념
+                  ("회피형은 몇 달 뒤 무너져 돌아온다")은 본문에서 통념임을 명시해 대기 심리를 안 부추긴다 */}
+              {result.partnerAttachment && ATTACHMENT_PROFILES[result.partnerAttachment] && (
+                <>
+                  <button className={styles.typeMoreBtn} onClick={() => setShowTypeDetail((v) => !v)}>
+                    {showTypeDetail ? '접기' : '이 유형 더 알아보기'}
+                  </button>
+                  {showTypeDetail && (
+                    <div className={styles.typeProfile}>
+                      {(
+                        [
+                          ['연애할 때', ATTACHMENT_PROFILES[result.partnerAttachment].during],
+                          ['이별 후에는', ATTACHMENT_PROFILES[result.partnerAttachment].after],
+                          ['이 유형을 대할 때', ATTACHMENT_PROFILES[result.partnerAttachment].approach],
+                          ['흔한 오해', ATTACHMENT_PROFILES[result.partnerAttachment].myths],
+                        ] as [string, string[]][]
+                      ).map(([heading, lines]) => (
+                        <div key={heading}>
+                          <div className={styles.typeProfileHeading}>{heading}</div>
+                          {lines.map((line, i) => (
+                            <p className={styles.typeProfileText} key={i}>
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      ))}
+                      <div className={styles.typeProfileNote}>{ATTACHMENT_PROFILE_NOTE}</div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
