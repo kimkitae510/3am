@@ -49,7 +49,7 @@ class ReunionLlmTest {
                   ],
                   "activeReunionOffer": true,
                   "deductions": [
-                    {"signal": "차단", "axis": "마음", "points": 30, "evidence": "차단당함"},
+                    {"signal": "차단", "axis": "마음", "points": 30, "evidence": "차단당함", "rationale": "연락 통로를 스스로 닫은 강한 거절"},
                     {"signal": "무시할 값", "axis": "마음", "points": 0, "evidence": "버려짐"}
                   ],
                   "reason": "쉽지 않아",
@@ -68,6 +68,7 @@ class ReunionLlmTest {
         assertThat(diagnosis.activeReunionOffer()).isTrue();
         assertThat(diagnosis.deductions()).hasSize(1); // points=0 항목은 버려진다
         assertThat(diagnosis.deductions().get(0).points()).isEqualTo(30);
+        assertThat(diagnosis.deductions().get(0).rationale()).isEqualTo("연락 통로를 스스로 닫은 강한 거절");
         assertThat(diagnosis.summary()).isEqualTo("상대가 차단함");
     }
 
@@ -166,6 +167,7 @@ class ReunionLlmTest {
 
         assertThat(diagnosis.deductions()).hasSize(2);
         assertThat(diagnosis.deductions().get(0).points()).isEqualTo(100); // 9999 → 상한 100
+        assertThat(diagnosis.deductions().get(0).rationale()).isNull();    // rationale 누락 허용(구 응답 호환)
         assertThat(diagnosis.deductions().get(1).points()).isEqualTo(15);  // -15 → 크기 15
     }
 

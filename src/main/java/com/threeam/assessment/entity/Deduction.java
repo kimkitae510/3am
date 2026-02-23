@@ -22,21 +22,36 @@ public class Deduction {
     private int delta;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String evidence; // 대화 속 근거
+    private String evidence; // 대화 속 근거(관찰된 사실)
 
-    private Deduction(String signal, int delta, String evidence) {
+    // 왜 이 사실이 확률을 이만큼 움직이는지(판독 메커니즘). 사실만 있으면 유저가
+    // "이게 왜 +15?"를 알 수 없다(실측 피드백). 과거 데이터는 null.
+    @Column(length = 300)
+    private String rationale;
+
+    private Deduction(String signal, int delta, String evidence, String rationale) {
         this.signal = signal;
         this.delta = delta;
         this.evidence = evidence;
+        this.rationale = rationale;
     }
 
     // points = LLM이 "이만큼 깎으세요"로 준 양수. 저장은 음수 delta로 통일한다.
-    public static Deduction of(String signal, int points, String evidence) {
-        return new Deduction(signal, -Math.abs(points), evidence);
+    public static Deduction of(String signal, int points, String evidence, String rationale) {
+        return new Deduction(signal, -Math.abs(points), evidence, rationale);
     }
 
     // 가점 항목. LLM이 부호를 어떻게 주든 양수 delta로 통일한다.
+    public static Deduction boostOf(String signal, int points, String evidence, String rationale) {
+        return new Deduction(signal, Math.abs(points), evidence, rationale);
+    }
+
+    // 판독 이유가 무관한 조립(점수 재합산 검증 등)용.
+    public static Deduction of(String signal, int points, String evidence) {
+        return of(signal, points, evidence, null);
+    }
+
     public static Deduction boostOf(String signal, int points, String evidence) {
-        return new Deduction(signal, Math.abs(points), evidence);
+        return boostOf(signal, points, evidence, null);
     }
 }

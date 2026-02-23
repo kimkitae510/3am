@@ -196,6 +196,9 @@ public class MessageTxService {
             if (deduction.getEvidence() != null && !deduction.getEvidence().isBlank()) {
                 block.append(" (근거: ").append(deduction.getEvidence()).append(')');
             }
+            if (deduction.getRationale() != null && !deduction.getRationale().isBlank()) {
+                block.append(" (판독 이유: ").append(deduction.getRationale()).append(')');
+            }
             block.append('\n');
         }
         // 행동 가이드도 싣는다 — 화면 카드와 채팅의 조언이 서로 어긋나면 신뢰가 깨진다.

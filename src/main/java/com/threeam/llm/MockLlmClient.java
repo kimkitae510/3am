@@ -43,11 +43,11 @@ public class MockLlmClient implements LlmClient {
                   ],
                   "activeReunionOffer": false,
                   "deductions": [
-                    {"signal": "상대가 먼저 이별을 통보", "axis": "마음", "points": 15, "evidence": "(개발용 임시 근거)"},
-                    {"signal": "연락이 뜸해진 상태", "axis": "마음", "points": 5, "evidence": "(개발용 임시 근거)"}
+                    {"signal": "상대가 먼저 이별을 통보", "axis": "마음", "points": 15, "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시 판독 이유) 통보한 쪽은 결심이 선행된 상태라 감점"},
+                    {"signal": "연락이 뜸해진 상태", "axis": "마음", "points": 5, "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시 판독 이유) 연결이 약해지는 방향의 신호라 감점"}
                   ],
                   "boosts": [
-                    {"signal": "상대가 먼저 안부 연락", "axis": "마음", "points": 5, "evidence": "(개발용 임시 근거)"}
+                    {"signal": "상대가 먼저 안부 연락", "axis": "마음", "points": 5, "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시 판독 이유) 스스로 먼저 닿아온 행동이라 가점"}
                   ],
                   "guidance": {
                     "do": [

@@ -115,6 +115,9 @@ public class ReunionLlm {
     // 폭주값(예: 9999)이 그대로 저장되지 않게 막는다. 부호는 Deduction에서 감점/가점으로 통일된다.
     private static final int MAX_POINTS = 100;
 
+    // 판독 이유 컬럼 길이(VARCHAR(300)) — 넘치면 잘라서 저장 실패를 막는다.
+    private static final int RATIONALE_MAX = 300;
+
     // dropped[0]에 "신호는 있으나 축이 없어 버린 항목 수"를 누적한다(전량 폐기 감지에 쓰인다).
     private List<DeductionItem> parseItems(JsonNode root, String field, int[] dropped) {
         List<DeductionItem> items = new ArrayList<>();
@@ -132,7 +135,10 @@ public class ReunionLlm {
                 dropped[0]++;
                 continue;
             }
-            items.add(new DeductionItem(signal, points, node.path("evidence").asText("")));
+            String rationale = node.path("rationale").asText("").trim();
+            items.add(new DeductionItem(signal, points, node.path("evidence").asText(""),
+                    rationale.isBlank() ? null
+                            : rationale.length() > RATIONALE_MAX ? rationale.substring(0, RATIONALE_MAX) : rationale));
         }
         return items;
     }

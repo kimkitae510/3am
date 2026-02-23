@@ -40,7 +40,7 @@ public class AssessmentResponse {
 
     public static AssessmentResponse from(Assessment assessment) {
         List<DeductionView> deductions = assessment.getDeductions().stream()
-                .map(d -> new DeductionView(d.getSignal(), d.getDelta(), d.getEvidence()))
+                .map(d -> new DeductionView(d.getSignal(), d.getDelta(), d.getEvidence(), d.getRationale()))
                 .toList();
         List<AttachmentSignalView> attachmentSignals = assessment.getAttachmentSignals().stream()
                 .map(s -> new AttachmentSignalView(s.getSignal(), s.getEvidence()))
@@ -70,11 +70,13 @@ public class AssessmentResponse {
         private final String signal;
         private final int delta;
         private final String evidence;
+        private final String rationale; // 왜 이 점수인지(판독 메커니즘). 과거 데이터는 null
 
-        private DeductionView(String signal, int delta, String evidence) {
+        private DeductionView(String signal, int delta, String evidence, String rationale) {
             this.signal = signal;
             this.delta = delta;
             this.evidence = evidence;
+            this.rationale = rationale;
         }
     }
 

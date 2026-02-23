@@ -23,7 +23,8 @@ public record ReunionDiagnosis(
         List<String> newFacts) {  // 새로 드러난 사실 → StoryFact 원장에 append
 
     // points: 움직일 양(양수). 백엔드가 부호를 붙여 합산한다(감점 음수, 가점 양수).
-    public record DeductionItem(String signal, int points, String evidence) {
+    // rationale: 이 사실이 왜 확률을 움직이는지(판독 메커니즘) — 유저 납득용. 없으면 null.
+    public record DeductionItem(String signal, int points, String evidence, String rationale) {
     }
 
     // 애착유형 판정에 실제로 쓰인 행동 근거 하나(신호명 + 관찰된 행동).

@@ -77,8 +77,8 @@ class AssessmentServiceTest {
                         AttachmentConfidence.CONFIRMED,
                         List.of(new AttachmentSignalItem("갈등 시 대화 회피", "감정 얘기 회피 패턴")),
                         false,
-                        List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")),
-                        List.of(new DeductionItem("상대가 먼저 연락", 10, "근거2")),
+                        List.of(new DeductionItem("상대가 먼저 통보", 15, "근거", "통보한 쪽은 결심이 선행된 상태")),
+                        List.of(new DeductionItem("상대가 먼저 연락", 10, "근거2", null)),
                         List.of(new GuidanceEntry(GuidanceKind.DONT, "지금 연락은 미뤄봐", "매달림 신호")),
                         "총평", "갱신요약", List.of("상대가 먼저 통보함"))));
         given(scorer.apply(anyList())).willReturn(20);
@@ -95,6 +95,7 @@ class AssessmentServiceTest {
         assertThat(response.getAttachmentSignals().get(0).getEvidence()).isEqualTo("감정 얘기 회피 패턴");
         assertThat(response.getDeductions()).hasSize(2);
         assertThat(response.getDeductions().get(0).getDelta()).isEqualTo(-15); // 감점: 양수 points → 음수 delta
+        assertThat(response.getDeductions().get(0).getRationale()).isEqualTo("통보한 쪽은 결심이 선행된 상태"); // 판독 이유 전달
         assertThat(response.getDeductions().get(1).getDelta()).isEqualTo(10);  // 가점: 양수 delta로 합류
         assertThat(response.getGuidance()).hasSize(1); // 행동 가이드도 응답까지 전달
         assertThat(response.getGuidance().get(0).getKind()).isEqualTo(GuidanceKind.DONT);
@@ -109,7 +110,7 @@ class AssessmentServiceTest {
                         AttachmentConfidence.TENTATIVE,
                         List.of(new AttachmentSignalItem("밀당 반복", "잠수와 재연락 반복")),
                         true,
-                        List.of(new DeductionItem("상대가 먼저 통보", 15, "근거")),
+                        List.of(new DeductionItem("상대가 먼저 통보", 15, "근거", null)),
                         List.of(), List.of(),
                         "수락만 남았어", "", List.of())));
         given(txService.save(eq(10L), any(Assessment.class), any(), anyList()))
@@ -134,8 +135,8 @@ class AssessmentServiceTest {
                         List.of(new AttachmentSignalItem("갈등 시 대화 회피", "감정 얘기 회피 패턴")),
                         // LLM이 실수로 확률 재료를 보냈어도 전부 무시돼야 한다(구조적 잠금)
                         true,
-                        List.of(new DeductionItem("권태", 15, "근거")),
-                        List.of(new DeductionItem("먼저 연락", 5, "근거2")),
+                        List.of(new DeductionItem("권태", 15, "근거", null)),
+                        List.of(new DeductionItem("먼저 연락", 5, "근거2", null)),
                         List.of(new GuidanceEntry(GuidanceKind.DO, "실수로 보낸 가이드", null)),
                         "아직 만나는 중이면 재회 확률은 의미가 없어", "사귀는 중 갈등 상담",
                         List.of("유저와 상대는 아직 사귀는 중"))));

@@ -187,7 +187,7 @@ public class AssessmentService {
                 .map(this::toDeduction)
                 .toList());
         diagnosis.boosts().stream()
-                .map(b -> Deduction.boostOf(b.signal(), b.points(), b.evidence()))
+                .map(b -> Deduction.boostOf(b.signal(), b.points(), b.evidence(), b.rationale()))
                 .forEach(deductions::add);
 
         // 확률은 POSSIBLE일 때만. 상대의 유효한 만남/재회 제안이 있으면 유저 수락만 남은
@@ -222,7 +222,7 @@ public class AssessmentService {
     }
 
     private Deduction toDeduction(DeductionItem item) {
-        return Deduction.of(item.signal(), item.points(), item.evidence());
+        return Deduction.of(item.signal(), item.points(), item.evidence(), item.rationale());
     }
 
     private List<AttachmentSignal> toAttachmentSignals(ReunionDiagnosis diagnosis) {
