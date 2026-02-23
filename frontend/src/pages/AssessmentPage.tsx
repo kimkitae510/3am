@@ -497,6 +497,7 @@ export function AssessmentPage() {
                     <div className={styles.dedMain}>
                       <div className={styles.dedSignal}>{d.signal}</div>
                       {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
+                      {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
                     </div>
                     <div className={styles.dedDelta}>−{Math.abs(d.delta)}</div>
                   </div>
@@ -514,6 +515,7 @@ export function AssessmentPage() {
                     <div className={styles.dedMain}>
                       <div className={styles.dedSignal}>{d.signal}</div>
                       {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
+                      {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
                     </div>
                     <div className={styles.boostDelta}>+{d.delta}</div>
                   </div>

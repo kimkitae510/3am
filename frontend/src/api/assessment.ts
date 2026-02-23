@@ -7,7 +7,8 @@ export type Verdict = 'POSSIBLE' | 'INSUFFICIENT' | 'DATING' | 'REUNITED';
 export interface DeductionView {
   signal: string;
   delta: number;
-  evidence: string;
+  evidence: string; // 관찰된 사실
+  rationale: string | null; // 이 사실이 왜 확률을 움직이는지(판독 이유). 과거 진단은 null
 }
 
 // 유형 판정에 실제로 쓰인 행동 근거 하나(감점 신호와 같은 문법)
