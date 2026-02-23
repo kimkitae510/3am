@@ -51,6 +51,19 @@
   line-height: 1.6;
 }
 
+/* "이야기 부족" 안내 — 에러 배너와 달리 자동으로 사라지지 않는다(무엇을 더 말할지가 담겨 있어서) */
+.noticeBanner {
+  margin: 10px 18px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: center;
+}
+
 /* 재진단 거부(새 근거 없음 등) 안내 — 기존 결과를 가리지 않고 위에 얹는다 */
 .errorBanner {
   margin: 10px 18px 0;

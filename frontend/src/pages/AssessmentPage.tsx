@@ -53,6 +53,9 @@ export function AssessmentPage() {
   const [loading, setLoading] = useState(true); // 진입 시 저장된 기록 조회(공짜 GET)
   const [diagnosing, setDiagnosing] = useState(false); // 새 진단(LLM 호출, 쿼터 차감) 실행 중
   const [error, setError] = useState('');
+  // "이야기가 부족해요" 안내 — 에러 배너와 달리 스스로 사라지지 않는다.
+  // 무엇을 더 말해야 하는지가 담겨 있어서, 유저가 읽고 뒤로가기로 나갈 때까지 떠 있어야 한다.
+  const [notice, setNotice] = useState('');
   const [remaining, setRemaining] = useState<number | null>(null); // 오늘 남은 진단 횟수
   const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
   const [isGuest, setIsGuest] = useState(false); // 게스트는 진단 잠금 — 계정 연결 유도
@@ -120,11 +123,12 @@ export function AssessmentPage() {
     try {
       const res = await runAssessment(storyId);
       if (aliveRef.current) {
-        // 이야기 부족(INSUFFICIENT)은 결과가 아니라 안내다 — 화면 전환 대신 배너로(소진 안내와 통일),
-        // 기존 결과는 그대로 둔다(저장도 안 되는 임시 응답이라 결과 자리를 차지하면 안 된다).
+        // 이야기 부족(INSUFFICIENT)은 결과가 아니라 안내다 — 기존 결과는 그대로 두고
+        // 사라지지 않는 안내 배너로 띄운다(저장도 안 되는 임시 응답이라 결과 자리를 차지하면 안 된다).
         if (res.verdict === 'INSUFFICIENT') {
-          setError(res.reason);
+          setNotice(res.reason);
         } else {
+          setNotice('');
           // 새 결과로 갈아끼우기 전, 화면에 있던 확률이 이번 결과의 비교 기준이 된다.
           setPrevProb(result?.probability ?? null);
           setResult(res);
@@ -236,17 +240,22 @@ export function AssessmentPage() {
   }
 
   // 진단 기록이 아직 없음 — 여기서만 첫 진단을 시작한다.
+  // 방금 "이야기 부족" 안내를 받았다면 기본 문구 대신 그 안내를 계속 보여준다(자동 소멸 없음).
   if (!result) {
     return (
       <PhoneFrame>
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>
-            아직 진단 기록이 없어요.
-            <br />
-            지금까지의 대화를 읽고 재회 가능성을 진단해요.
-            <br />
-            대화를 충분히 나눌수록 정확해져요.
+            {notice || (
+              <>
+                아직 진단 기록이 없어요.
+                <br />
+                지금까지의 대화를 읽고 재회 가능성을 진단해요.
+                <br />
+                대화를 충분히 나눌수록 정확해져요.
+              </>
+            )}
           </div>
           <div className={styles.footer}>
             <button className={styles.btnPrimary} onClick={diagnose}>
@@ -277,6 +286,7 @@ export function AssessmentPage() {
       <div className={styles.wrap}>
         <BackBar onBack={toChat} onHelp={() => setShowHelp(true)} />
         {error && <div className={styles.errorBanner}>{error}</div>}
+        {notice && <div className={styles.noticeBanner}>{notice}</div>}
         <div className={styles.body}>
           <div className={styles.meta}>마지막 진단 - {metaDate}</div>
 
