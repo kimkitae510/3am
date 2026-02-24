@@ -359,38 +359,60 @@
   line-height: 1.6;
 }
 
-/* 감점 신호 */
-.dedTitle {
-  color: var(--text-sub);
-  font-size: 13px;
-  font-weight: 600;
-  margin-top: 20px;
+/* 섹션 머리 — 제목(+개수) 뒤로 가는 선을 흘려 구획이 카드 더미에 묻히지 않게 */
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 26px;
   margin-bottom: 10px;
+}
+
+.sectionTitle {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.sectionCount {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.sectionRule {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
 
 .dedList {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-bottom: 8px;
+  padding-bottom: 4px;
 }
 
+/* 신호 카드 — 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스)의 3층 구조 */
 .dedItem {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 13px 15px;
 }
 
-.dedMain {
-  flex: 1;
-  min-width: 0;
+.dedTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .dedSignal {
+  flex: 1;
+  min-width: 0;
   color: var(--text);
   font-size: 14px;
   font-weight: 600;
@@ -399,22 +421,24 @@
 .dedEvidence {
   color: var(--text-sub);
   font-size: 12.5px;
-  margin-top: 2px;
-}
-
-/* 판독 이유 — 사실(evidence)과 같은 회색으로 이어 붙이면 층이 안 갈린다(실측).
-   왼쪽 얇은 보더 + 들여쓰기로 "설명" 층임을 시각적으로 분리 */
-.dedRationale {
-  color: var(--text-muted);
-  font-size: 12px;
-  margin-top: 7px;
-  padding-left: 9px;
-  border-left: 2px solid var(--border);
+  margin-top: 5px;
   line-height: 1.55;
 }
 
-.dedDelta {
-  color: var(--text);
+/* 판독 이유 — "왜 이 점수인지"는 사실과 다른 층이라 살짝 어두운 박스로 감싼다 */
+.dedRationale {
+  margin-top: 9px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+/* 점수 색: 낮춘 신호는 차분한 로즈, 올린 신호는 보라 — 숫자만 훑어도 방향이 읽히게 */
+.minusDelta {
+  color: #d99090;
   font-size: 15px;
   font-weight: 700;
   flex-shrink: 0;

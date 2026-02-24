@@ -20,6 +20,17 @@ import styles from './AssessmentPage.module.css';
 
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
+/* 섹션 머리 — 제목과 개수 뒤로 가는 선을 흘려 구획을 눈에 보이게 한다(제목만 있으면 카드 더미에 묻힘) */
+function SectionHead({ title, count }: { title: string; count?: number }) {
+  return (
+    <div className={styles.sectionHead}>
+      <span className={styles.sectionTitle}>{title}</span>
+      {count != null && <span className={styles.sectionCount}>{count}</span>}
+      <span className={styles.sectionRule} />
+    </div>
+  );
+}
+
 function BackBar({ onBack, onHelp }: { onBack: () => void; onHelp?: () => void }) {
   return (
     <div className={styles.topbar}>
@@ -422,7 +433,7 @@ export function AssessmentPage() {
 
           {/* 상대 유형만 판정한다(내 유형 폐기 — 여기서 궁금한 건 상대다). 일반 설명은 도움말 모달로.
               판정 근거도 감점 신호처럼 목록으로 보여준다. 추정(TENTATIVE)이면 단정 대신 "~로 보여요" 톤. */}
-          <div className={styles.dedTitle}>상대 애착유형</div>
+          <SectionHead title="상대 애착유형" />
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
               <div
@@ -489,19 +500,20 @@ export function AssessmentPage() {
             </div>
           </div>
 
-          {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다 */}
+          {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다.
+              카드 구조: 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스) — 층이 한눈에 갈리게 */}
           {minus.length > 0 && (
             <>
-              <div className={styles.dedTitle}>가능성을 낮춘 신호</div>
+              <SectionHead title="가능성을 낮춘 신호" count={minus.length} />
               <div className={styles.dedList}>
                 {minus.map((d, i) => (
                   <div className={styles.dedItem} key={i}>
-                    <div className={styles.dedMain}>
+                    <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
-                      {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
+                      <div className={styles.minusDelta}>−{Math.abs(d.delta)}</div>
                     </div>
-                    <div className={styles.dedDelta}>−{Math.abs(d.delta)}</div>
+                    {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
+                    {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
                   </div>
                 ))}
               </div>
@@ -510,16 +522,16 @@ export function AssessmentPage() {
 
           {plus.length > 0 && (
             <>
-              <div className={styles.dedTitle}>가능성을 올린 신호</div>
+              <SectionHead title="가능성을 올린 신호" count={plus.length} />
               <div className={styles.dedList}>
                 {plus.map((d, i) => (
                   <div className={styles.dedItem} key={i}>
-                    <div className={styles.dedMain}>
+                    <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
-                      {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
+                      <div className={styles.boostDelta}>+{d.delta}</div>
                     </div>
-                    <div className={styles.boostDelta}>+{d.delta}</div>
+                    {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
+                    {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
                   </div>
                 ))}
               </div>
@@ -530,7 +542,7 @@ export function AssessmentPage() {
               회복을 지키는 프레임으로 생성되고(루브릭), 여기선 그대로 보여주기만 한다 */}
           {doItems.length > 0 && (
             <>
-              <div className={styles.dedTitle}>지금 도움이 되는 것</div>
+              <SectionHead title="지금 도움이 되는 것" />
               <div className={styles.dedList}>
                 {doItems.map((g, i) => (
                   <div className={`${styles.guideItem} ${styles.guideItemDo}`} key={i}>
@@ -544,7 +556,7 @@ export function AssessmentPage() {
 
           {dontItems.length > 0 && (
             <>
-              <div className={styles.dedTitle}>지금은 피할 것</div>
+              <SectionHead title="지금은 피할 것" />
               <div className={styles.dedList}>
                 {dontItems.map((g, i) => (
                   <div className={styles.guideItem} key={i}>
