@@ -425,7 +425,9 @@ export function AssessmentPage() {
           <div className={styles.dedTitle}>상대 애착유형</div>
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
-              <div className={styles.typeName}>
+              <div
+                className={`${styles.typeName} ${result.partnerAttachment ? '' : styles.typeNameUnknown}`}
+              >
                 {result.partnerAttachment
                   ? result.attachmentConfidence === 'TENTATIVE'
                     ? `${result.partnerAttachment}으로 보여요`
@@ -531,7 +533,7 @@ export function AssessmentPage() {
               <div className={styles.dedTitle}>지금 도움이 되는 것</div>
               <div className={styles.dedList}>
                 {doItems.map((g, i) => (
-                  <div className={styles.guideItem} key={i}>
+                  <div className={`${styles.guideItem} ${styles.guideItemDo}`} key={i}>
                     <div className={styles.guideText}>{g.advice}</div>
                     {g.basis && <div className={styles.guideBasis}>{g.basis}</div>}
                   </div>

@@ -283,6 +283,12 @@
   font-weight: 600;
 }
 
+/* 미확정은 판정이 아니라 공백 — 확정 유형과 같은 무게(흰 600)로 두면 결과처럼 읽힌다 */
+.typeNameUnknown {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 /* 추정 판정 안내 — 단정처럼 읽히지 않게 한 줄 낮춰 말한다 */
 .typeNote {
   color: var(--text-muted);
@@ -396,11 +402,14 @@
   margin-top: 2px;
 }
 
-/* 판독 이유 — 사실(evidence)과 구분되는 "왜 이 점수인지" 설명. 옅은 위 여백 + 흐린 톤 */
+/* 판독 이유 — 사실(evidence)과 같은 회색으로 이어 붙이면 층이 안 갈린다(실측).
+   왼쪽 얇은 보더 + 들여쓰기로 "설명" 층임을 시각적으로 분리 */
 .dedRationale {
   color: var(--text-muted);
   font-size: 12px;
-  margin-top: 4px;
+  margin-top: 7px;
+  padding-left: 9px;
+  border-left: 2px solid var(--border);
   line-height: 1.55;
 }
 
@@ -426,6 +435,12 @@
   padding: 13px 15px;
 }
 
+/* 도움(do)과 피할 것(dont)이 카드만으론 무구분(실측) — 행동은 보라라는 색 체계대로
+   do에만 왼쪽 보라 라인을 준다. dont는 기본 보더 유지 */
+.guideItemDo {
+  border-left: 3px solid var(--accent);
+}
+
 .guideText {
   color: var(--text);
   font-size: 13.5px;
@@ -435,7 +450,7 @@
 .guideBasis {
   color: var(--text-muted);
   font-size: 11.5px;
-  margin-top: 4px;
+  margin-top: 5px;
 }
 
 /* 키프레임을 모듈 안에 둬야 참조 이름이 함께 스코핑되어 실제로 매칭된다 */
