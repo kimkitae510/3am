@@ -436,17 +436,17 @@
   line-height: 1.55;
 }
 
-/* 점수 색: 낮춘 신호는 차분한 로즈, 올린 신호는 차분한 그린 — 숫자만 훑어도 방향이 읽히게.
-   가점을 보라로 두면 '행동' 색(액센트)과 겹쳐서 데이터 색을 분리했다 */
+/* 점수 색: 올린 신호는 보라(원래대로), 낮춘 신호는 라벤더와 결이 맞는 차가운 핑크레드
+   (기존 로즈가 주황처럼 보인다는 실측 피드백 — 웜톤을 빼고 핑크 쪽으로) */
 .minusDelta {
-  color: #d99090;
+  color: #d88b9f;
   font-size: 15px;
   font-weight: 700;
   flex-shrink: 0;
 }
 
 .boostDelta {
-  color: #8fc9a4;
+  color: #b89dd1;
   font-size: 15px;
   font-weight: 700;
   flex-shrink: 0;
