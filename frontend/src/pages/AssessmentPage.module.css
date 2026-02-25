@@ -425,18 +425,19 @@
   line-height: 1.55;
 }
 
-/* 판독 이유 — "왜 이 점수인지"는 사실과 다른 층이라 살짝 어두운 박스로 감싼다 */
+/* 판독 이유 — "왜 이 점수인지"는 중요한 층이라 박스로 구분하되 글자는 어둡지 않게(실측 피드백) */
 .dedRationale {
   margin-top: 9px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--text-muted);
-  font-size: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-sub);
+  font-size: 12.5px;
   line-height: 1.55;
 }
 
-/* 점수 색: 낮춘 신호는 차분한 로즈, 올린 신호는 보라 — 숫자만 훑어도 방향이 읽히게 */
+/* 점수 색: 낮춘 신호는 차분한 로즈, 올린 신호는 차분한 그린 — 숫자만 훑어도 방향이 읽히게.
+   가점을 보라로 두면 '행동' 색(액센트)과 겹쳐서 데이터 색을 분리했다 */
 .minusDelta {
   color: #d99090;
   font-size: 15px;
@@ -445,7 +446,7 @@
 }
 
 .boostDelta {
-  color: #b89dd1;
+  color: #8fc9a4;
   font-size: 15px;
   font-weight: 700;
   flex-shrink: 0;
@@ -457,12 +458,6 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 13px 15px;
-}
-
-/* 도움(do)과 피할 것(dont)이 카드만으론 무구분(실측) — 행동은 보라라는 색 체계대로
-   do에만 왼쪽 보라 라인을 준다. dont는 기본 보더 유지 */
-.guideItemDo {
-  border-left: 3px solid var(--accent);
 }
 
 .guideText {

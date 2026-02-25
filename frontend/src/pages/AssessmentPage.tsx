@@ -545,7 +545,7 @@ export function AssessmentPage() {
               <SectionHead title="지금 도움이 되는 것" />
               <div className={styles.dedList}>
                 {doItems.map((g, i) => (
-                  <div className={`${styles.guideItem} ${styles.guideItemDo}`} key={i}>
+                  <div className={styles.guideItem} key={i}>
                     <div className={styles.guideText}>{g.advice}</div>
                     {g.basis && <div className={styles.guideBasis}>{g.basis}</div>}
                   </div>
