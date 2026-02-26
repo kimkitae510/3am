@@ -22,10 +22,10 @@ public class UsageProperties {
     // 생성 락의 자동 만료(TTL). LLM 호출이 실패로 락을 못 풀어도 이 시간이 지나면 풀린 것으로 본다.
     // 종류별로 다르게 둔다 — TTL이 LLM 타임아웃보다 짧으면, 아직 진행 중인 생성 위로 두 번째
     // 요청이 락을 뺏어 동시 생성(쿼터 초과, 원장 레이스)이 생기기 때문이다.
-    // 채팅은 응답이 수 초라 20초로 짧게(좀비 락도 빨리 풀림), 진단은 deep 타임아웃(60초)보다
-    // 넉넉한 70초로 둔다. 정상 생성은 끝나면 즉시 락을 반납하므로 이 값은 실패 시 상한일 뿐이다.
+    // 채팅은 응답이 수 초라 20초로 짧게(좀비 락도 빨리 풀림), 진단은 deep 타임아웃(90초)보다
+    // 넉넉한 100초로 둔다. 정상 생성은 끝나면 즉시 락을 반납하므로 이 값은 실패 시 상한일 뿐이다.
     private long chatLockTtlSeconds = 20;
-    private long assessmentLockTtlSeconds = 70;
+    private long assessmentLockTtlSeconds = 100;
 
     public long lockTtlSeconds(UsageKind kind) {
         return kind == UsageKind.CHAT ? chatLockTtlSeconds : assessmentLockTtlSeconds;
