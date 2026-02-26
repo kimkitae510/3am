@@ -10,7 +10,7 @@ import {
   type AssessmentResponse,
 } from '../api/assessment';
 import { getUsage } from '../api/usage';
-import { extractErrorMessage } from '../api/client';
+import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import { GAUGE_MAX, bandLabel } from '../utils/assessmentScale';
 import { ATTACHMENT_PROFILES, ATTACHMENT_PROFILE_NOTE } from '../utils/attachmentProfiles';
@@ -19,6 +19,23 @@ import styles from './AssessmentPage.module.css';
 // 수치 계산 방식(범위, 단계 기준)은 화면에 공개하지 않는다 — "왜 80이 최대냐" 같은 질문만 만든다.
 
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
+
+/* 상태 화면(로딩, 기록 없음, 안내)이 글자만 떠 있으면 휑하다 — 서비스 모티프(새벽 달)를 작게 얹는다 */
+function MoonArt() {
+  return (
+    <svg className={styles.stateArt} width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true">
+      <circle cx="36" cy="36" r="20" fill="rgba(184, 157, 209, 0.14)" />
+      <path
+        d="M44 22a17 17 0 100 28 14 14 0 01-9-13 14 14 0 019-15z"
+        fill="#B89DD1"
+        opacity="0.75"
+      />
+      <circle cx="55" cy="20" r="1.6" fill="#8B98C7" opacity="0.8" />
+      <circle cx="16" cy="28" r="1.2" fill="#8B98C7" opacity="0.6" />
+      <circle cx="60" cy="44" r="1.2" fill="#6E6B76" opacity="0.8" />
+    </svg>
+  );
+}
 
 /* 섹션 머리 — 제목과 개수 뒤로 가는 선을 흘려 구획을 눈에 보이게 한다(제목만 있으면 카드 더미에 묻힘) */
 function SectionHead({ title, count }: { title: string; count?: number }) {
@@ -147,9 +164,14 @@ export function AssessmentPage() {
         refreshUsage(); // 후차감이라 성공 시점에 갱신
       }
     } catch (e) {
-      // 소진(Q001)도 별도 버튼 없이 에러 배너로만 — 구매 동선은 상시 노출된 "추가 이용권 구매"가 담당.
+      // 소진(Q001)을 백엔드 문구("이용권을 채우거나...")로 그대로 띄우면 아래 상시 '충전하기'와
+      // 구매 권유가 이중이 된다 — 배너는 상태만 알리고, 동선은 링크 하나를 가리킨다(채팅과 동일 패턴).
       if (aliveRef.current) {
-        setError(extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'));
+        setError(
+          extractErrorCode(e) === 'Q001'
+            ? '오늘 진단 횟수를 다 썼어요. 아래 충전하기로 이어갈 수 있어요.'
+            : extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'),
+        );
       }
     } finally {
       if (aliveRef.current) setDiagnosing(false);
@@ -183,6 +205,7 @@ export function AssessmentPage() {
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>
+            <MoonArt />
             {diagnosing ? (
               <>
                 재회 진단중입니다
@@ -234,6 +257,7 @@ export function AssessmentPage() {
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>
+            <MoonArt />
             재회 진단은 계정을 연결하면 받을 수 있어요.
             <br />
             연결하면 지금까지의 대화가 그대로 이어지고,
@@ -258,6 +282,7 @@ export function AssessmentPage() {
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>
+            <MoonArt />
             {notice || (
               <>
                 아직 진단 기록이 없어요.
@@ -428,7 +453,10 @@ export function AssessmentPage() {
 
           {/* 확률 화면에도 총평을 싣는다 — 신호 조각들만으론 서사가 없어 숫자가 건조하게 남는다 */}
           {!dating && !reunited && result.reason && (
-            <div className={styles.reasonCard}>{result.reason}</div>
+            <div className={styles.reasonCard}>
+              <div className={styles.reasonLabel}>총평</div>
+              {result.reason}
+            </div>
           )}
 
           {/* 상대 유형만 판정한다(내 유형 폐기 — 여기서 궁금한 건 상대다). 일반 설명은 도움말 모달로.
@@ -458,6 +486,8 @@ export function AssessmentPage() {
               )}
               {result.attachmentSignals.length > 0 && (
                 <div className={styles.typeSignals}>
+                  {/* 근거 목록에 이름표가 없으면 유형 설명인지 근거인지 안 갈린다(실측 피드백) */}
+                  <div className={styles.typeSignalsLabel}>판정 근거</div>
                   {result.attachmentSignals.map((s, i) => (
                     <div className={styles.typeSignal} key={i}>
                       <div className={styles.typeSignalName}>{s.signal}</div>

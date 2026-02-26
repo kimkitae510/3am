@@ -51,6 +51,12 @@
   line-height: 1.6;
 }
 
+/* 상태 화면 상단의 새벽 달 일러스트 — 글자만 떠 있던 화면에 서비스 모티프를 얹는다 */
+.stateArt {
+  display: block;
+  margin: 0 auto 14px;
+}
+
 /* "이야기 부족" 안내 — 에러 배너와 달리 자동으로 사라지지 않는다(무엇을 더 말할지가 담겨 있어서) */
 .noticeBanner {
   margin: 10px 18px 0;
@@ -148,6 +154,14 @@
   color: var(--text);
   font-size: 13.5px;
   line-height: 1.65;
+}
+
+/* 총평 카드의 이름표 — 이 글이 무엇인지(요약/총평) 카드 스스로 말하게 */
+.reasonLabel {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-bottom: 6px;
 }
 
 /* 확률 범위/계산 방식은 화면에 공개하지 않는다 — 설명은 도움말 모달에서 숫자 없이 */
@@ -304,6 +318,12 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.typeSignalsLabel {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
 }
 
 .typeSignalName {
