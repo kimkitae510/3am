@@ -74,6 +74,13 @@ export function PaymentPage() {
     return () => clearTimeout(timer);
   }, [error]);
 
+  // 충전 완료 알림도 에러와 같은 수명 — 계속 떠 있으면 잔여 표시와 정보가 겹쳐 소음이 된다.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => aliveRef.current && setNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   const refresh = useCallback(() => {
     getUsage().then((u) => aliveRef.current && setUsage(u)).catch(() => {});
     listPayments().then((p) => aliveRef.current && setPayments(p)).catch(() => {});
@@ -136,7 +143,7 @@ export function PaymentPage() {
           amount: order.amount,
         });
         if (aliveRef.current) {
-          setNotice(`충전 완료! ${done.itemName}`);
+          setNotice(`충전 완료 — ${done.itemName}`);
           refresh();
         }
       } else {
@@ -197,7 +204,7 @@ export function PaymentPage() {
                   <span className={styles.balanceValue}>
                     오늘 무료 {usage.chatRemaining}/{usage.chatDailyLimit}회
                     {usage.chatPaidRemaining > 0 && (
-                      <span className={styles.paidBadge}>이용권 {usage.chatPaidRemaining}회</span>
+                      <span className={styles.paidBadge}>+ 이용권 {usage.chatPaidRemaining}회</span>
                     )}
                   </span>
                 </div>
@@ -206,7 +213,7 @@ export function PaymentPage() {
                   <span className={styles.balanceValue}>
                     오늘 무료 {usage.assessmentRemaining}/{usage.assessmentDailyLimit}회
                     {usage.assessmentPaidRemaining > 0 && (
-                      <span className={styles.paidBadge}>이용권 {usage.assessmentPaidRemaining}회</span>
+                      <span className={styles.paidBadge}>+ 이용권 {usage.assessmentPaidRemaining}회</span>
                     )}
                   </span>
                 </div>

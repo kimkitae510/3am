@@ -47,10 +47,12 @@
   color: var(--text);
 }
 
+/* 좋은 소식 알림 — 어두운 화면에 어두운 틴트라 안 띈다는 피드백. 주요 버튼과 같은
+   채운 라벤더 + 어두운 글자로 확실히 밝게 */
 .noticeBanner {
-  background: rgba(184, 157, 209, 0.2);
-  border: 1px solid rgba(184, 157, 209, 0.5);
-  color: var(--text);
+  background: var(--accent);
+  border: none;
+  color: var(--on-accent);
   font-weight: 600;
 }
 

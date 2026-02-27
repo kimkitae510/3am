@@ -57,15 +57,16 @@
   margin: 0 auto 14px;
 }
 
-/* "이야기 부족" 안내 — 에러 배너와 달리 자동으로 사라지지 않는다(무엇을 더 말할지가 담겨 있어서) */
+/* "이야기 부족" 안내 — 자동으로 사라지지 않는다(무엇을 더 말할지가 담겨 있어서).
+   어두운 카드색이라 안 띈다는 피드백 — 주요 버튼과 같은 채운 라벤더로 확실히 밝게 */
 .noticeBanner {
   margin: 10px 18px 0;
-  padding: 10px 14px;
+  padding: 11px 14px;
   border-radius: 10px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: 13px;
+  font-weight: 500;
   line-height: 1.55;
   text-align: center;
 }
