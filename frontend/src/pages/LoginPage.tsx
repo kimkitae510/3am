@@ -144,16 +144,16 @@ export function LoginPage() {
                   <path d="M2 1 h4.6 l4.7 7 V1 H16 v16 h-4.6 L6.7 10 v7 H2 Z" fill="#fff" />
                 </svg>
               </button>
+              {/* 3am 자체 계정(이메일+비밀번호) — 봉투 아이콘은 메일 보내기로 읽혀서 로고 미니어처로 */}
               <button
                 className={`${styles.circleBtn} ${styles.circleEmail}`}
                 type="button"
-                aria-label="이메일로 로그인"
+                aria-label="3am 계정으로 로그인"
                 onClick={() => { setError(''); setMode('email'); }}
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <rect x="3" y="5.5" width="18" height="13" rx="2.5" stroke="#ECEAF0" strokeWidth="1.6" />
-                  <path d="M4 7l8 6 8-6" stroke="#ECEAF0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <span className={styles.circleBrand} aria-hidden="true">
+                  <span className={styles.circleBrandDigit}>3</span>am
+                </span>
               </button>
             </div>
           </div>

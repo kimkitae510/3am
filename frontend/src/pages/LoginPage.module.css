@@ -248,10 +248,23 @@
   background: #03c75a;
 }
 
-/* 이메일은 브랜드 색이 없으니 배경 결에 맞춘 어두운 원 + 외곽선으로 버튼임을 알린다 */
+/* 3am 자체 계정 — 배경 결에 맞춘 어두운 원 + 외곽선, 안에는 로고 미니어처 */
 .circleEmail {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 원 안의 로고 미니어처 — 상단 로고 락업과 같은 문법(숫자만 보라), 작은 크기라 두께는 한 단계 올림 */
+.circleBrand {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: #fff;
+  line-height: 1;
+}
+
+.circleBrandDigit {
+  color: var(--accent);
 }
 
 /* "이미 계정이 있나요?" 구분선 — 양쪽 실선 사이 텍스트 */
