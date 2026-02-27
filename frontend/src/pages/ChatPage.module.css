@@ -47,6 +47,7 @@
 .diagButton {
   display: flex;
   align-items: center;
+  gap: 5px;
   padding: 8px 4px;
   border: none;
   background: transparent;

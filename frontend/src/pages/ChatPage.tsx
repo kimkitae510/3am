@@ -205,11 +205,16 @@ export function ChatPage() {
             <div className={styles.storyTitle}>{title}</div>
           </div>
           <div className={styles.topRight}>
-            {/* 도형 아이콘은 뜻이 안 읽힌다는 피드백 — 진단/이용권 둘 다 글자 필로 통일 */}
+            {/* 아이콘 단독은 뜻이 안 읽혀 기각됐던 이력 — 글자는 유지하고, 밋밋함은
+                진단 페이지의 반원 게이지 모티프를 미니 아이콘으로 곁들여 푼다 */}
             <button
               className={styles.diagButton}
               onClick={() => navigate(`/stories/${storyId}/assessment`)}
             >
+              <svg width="16" height="11" viewBox="0 0 20 13" fill="none" aria-hidden="true">
+                <path d="M2.5 11.5a7.5 7.5 0 0115 0" stroke="rgba(184, 157, 209, 0.35)" strokeWidth="2.6" strokeLinecap="round" />
+                <path d="M2.5 11.5a7.5 7.5 0 017.5-7.5" stroke="#B89DD1" strokeWidth="2.6" strokeLinecap="round" />
+              </svg>
               진단
             </button>
             {/* 이용권 진입점은 입력창 위 충전하기가 담당 — 헤더는 진단 하나만 */}
