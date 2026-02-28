@@ -214,6 +214,9 @@
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* 무료+이용권 소진 시 입력창 위 안내 배너(버튼 없음 — 구매는 상시 진입점이 담당) */

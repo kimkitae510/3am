@@ -189,6 +189,11 @@ export function StoryListPage() {
                 오늘 남은 대화 {usage.chatRemaining + usage.chatPaidRemaining}회, 진단{' '}
                 {usage.assessmentRemaining + usage.assessmentPaidRemaining}회
                 <button className={styles.topupLink} onClick={() => navigate('/payment')}>
+                  {/* 이용권=티켓 — 글자만으론 밋밋하다는 실측, 뜻이 그대로 읽히는 아이콘을 곁들임 */}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="3.75" y="6.75" width="16.5" height="10.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.6" />
+                    <path d="M15 8v8" stroke="#B89DD1" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2.6" />
+                  </svg>
                   충전하기
                 </button>
               </>

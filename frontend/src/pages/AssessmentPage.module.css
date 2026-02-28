@@ -58,17 +58,26 @@
 }
 
 /* "이야기 부족" 안내 — 자동으로 사라지지 않는다(무엇을 더 말할지가 담겨 있어서).
-   어두운 카드색이라 안 띈다는 피드백 — 주요 버튼과 같은 채운 라벤더로 확실히 밝게 */
+   채운 라벤더는 과했다(실측) — 살짝 띄운 어두운 토스트 + 라벤더 아이콘으로 */
 .noticeBanner {
   margin: 10px 18px 0;
   padding: 11px 14px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: var(--on-accent);
+  border-radius: 12px;
+  background: #272430;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--text);
   font-size: 13px;
   font-weight: 500;
   line-height: 1.55;
-  text-align: center;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.noticeIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 /* 재진단 거부(새 근거 없음 등) 안내 — 기존 결과를 가리지 않고 위에 얹는다 */
@@ -578,6 +587,9 @@
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* 하단 버튼 */

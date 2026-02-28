@@ -322,7 +322,15 @@ export function AssessmentPage() {
       <div className={styles.wrap}>
         <BackBar onBack={toChat} onHelp={() => setShowHelp(true)} />
         {error && <div className={styles.errorBanner}>{error}</div>}
-        {notice && <div className={styles.noticeBanner}>{notice}</div>}
+        {notice && (
+          <div className={styles.noticeBanner}>
+            <svg className={styles.noticeIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="#B89DD1" strokeWidth="1.6" />
+              <path d="M12 11v5M12 7.6h.01" stroke="#B89DD1" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            {notice}
+          </div>
+        )}
         <div className={styles.body}>
           <div className={styles.meta}>마지막 진단 - {metaDate}</div>
 
@@ -606,6 +614,10 @@ export function AssessmentPage() {
             </div>
             {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅의 충전하기와 같은 동선 */}
             <button className={styles.topupLink} onClick={() => navigate('/payment')}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3.75" y="6.75" width="16.5" height="10.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.6" />
+                <path d="M15 8v8" stroke="#B89DD1" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2.6" />
+              </svg>
               충전하기
             </button>
           </div>

@@ -205,15 +205,14 @@ export function ChatPage() {
             <div className={styles.storyTitle}>{title}</div>
           </div>
           <div className={styles.topRight}>
-            {/* 아이콘 단독은 뜻이 안 읽혀 기각됐던 이력 — 글자는 유지하고, 밋밋함은
-                진단 페이지의 반원 게이지 모티프를 미니 아이콘으로 곁들여 푼다 */}
+            {/* 아이콘 단독은 뜻이 안 읽혀 기각됐던 이력 — 글자는 유지하고 아이콘을 곁들인다.
+                반원 게이지 축소판은 뜻이 안 살았고(실측), 펄스 라인이 '진단'과 바로 이어진다 */}
             <button
               className={styles.diagButton}
               onClick={() => navigate(`/stories/${storyId}/assessment`)}
             >
-              <svg width="16" height="11" viewBox="0 0 20 13" fill="none" aria-hidden="true">
-                <path d="M2.5 11.5a7.5 7.5 0 0115 0" stroke="rgba(184, 157, 209, 0.35)" strokeWidth="2.6" strokeLinecap="round" />
-                <path d="M2.5 11.5a7.5 7.5 0 017.5-7.5" stroke="#B89DD1" strokeWidth="2.6" strokeLinecap="round" />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3.5 12h4l2.5-6.5 4 13 2.5-6.5h4" stroke="#B89DD1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               진단
             </button>
@@ -306,6 +305,10 @@ export function ChatPage() {
                 {chatPaidRemaining > 0 && ` + 이용권 ${chatPaidRemaining}회`}
                 {/* 남은 횟수를 보는 그 자리에서 바로 살 수 있게 — 소진 배너가 뜨기 전의 진입점 */}
                 <button className={styles.usageTopup} onClick={() => navigate('/payment')}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="3.75" y="6.75" width="16.5" height="10.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.6" />
+                    <path d="M15 8v8" stroke="#B89DD1" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2.6" />
+                  </svg>
                   충전하기
                 </button>
               </>
