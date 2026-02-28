@@ -2,6 +2,7 @@ package com.threeam.auth.service;
 
 import com.threeam.auth.dto.LoginRequest;
 import com.threeam.auth.dto.OAuthLoginRequest;
+import com.threeam.auth.dto.OAuthLoginResponse;
 import com.threeam.auth.dto.TokenResponse;
 import com.threeam.auth.entity.RefreshToken;
 import com.threeam.auth.oauth.OAuthClient;
@@ -79,17 +80,17 @@ public class AuthService {
     // 로그인 잠금(LoginAttemptGuard)은 비밀번호 추측 방어라 소셜 경로엔 해당 없음.
     // currentUserId: 게스트가 로그인 상태로 소셜을 연결하면(토큰 지참) 새 계정 대신 그 행을 승격한다.
     @Transactional
-    public TokenResponse oauthLogin(AuthProvider provider, OAuthLoginRequest request, Long currentUserId) {
+    public OAuthLoginResponse oauthLogin(AuthProvider provider, OAuthLoginRequest request, Long currentUserId) {
         OAuthProfile profile = oAuthClient.fetchProfile(
                 provider, request.getCode(), request.getState(), request.getRedirectUri());
 
         User user = userRepository.findByProviderAndProviderId(provider, profile.providerId())
                 .orElse(null);
+        User guest = currentUserId == null
+                ? null
+                : userRepository.findByIdAndDeletedAtIsNull(currentUserId)
+                        .filter(User::isGuest).orElse(null);
         if (user == null) {
-            User guest = currentUserId == null
-                    ? null
-                    : userRepository.findByIdAndDeletedAtIsNull(currentUserId)
-                            .filter(User::isGuest).orElse(null);
             user = guest != null
                     ? upgradeGuest(guest, profile, request.getConsents())
                     : registerSocialUser(profile, request.getConsents());
@@ -97,9 +98,31 @@ public class AuthService {
             // 이메일 가입과 같은 정책: 탈퇴 계정은 재사용 불가. 본인이 카카오/네이버 인증을
             // 마친 상태라 사유를 그대로 알려줘도 계정 열거 문제가 없다.
             throw new BusinessException(ErrorCode.OAUTH_WITHDRAWN_ACCOUNT);
+        } else if (guest != null) {
+            // 게스트가 이미 가입된 소셜 계정으로 로그인 — 여기서 바로 전환하면 게스트 사연이
+            // 소리 없이 버려진다(병합 없음 정책). 토큰 대신 전환 티켓을 내려 프론트가 경고를
+            // 거쳐 confirm-switch로 확정하게 한다.
+            return OAuthLoginResponse.switchRequired(
+                    jwtTokenProvider.generateOAuthSwitchTicket(provider.name(), profile.providerId()));
         }
-        // 이미 그 소셜로 가입된 계정이 있으면 그 계정으로 로그인된다. 이때 게스트로 쌓은 사연은
-        // 게스트 행에 남는다(병합하지 않음 — 계정 탈취 여지와 복잡도 때문에 초기 정책으로 보류).
+        // 이미 그 소셜로 가입된 계정이 있으면(게스트 아님) 그 계정으로 로그인된다.
+        return OAuthLoginResponse.loggedIn(issueTokens(user));
+    }
+
+    // 게스트 사연을 포기하고 기존 소셜 계정으로 전환 — oauthLogin이 내린 티켓으로만 진입한다.
+    // 병합은 하지 않는다(계정 탈취 여지와 복잡도 때문에 초기 정책으로 보류).
+    @Transactional
+    public TokenResponse confirmOAuthSwitch(String switchTicket) {
+        if (!jwtTokenProvider.validateToken(switchTicket) || !jwtTokenProvider.isOAuthSwitchTicket(switchTicket)) {
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
+        AuthProvider provider = AuthProvider.valueOf(jwtTokenProvider.getStringClaim(switchTicket, "provider"));
+        User user = userRepository
+                .findByProviderAndProviderId(provider, jwtTokenProvider.getStringClaim(switchTicket, "providerId"))
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
+        if (user.isWithdrawn()) {
+            throw new BusinessException(ErrorCode.OAUTH_WITHDRAWN_ACCOUNT);
+        }
         return issueTokens(user);
     }
 

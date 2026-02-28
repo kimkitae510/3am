@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 
 import com.threeam.global.util.TokenHasher;
 import com.threeam.auth.dto.LoginRequest;
+import com.threeam.auth.dto.OAuthLoginResponse;
 import com.threeam.auth.dto.TokenResponse;
 import com.threeam.auth.entity.RefreshToken;
 import com.threeam.auth.repository.RefreshTokenRepository;
@@ -112,22 +113,53 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("소셜 로그인 - 게스트여도 이미 그 소셜로 가입된 계정이 있으면 그 계정으로 로그인한다(병합 없음)")
-    void oauthLogin_guestWithExistingAccountJustLogsIn() {
+    @DisplayName("소셜 로그인 - 게스트가 이미 가입된 소셜 계정으로 오면 로그인 대신 전환 티켓을 내린다(사연 유실 경고 지점)")
+    void oauthLogin_guestWithExistingAccountGetsSwitchTicket() {
         User existing = socialUser(7L, null);
         given(oAuthClient.fetchProfile(com.threeam.user.entity.AuthProvider.KAKAO, "code1", "st", "http://r"))
                 .willReturn(new com.threeam.auth.oauth.OAuthProfile(
                         com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1", null));
         given(userRepository.findByProviderAndProviderId(
                 com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1")).willReturn(Optional.of(existing));
-        stubTokenIssue(7L);
+        given(userRepository.findByIdAndDeletedAtIsNull(9L)).willReturn(Optional.of(guestUser(9L)));
+        given(jwtTokenProvider.generateOAuthSwitchTicket("KAKAO", "kakao-1")).willReturn("ticket");
 
-        TokenResponse response = authService.oauthLogin(com.threeam.user.entity.AuthProvider.KAKAO,
+        OAuthLoginResponse response = authService.oauthLogin(com.threeam.user.entity.AuthProvider.KAKAO,
                 oauthRequest("code1", "st", "http://r"), 9L);
 
-        assertThat(response.getAccessToken()).isEqualTo("access"); // 기존 계정(7L) 토큰
+        assertThat(response.getSwitchTicket()).isEqualTo("ticket");
+        assertThat(response.getAccessToken()).isNull(); // 아직 전환 전 — 게스트 토큰이 유효한 상태
+        verify(jwtTokenProvider, org.mockito.Mockito.never()).generateAccessToken(org.mockito.ArgumentMatchers.anyLong(), any());
         verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
         org.mockito.Mockito.verifyNoInteractions(welcomeGiftService); // 승격 아님
+    }
+
+    @Test
+    @DisplayName("전환 확정 - 유효한 티켓이면 기존 소셜 계정으로 토큰을 발급한다")
+    void confirmOAuthSwitch_issuesTokensForExistingAccount() {
+        given(jwtTokenProvider.validateToken("ticket")).willReturn(true);
+        given(jwtTokenProvider.isOAuthSwitchTicket("ticket")).willReturn(true);
+        given(jwtTokenProvider.getStringClaim("ticket", "provider")).willReturn("KAKAO");
+        given(jwtTokenProvider.getStringClaim("ticket", "providerId")).willReturn("kakao-1");
+        given(userRepository.findByProviderAndProviderId(
+                com.threeam.user.entity.AuthProvider.KAKAO, "kakao-1"))
+                .willReturn(Optional.of(socialUser(7L, null)));
+        stubTokenIssue(7L);
+
+        TokenResponse response = authService.confirmOAuthSwitch("ticket");
+
+        assertThat(response.getAccessToken()).isEqualTo("access");
+    }
+
+    @Test
+    @DisplayName("전환 확정 - 전환 티켓이 아닌 토큰(access 등)으로는 진입할 수 없다")
+    void confirmOAuthSwitch_rejectsNonSwitchToken() {
+        given(jwtTokenProvider.validateToken("access-token")).willReturn(true);
+        given(jwtTokenProvider.isOAuthSwitchTicket("access-token")).willReturn(false);
+
+        assertThatThrownBy(() -> authService.confirmOAuthSwitch("access-token"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TOKEN);
     }
 
     private User guestUser(Long id) {
@@ -155,7 +187,7 @@ class AuthServiceTest {
         });
         stubTokenIssue(7L);
 
-        TokenResponse response = authService.oauthLogin(
+        OAuthLoginResponse response = authService.oauthLogin(
                 com.threeam.user.entity.AuthProvider.KAKAO, oauthRequest("code1", "st", "http://r"), null);
 
         assertThat(response.getAccessToken()).isEqualTo("access");

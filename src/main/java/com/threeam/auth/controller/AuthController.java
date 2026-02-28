@@ -2,6 +2,8 @@ package com.threeam.auth.controller;
 
 import com.threeam.auth.dto.LoginRequest;
 import com.threeam.auth.dto.OAuthLoginRequest;
+import com.threeam.auth.dto.OAuthLoginResponse;
+import com.threeam.auth.dto.OAuthSwitchConfirmRequest;
 import com.threeam.auth.dto.ReissueRequest;
 import com.threeam.auth.dto.TokenResponse;
 import com.threeam.auth.service.AuthService;
@@ -38,12 +40,20 @@ public class AuthController {
     }
 
     // 게스트가 토큰을 지닌 채 소셜 로그인하면(userId 존재) 새 계정 대신 게스트 행을 승격한다.
+    // 그 소셜로 가입된 계정이 이미 있으면 토큰 대신 전환 티켓이 내려간다(아래 confirm-switch).
     @PostMapping("/oauth/{provider}")
-    public ResponseEntity<TokenResponse> oauthLogin(@PathVariable String provider,
-                                                    @Valid @RequestBody OAuthLoginRequest request,
-                                                    @AuthenticationPrincipal Long userId) {
+    public ResponseEntity<OAuthLoginResponse> oauthLogin(@PathVariable String provider,
+                                                         @Valid @RequestBody OAuthLoginRequest request,
+                                                         @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(
                 authService.oauthLogin(AuthProvider.fromOAuthPath(provider), request, userId));
+    }
+
+    // 게스트 사연 유실 경고를 확인한 뒤 기존 소셜 계정으로 전환 확정.
+    @PostMapping("/oauth/confirm-switch")
+    public ResponseEntity<TokenResponse> confirmOAuthSwitch(
+            @Valid @RequestBody OAuthSwitchConfirmRequest request) {
+        return ResponseEntity.ok(authService.confirmOAuthSwitch(request.getSwitchTicket()));
     }
 
     @PostMapping("/reissue")

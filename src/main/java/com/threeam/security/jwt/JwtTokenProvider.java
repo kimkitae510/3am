@@ -17,6 +17,11 @@ public class JwtTokenProvider {
     // 토큰 용도 구분. 수명 긴 refresh 토큰을 access처럼 API 인증에 쓰지 못하게 막는 근거.
     public static final String TYPE_ACCESS = "access";
     public static final String TYPE_REFRESH = "refresh";
+    // 게스트 → 기존 소셜 계정 전환 확인용 티켓. 인가 코드는 1회용이라 "경고 후 재시도"가 불가능해서,
+    // 소셜 인증을 통과한 신원(provider+providerId)을 짧게 서명해 두 번째 호출의 증거로 쓴다.
+    public static final String TYPE_OAUTH_SWITCH = "oauth_switch";
+
+    private static final long OAUTH_SWITCH_VALIDITY_MS = 5 * 60 * 1000;
 
     private final SecretKey key;
     private final long accessValidityMs;
@@ -42,6 +47,27 @@ public class JwtTokenProvider {
 
     public boolean isRefreshToken(String token) {
         return TYPE_REFRESH.equals(getType(token));
+    }
+
+    public String generateOAuthSwitchTicket(String provider, String providerId) {
+        long now = System.currentTimeMillis();
+        return Jwts.builder()
+                .subject("oauth-switch")
+                .claim("typ", TYPE_OAUTH_SWITCH)
+                .claim("provider", provider)
+                .claim("providerId", providerId)
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + OAUTH_SWITCH_VALIDITY_MS))
+                .signWith(key)
+                .compact();
+    }
+
+    public boolean isOAuthSwitchTicket(String token) {
+        return TYPE_OAUTH_SWITCH.equals(getType(token));
+    }
+
+    public String getStringClaim(String token, String name) {
+        return parse(token).get(name, String.class);
     }
 
     private String getType(String token) {
