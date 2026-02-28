@@ -47,13 +47,22 @@
   color: var(--text);
 }
 
-/* 좋은 소식 알림 — 어두운 화면에 어두운 틴트라 안 띈다는 피드백. 주요 버튼과 같은
-   채운 라벤더 + 어두운 글자로 확실히 밝게 */
+/* 좋은 소식 알림 — 채운 라벤더는 과했다(실측). 살짝 띄운 어두운 토스트 + 라벤더 체크
+   아이콘으로: 아이콘이 색을 말하고 배경은 조용히 */
 .noticeBanner {
-  background: var(--accent);
-  border: none;
-  color: var(--on-accent);
-  font-weight: 600;
+  background: #272430;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  color: var(--text);
+  font-weight: 500;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.noticeIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .state {

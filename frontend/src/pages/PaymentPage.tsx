@@ -191,7 +191,15 @@ export function PaymentPage() {
         </div>
 
         {error && <div className={styles.errorBanner}>{error}</div>}
-        {notice && <div className={styles.noticeBanner}>{notice}</div>}
+        {notice && (
+          <div className={styles.noticeBanner}>
+            <svg className={styles.noticeIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="#B89DD1" strokeWidth="1.6" />
+              <path d="M8.5 12.2l2.4 2.4 4.6-5" stroke="#B89DD1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {notice}
+          </div>
+        )}
 
         {loading ? (
           <div className={styles.state}>불러오는 중…</div>
@@ -273,13 +281,8 @@ export function PaymentPage() {
                     {p.method ? ` (${p.method})` : ''}
                     {p.status === 'CANCELED' && ` / 환불 ${p.canceledAmount.toLocaleString()}원`}
                   </div>
-                  {p.entitlements.length > 0 && p.status === 'DONE' && (
-                    <div className={styles.historyMeta}>
-                      {p.entitlements
-                        .map((e) => `${KIND_LABEL[e.kind] ?? e.kind} ${e.usedCount}/${e.totalCount}회 사용`)
-                        .join(', ')}
-                    </div>
-                  )}
+                  {/* 구매별 사용량(N/M회 사용)은 뺐다 — 잔여는 위 카드가 말하고,
+                      영수증에 소모 현황까지 얹으면 정보가 겹쳐 읽기만 어려워진다 */}
                   {p.status === 'WAITING_FOR_DEPOSIT' && p.vbankAccount && (
                     <div className={styles.vbankBox}>
                       입금 계좌: {p.vbankBank} {p.vbankAccount}
