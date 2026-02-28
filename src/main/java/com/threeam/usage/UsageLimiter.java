@@ -14,12 +14,13 @@ public interface UsageLimiter {
 
     void releaseInFlight(UsageKind kind, Long userId);
 
-    // 접수 관문: 오늘 한도를 이미 다 썼으면 QUOTA_EXCEEDED(429)를 던진다. 차감하지 않는다.
-    void checkDaily(UsageKind kind, Long userId);
+    // 접수 관문: 무료 잔여 + 이용권 잔여가 units에 못 미치면 QUOTA_EXCEEDED(429)를 던진다. 차감하지 않는다.
+    // units는 이 요청이 소모할 회수 — 긴 메시지는 길이에 비례해 여러 회로 계산된다(호출부가 환산).
+    void checkDaily(UsageKind kind, Long userId, int units);
 
-    // 성공 시 호출: 오늘 사용량 1회 기록. 자정이 지나 있었다면 1부터 다시 센다.
-    // 무료 한도가 이미 찼으면 결제로 산 이용권에서 1회 차감한다(무료 우선 소진).
-    void recordDaily(UsageKind kind, Long userId);
+    // 성공 시 호출: 오늘 사용량 units회 기록. 자정이 지나 있었다면 다시 센다.
+    // 무료 한도를 먼저 소진하고 모자란 만큼 결제로 산 이용권에서 차감한다(무료 우선 소진).
+    void recordDaily(UsageKind kind, Long userId, int units);
 
     // 오늘 남은 무료 횟수(0 이상). 화면에 "오늘 N회 남음"을 보여주기 위한 조회 전용.
     int remainingDaily(UsageKind kind, Long userId);

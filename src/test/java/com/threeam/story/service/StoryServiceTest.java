@@ -133,11 +133,29 @@ class StoryServiceTest {
         // completedFuture라 thenAccept가 동기 실행 → 어시스턴트 저장까지 이뤄진다
         verify(messageTxService).appendAssistantReply(10L, "괜찮아요, 여기 있어요.");
         // 후차감: 답 저장이 성공했으니 이 시점에 1회 기록된다
-        verify(usageLimiter).recordDaily(UsageKind.CHAT, 1L);
+        verify(usageLimiter).recordDaily(UsageKind.CHAT, 1L, 1);
         // 답이 저장된 턴만 사실 추출이 돈다(별도 호출, 쿼터 미차감)
         verify(factExtractor).extractAsync(10L);
         // 답 저장까지 끝났으니 in-flight 잠금도 해제된다
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
+    }
+
+    @Test
+    @DisplayName("메시지 전송 - 150자를 넘는 메시지는 길이에 비례한 회수로 검사, 차감한다(400자 = 3회)")
+    void sendMessage_longMessageCostsMultipleUnits() {
+        String longContent = "가".repeat(400);
+        MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, longContent));
+        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, longContent))
+                .willReturn(new MessageTxService.PreparedSend(userMessage, List.of()));
+        given(llmClient.generate(anyList()))
+                .willReturn(CompletableFuture.completedFuture("들었어."));
+        given(messageTxService.appendAssistantReply(10L, "들었어."))
+                .willReturn(MessageResponse.from(message(2L, MessageRole.ASSISTANT, "들었어.")));
+
+        storyService.sendMessage(1L, 10L, sendRequest(longContent));
+
+        verify(usageLimiter).checkDaily(UsageKind.CHAT, 1L, 3);
+        verify(usageLimiter).recordDaily(UsageKind.CHAT, 1L, 3);
     }
 
     @Test
@@ -152,7 +170,7 @@ class StoryServiceTest {
 
         verify(llmClient, never()).generate(anyList());
         // 후차감이라 성공 전에 실패하면 기록할 것이 없다. 잠금만 해제.
-        verify(usageLimiter, never()).recordDaily(any(), any());
+        verify(usageLimiter, never()).recordDaily(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
     }
 
@@ -167,7 +185,7 @@ class StoryServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENERATION_IN_PROGRESS);
 
         // 접수 자체가 거부됐으니 한도 검사도, 메시지 저장도, LLM 호출도 없다
-        verify(usageLimiter, never()).checkDaily(any(), any());
+        verify(usageLimiter, never()).checkDaily(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any());
         verify(llmClient, never()).generate(anyList());
     }
@@ -176,7 +194,7 @@ class StoryServiceTest {
     @DisplayName("메시지 전송 - 일일 한도를 넘으면 QUOTA_EXCEEDED, 잠금을 해제하고 LLM을 호출하지 않는다")
     void sendMessage_quotaExceeded() {
         org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.QUOTA_EXCEEDED))
-                .given(usageLimiter).checkDaily(UsageKind.CHAT, 1L);
+                .given(usageLimiter).checkDaily(UsageKind.CHAT, 1L, 1);
 
         assertThatThrownBy(() -> storyService.sendMessage(1L, 10L, sendRequest("hi")))
                 .isInstanceOf(BusinessException.class)
@@ -202,7 +220,7 @@ class StoryServiceTest {
         verify(messageTxService).appendAssistantReply(eq(10L), any(String.class));
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
         // 성공 시만 차감: LLM 장애로 폴백이 나간 턴은 유저 쿼터를 쓰지 않는다
-        verify(usageLimiter, never()).recordDaily(any(), any());
+        verify(usageLimiter, never()).recordDaily(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         // 답이 없는 턴은 추출할 것도 없다
         verify(factExtractor, never()).extractAsync(any());
     }

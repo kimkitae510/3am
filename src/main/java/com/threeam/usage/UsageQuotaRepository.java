@@ -17,11 +17,11 @@ public interface UsageQuotaRepository extends JpaRepository<UsageQuota, Long> {
     @Modifying
     @Query(value = """
             INSERT INTO usage_quota (user_id, kind, quota_date, used_count)
-            VALUES (:userId, :kind, :today, 1)
+            VALUES (:userId, :kind, :today, :count)
             ON DUPLICATE KEY UPDATE
-                used_count = IF(quota_date = :today, used_count + 1, 1),
+                used_count = IF(quota_date = :today, used_count + :count, :count),
                 quota_date = :today
             """, nativeQuery = true)
     void recordUsage(@Param("userId") Long userId, @Param("kind") String kind,
-                     @Param("today") LocalDate today);
+                     @Param("today") LocalDate today, @Param("count") int count);
 }

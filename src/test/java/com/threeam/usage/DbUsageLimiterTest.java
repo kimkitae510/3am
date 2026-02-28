@@ -92,7 +92,7 @@ class DbUsageLimiterTest {
         given(quotaRepository.findByUserIdAndKind(9L, UsageKind.CHAT))
                 .willReturn(Optional.of(quota(GUEST_DATE, 3)));
 
-        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.CHAT, 9L))
+        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.CHAT, 9L, 1))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GUEST_LINK_REQUIRED);
         verify(entitlementRepository, never()).remainingOf(anyLong(), any()); // 게스트에게 이용권 경로는 없다
@@ -103,7 +103,7 @@ class DbUsageLimiterTest {
     void checkDaily_guestAssessmentBlocked() {
         given(userRepository.findById(9L)).willReturn(Optional.of(guestUser()));
 
-        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 9L))
+        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 9L, 1))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GUEST_LINK_REQUIRED);
     }
@@ -114,9 +114,9 @@ class DbUsageLimiterTest {
         given(userRepository.findById(9L)).willReturn(Optional.of(guestUser()));
         given(quotaRepository.findByUserIdAndKind(9L, UsageKind.CHAT)).willReturn(Optional.empty());
 
-        limiter.recordDaily(UsageKind.CHAT, 9L);
+        limiter.recordDaily(UsageKind.CHAT, 9L, 1);
 
-        verify(quotaRepository).recordUsage(9L, "CHAT", GUEST_DATE);
+        verify(quotaRepository).recordUsage(9L, "CHAT", GUEST_DATE, 1);
     }
 
     @Test
@@ -126,7 +126,7 @@ class DbUsageLimiterTest {
                 .willReturn(Optional.of(quota(TODAY, 3)));
         given(entitlementRepository.remainingOf(1L, UsageKind.ASSESSMENT)).willReturn(0L);
 
-        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L))
+        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L, 1))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
     }
@@ -138,7 +138,7 @@ class DbUsageLimiterTest {
                 .willReturn(Optional.of(quota(TODAY, 3)));
         given(entitlementRepository.remainingOf(1L, UsageKind.ASSESSMENT)).willReturn(2L);
 
-        assertThatCode(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L))
+        assertThatCode(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L, 1))
                 .doesNotThrowAnyException();
     }
 
@@ -148,7 +148,7 @@ class DbUsageLimiterTest {
         given(quotaRepository.findByUserIdAndKind(1L, UsageKind.ASSESSMENT))
                 .willReturn(Optional.of(quota(TODAY.minusDays(1), 3)));
 
-        assertThatCode(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L))
+        assertThatCode(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L, 1))
                 .doesNotThrowAnyException();
     }
 
@@ -158,7 +158,7 @@ class DbUsageLimiterTest {
         given(quotaRepository.findByUserIdAndKind(1L, UsageKind.CHAT))
                 .willReturn(Optional.empty());
 
-        assertThatCode(() -> limiter.checkDaily(UsageKind.CHAT, 1L))
+        assertThatCode(() -> limiter.checkDaily(UsageKind.CHAT, 1L, 1))
                 .doesNotThrowAnyException();
     }
 
@@ -168,9 +168,9 @@ class DbUsageLimiterTest {
         given(quotaRepository.findByUserIdAndKind(1L, UsageKind.CHAT))
                 .willReturn(Optional.empty());
 
-        limiter.recordDaily(UsageKind.CHAT, 1L);
+        limiter.recordDaily(UsageKind.CHAT, 1L, 1);
 
-        verify(quotaRepository).recordUsage(eq(1L), eq("CHAT"), eq(TODAY));
+        verify(quotaRepository).recordUsage(eq(1L), eq("CHAT"), eq(TODAY), eq(1));
     }
 
     @Test
@@ -182,10 +182,10 @@ class DbUsageLimiterTest {
                 .willReturn(List.of(10L));
         given(entitlementRepository.consumeOne(10L)).willReturn(1);
 
-        limiter.recordDaily(UsageKind.ASSESSMENT, 1L);
+        limiter.recordDaily(UsageKind.ASSESSMENT, 1L, 1);
 
         verify(entitlementRepository).consumeOne(10L);
-        verify(quotaRepository, never()).recordUsage(anyLong(), anyString(), any());
+        verify(quotaRepository, never()).recordUsage(anyLong(), anyString(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -198,10 +198,10 @@ class DbUsageLimiterTest {
         given(entitlementRepository.consumeOne(10L)).willReturn(0);   // 그 사이 소진/환불
         given(entitlementRepository.consumeOne(11L)).willReturn(1);
 
-        limiter.recordDaily(UsageKind.ASSESSMENT, 1L);
+        limiter.recordDaily(UsageKind.ASSESSMENT, 1L, 1);
 
         verify(entitlementRepository).consumeOne(11L);
-        verify(quotaRepository, never()).recordUsage(anyLong(), anyString(), any());
+        verify(quotaRepository, never()).recordUsage(anyLong(), anyString(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -212,9 +212,55 @@ class DbUsageLimiterTest {
         given(entitlementRepository.findConsumableIds(1L, UsageKind.ASSESSMENT))
                 .willReturn(List.of());
 
-        limiter.recordDaily(UsageKind.ASSESSMENT, 1L);
+        limiter.recordDaily(UsageKind.ASSESSMENT, 1L, 1);
 
-        verify(quotaRepository).recordUsage(eq(1L), eq("ASSESSMENT"), eq(TODAY));
+        verify(quotaRepository).recordUsage(eq(1L), eq("ASSESSMENT"), eq(TODAY), eq(1));
+    }
+
+    @Test
+    @DisplayName("한도 검사(배수) - 무료 잔여와 이용권 합이 요청 회수를 채우면 통과한다")
+    void checkDaily_unitsAcrossFreeAndPaid() {
+        // 무료 3 중 2 사용 = 잔여 1, 이용권 2 → 합 3
+        given(quotaRepository.findByUserIdAndKind(1L, UsageKind.ASSESSMENT))
+                .willReturn(Optional.of(quota(TODAY, 2)));
+        given(entitlementRepository.remainingOf(1L, UsageKind.ASSESSMENT)).willReturn(2L);
+
+        assertThatCode(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L, 3))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.ASSESSMENT, 1L, 4))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
+    }
+
+    @Test
+    @DisplayName("사용 기록(배수) - 무료 잔여를 먼저 소진하고 부족분만 이용권에서 여러 번 차감한다")
+    void recordDaily_unitsSplitFreeThenPaid() {
+        // 무료 3 중 2 사용 = 잔여 1, 요청 3회 → 무료 1 기록 + 이용권 2회 차감
+        given(quotaRepository.findByUserIdAndKind(1L, UsageKind.ASSESSMENT))
+                .willReturn(Optional.of(quota(TODAY, 2)));
+        given(entitlementRepository.findConsumableIds(1L, UsageKind.ASSESSMENT))
+                .willReturn(List.of(10L));
+        given(entitlementRepository.consumeOne(10L)).willReturn(1);
+
+        limiter.recordDaily(UsageKind.ASSESSMENT, 1L, 3);
+
+        verify(quotaRepository).recordUsage(eq(1L), eq("ASSESSMENT"), eq(TODAY), eq(1));
+        verify(entitlementRepository, org.mockito.Mockito.times(2)).consumeOne(10L);
+    }
+
+    @Test
+    @DisplayName("게스트(배수) - 총량 잔여가 요청 회수에 못 미치면 이용권 경로 없이 GUEST_LINK_REQUIRED")
+    void checkDaily_guestUnitsExceedTotal() {
+        given(userRepository.findById(9L)).willReturn(Optional.of(guestUser()));
+        properties.setGuestChatTotalLimit(3);
+        // 총량 3 중 2 사용 = 잔여 1, 요청 2회
+        given(quotaRepository.findByUserIdAndKind(9L, UsageKind.CHAT))
+                .willReturn(Optional.of(quota(GUEST_DATE, 2)));
+
+        assertThatThrownBy(() -> limiter.checkDaily(UsageKind.CHAT, 9L, 2))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GUEST_LINK_REQUIRED);
+        verify(entitlementRepository, never()).remainingOf(anyLong(), any());
     }
 
     @Test

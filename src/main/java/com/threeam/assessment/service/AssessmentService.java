@@ -46,7 +46,7 @@ public class AssessmentService {
         usageLimiter.acquireInFlight(UsageKind.ASSESSMENT, userId);
         try {
             // 후차감: 여기서는 한도 검사만. 기록은 진단이 정상 처리된 뒤에 한다(LLM 장애 시 미차감).
-            usageLimiter.checkDaily(UsageKind.ASSESSMENT, userId);
+            usageLimiter.checkDaily(UsageKind.ASSESSMENT, userId, 1);
 
             AssessmentContext context = txService.loadContext(userId, storyId);
             long userTurns = context.conversation().stream()
@@ -94,7 +94,7 @@ public class AssessmentService {
     // 쿼터 기록 실패가 이미 저장된 진단 응답을 500으로 오염시키지 않게 격리한다.
     private void recordUsageQuietly(Long userId) {
         try {
-            usageLimiter.recordDaily(UsageKind.ASSESSMENT, userId);
+            usageLimiter.recordDaily(UsageKind.ASSESSMENT, userId, 1);
         } catch (RuntimeException e) {
             log.error("진단 쿼터 기록 실패 userId={}", userId, e);
         }

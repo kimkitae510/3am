@@ -58,16 +58,17 @@ public class DbUsageLimiter implements UsageLimiter {
 
     @Override
     @Transactional(readOnly = true)
-    public void checkDaily(UsageKind kind, Long userId) {
+    public void checkDaily(UsageKind kind, Long userId, int units) {
         boolean guest = isGuest(userId);
         // 게스트에게 진단은 0회 — 여기가 계정 연결 유도 지점이다.
         if (guest && kind == UsageKind.ASSESSMENT) {
             throw new BusinessException(ErrorCode.GUEST_LINK_REQUIRED);
         }
-        if (freeUsed(kind, userId, guest) < limitOf(kind, guest)) {
+        int freeLeft = Math.max(0, limitOf(kind, guest) - freeUsed(kind, userId, guest));
+        if (freeLeft >= units) {
             return;
         }
-        if (!guest && entitlementRepository.remainingOf(userId, kind) > 0) {
+        if (!guest && freeLeft + entitlementRepository.remainingOf(userId, kind) >= units) {
             return;
         }
         // 게스트 소진은 충전(결제)이 아니라 계정 연결로 풀린다 — 코드로 안내를 가른다.
@@ -76,22 +77,30 @@ public class DbUsageLimiter implements UsageLimiter {
 
     @Override
     @Transactional
-    public void recordDaily(UsageKind kind, Long userId) {
+    public void recordDaily(UsageKind kind, Long userId, int units) {
         boolean guest = isGuest(userId);
-        if (freeUsed(kind, userId, guest) < limitOf(kind, guest)) {
-            quotaRepository.recordUsage(userId, kind.name(), quotaDate(guest));
-            return;
+        int freeLeft = Math.max(0, limitOf(kind, guest) - freeUsed(kind, userId, guest));
+        int freeTake = Math.min(freeLeft, units);
+        if (freeTake > 0) {
+            quotaRepository.recordUsage(userId, kind.name(), quotaDate(guest), freeTake);
         }
+        int rest = units - freeTake;
         // 조건부 UPDATE가 0이면(동시 차감 경합, 그 사이 환불) 다음 이용권으로 넘어간다.
         for (Long entitlementId : entitlementRepository.findConsumableIds(userId, kind)) {
-            if (entitlementRepository.consumeOne(entitlementId) == 1) {
+            while (rest > 0 && entitlementRepository.consumeOne(entitlementId) == 1) {
+                rest--;
+            }
+            if (rest == 0) {
                 return;
             }
         }
+        if (rest == 0) {
+            return;
+        }
         // 검사 시점엔 있던 이용권이 사라진 극단 케이스. 이미 성공한 생성을 무를 수는 없으니
-        // 무료 카운터에 초과 기록으로 남긴다(한도 위 1회 허용 — 유저를 막는 것보다 낫다).
-        log.warn("이용권 차감 실패, 무료 쿼터 초과 기록 userId={} kind={}", userId, kind);
-        quotaRepository.recordUsage(userId, kind.name(), quotaDate(guest));
+        // 무료 카운터에 초과 기록으로 남긴다(한도 위 기록 허용 — 유저를 막는 것보다 낫다).
+        log.warn("이용권 차감 실패, 무료 쿼터 초과 기록 userId={} kind={} 부족분={}", userId, kind, rest);
+        quotaRepository.recordUsage(userId, kind.name(), quotaDate(guest), rest);
     }
 
     @Override

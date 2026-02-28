@@ -90,7 +90,8 @@ public class StoryService {
         try {
             // 후차감: 여기서는 한도 검사만 하고, 기록은 답변 저장이 성공한 뒤에 한다.
             // 유저가 폴링을 끊어도(중지) 서버는 끝까지 저장하므로 "기록 시점"은 반드시 도달한다.
-            usageLimiter.checkDaily(UsageKind.CHAT, userId);
+            int units = chatUnits(request.getContent());
+            usageLimiter.checkDaily(UsageKind.CHAT, userId, units);
 
             MessageTxService.PreparedSend prepared =
                     messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
@@ -103,7 +104,7 @@ public class StoryService {
                             log.error("LLM 응답 생성 실패 storyId={} userId={}", storyId, userId, ex);
                             persistFallbackQuietly(storyId);
                         } else {
-                            persistReplyQuietly(userId, storyId, reply);
+                            persistReplyQuietly(userId, storyId, reply, units);
                         }
                         return null;
                     })
@@ -123,8 +124,15 @@ public class StoryService {
         }
     }
 
+    // 대화 1회로 치는 길이. 초과분은 회수로 환산해 긴 메시지가 무료/이용권을 비례해 쓴다(예: 400자=3회).
+    private static final int CHAT_UNIT_CHARS = 150;
+
+    private static int chatUnits(String content) {
+        return Math.max(1, (content.length() + CHAT_UNIT_CHARS - 1) / CHAT_UNIT_CHARS);
+    }
+
     // LLM 성공 후: 답변 저장 → 차감 → 사실 추출. 저장 단계 실패는 'LLM 실패'와 구분해 명확히 남긴다.
-    private void persistReplyQuietly(Long userId, Long storyId, String reply) {
+    private void persistReplyQuietly(Long userId, Long storyId, String reply, int units) {
         try {
             messageTxService.appendAssistantReply(storyId, reply);
         } catch (RuntimeException e) {
@@ -132,7 +140,7 @@ public class StoryService {
             log.error("LLM 응답은 받았으나 답변 저장 실패 storyId={} userId={}", storyId, userId, e);
             return;
         }
-        recordUsageQuietly(userId);          // 성공 시만 차감. 폴백(LLM 장애)은 유저 잘못이 아니라 미차감.
+        recordUsageQuietly(userId, units);   // 성공 시만 차감. 폴백(LLM 장애)은 유저 잘못이 아니라 미차감.
         factExtractor.extractAsync(storyId); // 원장 갱신. 실패해도 채팅에 영향 없음(내부에서 삼킴).
     }
 
@@ -146,11 +154,11 @@ public class StoryService {
     }
 
     // 쿼터 기록 실패가 이미 저장된 답변을 실패 처리(폴백 중복 저장)로 오염시키지 않게 격리한다.
-    private void recordUsageQuietly(Long userId) {
+    private void recordUsageQuietly(Long userId, int units) {
         try {
-            usageLimiter.recordDaily(UsageKind.CHAT, userId);
+            usageLimiter.recordDaily(UsageKind.CHAT, userId, units);
         } catch (RuntimeException e) {
-            log.error("대화 쿼터 기록 실패 userId={}", userId, e);
+            log.error("대화 쿼터 기록 실패 userId={} units={}", userId, units, e);
         }
     }
 
