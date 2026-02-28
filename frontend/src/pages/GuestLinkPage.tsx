@@ -4,12 +4,14 @@ import { PhoneFrame } from '../components/PhoneFrame';
 import { TermsContent } from '../components/TermsContent';
 import { PrivacyContent } from '../components/PrivacyContent';
 import {
+  confirmOAuthSwitch,
   linkGuestEmail,
   oauthLogin,
   requestEmailVerification,
   SIGNUP_CONSENTS,
   type OAuthProvider,
 } from '../api/auth';
+import { SwitchConfirmSheet } from '../components/SwitchConfirmSheet';
 import { extractErrorMessage } from '../api/client';
 import { redirectUriFor, startSocialLogin } from '../utils/socialAuth';
 import styles from './LoginPage.module.css';
@@ -34,6 +36,9 @@ export function GuestLinkPage() {
   const [showDoc, setShowDoc] = useState<'terms' | 'privacy' | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // 그 소셜로 가입된 계정이 이미 있을 때 서버가 내리는 전환 티켓 — 확인 시트를 띄우는 근거
+  const [switchTicket, setSwitchTicket] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
   const cooldownTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -60,14 +65,33 @@ export function GuestLinkPage() {
     if (startSocialLogin(provider) === 'redirected') return;
     // 키 미설정(개발) — 토큰을 지닌 채 mock 교환하면 서버가 게스트를 승격한다.
     try {
-      await oauthLogin(provider, {
+      const result = await oauthLogin(provider, {
         code: `dev-${provider}`,
         redirectUri: redirectUriFor(provider),
         consents: [...SIGNUP_CONSENTS],
       });
+      // 그 소셜로 가입된 계정이 이미 있음 — 승격이 아니라 전환(게스트 대화 유실)이라 확인을 거친다
+      if (result.switchTicket) {
+        setSwitchTicket(result.switchTicket);
+        return;
+      }
       navigate('/stories');
     } catch (err) {
       setError(extractErrorMessage(err, '계정 연결에 실패했어요.'));
+    }
+  }
+
+  async function handleConfirmSwitch() {
+    if (!switchTicket) return;
+    setSwitching(true);
+    try {
+      await confirmOAuthSwitch(switchTicket);
+      navigate('/stories');
+    } catch (err) {
+      setSwitchTicket(null);
+      setError(extractErrorMessage(err, '계정 전환에 실패했어요. 다시 시도해 주세요.'));
+    } finally {
+      setSwitching(false);
     }
   }
 
@@ -315,6 +339,17 @@ export function GuestLinkPage() {
               </button>
             </div>
           </div>
+        )}
+
+        {switchTicket && (
+          <SwitchConfirmSheet
+            title="이미 가입된 계정이 있어요"
+            message="이 소셜 계정은 이미 3am 회원이에요. 연결이 아니라 그 계정으로 로그인하게 되고, 지금까지 게스트로 나눈 대화는 가져올 수 없어요."
+            confirmLabel="게스트 대화 포기하고 로그인"
+            submitting={switching}
+            onConfirm={() => void handleConfirmSwitch()}
+            onCancel={() => setSwitchTicket(null)}
+          />
         )}
       </form>
     </PhoneFrame>

@@ -1,8 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
-import { guestStart, login, oauthLogin, SIGNUP_CONSENTS, type OAuthProvider } from '../api/auth';
+import { SwitchConfirmSheet } from '../components/SwitchConfirmSheet';
+import {
+  confirmOAuthSwitch,
+  getMe,
+  guestStart,
+  login,
+  oauthLogin,
+  SIGNUP_CONSENTS,
+  type OAuthProvider,
+} from '../api/auth';
 import { extractErrorMessage } from '../api/client';
+import { tokenStore } from '../api/tokenStore';
 import { redirectUriFor, startSocialLogin } from '../utils/socialAuth';
 import styles from './LoginPage.module.css';
 
@@ -24,6 +34,20 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   // 동의 시트가 열려 있으면 어느 소셜로 이어갈지 기억한다
   const [consentFor, setConsentFor] = useState<OAuthProvider | null>(null);
+  // 게스트 → 기존 계정 전환 확인. 소셜은 서버가 내린 티켓, 이메일은 프론트 확인만으로 충분하다
+  // (로그인 시도 자체가 기존 계정 보유를 뜻하므로 서버 왕복 없이 경고할 수 있다).
+  const [switchTicket, setSwitchTicket] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const [showEmailSwitchWarn, setShowEmailSwitchWarn] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
+
+  // 게스트 토큰을 든 채 랜딩에 온 경우를 감지 — 기존 계정 로그인 시 데이터 유실 경고의 근거.
+  useEffect(() => {
+    if (!tokenStore.getAccess()) return;
+    getMe()
+      .then((me) => setIsGuest(me.provider === 'GUEST'))
+      .catch(() => setIsGuest(false)); // 만료 토큰 등 — 게스트 아님으로 취급
+  }, []);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeSensitive, setAgreeSensitive] = useState(false);
@@ -45,14 +69,33 @@ export function LoginPage() {
     if (startSocialLogin(provider) === 'redirected') return;
     // 키 미설정(개발) — 백엔드 mock 프로바이더로 바로 교환한다. 같은 code라 항상 같은 개발 계정.
     try {
-      await oauthLogin(provider, {
+      const result = await oauthLogin(provider, {
         code: `dev-${provider}`,
         redirectUri: redirectUriFor(provider),
         consents: [...SIGNUP_CONSENTS],
       });
+      // 게스트가 이미 가입된 소셜 계정으로 로그인 — 게스트 대화를 잃는 전환이라 확인을 거친다
+      if (result.switchTicket) {
+        setSwitchTicket(result.switchTicket);
+        return;
+      }
       navigate('/stories');
     } catch (err) {
       setError(extractErrorMessage(err, '소셜 로그인에 실패했어요.'));
+    }
+  }
+
+  async function handleConfirmSwitch() {
+    if (!switchTicket) return;
+    setSwitching(true);
+    try {
+      await confirmOAuthSwitch(switchTicket);
+      navigate('/stories');
+    } catch (err) {
+      setSwitchTicket(null);
+      setError(extractErrorMessage(err, '계정 전환에 실패했어요. 다시 시도해 주세요.'));
+    } finally {
+      setSwitching(false);
     }
   }
 
@@ -78,6 +121,16 @@ export function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
+    // 게스트가 기존 이메일 계정으로 로그인 — 로그인 시도 자체가 기존 계정 보유를 뜻하므로
+    // 서버 확인 없이도 게스트 대화 유실을 먼저 경고할 수 있다.
+    if (isGuest) {
+      setShowEmailSwitchWarn(true);
+      return;
+    }
+    await doLogin();
+  }
+
+  async function doLogin() {
     setError('');
     setSubmitting(true);
     try {
@@ -264,6 +317,17 @@ export function LoginPage() {
               </div>
             </div>
           )}
+
+          {switchTicket && (
+            <SwitchConfirmSheet
+              title="이미 가입된 계정이 있어요"
+              message="이 소셜 계정은 이미 3am 회원이에요. 이 계정으로 로그인하면 지금까지 게스트로 나눈 대화는 가져올 수 없어요."
+              confirmLabel="게스트 대화 포기하고 로그인"
+              submitting={switching}
+              onConfirm={() => void handleConfirmSwitch()}
+              onCancel={() => setSwitchTicket(null)}
+            />
+          )}
         </div>
       </PhoneFrame>
     );
@@ -347,6 +411,17 @@ export function LoginPage() {
         </div>
 
         <div className={styles.spacer} />
+
+        {showEmailSwitchWarn && (
+          <SwitchConfirmSheet
+            title="게스트로 대화 중이에요"
+            message="이 계정으로 로그인하면 지금까지 게스트로 나눈 대화는 가져올 수 없어요. 게스트 대화를 이어가려면 로그인 대신 계정 연결을 이용해 주세요."
+            confirmLabel="게스트 대화 포기하고 로그인"
+            submitting={submitting}
+            onConfirm={() => { setShowEmailSwitchWarn(false); void doLogin(); }}
+            onCancel={() => setShowEmailSwitchWarn(false)}
+          />
+        )}
       </form>
     </PhoneFrame>
   );

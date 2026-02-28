@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
-import { oauthLogin, SIGNUP_CONSENTS, type OAuthProvider } from '../api/auth';
+import { SwitchConfirmSheet } from '../components/SwitchConfirmSheet';
+import { confirmOAuthSwitch, oauthLogin, SIGNUP_CONSENTS, type OAuthProvider } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import { consumeStoredState } from '../utils/socialAuth';
 import styles from './LoginPage.module.css';
@@ -12,6 +13,9 @@ export function OAuthCallbackPage() {
   const { provider } = useParams();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState('');
+  // 게스트가 이미 가입된 소셜 계정으로 로그인한 경우 — 서버가 토큰 대신 전환 티켓을 내린다.
+  const [switchTicket, setSwitchTicket] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
   // 인가 코드는 1회용이라 StrictMode의 이펙트 이중 실행이 곧 이중 교환 실패 — ref로 한 번만 돌린다.
   const started = useRef(false);
 
@@ -48,9 +52,30 @@ export function OAuthCallbackPage() {
       // 신규 가입이면 서버가 이 동의를 기록하고, 기존 계정이면 무시한다.
       consents: [...SIGNUP_CONSENTS],
     })
-      .then(() => navigate('/stories', { replace: true }))
+      .then((result) => {
+        // 게스트 → 기존 계정 전환은 게스트 대화를 잃는다 — 자동 이동 대신 확인을 받는다.
+        if (result.switchTicket) {
+          setSwitchTicket(result.switchTicket);
+          return;
+        }
+        navigate('/stories', { replace: true });
+      })
       .catch((err) => setError(extractErrorMessage(err, '소셜 로그인에 실패했어요.')));
   }, [provider, searchParams, navigate]);
+
+  async function handleConfirmSwitch() {
+    if (!switchTicket) return;
+    setSwitching(true);
+    try {
+      await confirmOAuthSwitch(switchTicket);
+      navigate('/stories', { replace: true });
+    } catch (err) {
+      setSwitchTicket(null);
+      setError(extractErrorMessage(err, '계정 전환에 실패했어요. 다시 시도해 주세요.'));
+    } finally {
+      setSwitching(false);
+    }
+  }
 
   return (
     <PhoneFrame>
@@ -58,7 +83,9 @@ export function OAuthCallbackPage() {
       <div className={`${styles.body} ${styles.aboveSky}`}>
         <div className={styles.brand}>
           <div className={styles.title}>새벽 세시</div>
-          <div className={styles.subtitle}>{error ? '로그인에 문제가 생겼어요.' : '로그인하는 중이에요…'}</div>
+          <div className={styles.subtitle}>
+            {error ? '로그인에 문제가 생겼어요.' : switchTicket ? '확인이 필요해요.' : '로그인하는 중이에요…'}
+          </div>
         </div>
         <div className={styles.spacer} />
         <div className={styles.error}>{error}</div>
@@ -66,6 +93,21 @@ export function OAuthCallbackPage() {
           <button className={styles.primary} type="button" onClick={() => navigate('/login', { replace: true })}>
             로그인 화면으로
           </button>
+        )}
+
+        {switchTicket && (
+          <SwitchConfirmSheet
+            title="이미 가입된 계정이 있어요"
+            message="이 소셜 계정은 이미 3am 회원이에요. 이 계정으로 로그인하면 지금까지 게스트로 나눈 대화는 가져올 수 없어요."
+            confirmLabel="게스트 대화 포기하고 로그인"
+            submitting={switching}
+            onConfirm={() => void handleConfirmSwitch()}
+            onCancel={() => {
+              // 전환 포기 — 게스트 토큰은 그대로 유효하니 하던 대화로 돌려보낸다.
+              setSwitchTicket(null);
+              navigate('/stories', { replace: true });
+            }}
+          />
         )}
       </div>
     </PhoneFrame>

@@ -52,8 +52,26 @@ export async function requestEmailVerification(email: string): Promise<void> {
   await api.post('/api/users/email-verifications', { email });
 }
 
-export async function oauthLogin(provider: OAuthProvider, body: OAuthLoginRequest): Promise<TokenResponse> {
-  const { data } = await api.post<TokenResponse>(`/api/auth/oauth/${provider}`, body);
+export interface OAuthLoginResponse {
+  grantType: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  // 게스트가 이미 가입된 소셜 계정으로 로그인한 경우 토큰 대신 이 티켓이 온다(5분 유효).
+  // 전환하면 게스트 대화를 잃으므로, 경고를 거쳐 confirmOAuthSwitch로 확정해야 한다.
+  switchTicket: string | null;
+}
+
+export async function oauthLogin(provider: OAuthProvider, body: OAuthLoginRequest): Promise<OAuthLoginResponse> {
+  const { data } = await api.post<OAuthLoginResponse>(`/api/auth/oauth/${provider}`, body);
+  if (data.accessToken && data.refreshToken) {
+    tokenStore.set(data.accessToken, data.refreshToken);
+  }
+  return data;
+}
+
+// 게스트 사연 유실 경고를 확인한 뒤 기존 소셜 계정으로 전환 확정.
+export async function confirmOAuthSwitch(switchTicket: string): Promise<TokenResponse> {
+  const { data } = await api.post<TokenResponse>('/api/auth/oauth/confirm-switch', { switchTicket });
   tokenStore.set(data.accessToken, data.refreshToken);
   return data;
 }

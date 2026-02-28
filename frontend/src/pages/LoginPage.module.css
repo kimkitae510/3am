@@ -462,6 +462,25 @@
   min-height: 0;
 }
 
+/* 전환 확인 시트 본문 — 경고 문구가 주인공이라 담백한 본문 톤 */
+.sheetText {
+  color: var(--text-sub);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* 전환 확인의 취소 — 채운 버튼(확정) 아래 조용한 텍스트 버튼 */
+.sheetCancel {
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 0 0;
+  font-family: inherit;
+}
+
 .sheetAgree {
   height: 44px;
   border: none;
