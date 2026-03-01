@@ -111,27 +111,20 @@
   align-items: center;
 }
 
-/* 헤더 아래 잔여 현황 줄 — 흐린 안내 + 보라 충전 링크(채팅 입력창 위 안내와 같은 결) */
-.usageLine {
-  flex-shrink: 0;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 11.5px;
-  padding: 2px 0 10px;
-}
-
-.topupLink {
-  margin-left: 8px;
-  padding: 2px 0;
+/* 헤더의 이용권 진입점 — 채팅 헤더 진단 버튼과 같은 문법(보라 글자 + 미니 아이콘) */
+.payButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 4px;
   border: none;
   background: transparent;
   color: var(--accent);
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  flex-shrink: 0;
 }
 
 .list {

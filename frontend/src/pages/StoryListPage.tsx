@@ -152,6 +152,21 @@ export function StoryListPage() {
         <div className={styles.header}>
           <div className={styles.title}>대화</div>
           <div className={styles.headerActions}>
+            {/* 이용권 진입점 — 잔여 줄이 사라지면서 헤더로 승격. 게스트는 결제가 막혀 있어 계정 연결로 */}
+            {usage &&
+              (usage.guest ? (
+                <button className={styles.payButton} onClick={() => navigate('/guest-link')}>
+                  계정 연결
+                </button>
+              ) : (
+                <button className={styles.payButton} onClick={() => navigate('/payment')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="3.75" y="6.75" width="16.5" height="10.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.6" />
+                    <path d="M15 8v8" stroke="#B89DD1" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2.6" />
+                  </svg>
+                  이용권
+                </button>
+              ))}
             <button className={styles.iconButton} onClick={() => setShowHelp(true)} aria-label="도움말">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />
@@ -172,34 +187,9 @@ export function StoryListPage() {
           </div>
         </div>
 
-        {/* 잔여 현황 + 충전 진입점 — 목록 들어오자마자 보이게 헤더 바로 아래.
-            표시는 오늘 쓸 수 있는 총량(무료+이용권) — 상세 구분은 이용권 화면이 담당 */}
-        {usage && (
-          <div className={styles.usageLine}>
-            {usage.guest ? (
-              <>
-                {/* 게스트는 진단이 잠겨 있어 대화 잔여만 — 진단은 계정 연결 후 */}
-                둘러보기 남은 대화 {usage.chatRemaining}회
-                <button className={styles.topupLink} onClick={() => navigate('/guest-link')}>
-                  계정 연결
-                </button>
-              </>
-            ) : (
-              <>
-                오늘 남은 대화 {usage.chatRemaining + usage.chatPaidRemaining}회, 진단{' '}
-                {usage.assessmentRemaining + usage.assessmentPaidRemaining}회
-                <button className={styles.topupLink} onClick={() => navigate('/payment')}>
-                  {/* 이용권=티켓 — 글자만으론 밋밋하다는 실측, 뜻이 그대로 읽히는 아이콘을 곁들임 */}
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="3.75" y="6.75" width="16.5" height="10.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.6" />
-                    <path d="M15 8v8" stroke="#B89DD1" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2.6" />
-                  </svg>
-                  충전하기
-                </button>
-              </>
-            )}
-          </div>
-        )}
+        {/* 잔여 숫자 나열("오늘 남은 대화 N회, 진단 N회")은 뺐다 — 숫자는 이용권 화면이
+            담당하고, 목록은 헤더의 이용권 진입점 하나로 정리(잔여가 급한 순간의 안내는
+            채팅/진단 화면의 소진 배너가 맡는다) */}
 
         {loading ? (
           <div className={styles.state}>불러오는 중…</div>
@@ -283,7 +273,7 @@ export function StoryListPage() {
               },
               {
                 heading: '이용권',
-                text: '무료 횟수를 다 쓰면 이용권으로 이어서 쓸 수 있습니다. 목록 위 충전하기에서 구매할 수 있습니다.',
+                text: '무료 횟수를 다 쓰면 이용권으로 이어서 쓸 수 있습니다. 위 이용권 버튼에서 잔여 확인과 구매를 할 수 있습니다.',
               },
             ]}
           />
