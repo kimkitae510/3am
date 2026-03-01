@@ -622,16 +622,6 @@ export function AssessmentPage() {
             </button>
           </div>
 
-          <button
-            className={styles.askChat}
-            onClick={() =>
-              navigate(`/stories/${storyId}`, {
-                state: { prefill: '진단 결과가 왜 이렇게 나온 건지 설명해줄래?' },
-              })
-            }
-          >
-            왜 이 결과인지 대화로 물어보기
-          </button>
         </div>
 
         <div className={styles.footer}>
