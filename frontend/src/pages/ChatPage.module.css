@@ -42,17 +42,18 @@
   white-space: nowrap;
 }
 
-/* 헤더 액션은 박스 없이 글자 그 자체(iOS 내비게이션 결) — 필 채움은 화면에서 과했다.
-   색 체계는 두 가지로만: 흰색 = 내용(제목), 보라 = 행동. 회색 액션은 죽어 보여서 기각 */
+/* 헤더 액션 — 맨글자는 밋밋하고 솔리드 필은 과했다(둘 다 실측 기각).
+   절충 = 은은한 라벤더 틴트 칩(iOS tinted button 결): 배경이 아주 옅어 조용하되 영역은 잡힌다 */
 .diagButton {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 8px 4px;
+  padding: 7px 11px;
   border: none;
-  background: transparent;
+  border-radius: 10px;
+  background: rgba(184, 157, 209, 0.13);
   color: var(--accent);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.2px;
   cursor: pointer;
