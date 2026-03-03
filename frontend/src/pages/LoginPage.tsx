@@ -350,10 +350,8 @@ export function LoginPage() {
 
         <div className={styles.spacerTop} />
 
-        {/* 랜딩의 원형 버튼이 "3am 계정으로 로그인"이 되면서 안쪽 제목도 같은 말로 —
-            "이메일로 시작하기"는 들어온 문과 다른 이름이라 어긋났다 */}
         <div className={`${styles.brand} ${styles.brandLogin}`}>
-          <div className={styles.title}>3am 계정으로 로그인</div>
+          <div className={styles.title}>로그인</div>
         </div>
 
         <div className={styles.fields}>
