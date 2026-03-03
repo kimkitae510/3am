@@ -42,17 +42,17 @@
   white-space: nowrap;
 }
 
-/* 헤더 액션 — 맨글자는 밋밋하고 솔리드 필은 과했다(둘 다 실측 기각).
-   절충 = 은은한 라벤더 틴트 칩(iOS tinted button 결): 배경이 아주 옅어 조용하되 영역은 잡힌다 */
+/* 헤더 액션 — 토스 문법: 중립 회색 칩 + 또렷한 흰 글자, 색(라벤더)은 아이콘에만.
+   브랜드색 틴트 배경은 만든 티가 나서 기각(실측) */
 .diagButton {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 11px;
+  padding: 7px 12px;
   border: none;
   border-radius: 10px;
-  background: rgba(184, 157, 209, 0.13);
-  color: var(--accent);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -206,14 +206,16 @@
 }
 
 /* 남은 횟수 옆 충전 링크 — 알약 채움 없이 보라 글자만(액션은 색으로 말하는 체계) */
+/* 잔여 줄 옆 충전 진입 — 헤더 칩과 같은 토스 문법의 미니 칩 */
 .usageTopup {
   margin-left: 8px;
-  padding: 2px 0;
+  padding: 4px 9px;
   border: none;
-  background: transparent;
-  color: var(--accent);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
   font-size: 11.5px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;

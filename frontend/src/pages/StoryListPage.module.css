@@ -111,16 +111,16 @@
   align-items: center;
 }
 
-/* 헤더의 이용권 진입점 — 채팅 헤더 진단 버튼과 같은 문법(은은한 라벤더 틴트 칩) */
+/* 헤더의 이용권 진입점 — 채팅 헤더 진단 버튼과 같은 문법(토스 결: 회색 칩 + 흰 글자, 색은 아이콘만) */
 .payButton {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 11px;
+  padding: 7px 12px;
   border: none;
   border-radius: 10px;
-  background: rgba(184, 157, 209, 0.13);
-  color: var(--accent);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.2px;
