@@ -294,7 +294,7 @@ export function ChatPage() {
           <div className={styles.usageHint}>
             {isGuest ? (
               <>
-                둘러보기 남은 대화 {chatRemaining}회
+                둘러보기 남은 대화 <span className={styles.usageCount}>{chatRemaining}회</span>
                 {/* 게스트는 충전이 아니라 계정 연결로 이어간다 */}
                 <button className={styles.usageTopup} onClick={() => navigate('/guest-link')}>
                   계정 연결
@@ -302,13 +302,14 @@ export function ChatPage() {
               </>
             ) : (
               <>
-                오늘 남은 대화 {chatRemaining}회
-                {chatPaidRemaining > 0 && ` + 이용권 ${chatPaidRemaining}회`}
+                {/* "무료 N회 + 이용권 N회" 나열은 읽기 어렵다(실측) — 합산 하나로 말하고
+                    무료/이용권 구분은 이용권 화면이 담당(목록 합산 표기와 같은 원칙) */}
+                오늘 남은 대화{' '}
+                <span className={styles.usageCount}>{chatRemaining + chatPaidRemaining}회</span>
                 {/* 남은 횟수를 보는 그 자리에서 바로 살 수 있게 — 소진 배너가 뜨기 전의 진입점 */}
                 <button className={styles.usageTopup} onClick={() => navigate('/payment')}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="3.75" y="6.75" width="16.5" height="10.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.6" />
-                    <path d="M15 8v8" stroke="#B89DD1" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2.6" />
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 4.5v15M4.5 12h15" stroke="#B89DD1" strokeWidth="2.2" strokeLinecap="round" />
                   </svg>
                   충전하기
                 </button>

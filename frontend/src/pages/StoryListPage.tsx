@@ -160,9 +160,10 @@ export function StoryListPage() {
                 </button>
               ) : (
                 <button className={styles.payButton} onClick={() => navigate('/payment')}>
+                  {/* 티켓(점선 절취선)은 장식이 많아 만든 티가 났다(실측) — 획 두 개짜리 미니 카드로 */}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="3.75" y="6.75" width="16.5" height="10.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.6" />
-                    <path d="M15 8v8" stroke="#B89DD1" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2.6" />
+                    <rect x="3.5" y="6" width="17" height="12.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.7" />
+                    <path d="M3.5 10.2h17" stroke="#B89DD1" strokeWidth="1.7" />
                   </svg>
                   이용권
                 </button>

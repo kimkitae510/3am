@@ -609,14 +609,20 @@ export function AssessmentPage() {
           {/* 갱신 안내 문구는 제거 — 새 이야기 없이 다시 진단하면 서버가 사유를 설명하며 거부해서 중복 안내였다 */}
           <div className={styles.hintRow}>
             <div className={styles.hintCount}>
-              {remaining != null ? `오늘 ${remaining}회 남음` : '하루 1회'}
-              {paidRemaining > 0 && ` + 이용권 ${paidRemaining}회`}
+              {/* 무료/이용권 나열 대신 합산 — 구분은 이용권 화면이 담당(채팅 잔여 줄과 같은 원칙) */}
+              {remaining != null ? (
+                <>
+                  오늘 남은 진단{' '}
+                  <span className={styles.hintCountNum}>{remaining + paidRemaining}회</span>
+                </>
+              ) : (
+                '하루 1회'
+              )}
             </div>
             {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅의 충전하기와 같은 동선 */}
             <button className={styles.topupLink} onClick={() => navigate('/payment')}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="3.75" y="6.75" width="16.5" height="10.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.6" />
-                <path d="M15 8v8" stroke="#B89DD1" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2.6" />
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 4.5v15M4.5 12h15" stroke="#B89DD1" strokeWidth="2.2" strokeLinecap="round" />
               </svg>
               충전하기
             </button>
