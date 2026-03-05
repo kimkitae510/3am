@@ -302,10 +302,14 @@ export function ChatPage() {
               </>
             ) : (
               <>
-                {/* "무료 N회 + 이용권 N회" 나열은 읽기 어렵다(실측) — 합산 하나로 말하고
-                    무료/이용권 구분은 이용권 화면이 담당(목록 합산 표기와 같은 원칙) */}
-                오늘 남은 대화{' '}
-                <span className={styles.usageCount}>{chatRemaining + chatPaidRemaining}회</span>
+                {/* 무료/이용권은 각각 보여주되 숫자만 밝게 — 나열 자체가 아니라
+                    숫자가 안 읽히는 게 문제였다(합산 시도는 기각, 실측) */}
+                오늘 남은 대화 <span className={styles.usageCount}>{chatRemaining}회</span>
+                {chatPaidRemaining > 0 && (
+                  <>
+                    {' '}+ 이용권 <span className={styles.usageCount}>{chatPaidRemaining}회</span>
+                  </>
+                )}
                 {/* 남은 횟수를 보는 그 자리에서 바로 살 수 있게 — 소진 배너가 뜨기 전의 진입점 */}
                 <button className={styles.usageTopup} onClick={() => navigate('/payment')}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">

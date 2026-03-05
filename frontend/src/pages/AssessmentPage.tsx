@@ -609,11 +609,15 @@ export function AssessmentPage() {
           {/* 갱신 안내 문구는 제거 — 새 이야기 없이 다시 진단하면 서버가 사유를 설명하며 거부해서 중복 안내였다 */}
           <div className={styles.hintRow}>
             <div className={styles.hintCount}>
-              {/* 무료/이용권 나열 대신 합산 — 구분은 이용권 화면이 담당(채팅 잔여 줄과 같은 원칙) */}
+              {/* 무료/이용권 각각 보여주되 숫자만 밝게(채팅 잔여 줄과 같은 문법) */}
               {remaining != null ? (
                 <>
-                  오늘 남은 진단{' '}
-                  <span className={styles.hintCountNum}>{remaining + paidRemaining}회</span>
+                  오늘 남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
+                  {paidRemaining > 0 && (
+                    <>
+                      {' '}+ 이용권 <span className={styles.hintCountNum}>{paidRemaining}회</span>
+                    </>
+                  )}
                 </>
               ) : (
                 '하루 1회'
