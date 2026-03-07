@@ -176,26 +176,7 @@
 
 /* 확률 범위/계산 방식은 화면에 공개하지 않는다 — 설명은 도움말 모달에서 숫자 없이 */
 
-/* 사귀는 중(DATING) — 확률 영역만 하얗게 씌워 잠근다(잠긴 게 한눈에 보이게) */
-.lockOverlay {
-  position: absolute;
-  inset: 0;
-  border-radius: 18px;
-  background: rgba(236, 234, 240, 0.13);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-}
-
-/* 잠금 상태를 아이콘 대신 말로 — "잠김" 자물쇠가 스티커처럼 떠 보였다(실측 피드백) */
-.lockOverlayText {
-  color: var(--text-sub);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-}
+/* (사귀는 중 잠금은 게이지 덮개 대신 재회 성공과 같은 히어로 문법을 쓴다 — reunitedHero 재사용) */
 
 /* 재회 성공 — 게이지 자리를 대신하는 축하 블록 */
 .reunitedHero {
@@ -255,6 +236,13 @@
   color: var(--text-sub);
   font-size: 12.5px;
   line-height: 1.55;
+}
+
+/* 카드에 번복 줄만 있을 때 — 위 구분선과 여백 없이 단독으로 */
+.lockAskRowSolo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .lockConfirmBtn {

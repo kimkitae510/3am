@@ -108,6 +108,11 @@ export function AssessmentPage() {
       if (aliveRef.current) {
         setResult(res);
         setPrevProb(null);
+        // 직전 확률 진단이 없으면(첫 진단부터 잠금) 빈 화면이 되는데, 맨 안내("기록이 없어요")로
+        // 두면 번복이 무시된 것처럼 읽힌다 — 확인이 반영됐고 다음이 뭔지 말해준다.
+        if (!res) {
+          setNotice('헤어진 상태로 확인했어요. 아래 진단 받기를 누르면 재회 가능성을 진단해요.');
+        }
         refreshUsage();
       }
     } catch (e) {
@@ -334,7 +339,8 @@ export function AssessmentPage() {
         <div className={styles.body}>
           <div className={styles.meta}>마지막 진단 - {metaDate}</div>
 
-          {/* 재회 성공은 확률 화면이 아니라 축하 화면 — 게이지 자체를 두지 않는다 */}
+          {/* 재회 성공과 사귀는 중은 확률 화면이 아니다 — 게이지 대신 히어로 문법(같은 결)으로.
+              게이지에 반투명 덮개를 씌우던 잠금은 미완성 화면처럼 읽혔다(실측) */}
           {reunited ? (
             <div className={styles.reunitedHero}>
               <div className={styles.reunitedTitle}>다시 만나게 됐어요</div>
@@ -344,35 +350,35 @@ export function AssessmentPage() {
                 이제 관계를 이어가는 대화로 함께해요.
               </div>
             </div>
+          ) : dating ? (
+            <div className={styles.reunitedHero}>
+              <div className={styles.reunitedTitle}>지금은 만나는 중이에요</div>
+              <div className={styles.reunitedSub}>
+                재회 확률은 이별을 전제로 한 진단이라
+                <br />
+                헤어진 뒤에 다시 열려요.
+              </div>
+            </div>
           ) : (
             <>
               <div className={styles.gaugeWrap}>
                 <svg width="280" height="150" viewBox="0 0 280 150">
                   <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2A2833" strokeWidth="14" strokeLinecap="round" />
-                  {!dating && (
-                    <path
-                      d="M20,138 A120,120 0 0 1 260,138"
-                      fill="none"
-                      stroke="#B89DD1"
-                      strokeWidth="14"
-                      strokeLinecap="round"
-                      strokeDasharray={`${fill} ${ARC_LEN + 40}`}
-                    />
-                  )}
+                  <path
+                    d="M20,138 A120,120 0 0 1 260,138"
+                    fill="none"
+                    stroke="#B89DD1"
+                    strokeWidth="14"
+                    strokeLinecap="round"
+                    strokeDasharray={`${fill} ${ARC_LEN + 40}`}
+                  />
                 </svg>
-                {dating ? (
-                  /* 사귀는 중 — 아이콘 대신 말로 잠근다(자물쇠 그림이 스티커처럼 떠 보이던 문제) */
-                  <div className={styles.lockOverlay}>
-                    <div className={styles.lockOverlayText}>만나는 중이에요</div>
+                <div className={styles.gaugeValue}>
+                  <div className={styles.gaugeNum}>
+                    {prob}
+                    <span className={styles.gaugePct}>%</span>
                   </div>
-                ) : (
-                  <div className={styles.gaugeValue}>
-                    <div className={styles.gaugeNum}>
-                      {prob}
-                      <span className={styles.gaugePct}>%</span>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
               <div className={styles.gaugeLabel}>재회 가능성</div>
               {/* 직전 진단 대비 변화 — 정지 사진이던 결과에 흐름을 붙인다(전체 추이는 기록 화면) */}
@@ -411,14 +417,9 @@ export function AssessmentPage() {
             </>
           ) : dating ? (
             <>
-              {/* 잠금 설명과 번복 질문을 카드 하나로 — 문장이 따로 흩어져 있으면 어수선하다 */}
+              {/* 제목과 설명은 위 히어로가 말했으니 카드는 번복 창구만 — 중복 문장 제거 */}
               <div className={styles.lockCard}>
-                <div className={styles.lockTitle}>지금은 만나고 있는 사이로 알고 있어요</div>
-                <div className={styles.lockDesc}>
-                  재회 확률은 이별을 전제로 한 진단이라 헤어진 뒤에 다시 열려요.
-                </div>
-                {/* 진단이 오해했을 수 있다 — 누르면 오판 기록을 지우고 즉시 직전 확률로 복귀 */}
-                <div className={styles.lockAskRow}>
+                <div className={styles.lockAskRowSolo}>
                   <span className={styles.lockAskText}>
                     혹시 제가 오해한 거라면 알려주세요. 확률 진단을 바로 다시 열게요.
                   </span>
