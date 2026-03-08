@@ -20,19 +20,16 @@ import styles from './AssessmentPage.module.css';
 
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
-/* 상태 화면(로딩, 기록 없음, 안내)이 글자만 떠 있으면 휑하다 — 서비스 모티프(새벽 달)를 작게 얹는다 */
+/* 상태 화면(로딩, 기록 없음, 안내)의 모티프 — 별과 배경원까지 얹은 이전 버전은 장식이
+   많아 만든 티가 났다(실측). 단색 초승달 하나만, 은은하게 */
 function MoonArt() {
   return (
-    <svg className={styles.stateArt} width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true">
-      <circle cx="36" cy="36" r="20" fill="rgba(184, 157, 209, 0.14)" />
-      <path
-        d="M44 22a17 17 0 100 28 14 14 0 01-9-13 14 14 0 019-15z"
-        fill="#B89DD1"
-        opacity="0.75"
-      />
-      <circle cx="55" cy="20" r="1.6" fill="#8B98C7" opacity="0.8" />
-      <circle cx="16" cy="28" r="1.2" fill="#8B98C7" opacity="0.6" />
-      <circle cx="60" cy="44" r="1.2" fill="#6E6B76" opacity="0.8" />
+    <svg className={styles.stateArt} width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+      <mask id="moon-cut">
+        <rect width="52" height="52" fill="white" />
+        <circle cx="34" cy="19" r="16.5" fill="black" />
+      </mask>
+      <circle cx="26" cy="26" r="17" fill="#B89DD1" opacity="0.55" mask="url(#moon-cut)" />
     </svg>
   );
 }
@@ -440,8 +437,8 @@ export function AssessmentPage() {
             <div className={styles.lockCard}>
               <div className={styles.lockTitle}>상대의 재회 제안이 유효한 상태예요</div>
               <div className={styles.lockDesc}>
-                남은 것은 확률이 아니라 내 선택이라 100%로 보여드려요. 제안이 없던 일이 되면 아래
-                신호들 기준으로 바로 다시 계산해 드려요.
+                남은 것은 확률이 아니라 내 선택이라 100%로 보여드려요. 제안이 없던 일이 되면
+                저장해 둔 신호 기준으로 바로 다시 계산해 드려요.
               </div>
               <div className={styles.lockAskRow}>
                 <span className={styles.lockAskText}>
@@ -473,18 +470,18 @@ export function AssessmentPage() {
           <SectionHead title="상대 애착유형" />
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
-              <div
-                className={`${styles.typeName} ${result.partnerAttachment ? '' : styles.typeNameUnknown}`}
-              >
-                {result.partnerAttachment
-                  ? result.attachmentConfidence === 'TENTATIVE'
-                    ? `${result.partnerAttachment}으로 보여요`
-                    : result.partnerAttachment
-                  : '미확정'}
+              {/* "~으로 보여요" 문장형 + 안내문의 겹침이 복잡함의 원인(실측) — 이름과 확신도
+                  라벨 한 줄로 압축 */}
+              <div className={styles.typeHead}>
+                <div
+                  className={`${styles.typeName} ${result.partnerAttachment ? '' : styles.typeNameUnknown}`}
+                >
+                  {result.partnerAttachment ?? '미확정'}
+                </div>
+                {result.partnerAttachment && result.attachmentConfidence === 'TENTATIVE' && (
+                  <span className={styles.typeBadge}>추정</span>
+                )}
               </div>
-              {result.partnerAttachment && result.attachmentConfidence === 'TENTATIVE' && (
-                <div className={styles.typeNote}>아직 추정이에요. 이야기가 더 쌓이면 분명해져요.</div>
-              )}
               {/* 미확정은 빈칸이 아니라 안내 — 뭘 더 들려주면 잡히는지 알려줘야 다음 진단으로 이어진다 */}
               {!result.partnerAttachment && (
                 <div className={styles.typeNote}>
@@ -540,8 +537,10 @@ export function AssessmentPage() {
           </div>
 
           {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다.
-              카드 구조: 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스) — 층이 한눈에 갈리게 */}
-          {minus.length > 0 && (
+              카드 구조: 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스) — 층이 한눈에 갈리게.
+              제안 확정(100%)일 땐 숨긴다 — 수락만 남은 상태에 점수 셈이 떠 있으면 어색하다
+              (재회 성공 화면과 같은 원칙, 신호는 번복 대비로 저장만 유지) */}
+          {prob < 100 && minus.length > 0 && (
             <>
               <SectionHead title="가능성을 낮춘 신호" count={minus.length} />
               <div className={styles.dedList}>
@@ -559,7 +558,7 @@ export function AssessmentPage() {
             </>
           )}
 
-          {plus.length > 0 && (
+          {prob < 100 && plus.length > 0 && (
             <>
               <SectionHead title="가능성을 올린 신호" count={plus.length} />
               <div className={styles.dedList}>
@@ -659,7 +658,7 @@ export function AssessmentPage() {
               },
               {
                 heading: '상대 애착유형',
-                text: '안정형 : 감정을 말로 풀고 갈등을 대화로 다루는 편\n불안형 : 확인받고 싶어 하고 거리가 생기면 매달리는 편\n거부회피형 : 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편\n공포회피형 : 밀어내고 다시 찾기를 반복하는 편\n판정에 쓰인 행동 근거는 유형 카드에 함께 보여드립니다. 근거가 아직 얇으면 단정 대신 "~로 보여요"(추정)로 표시되고, 이야기가 쌓이면 분명해집니다.',
+                text: '안정형 : 감정을 말로 풀고 갈등을 대화로 다루는 편\n불안형 : 확인받고 싶어 하고 거리가 생기면 매달리는 편\n거부회피형 : 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편\n공포회피형 : 밀어내고 다시 찾기를 반복하는 편\n판정에 쓰인 행동 근거는 유형 카드에 함께 보여드립니다. 근거가 아직 얇으면 추정 표시가 붙고, 이야기가 쌓이면 분명해집니다.',
               },
               {
                 heading: '행동 가이드',
