@@ -102,8 +102,11 @@ public class ReunionLlm {
                     deductions, boosts, guidance,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
-            // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 로그에 원문을 남기지 않고 길이만 남긴다.
-            log.error("재회 진단 JSON 파싱 실패 (본문 길이 {}자)", json == null ? 0 : json.length(), e);
+            // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 로그에 원문을 남기지 않고
+            // 길이와 잘림 여부만 남긴다(닫는 중괄호로 안 끝나면 중간에 잘린 응답 — finishReason 로그와 짝).
+            boolean truncated = json != null && !json.trim().endsWith("}");
+            log.error("재회 진단 JSON 파싱 실패 (본문 길이 {}자, 잘림 의심={})",
+                    json == null ? 0 : json.length(), truncated, e);
             throw new LlmException();
         }
     }

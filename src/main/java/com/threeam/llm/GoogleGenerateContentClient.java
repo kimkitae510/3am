@@ -155,10 +155,17 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         try {
             JsonNode root = objectMapper.readTree(response.body());
             logUsage(root);
-            JsonNode text = root
-                    .path("candidates").path(0).path("content").path("parts").path(0).path("text");
+            JsonNode candidate = root.path("candidates").path(0);
+            // 생성이 왜 멈췄는지 반드시 남긴다 — JSON이 중간에 잘려 파싱이 깨질 때(실측)
+            // MAX_TOKENS(출력 잘림)인지 SAFETY(안전성 차단)인지 이 값 없이는 추적이 불가능하다.
+            String finishReason = candidate.path("finishReason").asText("");
+            if (!finishReason.isEmpty() && !"STOP".equals(finishReason)) {
+                log.warn("{} 생성 비정상 종료: finishReason={}", providerName(), finishReason);
+            }
+            JsonNode text = candidate.path("content").path("parts").path(0).path("text");
             if (text.isMissingNode()) {
-                log.error("{} 응답에 텍스트가 없음: {}", providerName(), snippet(response.body()));
+                log.error("{} 응답에 텍스트가 없음: finishReason={} body={}",
+                        providerName(), finishReason, snippet(response.body()));
                 throw new LlmException();
             }
             return text.asText();
@@ -184,10 +191,12 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             return;
         }
         int total = usage.path("totalTokenCount").asInt(0);
-        log.info("{} 토큰 사용: input={}, output={}, total={}",
+        // thoughts(추론) 토큰을 따로 남긴다 — output이 작게 잘렸을 때 추론이 예산을 먹었는지 가려낸다.
+        log.info("{} 토큰 사용: input={}, output={}, thoughts={}, total={}",
                 providerName(),
                 usage.path("promptTokenCount").asInt(0),
                 usage.path("candidatesTokenCount").asInt(0),
+                usage.path("thoughtsTokenCount").asInt(0),
                 total);
         // 토큰 총량 분포 — 프롬프트 창, 추출 호출이 비용에 미치는 영향을 실측으로 집계한다.
         Metrics.summary("llm.tokens.total", "provider", providerName()).record(total);
