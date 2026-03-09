@@ -201,6 +201,20 @@ export function AssessmentPage() {
 
   const toChat = () => navigate(`/stories/${storyId}`);
 
+  // 실패/빈 화면에서도 남은 횟수가 보여야 한다(실측: 진단 실패 후 몇 회 남았는지 알 길이 없었음).
+  // 실패는 후차감이라 차감되지 않는데, 그걸 확인할 방법이 이 표시다.
+  const remainingHint =
+    remaining != null ? (
+      <div className={styles.stateHint}>
+        오늘 남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
+        {paidRemaining > 0 && (
+          <>
+            {' '}+ 이용권 <span className={styles.hintCountNum}>{paidRemaining}회</span>
+          </>
+        )}
+      </div>
+    ) : null;
+
   if (loading || diagnosing) {
     return (
       <PhoneFrame>
@@ -239,6 +253,7 @@ export function AssessmentPage() {
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>{error}</div>
+          {remainingHint}
           <div className={styles.footer}>
             <button className={styles.btnGhost} onClick={toChat}>
               대화로
@@ -295,6 +310,7 @@ export function AssessmentPage() {
               </>
             )}
           </div>
+          {remainingHint}
           <div className={styles.footer}>
             <button className={styles.btnPrimary} onClick={diagnose}>
               진단 받기
