@@ -63,9 +63,17 @@ public class AssessmentService {
                 usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId);
                 return CompletableFuture.completedFuture(insufficientGuide(storyId, NO_BASIS_GUIDE));
             }
+            // 실패 재시도 가드: 실패는 후차감(미차감)이라, 같은 재료가 계속 같은 이유(안전성 차단,
+            // 응답 잘림 등)로 실패하면 무한 무료 LLM 호출 루프가 된다(실측). 연속 2회부터 LLM 없이 거부.
+            if (txService.isAssessFailRetryBlocked(storyId)) {
+                usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId);
+                return CompletableFuture.completedFuture(insufficientGuide(storyId, FAIL_RETRY_GUIDE));
+            }
             return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(), context.conversation())
                     .thenApply(diagnosis -> {
                         AssessmentResponse response = persist(storyId, diagnosis);
+                        // LLM 왕복이 정상 처리됐으니 실패 연속 카운트를 지운다(INSUFFICIENT도 실패가 아니라 판정).
+                        clearAssessFailQuietly(storyId);
                         if (diagnosis.verdict() == ReunionVerdict.INSUFFICIENT) {
                             // 진단을 제공하지 못했으니 쿼터를 깎지 않는다(유저 억울함 방지).
                             // 대신 시점을 DB에 남겨 새 대화 없는 재시도를 위에서 공짜로 막는다.
@@ -81,6 +89,7 @@ public class AssessmentService {
                         // 전역 핸들러 로그엔 맥락이 없어 "돈 깎였는데 결과 없음" CS를 추적할 수 없다.
                         if (ex != null) {
                             log.error("진단 처리 실패 storyId={} userId={}", storyId, userId, ex);
+                            markAssessFailedQuietly(storyId);
                         }
                         usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId);
                     });
@@ -97,6 +106,23 @@ public class AssessmentService {
             usageLimiter.recordDaily(UsageKind.ASSESSMENT, userId, 1);
         } catch (RuntimeException e) {
             log.error("진단 쿼터 기록 실패 userId={}", userId, e);
+        }
+    }
+
+    // 표시 기록 실패가 정상 응답을 오염시키거나(clear), 잠금 해제를 막지 않게(mark) 격리한다.
+    private void clearAssessFailQuietly(Long storyId) {
+        try {
+            txService.clearAssessFailed(storyId);
+        } catch (RuntimeException e) {
+            log.error("진단 실패 표시 해제 실패 storyId={}", storyId, e);
+        }
+    }
+
+    private void markAssessFailedQuietly(Long storyId) {
+        try {
+            txService.markAssessFailed(storyId);
+        } catch (RuntimeException e) {
+            log.error("진단 실패 표시 기록 실패 storyId={}", storyId, e);
         }
     }
 
@@ -132,6 +158,11 @@ public class AssessmentService {
     private static final String NO_BASIS_GUIDE =
             "이야기는 들었지만 확률을 매길 만한 사실이 아직 부족해요. 어쩌다 헤어졌는지, "
                     + "상대가 최근 어떻게 행동했는지 같은 '있었던 일'을 들려줄래요?";
+
+    // 같은 재료로 진단 생성이 연속 실패해 재시도를 막은 경우. 실패는 차감되지 않았음을 함께 알린다.
+    private static final String FAIL_RETRY_GUIDE =
+            "진단 만들기가 계속 실패하고 있어요. 실패한 진단은 횟수가 차감되지 않았으니 안심해요. "
+                    + "대화를 조금 더 나눈 뒤에 다시 시도해 줄래요?";
 
     private static final String DATING_GUIDE =
             "아직 만나고 있는 사이라면 재회 확률은 의미가 없어요. 지금 겪는 갈등은 대화에서 같이 풀어봐요.";

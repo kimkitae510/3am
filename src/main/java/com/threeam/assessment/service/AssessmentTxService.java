@@ -73,6 +73,43 @@ public class AssessmentTxService {
         storyRepository.updateLastInsufficientAt(storyId, null);
     }
 
+    // 실패 재시도 가드가 발동하는 연속 실패 횟수. 1회는 재시도를 허용한다 —
+    // 일시 장애(503, 타임아웃)는 한 번 더로 복구될 수 있어서.
+    private static final int FAIL_STREAK_LIMIT = 2;
+
+    // 진단 실패 재시도 가드: 실패는 후차감(미차감)이라, 같은 재료가 계속 같은 이유(안전성 차단 등)로
+    // 실패하면 무한 무료 LLM 호출이 된다(실측). 같은 재료 연속 2회 실패면 새 대화 전까지 LLM 없이 거부.
+    @Transactional(readOnly = true)
+    public boolean isAssessFailRetryBlocked(Long storyId) {
+        Story story = storyRepository.findById(storyId).orElse(null);
+        if (story == null || story.getLastAssessFailedAt() == null
+                || story.getAssessFailStreak() < FAIL_STREAK_LIMIT) {
+            return false;
+        }
+        return !messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, story.getLastAssessFailedAt());
+    }
+
+    // 같은 재료(지난 실패 이후 새 대화 없음)의 실패만 연속으로 센다.
+    // 재료가 바뀐 뒤의 첫 실패는 1부터 — 새 대화마다 한 번의 재시도 여지가 되살아난다.
+    @Transactional
+    public void markAssessFailed(Long storyId) {
+        LocalDateTime prev = storyRepository.findById(storyId)
+                .map(Story::getLastAssessFailedAt)
+                .orElse(null);
+        boolean sameMaterial = prev != null
+                && !messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, prev);
+        if (sameMaterial) {
+            storyRepository.incrementAssessFailStreak(storyId, LocalDateTime.now());
+        } else {
+            storyRepository.restartAssessFailStreak(storyId, LocalDateTime.now());
+        }
+    }
+
+    @Transactional
+    public void clearAssessFailed(Long storyId) {
+        storyRepository.clearAssessFailStreak(storyId);
+    }
+
     // 히스토리 조회 전 소유권만 확인한다.
     @Transactional(readOnly = true)
     public void loadOwnership(Long userId, Long storyId) {

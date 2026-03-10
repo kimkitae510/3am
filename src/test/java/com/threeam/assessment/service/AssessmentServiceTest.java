@@ -228,6 +228,48 @@ class AssessmentServiceTest {
     }
 
     @Test
+    @DisplayName("진단 - 같은 재료 연속 실패로 막혀 있으면 LLM 없이 안내만 돌려준다")
+    void assess_failRetryBlocked() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(txService.isAssessFailRetryBlocked(10L)).willReturn(true);
+
+        AssessmentResponse response = assessmentService.assess(1L, 10L).join();
+
+        assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
+        assertThat(response.getReason()).contains("실패");
+        verify(reunionLlm, never()).diagnose(any(), anyList(), anyList()); // 무료 LLM 호출 루프 차단
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
+    }
+
+    @Test
+    @DisplayName("진단 - LLM 실패 시 실패 표시를 남기고 잠금을 해제한다(쿼터는 미차감)")
+    void assess_marksFailureOnLlmError() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList()))
+                .willReturn(CompletableFuture.failedFuture(new RuntimeException("응답 잘림")));
+
+        assertThatThrownBy(() -> assessmentService.assess(1L, 10L).join())
+                .hasCauseInstanceOf(RuntimeException.class);
+
+        verify(txService).markAssessFailed(10L); // 연속 실패 카운트 재료
+        verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
+        verify(usageLimiter, never()).recordDaily(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("진단 - LLM 왕복이 정상 처리되면 실패 연속 카운트를 지운다(INSUFFICIENT 판정 포함)")
+    void assess_clearsFailureOnCompletedRoundtrip() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(reunionLlm.diagnose(eq("요약"), anyList(), anyList())).willReturn(CompletableFuture.completedFuture(
+                new ReunionDiagnosis(ReunionVerdict.INSUFFICIENT, null, null, List.of(), false,
+                        List.of(), List.of(), List.of(), "조금 더 들려줄래요?", "", List.of())));
+
+        assessmentService.assess(1L, 10L).join();
+
+        verify(txService).clearAssessFailed(10L);
+    }
+
+    @Test
     @DisplayName("진단 - 유저 발화가 하나도 없으면 LLM 호출 없이 안내만, 쿼터도 안 깎고 잠금은 해제한다")
     void assess_preGateOnSparseConversation() {
         given(txService.loadContext(1L, 10L)).willReturn(SPARSE_CONTEXT);

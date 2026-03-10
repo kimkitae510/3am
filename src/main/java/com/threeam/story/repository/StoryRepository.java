@@ -21,4 +21,18 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
     @Modifying(clearAutomatically = true)
     @Query("update Story s set s.lastInsufficientAt = :ts where s.id = :id")
     void updateLastInsufficientAt(@Param("id") Long id, @Param("ts") LocalDateTime ts);
+
+    // 진단 실패 표시: 같은 재료(새 대화 없음)의 연속 실패는 카운트를 올리고,
+    @Modifying(clearAutomatically = true)
+    @Query("update Story s set s.assessFailStreak = s.assessFailStreak + 1, s.lastAssessFailedAt = :ts where s.id = :id")
+    void incrementAssessFailStreak(@Param("id") Long id, @Param("ts") LocalDateTime ts);
+
+    // 재료가 바뀐 뒤의 첫 실패는 1부터 다시 센다(새 대화마다 한 번의 재시도 여지를 되살린다).
+    @Modifying(clearAutomatically = true)
+    @Query("update Story s set s.assessFailStreak = 1, s.lastAssessFailedAt = :ts where s.id = :id")
+    void restartAssessFailStreak(@Param("id") Long id, @Param("ts") LocalDateTime ts);
+
+    @Modifying(clearAutomatically = true)
+    @Query("update Story s set s.assessFailStreak = 0, s.lastAssessFailedAt = null where s.id = :id")
+    void clearAssessFailStreak(@Param("id") Long id);
 }

@@ -103,6 +103,70 @@ class AssessmentTxServiceTest {
         verifyNoInteractions(storyMemoryRepository);   // 쓰기는 서비스 경유, 직접 접근 없음
     }
 
+    private Story storyWithFailure(int streak, LocalDateTime failedAt) {
+        Story story = Story.builder().userId(1L).title("사연").build();
+        ReflectionTestUtils.setField(story, "assessFailStreak", streak);
+        ReflectionTestUtils.setField(story, "lastAssessFailedAt", failedAt);
+        return story;
+    }
+
+    private static final LocalDateTime FAILED_AT = LocalDateTime.of(2025, 11, 10, 12, 0);
+
+    @Test
+    @DisplayName("실패 가드 - 같은 재료 연속 2회 실패면 막는다")
+    void failGuard_blocksAfterStreakWithoutNewMessage() {
+        given(storyRepository.findById(STORY_ID))
+                .willReturn(Optional.of(storyWithFailure(2, FAILED_AT)));
+        given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, FAILED_AT)).willReturn(false);
+
+        assertThat(txService.isAssessFailRetryBlocked(STORY_ID)).isTrue();
+    }
+
+    @Test
+    @DisplayName("실패 가드 - 1회 실패까지는 재시도를 허용한다(일시 장애 복구 여지)")
+    void failGuard_allowsSingleFailure() {
+        given(storyRepository.findById(STORY_ID))
+                .willReturn(Optional.of(storyWithFailure(1, FAILED_AT)));
+
+        assertThat(txService.isAssessFailRetryBlocked(STORY_ID)).isFalse();
+    }
+
+    @Test
+    @DisplayName("실패 가드 - 연속 2회여도 새 대화가 생기면 다시 허용한다")
+    void failGuard_allowsAfterNewMessage() {
+        given(storyRepository.findById(STORY_ID))
+                .willReturn(Optional.of(storyWithFailure(2, FAILED_AT)));
+        given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, FAILED_AT)).willReturn(true);
+
+        assertThat(txService.isAssessFailRetryBlocked(STORY_ID)).isFalse();
+    }
+
+    @Test
+    @DisplayName("실패 표시 - 지난 실패 이후 새 대화가 없으면 연속 카운트를 올린다")
+    void markFailed_incrementsOnSameMaterial() {
+        given(storyRepository.findById(STORY_ID))
+                .willReturn(Optional.of(storyWithFailure(1, FAILED_AT)));
+        given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, FAILED_AT)).willReturn(false);
+
+        txService.markAssessFailed(STORY_ID);
+
+        verify(storyRepository).incrementAssessFailStreak(eq(STORY_ID), any(LocalDateTime.class));
+        verify(storyRepository, never()).restartAssessFailStreak(any(), any());
+    }
+
+    @Test
+    @DisplayName("실패 표시 - 재료가 바뀐 뒤의 첫 실패는 1부터 다시 센다")
+    void markFailed_restartsAfterNewMaterial() {
+        given(storyRepository.findById(STORY_ID))
+                .willReturn(Optional.of(storyWithFailure(2, FAILED_AT)));
+        given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, FAILED_AT)).willReturn(true);
+
+        txService.markAssessFailed(STORY_ID);
+
+        verify(storyRepository).restartAssessFailStreak(eq(STORY_ID), any(LocalDateTime.class));
+        verify(storyRepository, never()).incrementAssessFailStreak(any(), any());
+    }
+
     private Assessment lastAssessment() {
         Assessment last = savedAssessment(77L);
         ReflectionTestUtils.setField(last, "createdAt", LocalDateTime.of(2025, 11, 10, 12, 0));
