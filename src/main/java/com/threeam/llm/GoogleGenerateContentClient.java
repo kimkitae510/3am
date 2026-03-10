@@ -90,6 +90,15 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                         response.request(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)));
     }
 
+    // 안전성 필터 완화(고위험만 차단): 이별 상담 도메인은 불륜, 환승, 이별 통보 같은 무거운 소재가
+    // 일상 입력인데, 기본 임계값에서는 생성이 도중에 차단돼 JSON이 잘리는 실측이 있었다(진단 파싱 실패).
+    // 완화 후에도 잘리면 finishReason=SAFETY 경고 로그로 드러난다.
+    private static final List<Map<String, String>> SAFETY_SETTINGS = List.of(
+            Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_ONLY_HIGH"),
+            Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_ONLY_HIGH"),
+            Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_ONLY_HIGH"),
+            Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_ONLY_HIGH"));
+
     private HttpRequest buildRequest(List<ChatMessage> messages, boolean json, boolean deep) {
         // system은 system_instruction으로, 대화는 contents(user/model)로 나눠 받는다.
         StringBuilder system = new StringBuilder();
@@ -108,6 +117,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             body.put("system_instruction", Map.of("parts", List.of(Map.of("text", system.toString().trim()))));
         }
         body.put("contents", contents);
+        body.put("safetySettings", SAFETY_SETTINGS);
         // JSON 모드: 모델이 코드펜스, 잡설 없이 순수 JSON만 뱉도록 강제한다.
         // 정밀 판단(deep=진단): temperature 0(같은 사실 위 점수 출렁임 실측 대응) + thinking 유지(긴 루브릭 추론).
         // 채팅/추출(그 외): thinking 최소화 — thinking 토큰이 출력 과금의 90%를 차지(로그 실측)하는데
