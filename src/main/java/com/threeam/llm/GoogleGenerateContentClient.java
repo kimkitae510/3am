@@ -90,14 +90,15 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                         response.request(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)));
     }
 
-    // 안전성 필터 완화(고위험만 차단): 이별 상담 도메인은 불륜, 환승, 이별 통보 같은 무거운 소재가
+    // 안전성 필터 해제(BLOCK_NONE): 이별 상담 도메인은 불륜, 환승, 이별 통보 같은 무거운 소재가
     // 일상 입력인데, 기본 임계값에서는 생성이 도중에 차단돼 JSON이 잘리는 실측이 있었다(진단 파싱 실패).
-    // 완화 후에도 잘리면 finishReason=SAFETY 경고 로그로 드러난다.
+    // 상담 응답의 수위는 필터가 아니라 페르소나와 루브릭이 관리한다. 그래도 잘리면
+    // finishReason=SAFETY 경고 로그로 드러난다(일부 카테고리는 BLOCK_NONE에서도 강제 차단이 남는다).
     private static final List<Map<String, String>> SAFETY_SETTINGS = List.of(
-            Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_ONLY_HIGH"),
-            Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_ONLY_HIGH"),
-            Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_ONLY_HIGH"),
-            Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_ONLY_HIGH"));
+            Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_NONE"),
+            Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_NONE"),
+            Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_NONE"),
+            Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_NONE"));
 
     private HttpRequest buildRequest(List<ChatMessage> messages, boolean json, boolean deep) {
         // system은 system_instruction으로, 대화는 contents(user/model)로 나눠 받는다.
