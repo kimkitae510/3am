@@ -163,8 +163,13 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                     snippet(response.body()));
             throw new LlmException();
         }
+        return parseBody(response.body());
+    }
+
+    // 패키지 공개는 테스트용 — 파트 분할 응답의 회귀 방지.
+    String parseBody(String body) {
         try {
-            JsonNode root = objectMapper.readTree(response.body());
+            JsonNode root = objectMapper.readTree(body);
             logUsage(root);
             JsonNode candidate = root.path("candidates").path(0);
             // 생성이 왜 멈췄는지 반드시 남긴다 — JSON이 중간에 잘려 파싱이 깨질 때(실측)
@@ -173,13 +178,30 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             if (!finishReason.isEmpty() && !"STOP".equals(finishReason)) {
                 log.warn("{} 생성 비정상 종료: finishReason={}", providerName(), finishReason);
             }
-            JsonNode text = candidate.path("content").path("parts").path(0).path("text");
-            if (text.isMissingNode()) {
+            // 긴 응답은 여러 텍스트 파트로 쪼개져 온다. 첫 파트만 읽으면 정상 종료(STOP)인데도
+            // 본문이 첫 조각에서 끊긴다(실측: 진단 JSON이 두 번 다 1,25X자에서 잘림) — 전부 이어붙인다.
+            StringBuilder text = new StringBuilder();
+            int textParts = 0;
+            for (JsonNode part : candidate.path("content").path("parts")) {
+                // thought=true는 추론 요약 파트라 응답 본문이 아니다.
+                if (part.path("thought").asBoolean(false)) {
+                    continue;
+                }
+                JsonNode partText = part.path("text");
+                if (partText.isTextual()) {
+                    text.append(partText.asText());
+                    textParts++;
+                }
+            }
+            if (textParts == 0) {
                 log.error("{} 응답에 텍스트가 없음: finishReason={} body={}",
-                        providerName(), finishReason, snippet(response.body()));
+                        providerName(), finishReason, snippet(body));
                 throw new LlmException();
             }
-            return text.asText();
+            if (textParts > 1) {
+                log.info("{} 응답이 {}개 텍스트 파트로 분할되어 이어붙임", providerName(), textParts);
+            }
+            return text.toString();
         } catch (LlmException e) {
             throw e;
         } catch (Exception e) {
