@@ -178,13 +178,16 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             if (!finishReason.isEmpty() && !"STOP".equals(finishReason)) {
                 log.warn("{} 생성 비정상 종료: finishReason={}", providerName(), finishReason);
             }
-            // 긴 응답은 여러 텍스트 파트로 쪼개져 온다. 첫 파트만 읽으면 정상 종료(STOP)인데도
-            // 본문이 첫 조각에서 끊긴다(실측: 진단 JSON이 두 번 다 1,25X자에서 잘림) — 전부 이어붙인다.
+            // 긴 응답은 여러 텍스트 파트로 쪼개져 올 수 있다. 첫 파트만 읽으면 정상 종료(STOP)인데도
+            // 본문이 첫 조각에서 끊긴다 — 전부 이어붙인다.
+            JsonNode parts = candidate.path("content").path("parts");
             StringBuilder text = new StringBuilder();
             int textParts = 0;
-            for (JsonNode part : candidate.path("content").path("parts")) {
+            int thoughtParts = 0;
+            for (JsonNode part : parts) {
                 // thought=true는 추론 요약 파트라 응답 본문이 아니다.
                 if (part.path("thought").asBoolean(false)) {
+                    thoughtParts++;
                     continue;
                 }
                 JsonNode partText = part.path("text");
@@ -193,13 +196,15 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                     textParts++;
                 }
             }
+            // 응답 구조를 매 호출 남긴다(내용은 미기록) — "정상 종료인데 본문이 잘림" 같은 문제를
+            // 파트 분할인지, 정말 이 길이로 온 건지 로그만으로 판별하기 위함.
+            log.info("{} 응답 구조: 파트 {}개(텍스트 {}, 추론 {}), finishReason={}, 본문 {}자",
+                    providerName(), parts.size(), textParts, thoughtParts,
+                    finishReason.isEmpty() ? "없음" : finishReason, text.length());
             if (textParts == 0) {
                 log.error("{} 응답에 텍스트가 없음: finishReason={} body={}",
                         providerName(), finishReason, snippet(body));
                 throw new LlmException();
-            }
-            if (textParts > 1) {
-                log.info("{} 응답이 {}개 텍스트 파트로 분할되어 이어붙임", providerName(), textParts);
             }
             return text.toString();
         } catch (LlmException e) {
