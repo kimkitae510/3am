@@ -215,6 +215,8 @@
 /* 잔여 줄 옆 충전 진입 — 헤더 칩과 같은 토스 문법의 미니 칩 */
 .usageTopup {
   margin-left: 8px;
+  /* 글줄 안 인라인 칩이라 기준선 정렬이면 위로 뜬다 — 텍스트와 세로 중앙을 맞춘다 */
+  vertical-align: middle;
   padding: 4px 9px;
   border: none;
   border-radius: 8px;
