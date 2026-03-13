@@ -600,6 +600,12 @@
   padding-bottom: 2px;
 }
 
+/* 글줄 안에 인라인으로 들어간 충전 칩 — 기준선 정렬이면 칩이 위로 뜬다 */
+.stateHint .topupLink {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 /* 충전 링크 — 알약 채움 없이 보라 글자만(액션은 색으로 말하는 체계) */
 /* 잔여 줄 옆 충전 진입 — 헤더 칩과 같은 토스 문법의 미니 칩 */
 .topupLink {

@@ -212,6 +212,12 @@ export function AssessmentPage() {
             {' '}+ 이용권 <span className={styles.hintCountNum}>{paidRemaining}회</span>
           </>
         )}
+        <button className={styles.topupLink} onClick={() => navigate('/payment')}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 4.5v15M4.5 12h15" stroke="#B89DD1" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+          충전하기
+        </button>
       </div>
     ) : null;
 
@@ -403,7 +409,7 @@ export function AssessmentPage() {
                 >
                   {prob === prevProb
                     ? '지난 진단과 같아요'
-                    : `지난 진단보다 ${prob > prevProb ? '+' : ''}${prob - prevProb}%p`}
+                    : `지난 진단보다 ${prob > prevProb ? '+' : ''}${prob - prevProb}%`}
                 </div>
               )}
             </>
