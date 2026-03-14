@@ -9,6 +9,14 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
+  mvc:
+    async:
+      # 비동기 응답(진단 등 CompletableFuture 반환)의 HTTP 대기 상한.
+      # 미설정이면 톰캣 기본 30초 — 진단 LLM 대기(90초)보다 짧아, 30초 넘는 진단은
+      # 성공하고도 요청이 먼저 끊겼다(실측: 타임아웃 3초 뒤 진단 완료, 결과는 저장됨).
+      # LLM 상한 90초 + 저장 여유를 덮게 120초.
+      request-timeout: 120s
+
   config:
     # 저장소 밖에서 관리하는 설정. 파일이 없으면 조용히 무시된다.
     # persona.yml: 페르소나 실문구 / rubric.yml: 진단 루브릭 전문 / application-secret.yml: 실연동 키(메일, 소셜 등 — gitignore)

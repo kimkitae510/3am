@@ -57,6 +57,9 @@ public enum ErrorCode {
 
     // LLM
     LLM_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "L001", "AI 응답 생성에 실패했습니다."),
+    // 비동기 HTTP 대기 초과. 작업 자체는 뒤에서 끝나 저장됐을 수 있어 새로고침을 안내한다.
+    ASYNC_REQUEST_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "L002",
+            "응답이 오래 걸려 연결이 끊겼어요. 결과가 저장됐을 수 있으니 화면을 새로고침해 확인해 주세요."),
 
     // 사용량 제한
     QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Q001",

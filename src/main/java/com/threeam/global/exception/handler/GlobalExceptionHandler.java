@@ -27,6 +27,16 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(ErrorCode.INVALID_INPUT_VALUE, e.getBindingResult()));
     }
 
+    // 비동기 HTTP 대기 초과 — 뒤에서 도는 작업(진단 등)은 계속 진행돼 저장까지 될 수 있으므로
+    // "서버 오류"가 아니라 새로고침 안내로 응답한다(실측: 타임아웃 3초 뒤 진단이 정상 저장됨).
+    @ExceptionHandler(org.springframework.web.context.request.async.AsyncRequestTimeoutException.class)
+    public ResponseEntity<ErrorResponse> handleAsyncTimeout(
+            org.springframework.web.context.request.async.AsyncRequestTimeoutException e) {
+        log.warn("비동기 응답 대기 초과 — 백그라운드 작업은 계속 진행 중일 수 있음");
+        return ResponseEntity.status(ErrorCode.ASYNC_REQUEST_TIMEOUT.getStatus())
+                .body(ErrorResponse.of(ErrorCode.ASYNC_REQUEST_TIMEOUT));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception e) {
         log.error("Unexpected exception", e);
