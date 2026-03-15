@@ -42,19 +42,31 @@
   font-size: 12px;
 }
 
+/* 상태 화면 — 일러스트 없이 타이포 위계만(달 아트는 만든 티가 나서 제거) */
 .state {
   margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
   color: var(--text-muted);
   font-size: 14px;
   text-align: center;
-  padding: 0 30px;
+  padding: 0 34px;
   line-height: 1.6;
 }
 
-/* 상태 화면 상단의 새벽 달 일러스트 — 글자만 떠 있던 화면에 서비스 모티프를 얹는다 */
-.stateArt {
-  display: block;
-  margin: 0 auto 14px;
+.stateTitle {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.stateBody {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.7;
 }
 
 /* "이야기 부족" 안내 — 자동으로 사라지지 않는다(무엇을 더 말할지가 담겨 있어서).
@@ -398,47 +410,48 @@
 }
 
 /* 섹션 머리 — 제목(+개수) 뒤로 가는 선을 흘려 구획이 카드 더미에 묻히지 않게 */
+/* 섹션 머리 — 선 장식 없이 제목 무게와 여백으로만 구획(선을 흘리던 이전 버전은 장식이 많았다) */
 .sectionHead {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 26px;
+  gap: 7px;
+  margin-top: 30px;
   margin-bottom: 10px;
+  padding-left: 2px;
 }
 
 .sectionTitle {
   color: var(--text);
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
   flex-shrink: 0;
 }
 
 .sectionCount {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   flex-shrink: 0;
 }
 
-.sectionRule {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
+/* 신호/가이드 목록 — 낱개 카드 더미 대신 한 카드 안 구분선 목록(토스식 그룹 카드) */
 .dedList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-bottom: 4px;
-}
-
-/* 신호 카드 — 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스)의 3층 구조 */
-.dedItem {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 13px 15px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* 신호 행 — 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스)의 3층 구조 */
+.dedItem {
+  padding: 14px 16px;
+}
+
+.dedItem + .dedItem {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .dedTop {
@@ -492,10 +505,11 @@
 
 /* 행동 가이드 항목 — 신호 카드와 같은 결이되, 점수 없이 문장이 주인공이라 굵기를 낮춘다 */
 .guideItem {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 13px 15px;
+  padding: 14px 16px;
+}
+
+.guideItem + .guideItem {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .guideText {
@@ -524,19 +538,18 @@
   }
 }
 
-/* 진단 중 점 애니메이션 */
+/* 로딩/진단 중 점 애니메이션 — 상태 화면의 유일한 장식이라 라벤더로 */
 .stateDots {
   display: inline-flex;
-  gap: 4px;
-  margin-left: 7px;
-  vertical-align: baseline;
+  gap: 6px;
+  padding: 2px 0;
 }
 
 .stateDot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: var(--text-muted);
+  background: #b89dd1;
   animation: sc-blink 1.4s infinite;
 }
 
@@ -549,17 +562,6 @@
 }
 
 /* 진단 대기 중 이탈 안내 — 진행 문구와 딱 붙으면 한 덩어리로 읽혀서, 간격 + 옅은 구분선으로 뗀다 */
-.stateSub {
-  display: block;
-  margin: 28px auto 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  max-width: 230px;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.65;
-}
-
 /* 상단 도움말(?) 버튼 — 제목 오른쪽 끝. 모달 자체는 공용 컴포넌트(components/HelpModal) */
 .helpButton {
   margin-left: auto;

@@ -20,27 +20,23 @@ import styles from './AssessmentPage.module.css';
 
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
-/* 상태 화면(로딩, 기록 없음, 안내)의 모티프 — 별과 배경원까지 얹은 이전 버전은 장식이
-   많아 만든 티가 났다(실측). 단색 초승달 하나만, 은은하게 */
-function MoonArt() {
+/* 로딩/진단 중 점 애니메이션 — 일러스트(달) 대신 쓰는 유일한 장식 */
+function Dots() {
   return (
-    <svg className={styles.stateArt} width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
-      <mask id="moon-cut">
-        <rect width="52" height="52" fill="white" />
-        <circle cx="34" cy="19" r="16.5" fill="black" />
-      </mask>
-      <circle cx="26" cy="26" r="17" fill="#B89DD1" opacity="0.55" mask="url(#moon-cut)" />
-    </svg>
+    <span className={styles.stateDots} aria-hidden="true">
+      <span className={styles.stateDot} />
+      <span className={styles.stateDot} />
+      <span className={styles.stateDot} />
+    </span>
   );
 }
 
-/* 섹션 머리 — 제목과 개수 뒤로 가는 선을 흘려 구획을 눈에 보이게 한다(제목만 있으면 카드 더미에 묻힘) */
+/* 섹션 머리 — 선 장식 없이 제목 크기와 여백으로만 구획한다(그룹 카드가 경계를 대신 잡아준다) */
 function SectionHead({ title, count }: { title: string; count?: number }) {
   return (
     <div className={styles.sectionHead}>
       <span className={styles.sectionTitle}>{title}</span>
       {count != null && <span className={styles.sectionCount}>{count}</span>}
-      <span className={styles.sectionRule} />
     </div>
   );
 }
@@ -227,24 +223,19 @@ export function AssessmentPage() {
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>
-            <MoonArt />
             {diagnosing ? (
               <>
-                재회 진단중입니다
-                <span className={styles.stateDots}>
-                  <span className={styles.stateDot} />
-                  <span className={styles.stateDot} />
-                  <span className={styles.stateDot} />
-                </span>
+                <div className={styles.stateTitle}>재회 진단 중이에요</div>
+                <Dots />
                 {/* 진단 LLM이 느릴 때 이탈해도 손해가 아니라는 안내 — 결과는 저장돼 재진입 시 보인다 */}
-                <span className={styles.stateSub}>
-                  시간이 좀 걸릴 수 있어요.
+                <div className={styles.stateBody}>
+                  시간이 좀 걸릴 수 있어요
                   <br />
-                  화면을 나가도 결과는 저장돼요.
-                </span>
+                  화면을 나가도 결과는 저장돼요
+                </div>
               </>
             ) : (
-              '불러오는 중…'
+              <Dots />
             )}
           </div>
         </div>
@@ -258,7 +249,9 @@ export function AssessmentPage() {
       <PhoneFrame>
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
-          <div className={styles.state}>{error}</div>
+          <div className={styles.state}>
+            <div className={styles.stateBody}>{error}</div>
+          </div>
           {remainingHint}
           <div className={styles.footer}>
             <button className={styles.btnGhost} onClick={toChat}>
@@ -280,12 +273,12 @@ export function AssessmentPage() {
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>
-            <MoonArt />
-            재회 진단은 계정을 연결하면 받을 수 있어요.
-            <br />
-            연결하면 지금까지의 대화가 그대로 이어지고,
-            <br />
-            대화 5회와 진단 1회도 선물로 드려요.
+            <div className={styles.stateTitle}>계정을 연결하면 진단이 열려요</div>
+            <div className={styles.stateBody}>
+              연결하면 지금까지의 대화가 그대로 이어지고,
+              <br />
+              대화 5회와 진단 1회도 선물로 드려요
+            </div>
           </div>
           <div className={styles.footer}>
             <button className={styles.btnPrimary} onClick={() => navigate('/guest-link')}>
@@ -305,14 +298,16 @@ export function AssessmentPage() {
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>
-            <MoonArt />
-            {notice || (
+            {notice ? (
+              <div className={styles.stateBody}>{notice}</div>
+            ) : (
               <>
-                아직 진단 기록이 없어요.
-                <br />
-                지금까지의 대화를 읽고 재회 가능성을 진단해요.
-                <br />
-                대화를 충분히 나눌수록 정확해져요.
+                <div className={styles.stateTitle}>아직 진단 기록이 없어요</div>
+                <div className={styles.stateBody}>
+                  지금까지의 대화를 읽고 재회 가능성을 진단해요
+                  <br />
+                  대화를 충분히 나눌수록 정확해져요
+                </div>
               </>
             )}
           </div>
@@ -381,13 +376,14 @@ export function AssessmentPage() {
           ) : (
             <>
               <div className={styles.gaugeWrap}>
+                {/* 선을 가늘게(14→11) — 두꺼운 아크는 계기판 티가 난다. 수치는 숫자가 말하고 아크는 거든다 */}
                 <svg width="280" height="150" viewBox="0 0 280 150">
-                  <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2A2833" strokeWidth="14" strokeLinecap="round" />
+                  <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2A2833" strokeWidth="11" strokeLinecap="round" />
                   <path
                     d="M20,138 A120,120 0 0 1 260,138"
                     fill="none"
                     stroke="#B89DD1"
-                    strokeWidth="14"
+                    strokeWidth="11"
                     strokeLinecap="round"
                     strokeDasharray={`${fill} ${ARC_LEN + 40}`}
                   />
