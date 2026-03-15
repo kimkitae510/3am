@@ -16,10 +16,14 @@ function shortDate(iso: string | null): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-function longDate(iso: string | null): string {
+// 하루에 여러 번 진단하면 날짜만으론 행이 안 갈린다 — 시간까지 붙인다.
+function longDateTime(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
-  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  const h = d.getHours();
+  const ampm = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${ampm} ${h12}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function yFor(prob: number): number {
@@ -97,7 +101,7 @@ export function HistoryPage() {
                 <div className={styles.delta}>
                   {totalDelta > 0 ? '+' : ''}
                   {totalDelta}
-                  <span className={styles.deltaUnit}>%p</span>
+                  <span className={styles.deltaUnit}>%</span>
                 </div>
                 <div className={styles.summaryCaption}>첫 진단과 비교한 변화 (진단 {items.length}회)</div>
               </div>
@@ -134,7 +138,7 @@ export function HistoryPage() {
 
               {/* 행 오른쪽 증감의 기준(직전 진단 대비)이 안 보이면 숫자가 수수께끼가 된다 */}
               {items.length >= 2 && (
-                <div className={styles.listCaption}>오른쪽 증감은 직전 진단과의 차이(%p)예요</div>
+                <div className={styles.listCaption}>오른쪽 증감은 직전 진단과의 차이예요</div>
               )}
               <div className={styles.list}>
                 {items.map((a, i) => {
@@ -147,7 +151,7 @@ export function HistoryPage() {
                     <div className={styles.row} key={i}>
                       <span className={styles.rowProb}>{a.probability}%</span>
                       <div className={styles.rowMid}>
-                        <div className={styles.rowDate}>{longDate(a.createdAt)}</div>
+                        <div className={styles.rowDate}>{longDateTime(a.createdAt)}</div>
                         <div className={styles.rowBand}>{bandLabel(a.probability ?? 0)}</div>
                       </div>
                       {d != null && (

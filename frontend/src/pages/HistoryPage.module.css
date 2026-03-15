@@ -88,18 +88,23 @@
   font-size: 10.5px;
 }
 
+/* 목록 — 맨바닥 행 더미 대신 한 카드 안 구분선 목록(진단 화면 신호 목록과 같은 문법) */
 .list {
   margin-top: 16px;
   display: flex;
   flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
 }
 
 .row {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 12px;
-  border-bottom: 1px solid var(--card);
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .row:last-child {
@@ -132,13 +137,15 @@
 
 .rowDelta {
   font-size: 12.5px;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
+/* 증감 색은 신호 카드와 같은 문법 — 오름 라벤더, 내림 차가운 핑크레드 */
 .deltaUp {
-  color: var(--text-sub);
+  color: #b89dd1;
 }
 
 .deltaDown {
-  color: var(--text-muted);
+  color: #d88b9f;
 }
