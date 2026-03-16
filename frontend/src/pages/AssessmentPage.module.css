@@ -440,8 +440,11 @@
   flex-shrink: 0;
 }
 
-/* 신호/가이드 목록 — 낱개 카드 더미 대신 한 카드 안 구분선 목록(토스식 그룹 카드) */
+/* 신호/가이드 목록 — 낱개 카드 더미 대신 한 카드 안 구분선 목록(토스식 그룹 카드).
+   주의: overflow hidden은 최소 높이를 0으로 만들어, 플렉스 컬럼인 .body가 이 카드를
+   화면 높이에 맞춰 0으로 짜부라뜨렸다(실측: 내용이 선택은 되는데 안 보임) — shrink 금지 필수 */
 .dedList {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--card);
