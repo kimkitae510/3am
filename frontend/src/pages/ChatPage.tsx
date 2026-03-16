@@ -324,6 +324,10 @@ export function ChatPage() {
         {/* 게스트 대화 소진(U010) — 충전이 아니라 계정 연결로 이어간다 */}
         {(guestBlocked || (isGuest && chatRemaining === 0)) && (
           <div className={styles.quotaBanner}>
+            <svg className={styles.quotaIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="#B89DD1" strokeWidth="1.6" />
+              <path d="M12 11v5M12 7.6h.01" stroke="#B89DD1" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
             <div className={styles.quotaText}>
               둘러보기로 나눌 수 있는 대화를 다 썼어요. 계정을 연결하면 지금까지의 대화를 그대로
               이어갈 수 있어요. 연결하면 대화 5회와 진단 1회도 선물로 드려요.
@@ -333,6 +337,10 @@ export function ChatPage() {
         {/* 소진 상태(잔여 0 또는 Q001 거절) — 안내만. 구매 버튼은 위 충전하기가 담당(중복 제거) */}
         {!isGuest && (quotaOver || (chatRemaining === 0 && chatPaidRemaining === 0)) && (
           <div className={styles.quotaBanner}>
+            <svg className={styles.quotaIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="#D88B9F" strokeWidth="1.6" />
+              <path d="M12 8v5M12 15.8h.01" stroke="#D88B9F" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
             <div className={styles.quotaText}>
               오늘 무료 대화를 다 썼어요. 위의 충전하기로 이어서 대화할 수 있어요.
             </div>

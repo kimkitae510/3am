@@ -41,10 +41,16 @@
   line-height: 1.5;
 }
 
+/* 오류도 안내와 같은 어두운 토스트 문법 — 종류는 아이콘 색(핑크레드)이 말한다 */
 .errorBanner {
-  background: rgba(184, 157, 209, 0.12);
-  border: 1px solid rgba(184, 157, 209, 0.35);
+  background: #272430;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
   color: var(--text);
+  font-weight: 500;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
 }
 
 /* 좋은 소식 알림 — 채운 라벤더는 과했다(실측). 살짝 띄운 어두운 토스트 + 라벤더 체크

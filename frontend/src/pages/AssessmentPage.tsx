@@ -340,7 +340,15 @@ export function AssessmentPage() {
     <PhoneFrame>
       <div className={styles.wrap}>
         <BackBar onBack={toChat} onHelp={() => setShowHelp(true)} />
-        {error && <div className={styles.errorBanner}>{error}</div>}
+        {error && (
+          <div className={styles.errorBanner}>
+            <svg className={styles.noticeIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="#D88B9F" strokeWidth="1.6" />
+              <path d="M12 8v5M12 15.8h.01" stroke="#D88B9F" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            {error}
+          </div>
+        )}
         {notice && (
           <div className={styles.noticeBanner}>
             <svg className={styles.noticeIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">

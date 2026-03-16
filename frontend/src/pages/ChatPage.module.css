@@ -230,14 +230,23 @@
   gap: 4px;
 }
 
-/* 무료+이용권 소진 시 입력창 위 안내 배너(버튼 없음 — 구매는 상시 진입점이 담당) */
+/* 무료+이용권 소진 시 입력창 위 안내 배너(버튼 없음 — 구매는 상시 진입점이 담당).
+   라벤더 채움은 과했다 — 다른 화면 알림과 같은 어두운 토스트 문법, 색은 아이콘만 */
 .quotaBanner {
   flex-shrink: 0;
   margin: 6px 14px 0;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(184, 157, 209, 0.35);
-  background: rgba(184, 157, 209, 0.12);
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: #272430;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.quotaIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .quotaText {

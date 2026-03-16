@@ -92,17 +92,22 @@
   margin-top: 1px;
 }
 
-/* 재진단 거부(새 근거 없음 등) 안내 — 기존 결과를 가리지 않고 위에 얹는다 */
+/* 재진단 거부(새 근거 없음 등) 안내 — 라벤더 채움은 과했다. 안내 토스트와 같은 어두운
+   토스트 문법으로 통일하고, 오류라는 건 핑크레드 아이콘이 말한다 */
 .errorBanner {
   margin: 10px 18px 0;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: rgba(184, 157, 209, 0.16);
-  border: 1px solid rgba(184, 157, 209, 0.45);
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #272430;
+  border: 1px solid rgba(255, 255, 255, 0.09);
   color: var(--text);
   font-size: 13px;
+  font-weight: 500;
   line-height: 1.55;
-  text-align: center;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
 }
 
 /* 게이지 */
