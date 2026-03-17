@@ -239,11 +239,12 @@ export function ChatPage() {
               )}
               {messages.length === 0 && !waiting && (
                 <div className={styles.state}>
-                  대화를 나눌수록 이야기와 기억이 쌓이고,
-                  <br />
-                  진단도 정확해져요.
-                  <br />
-                  첫 대화를 시작해 보세요.
+                  <div className={styles.stateTitle}>첫 대화를 시작해 보세요</div>
+                  <div className={styles.stateBody}>
+                    대화를 나눌수록 이야기와 기억이 쌓이고
+                    <br />
+                    진단도 정확해져요
+                  </div>
                 </div>
               )}
               {messages.map((m, i) => {

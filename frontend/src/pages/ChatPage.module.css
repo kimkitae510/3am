@@ -77,13 +77,31 @@
   margin-bottom: 6px;
 }
 
+/* 빈 대화 상태 — 진단 상태 화면과 같은 타이포 위계(제목 + 흐린 본문) */
 .state {
   margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
   color: var(--text-muted);
   font-size: 14px;
   text-align: center;
-  padding: 0 30px;
+  padding: 0 34px;
   line-height: 1.6;
+}
+
+.stateTitle {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.stateBody {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.7;
 }
 
 /* 말풍선 + 시각 한 줄. 시각은 카톡처럼 말풍선 바깥 아래쪽에 붙는다 */
