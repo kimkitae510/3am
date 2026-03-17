@@ -391,8 +391,9 @@
   cursor: pointer;
 }
 
+/* 접힘 행과 첫 소제목이 딱 붙어 보였다(실측) — 여백을 넉넉히 */
 .typeProfile {
-  margin-top: 4px;
+  margin-top: 12px;
 }
 
 .typeProfileHeading {
@@ -451,6 +452,15 @@
   font-size: 12.5px;
   font-weight: 600;
   flex-shrink: 0;
+}
+
+/* 신호 섹션의 개수는 그 섹션 점수와 같은 색 — 제목만 보고도 방향이 읽히게 */
+.countMinus {
+  color: #d88b9f;
+}
+
+.countPlus {
+  color: #b89dd1;
 }
 
 /* 신호/가이드 목록 — 낱개 카드 더미 대신 한 카드 안 구분선 목록(토스식 그룹 카드).

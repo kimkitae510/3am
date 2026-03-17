@@ -31,12 +31,23 @@ function Dots() {
   );
 }
 
-/* 섹션 머리 — 선 장식 없이 제목 크기와 여백으로만 구획한다(그룹 카드가 경계를 대신 잡아준다) */
-function SectionHead({ title, count }: { title: string; count?: number }) {
+/* 섹션 머리 — 선 장식 없이 제목 크기와 여백으로만 구획한다(그룹 카드가 경계를 대신 잡아준다).
+   countClass: 신호 섹션의 개수를 그 섹션 점수 색과 맞출 때 쓴다 */
+function SectionHead({
+  title,
+  count,
+  countClass,
+}: {
+  title: string;
+  count?: number;
+  countClass?: string;
+}) {
   return (
     <div className={styles.sectionHead}>
       <span className={styles.sectionTitle}>{title}</span>
-      {count != null && <span className={styles.sectionCount}>{count}</span>}
+      {count != null && (
+        <span className={`${styles.sectionCount} ${countClass ?? ''}`}>{count}</span>
+      )}
     </div>
   );
 }
@@ -225,13 +236,13 @@ export function AssessmentPage() {
           <div className={styles.state}>
             {diagnosing ? (
               <>
-                <div className={styles.stateTitle}>재회 진단 중이에요</div>
+                <div className={styles.stateTitle}>이야기를 읽고 있어요</div>
                 <Dots />
                 {/* 진단 LLM이 느릴 때 이탈해도 손해가 아니라는 안내 — 결과는 저장돼 재진입 시 보인다 */}
                 <div className={styles.stateBody}>
-                  시간이 좀 걸릴 수 있어요
+                  지금까지의 대화에서 신호를 찾는 중이에요
                   <br />
-                  화면을 나가도 결과는 저장돼요
+                  시간이 좀 걸릴 수 있어요, 화면을 나가도 결과는 저장돼요
                 </div>
               </>
             ) : (
@@ -578,7 +589,7 @@ export function AssessmentPage() {
               (재회 성공 화면과 같은 원칙, 신호는 번복 대비로 저장만 유지) */}
           {prob < 100 && minus.length > 0 && (
             <>
-              <SectionHead title="가능성을 낮춘 신호" count={minus.length} />
+              <SectionHead title="가능성을 낮춘 신호" count={minus.length} countClass={styles.countMinus} />
               <div className={styles.dedList}>
                 {minus.map((d, i) => (
                   <div className={styles.dedItem} key={i}>
@@ -596,7 +607,7 @@ export function AssessmentPage() {
 
           {prob < 100 && plus.length > 0 && (
             <>
-              <SectionHead title="가능성을 올린 신호" count={plus.length} />
+              <SectionHead title="가능성을 올린 신호" count={plus.length} countClass={styles.countPlus} />
               <div className={styles.dedList}>
                 {plus.map((d, i) => (
                   <div className={styles.dedItem} key={i}>
