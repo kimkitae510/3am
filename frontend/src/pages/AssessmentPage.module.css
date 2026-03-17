@@ -336,9 +336,10 @@
 
 /* 추정 판정 안내 — 단정처럼 읽히지 않게 한 줄 낮춰 말한다 */
 .typeNote {
-  color: var(--text-muted);
+  color: var(--text-sub);
   font-size: 11.5px;
   margin-top: 4px;
+  line-height: 1.6;
 }
 
 /* 유형 판정 근거 목록 — 카드 안에서 구분선으로 나뉜다(잠금 카드의 lockAskRow와 같은 문법) */
@@ -364,23 +365,26 @@
 }
 
 .typeSignalEvidence {
-  color: var(--text-sub);
+  color: #b3b0bc;
   font-size: 12.5px;
   margin-top: 2px;
   line-height: 1.5;
 }
 
 /* 유형 상세 펼침 버튼 — 토스 문법의 풀폭 회색 칩(맨글자 링크는 카드 안에서 묻혔다) */
+/* 유형 상세 진입 — 채운 버튼은 만든 티가 났다(실측). 카드 안 구분선 행 + 쉐브론(토스 리스트 문법),
+   색은 쉐브론 아이콘만 라벤더 */
 .typeMoreBtn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
   margin-top: 12px;
-  padding: 9px 0;
+  padding: 11px 2px 1px;
   border: none;
-  border-radius: 9px;
-  /* 유형 상세 진입은 진단의 핵심 동선이라 라벤더 틴트로 존재감을 준다(회색 칩은 카드 안에서 죽었다) */
-  background: rgba(184, 157, 209, 0.13);
-  color: #c9b3e2;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: var(--text);
   font-size: 12.5px;
   font-weight: 600;
   text-align: center;
@@ -399,10 +403,19 @@
 }
 
 .typeProfileText {
-  color: var(--text-sub);
+  color: #b3b0bc;
   font-size: 12.5px;
   line-height: 1.65;
   margin: 6px 0 0;
+}
+
+/* 접힘 쉐브론 — 열림 상태를 회전으로만 표시 */
+.typeMoreChev {
+  transition: transform 0.15s ease;
+}
+
+.typeMoreChevOpen {
+  transform: rotate(180deg);
 }
 
 .typeProfileNote {
@@ -477,8 +490,9 @@
   font-weight: 600;
 }
 
+/* 상세 텍스트(사실, 이유)는 본문보다 한 단계만 낮춘 밝기 — text-sub는 카드 위에서 너무 가라앉는다(실측) */
 .dedEvidence {
-  color: var(--text-sub);
+  color: #b3b0bc;
   font-size: 12.5px;
   margin-top: 5px;
   line-height: 1.55;
@@ -489,8 +503,8 @@
   margin-top: 9px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-sub);
+  background: rgba(255, 255, 255, 0.06);
+  color: #b3b0bc;
   font-size: 12.5px;
   line-height: 1.55;
 }
@@ -527,7 +541,7 @@
 }
 
 .guideBasis {
-  color: var(--text-muted);
+  color: var(--text-sub);
   font-size: 11.5px;
   margin-top: 5px;
 }

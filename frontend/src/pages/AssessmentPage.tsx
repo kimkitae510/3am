@@ -359,7 +359,7 @@ export function AssessmentPage() {
           </div>
         )}
         <div className={styles.body}>
-          <div className={styles.meta}>마지막 진단 - {metaDate}</div>
+          <div className={styles.meta}>마지막 진단 {metaDate}</div>
 
           {/* 재회 성공과 사귀는 중은 확률 화면이 아니다 — 게이지 대신 히어로 문법(같은 결)으로.
               게이지에 반투명 덮개를 씌우던 잠금은 미완성 화면처럼 읽혔다(실측) */}
@@ -533,7 +533,17 @@ export function AssessmentPage() {
               {result.partnerAttachment && ATTACHMENT_PROFILES[result.partnerAttachment] && (
                 <>
                   <button className={styles.typeMoreBtn} onClick={() => setShowTypeDetail((v) => !v)}>
-                    {showTypeDetail ? '접기' : '이 유형 더 알아보기'}
+                    이 유형 더 알아보기
+                    <svg
+                      className={`${styles.typeMoreChev} ${showTypeDetail ? styles.typeMoreChevOpen : ''}`}
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 10l4 4 4-4" stroke="#B89DD1" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </button>
                   {showTypeDetail && (
                     <div className={styles.typeProfile}>
