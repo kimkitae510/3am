@@ -69,7 +69,8 @@ public class AssessmentService {
                 usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId);
                 return CompletableFuture.completedFuture(insufficientGuide(storyId, FAIL_RETRY_GUIDE));
             }
-            return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(), context.conversation())
+            return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(),
+                            context.conversation(), context.previousAttachment())
                     .thenApply(diagnosis -> {
                         AssessmentResponse response = persist(storyId, diagnosis);
                         // LLM 왕복이 정상 처리됐으니 실패 연속 카운트를 지운다(INSUFFICIENT도 실패가 아니라 판정).

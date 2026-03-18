@@ -3,6 +3,7 @@ package com.threeam.assessment.service;
 import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.AttachmentConfidence;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -130,9 +131,8 @@ public class AssessmentTxService {
         // 기준은 마지막 진단과 마지막 헤어짐 확인(번복) 중 늦은 쪽 — 번복이 잠금 진단을 지우면
         // 그 진단을 소진시킨 메시지들이 미소진으로 되돌아가, 진단 시각만 보면 새 대화 없이
         // 진단과 번복이 무한 반복된다(실측).
-        LocalDateTime lastAssessedAt = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                .map(Assessment::getCreatedAt)
-                .orElse(null);
+        Optional<Assessment> lastAssessment = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId);
+        LocalDateTime lastAssessedAt = lastAssessment.map(Assessment::getCreatedAt).orElse(null);
         LocalDateTime lastConfirmedAt = storyFactRepository
                 .findFirstByStoryIdAndFactOrderByIdDesc(storyId, BREAKUP_CONFIRMED_FACT)
                 .map(StoryFact::getCreatedAt)
@@ -166,7 +166,14 @@ public class AssessmentTxService {
                 .map(StoryMemory::getSummary)
                 .orElse(null);
 
-        return new AssessmentContext(summary, factLines(storyId), conversation);
+        // 직전 진단의 유형을 프롬프트에 실어 판정 연속성을 준다 — 반증 없이 유형이 사라지는 것 방지.
+        String previousAttachment = lastAssessment
+                .filter(a -> a.getPartnerAttachment() != null)
+                .map(a -> a.getPartnerAttachment().getLabel()
+                        + (a.getAttachmentConfidence() == AttachmentConfidence.TENTATIVE ? "(추정)" : "(확정)"))
+                .orElse(null);
+
+        return new AssessmentContext(summary, factLines(storyId), conversation, previousAttachment);
     }
 
     // tx2: 진단 결과 저장 + 기억(감정 요약) 갱신 + 새 사실 원장 append.

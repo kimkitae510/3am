@@ -39,6 +39,12 @@ public class ReunionLlm {
 
     public CompletableFuture<ReunionDiagnosis> diagnose(String memorySummary, List<String> knownFactLines,
                                                         List<ChatMessage> conversation) {
+        return diagnose(memorySummary, knownFactLines, conversation, null);
+    }
+
+    public CompletableFuture<ReunionDiagnosis> diagnose(String memorySummary, List<String> knownFactLines,
+                                                        List<ChatMessage> conversation,
+                                                        String previousAttachment) {
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(assessmentProperties.getRubric()));
         if (knownFactLines != null && !knownFactLines.isEmpty()) {
@@ -47,6 +53,13 @@ public class ReunionLlm {
         }
         if (memorySummary != null && !memorySummary.isBlank()) {
             prompt.add(ChatMessage.system("지금까지 요약: " + memorySummary));
+        }
+        // 유형 판정의 연속성 — 진단마다 백지에서 다시 판정하면 새 대화가 근거를 안 보태는 회차에
+        // 유형이 나타났다 사라진다(실측: 별 대화 없이 재진단했더니 유형이 미확정으로 후퇴).
+        if (previousAttachment != null && !previousAttachment.isBlank()) {
+            prompt.add(ChatMessage.system("직전 진단의 상대 애착유형: " + previousAttachment
+                    + ". 이번 대화에 이 판정을 뒤집는 행동 근거가 없으면 유형을 유지하고 확신도만 재평가해라. "
+                    + "새 근거가 안 쌓였다는 이유로 판정을 비우지 마라 — 비우는 건 반증이 나왔을 때만이다."));
         }
         prompt.addAll(conversation);
         // 루브릭 깊숙한 규칙은 긴 프롬프트에서 자주 무시된다(실측: 관점 뒤집힘, 같은 사건 쪼개기가
