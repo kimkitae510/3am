@@ -176,10 +176,14 @@ export function AssessmentPage() {
       // 소진(Q001)을 백엔드 문구("이용권을 채우거나...")로 그대로 띄우면 아래 상시 '충전하기'와
       // 구매 권유가 이중이 된다 — 배너는 상태만 알리고, 동선은 링크 하나를 가리킨다(채팅과 동일 패턴).
       if (aliveRef.current) {
+        const code = extractErrorCode(e);
+        // L001(생성 실패)의 백엔드 문구는 기계 티가 난다 — 미차감 사실과 다음 행동까지 붙여준다.
         setError(
-          extractErrorCode(e) === 'Q001'
+          code === 'Q001'
             ? '오늘 진단 횟수를 다 썼어요. 아래 충전하기로 이어갈 수 있어요.'
-            : extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'),
+            : code === 'L001'
+              ? '진단을 만들지 못했어요. 다시 진단을 눌러 주세요. 실패한 진단은 차감되지 않아요.'
+              : extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'),
         );
       }
     } finally {

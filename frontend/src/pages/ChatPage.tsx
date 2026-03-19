@@ -179,6 +179,9 @@ export function ChatPage() {
       // 게스트 소진(U010)은 충전이 아니라 계정 연결로 푼다 — 배너를 다르게 띄운다.
       if (code === 'U010') {
         setGuestBlocked(true);
+      } else if (code === 'L001') {
+        // 생성 실패의 백엔드 문구는 기계 티가 난다 — 입력은 복구돼 있으니 다시 보내라고만
+        setError('답변을 만들지 못했어요. 방금 메시지를 다시 보내주세요.');
       } else {
         setError(extractErrorMessage(e, '메시지를 보내지 못했어요.'));
         setQuotaOver(code === 'Q001');
