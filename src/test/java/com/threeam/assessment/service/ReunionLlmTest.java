@@ -315,7 +315,7 @@ class ReunionLlmTest {
     }
 
     @Test
-    @DisplayName("깨진 JSON은 LlmException으로 실패한다")
+    @DisplayName("깨진 JSON은 1회 재시도 후에도 깨지면 LlmException으로 실패한다")
     void parse_malformed_throws() {
         given(llmClient.generateJsonDeep(anyList()))
                 .willReturn(CompletableFuture.completedFuture("이건 JSON이 아니야"));
@@ -323,5 +323,22 @@ class ReunionLlmTest {
         assertThatThrownBy(() -> reunionLlm().diagnose(null, List.of(), List.of()).join())
                 .isInstanceOf(CompletionException.class)
                 .hasCauseInstanceOf(LlmException.class);
+        // 실패 확정 전에 같은 프롬프트로 한 번 더 받아본다(생성 불량 방어)
+        org.mockito.Mockito.verify(llmClient, org.mockito.Mockito.times(2)).generateJsonDeep(anyList());
+    }
+
+    @Test
+    @DisplayName("잘린 JSON이 와도 재시도한 응답이 온전하면 성공한다")
+    void parse_retriesOnceOnTruncatedResponse() {
+        String truncated = "{\"verdict\": \"POSS"; // 정상 종료(STOP)인데 중간에 끊긴 생성 불량(실측)
+        String good = "{\"verdict\": \"REUNITED\", \"reason\": \"다시 만나게 됐어\"}";
+        given(llmClient.generateJsonDeep(anyList())).willReturn(
+                CompletableFuture.completedFuture(truncated),
+                CompletableFuture.completedFuture(good));
+
+        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+
+        assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.REUNITED);
+        org.mockito.Mockito.verify(llmClient, org.mockito.Mockito.times(2)).generateJsonDeep(anyList());
     }
 }
