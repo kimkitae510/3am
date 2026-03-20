@@ -76,26 +76,9 @@ public class ReunionLlm {
                         + "그보다 과거인 마음 축 감점(단호함, 거절, 선 긋기)은 덮어쓰지 않았는지 확인하고, "
                         + "합산 결과가 캘리브레이션 표의 해당 대역(재회 의사 내비침 70~85)과 크게 어긋나면 다시 훑어라."));
         // 진단은 긴 루브릭 일관 적용이 필요해 정밀 판단 경로로 — 설정에 따라 더 강한 모델이 배정된다.
-        // 파싱 실패는 1회 자동 재시도 — 정상 종료(STOP)인데 본문이 중간에 끊기는 생성 불량이
-        // 반복 실측됐다(thinking 모델 + JSON 모드). 같은 프롬프트로 다시 받으면 대개 온전히 온다.
-        // 재시도 비용은 진단 1회분이지만, 실패가 유저에게 오류로 보이는 비용이 더 크다.
-        return llmClient.generateJsonDeep(prompt)
-                .thenApply(this::parseOrNull)
-                .thenCompose(diagnosis -> {
-                    if (diagnosis != null) {
-                        return CompletableFuture.completedFuture(diagnosis);
-                    }
-                    log.warn("재회 진단 파싱 실패 — 같은 프롬프트로 1회 재시도");
-                    return llmClient.generateJsonDeep(prompt).thenApply(this::parse);
-                });
-    }
-
-    private ReunionDiagnosis parseOrNull(String json) {
-        try {
-            return parse(json);
-        } catch (LlmException e) {
-            return null;
-        }
+        // 파싱 실패의 자동 재시도는 넣었다 뺐다 — 실패마다 진단 1회분(입력 17k)이 소리 없이 2배
+        // 과금된다. 재시도는 유저의 버튼으로, 반복 실패는 실패 가드의 쿨다운으로 관리한다.
+        return llmClient.generateJsonDeep(prompt).thenApply(this::parse);
     }
 
     private ReunionDiagnosis parse(String json) {
