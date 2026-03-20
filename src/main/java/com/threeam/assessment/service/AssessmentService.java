@@ -163,7 +163,7 @@ public class AssessmentService {
     // 같은 재료로 진단 생성이 연속 실패해 재시도를 막은 경우. 실패는 차감되지 않았음을 함께 알린다.
     private static final String FAIL_RETRY_GUIDE =
             "진단 만들기가 계속 실패하고 있어요. 실패한 진단은 횟수가 차감되지 않았으니 안심해요. "
-                    + "대화를 조금 더 나눈 뒤에 다시 시도해 줄래요?";
+                    + "대화를 조금 더 나누거나, 30분쯤 뒤에 다시 시도해 줄래요?";
 
     private static final String DATING_GUIDE =
             "아직 만나고 있는 사이라면 재회 확률은 의미가 없어요. 지금 겪는 갈등은 대화에서 같이 풀어봐요.";
