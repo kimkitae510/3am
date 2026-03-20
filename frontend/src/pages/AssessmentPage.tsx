@@ -628,29 +628,24 @@ export function AssessmentPage() {
           )}
 
           {/* 행동 가이드 — 판정(무엇이다) 다음에 행동(그래서 뭐)을 붙인다. 재회 기술이 아니라
-              회복을 지키는 프레임으로 생성되고(루브릭), 여기선 그대로 보여주기만 한다 */}
-          {doItems.length > 0 && (
+              회복을 지키는 프레임으로 생성되고(루브릭), 여기선 그대로 보여주기만 한다.
+              도움/피할 것 두 섹션은 한 목록으로 합쳤다 — 한쪽이 1개일 때 반쪽 섹션이 생기고,
+              내용상 한 몸(매달리지 말기의 뒷면이 거리 두기)이라 행별 라벨로 충분하다 */}
+          {(doItems.length > 0 || dontItems.length > 0) && (
             <>
-              <SectionHead title="지금 도움이 되는 것" />
+              <SectionHead title="지금 어떻게 하면 좋을까" />
               <div className={styles.dedList}>
-                {doItems.map((g, i) => (
+                {[...doItems, ...dontItems].map((g, i) => (
                   <div className={styles.guideItem} key={i}>
-                    <div className={styles.guideText}>{g.advice}</div>
-                    {g.basis && <div className={styles.guideBasis}>{g.basis}</div>}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {dontItems.length > 0 && (
-            <>
-              <SectionHead title="지금은 피할 것" />
-              <div className={styles.dedList}>
-                {dontItems.map((g, i) => (
-                  <div className={styles.guideItem} key={i}>
-                    <div className={styles.guideText}>{g.advice}</div>
-                    {g.basis && <div className={styles.guideBasis}>{g.basis}</div>}
+                    <div className={styles.guideRow}>
+                      <span className={g.kind === 'DO' ? styles.guideTagDo : styles.guideTagDont}>
+                        {g.kind === 'DO' ? '하기' : '피하기'}
+                      </span>
+                      <div>
+                        <div className={styles.guideText}>{g.advice}</div>
+                        {g.basis && <div className={styles.guideBasis}>{g.basis}</div>}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -713,7 +708,7 @@ export function AssessmentPage() {
               },
               {
                 heading: '행동 가이드',
-                text: '이번 진단의 신호와 상대 유형을 근거로 "지금 도움이 되는 것"과 "지금은 피할 것"을 제안합니다. 상대를 되돌리는 기술이 아니라 나를 지키면서 남은 가능성을 깎지 않는 방향의 제안이고, 결정은 언제나 내 몫입니다.',
+                text: '이번 진단의 신호와 상대 유형을 근거로 지금 하면 좋은 것(하기)과 피하면 좋은 것(피하기)을 제안합니다. 상대를 되돌리는 기술이 아니라 나를 지키면서 남은 가능성을 깎지 않는 방향의 제안이고, 결정은 언제나 내 몫입니다.',
               },
               {
                 heading: '진단 횟수',
