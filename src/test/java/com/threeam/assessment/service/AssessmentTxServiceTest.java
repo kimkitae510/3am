@@ -115,7 +115,7 @@ class AssessmentTxServiceTest {
     @Test
     @DisplayName("실패 가드 - 같은 재료 연속 2회 실패면 쿨다운 동안 막는다")
     void failGuard_blocksAfterStreakWithoutNewMessage() {
-        LocalDateTime recentFail = LocalDateTime.now().minusMinutes(5);
+        LocalDateTime recentFail = LocalDateTime.now().minusMinutes(2);
         given(storyRepository.findById(STORY_ID))
                 .willReturn(Optional.of(storyWithFailure(2, recentFail)));
         given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, recentFail)).willReturn(false);
@@ -127,7 +127,7 @@ class AssessmentTxServiceTest {
     @DisplayName("실패 가드 - 1회 실패까지는 재시도를 허용한다(일시 장애 복구 여지)")
     void failGuard_allowsSingleFailure() {
         given(storyRepository.findById(STORY_ID))
-                .willReturn(Optional.of(storyWithFailure(1, LocalDateTime.now().minusMinutes(5))));
+                .willReturn(Optional.of(storyWithFailure(1, LocalDateTime.now().minusMinutes(2))));
 
         assertThat(txService.isAssessFailRetryBlocked(STORY_ID)).isFalse();
     }
@@ -135,7 +135,7 @@ class AssessmentTxServiceTest {
     @Test
     @DisplayName("실패 가드 - 연속 2회여도 새 대화가 생기면 다시 허용한다")
     void failGuard_allowsAfterNewMessage() {
-        LocalDateTime recentFail = LocalDateTime.now().minusMinutes(5);
+        LocalDateTime recentFail = LocalDateTime.now().minusMinutes(2);
         given(storyRepository.findById(STORY_ID))
                 .willReturn(Optional.of(storyWithFailure(2, recentFail)));
         given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, recentFail)).willReturn(true);
@@ -144,10 +144,10 @@ class AssessmentTxServiceTest {
     }
 
     @Test
-    @DisplayName("실패 가드 - 새 대화가 없어도 쿨다운(30분)이 지나면 다시 허용한다")
+    @DisplayName("실패 가드 - 새 대화가 없어도 쿨다운(5분)이 지나면 다시 허용한다")
     void failGuard_allowsAfterCooldown() {
         given(storyRepository.findById(STORY_ID))
-                .willReturn(Optional.of(storyWithFailure(2, LocalDateTime.now().minusMinutes(31))));
+                .willReturn(Optional.of(storyWithFailure(2, LocalDateTime.now().minusMinutes(6))));
 
         assertThat(txService.isAssessFailRetryBlocked(STORY_ID)).isFalse();
     }

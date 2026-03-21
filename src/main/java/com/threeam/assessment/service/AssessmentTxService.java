@@ -82,7 +82,7 @@ public class AssessmentTxService {
     // 차단은 이 시간 동안만이다 — 새 대화 없이도 쿨다운이 지나면 다시 열어준다.
     // 생성 불량(정상 종료인데 본문 잘림)은 시간이 지나면 성공하기도 해서, 새 대화만 해제
     // 조건이면 진단만 원하는 유저가 갇힌다. 또 실패하면 다시 쿨다운 — 시도 빈도만 캡된다.
-    private static final Duration FAIL_RETRY_COOLDOWN = Duration.ofMinutes(30);
+    private static final Duration FAIL_RETRY_COOLDOWN = Duration.ofMinutes(5);
 
     // 진단 실패 재시도 가드: 실패는 후차감(미차감)이라, 같은 재료가 계속 같은 이유로 실패하면
     // 무한 무료 LLM 호출이 된다(실측). 같은 재료 연속 2회 실패면 새 대화나 쿨다운 전까지 거부.
