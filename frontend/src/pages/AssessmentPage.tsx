@@ -511,24 +511,22 @@ export function AssessmentPage() {
           <SectionHead title="상대 애착유형" />
           <div className={styles.typeRow}>
             <div className={styles.typeCard}>
-              {/* "~으로 보여요" 문장형 + 안내문의 겹침이 복잡함의 원인(실측) — 이름과 확신도
-                  라벨 한 줄로 압축 */}
-              <div className={styles.typeHead}>
-                <div
-                  className={`${styles.typeName} ${result.partnerAttachment ? '' : styles.typeNameUnknown}`}
-                >
-                  {result.partnerAttachment ?? '미확정'}
+              {/* 확정: 이름 + 확신도 라벨 한 줄. 미확정: 큰 이름("미확정") 대신 안내 한 덩어리로
+                  — 큰 글자 하나만 뜨면 빈 카드처럼 붕 떠 보였다(실측) */}
+              {result.partnerAttachment ? (
+                <div className={styles.typeHead}>
+                  <div className={styles.typeName}>{result.partnerAttachment}</div>
+                  {result.attachmentConfidence === 'TENTATIVE' && (
+                    <span className={styles.typeBadge}>추정</span>
+                  )}
                 </div>
-                {result.partnerAttachment && result.attachmentConfidence === 'TENTATIVE' && (
-                  <span className={styles.typeBadge}>추정</span>
-                )}
-              </div>
-              {/* 미확정은 빈칸이 아니라 안내 — 뭘 더 들려주면 잡히는지 알려줘야 다음 진단으로 이어진다 */}
-              {!result.partnerAttachment && (
-                <div className={styles.typeNote}>
-                  아직 행동 근거가 부족해서 유형을 잡지 못했어요. 갈등이 있을 때 상대가
-                  어떻게 반응했는지, 이별을 어떤 방식으로 전했는지 들려주면 다음 진단에서
-                  잡힐 수 있어요.
+              ) : (
+                <div className={styles.typeUnknown}>
+                  <div className={styles.typeUnknownTitle}>아직 유형을 잡지 못했어요</div>
+                  <div className={styles.typeUnknownNote}>
+                    갈등이 있을 때 상대가 어떻게 반응했는지, 이별을 어떤 방식으로 전했는지
+                    들려주면 다음 진단에서 잡을 수 있어요.
+                  </div>
                 </div>
               )}
               {result.attachmentSignals.length > 0 && (
@@ -633,13 +631,22 @@ export function AssessmentPage() {
               내용상 한 몸(매달리지 말기의 뒷면이 거리 두기)이라 행별 라벨로 충분하다 */}
           {(doItems.length > 0 || dontItems.length > 0) && (
             <>
-              <SectionHead title="지금 어떻게 하면 좋을까" />
+              <SectionHead title="행동 가이드" />
               <div className={styles.dedList}>
                 {[...doItems, ...dontItems].map((g, i) => (
                   <div className={styles.guideItem} key={i}>
                     <div className={styles.guideRow}>
-                      <span className={g.kind === 'DO' ? styles.guideTagDo : styles.guideTagDont}>
-                        {g.kind === 'DO' ? '하기' : '피하기'}
+                      {/* 방향은 O(하기)/X(피하기) 마크와 색으로만 — 라벨 텍스트는 뺐다 */}
+                      <span className={styles.guideMark}>
+                        {g.kind === 'DO' ? (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-label="하기">
+                            <circle cx="12" cy="12" r="7.5" stroke="#B89DD1" strokeWidth="2.2" />
+                          </svg>
+                        ) : (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-label="피하기">
+                            <path d="M7 7l10 10M17 7L7 17" stroke="#D88B9F" strokeWidth="2.2" strokeLinecap="round" />
+                          </svg>
+                        )}
                       </span>
                       <div>
                         <div className={styles.guideText}>{g.advice}</div>

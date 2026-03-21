@@ -292,10 +292,10 @@
 }
 
 /* 유형 카드 */
+/* 섹션 머리가 이미 아래 여백(10px)을 주므로 카드는 붙인다 — 20px를 더하면 제목이 붕 뜬다(실측) */
 .typeRow {
   display: flex;
   gap: 10px;
-  margin-top: 20px;
 }
 
 .typeCard {
@@ -329,17 +329,18 @@
 }
 
 /* 미확정은 판정이 아니라 공백 — 확정 유형과 같은 무게(흰 600)로 두면 결과처럼 읽힌다 */
-.typeNameUnknown {
-  color: var(--text-muted);
-  font-weight: 500;
+/* 미확정 상태 — 큰 이름 없이 안내 한 덩어리로(빈 카드처럼 보이지 않게) */
+.typeUnknownTitle {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
 }
 
-/* 추정 판정 안내 — 단정처럼 읽히지 않게 한 줄 낮춰 말한다 */
-.typeNote {
+.typeUnknownNote {
   color: var(--text-sub);
-  font-size: 11.5px;
-  margin-top: 4px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  margin-top: 5px;
+  line-height: 1.65;
 }
 
 /* 유형 판정 근거 목록 — 카드 안에서 구분선으로 나뉜다(잠금 카드의 lockAskRow와 같은 문법) */
@@ -544,28 +545,18 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* 통합 가이드 행 — 방향은 글머리 라벨 색이 말한다(하기 라벤더, 피하기 핑크레드) */
+/* 통합 가이드 행 — 방향은 O(하기)/X(피하기) 마크와 색으로 말한다 */
 .guideRow {
   display: flex;
   align-items: flex-start;
   gap: 10px;
 }
 
-.guideTagDo,
-.guideTagDont {
+/* 마크는 첫 줄 텍스트의 시각 중심에 오게(13.5px, line-height 1.6 → 약 3px 내림) */
+.guideMark {
   flex-shrink: 0;
-  min-width: 38px;
-  margin-top: 1.5px;
-  font-size: 11.5px;
-  font-weight: 700;
-}
-
-.guideTagDo {
-  color: #b89dd1;
-}
-
-.guideTagDont {
-  color: #d88b9f;
+  display: flex;
+  margin-top: 3px;
 }
 
 .guideText {
