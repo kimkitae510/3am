@@ -392,44 +392,8 @@
   cursor: pointer;
 }
 
-/* 접힘 행과 첫 소제목이 딱 붙어 보였다(실측) — 여백을 넉넉히 */
-.typeProfile {
-  margin-top: 12px;
-}
+/* (유형 상세 프로필은 카드 안 펼침 대신 HelpModal로 이동 — 인라인 스타일 제거) */
 
-.typeProfileHeading {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-  margin-top: 14px;
-}
-
-.typeProfileText {
-  color: #b3b0bc;
-  font-size: 12.5px;
-  line-height: 1.65;
-  margin: 6px 0 0;
-}
-
-/* 접힘 쉐브론 — 열림 상태를 회전으로만 표시 */
-.typeMoreChev {
-  transition: transform 0.15s ease;
-}
-
-.typeMoreChevOpen {
-  transform: rotate(180deg);
-}
-
-.typeProfileNote {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 11.5px;
-  line-height: 1.6;
-}
-
-/* 섹션 머리 — 제목(+개수) 뒤로 가는 선을 흘려 구획이 카드 더미에 묻히지 않게 */
 /* 섹션 머리 — 선 장식 없이 제목 무게와 여백으로만 구획(선을 흘리던 이전 버전은 장식이 많았다) */
 .sectionHead {
   display: flex;

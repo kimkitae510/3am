@@ -541,46 +541,16 @@ export function AssessmentPage() {
                   ))}
                 </div>
               )}
-              {/* 유형 상세 — "아 그래서 걔가 그랬구나"를 주는 정적 프로필. 근거 없는 통념
-                  ("회피형은 몇 달 뒤 무너져 돌아온다")은 본문에서 통념임을 명시해 대기 심리를 안 부추긴다 */}
+              {/* 유형 상세 — 카드 안에 펼치면 판정 근거와 프로필이 한 더미로 쌓여 복잡했다(실측).
+                  도움말과 같은 모달 문법으로 꺼낸다. 근거 없는 통념("회피형은 몇 달 뒤 무너져
+                  돌아온다")은 본문에서 통념임을 명시해 대기 심리를 안 부추긴다 */}
               {result.partnerAttachment && ATTACHMENT_PROFILES[result.partnerAttachment] && (
-                <>
-                  <button className={styles.typeMoreBtn} onClick={() => setShowTypeDetail((v) => !v)}>
-                    이 유형 더 알아보기
-                    <svg
-                      className={`${styles.typeMoreChev} ${showTypeDetail ? styles.typeMoreChevOpen : ''}`}
-                      width="15"
-                      height="15"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden="true"
-                    >
-                      <path d="M8 10l4 4 4-4" stroke="#B89DD1" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  {showTypeDetail && (
-                    <div className={styles.typeProfile}>
-                      {(
-                        [
-                          ['연애할 때', ATTACHMENT_PROFILES[result.partnerAttachment].during],
-                          ['이별 후에는', ATTACHMENT_PROFILES[result.partnerAttachment].after],
-                          ['이 유형을 대할 때', ATTACHMENT_PROFILES[result.partnerAttachment].approach],
-                          ['흔한 오해', ATTACHMENT_PROFILES[result.partnerAttachment].myths],
-                        ] as [string, string[]][]
-                      ).map(([heading, lines]) => (
-                        <div key={heading}>
-                          <div className={styles.typeProfileHeading}>{heading}</div>
-                          {lines.map((line, i) => (
-                            <p className={styles.typeProfileText} key={i}>
-                              {line}
-                            </p>
-                          ))}
-                        </div>
-                      ))}
-                      <div className={styles.typeProfileNote}>{ATTACHMENT_PROFILE_NOTE}</div>
-                    </div>
-                  )}
-                </>
+                <button className={styles.typeMoreBtn} onClick={() => setShowTypeDetail(true)}>
+                  이 유형 더 알아보기
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M10 8l4 4-4 4" stroke="#B89DD1" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
               )}
             </div>
           </div>
@@ -695,6 +665,35 @@ export function AssessmentPage() {
             다시 진단 (1회 차감)
           </button>
         </div>
+
+        {showTypeDetail && result.partnerAttachment && ATTACHMENT_PROFILES[result.partnerAttachment] && (
+          <HelpModal
+            title={result.partnerAttachment}
+            onClose={() => setShowTypeDetail(false)}
+            sections={[
+              {
+                heading: '연애할 때',
+                text: ATTACHMENT_PROFILES[result.partnerAttachment].during.join('\n'),
+              },
+              {
+                heading: '이별 후에는',
+                text: ATTACHMENT_PROFILES[result.partnerAttachment].after.join('\n'),
+              },
+              {
+                heading: '이 유형을 대할 때',
+                text: ATTACHMENT_PROFILES[result.partnerAttachment].approach.join('\n'),
+              },
+              {
+                heading: '흔한 오해',
+                text: ATTACHMENT_PROFILES[result.partnerAttachment].myths.join('\n'),
+              },
+              {
+                heading: '참고',
+                text: ATTACHMENT_PROFILE_NOTE,
+              },
+            ]}
+          />
+        )}
 
         {showHelp && (
           <HelpModal
