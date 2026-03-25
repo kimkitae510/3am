@@ -121,8 +121,9 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         body.put("safetySettings", SAFETY_SETTINGS);
         // JSON 모드: 모델이 코드펜스, 잡설 없이 순수 JSON만 뱉도록 강제한다.
         // 정밀 판단(deep=진단): temperature 0(같은 사실 위 점수 출렁임 실측 대응) + thinking 유지(긴 루브릭 추론).
-        // 채팅/추출(그 외): thinking 최소화 — thinking 토큰이 출력 과금의 90%를 차지(로그 실측)하는데
-        // 짧은 응답 품질 기여는 작다. Gemini 3.x는 thinkingLevel로 조절하며 완전 끄기는 없어 minimal로 낮춘다.
+        // 채팅/추출(그 외): thinking low — minimal에서는 페르소나 규칙(메아리 금지, 양자택일 금지 등)
+        // 위반이 반복 실측됐다. 답하기 전 규칙을 점검할 여유를 조금 주는 절충(회당 비용 약 2배지만
+        // 절대액은 1~2원대). 그래도 뚫리면 다음 카드는 채팅 모델 Pro 전환.
         Map<String, Object> generationConfig = new LinkedHashMap<>();
         if (json) {
             generationConfig.put("responseMimeType", "application/json");
@@ -130,7 +131,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         if (deep) {
             generationConfig.put("temperature", 0);
         } else {
-            generationConfig.put("thinkingConfig", Map.of("thinkingLevel", "minimal"));
+            generationConfig.put("thinkingConfig", Map.of("thinkingLevel", "low"));
         }
         body.put("generationConfig", generationConfig);
 
