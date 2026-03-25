@@ -670,6 +670,7 @@ export function AssessmentPage() {
           <HelpModal
             title={result.partnerAttachment}
             onClose={() => setShowTypeDetail(false)}
+            showContact={false}
             sections={[
               {
                 heading: '연애할 때',

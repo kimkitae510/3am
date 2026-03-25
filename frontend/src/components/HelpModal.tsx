@@ -11,19 +11,23 @@ export interface HelpSection {
 export const CONTACT_OPENCHAT_URL = 'https://open.kakao.com/o/szFHl2Ci';
 
 // 모든 화면의 ? 도움말이 같은 모양, 같은 톤이 되도록 하나로 모은다.
+// showContact: 문의 안내 푸터. 도움말엔 필요하지만 유형 상세처럼 읽기용 모달엔 소음이라 끌 수 있게.
 export function HelpModal({
   title,
   sections,
   onClose,
+  showContact = true,
 }: {
   title: string;
   sections: HelpSection[];
   onClose: () => void;
+  showContact?: boolean;
 }) {
   // 오픈채팅은 익명이라 유저를 특정할 열쇠가 없다 — 문의 안내에 회원번호를 같이 보여준다.
   // 조회 실패(비로그인 등)면 조용히 생략한다.
   const [memberId, setMemberId] = useState<number | null>(null);
   useEffect(() => {
+    if (!showContact) return;
     let alive = true;
     getMe()
       .then((me) => alive && setMemberId(me.id))
@@ -31,6 +35,7 @@ export function HelpModal({
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -43,19 +48,21 @@ export function HelpModal({
             {s.text}
           </div>
         ))}
-        <div className={styles.contact}>
-          궁금한 점이나 불편한 점은{' '}
-          <a href={CONTACT_OPENCHAT_URL} target="_blank" rel="noreferrer">
-            카카오 오픈채팅 1:1 문의
-          </a>
-          로 보내주세요.
-          {memberId !== null && (
-            <>
-              {' '}문의하실 때 회원번호를 알려주시면 확인이 빨라요.
-              <span className={styles.memberId}>회원번호 - {memberId}번</span>
-            </>
-          )}
-        </div>
+        {showContact && (
+          <div className={styles.contact}>
+            궁금한 점이나 불편한 점은{' '}
+            <a href={CONTACT_OPENCHAT_URL} target="_blank" rel="noreferrer">
+              카카오 오픈채팅 1:1 문의
+            </a>
+            로 보내주세요.
+            {memberId !== null && (
+              <>
+                {' '}문의하실 때 회원번호를 알려주시면 확인이 빨라요.
+                <span className={styles.memberId}>회원번호 - {memberId}번</span>
+              </>
+            )}
+          </div>
+        )}
         <button className={styles.close} onClick={onClose}>
           확인
         </button>
