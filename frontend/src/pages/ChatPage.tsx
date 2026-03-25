@@ -22,11 +22,13 @@ const POLL_INTERVAL = 1500;
 const POLL_TIMEOUT = 45000;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// 장문 답변을 문단 단위 말풍선으로 쪼갠다 — 사람이 나눠 보내는 것처럼.
+// 장문 답변을 말풍선으로 쪼갠다 — 사람이 나눠 보내는 것처럼.
+// 줄바꿈 하나도 경계로 친다: 페르소나 규칙상 말풍선 안 줄바꿈은 마침표 대용(문장 경계)이라,
+// 모델이 두 문장을 한 문단에 묶어 보내도(실측) 화면에선 한 문장씩 나뉘는 게 맞다.
 // 저장은 한 덩어리 그대로라 재입장 시에도 같은 규칙으로 똑같이 쪼개진다.
 function splitParagraphs(text: string): string[] {
   const parts = text
-    .split(/\n{2,}/)
+    .split(/\n+/)
     .map((s) => s.trim())
     .filter(Boolean);
   return parts.length > 0 ? parts : [text];
