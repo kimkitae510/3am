@@ -51,25 +51,31 @@ abstract class GoogleGenerateContentClient implements LlmClient {
     // 로그 라벨용
     abstract String providerName();
 
+    // 토큰 로그의 용도 라벨 — 메시지 한 번에 채팅(1만대)과 추출(1천대) 호출이 연달아 찍혀
+    // "왜 토큰이 널뛰냐"는 혼동이 반복됐다(실측). 호출 종류로 라벨을 구분한다.
+    private static final String KIND_CHAT = "채팅";
+    private static final String KIND_EXTRACT = "추출";
+    private static final String KIND_DEEP = "진단";
+
     @Override
     public CompletableFuture<String> generate(List<ChatMessage> messages) {
-        return send(buildRequest(messages, false, false));
+        return send(buildRequest(messages, false, false), KIND_CHAT);
     }
 
     @Override
     public CompletableFuture<String> generateJson(List<ChatMessage> messages) {
-        return send(buildRequest(messages, true, false));
+        return send(buildRequest(messages, true, false), KIND_EXTRACT);
     }
 
     @Override
     public CompletableFuture<String> generateJsonDeep(List<ChatMessage> messages) {
-        return send(buildRequest(messages, true, true));
+        return send(buildRequest(messages, true, true), KIND_DEEP);
     }
 
-    private CompletableFuture<String> send(HttpRequest request) {
+    private CompletableFuture<String> send(HttpRequest request, String kind) {
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenCompose(this::retryOnceIfOverloaded)
-                .thenApply(this::extractText)
+                .thenApply(response -> extractText(response, kind))
                 // 호출 성공/실패 카운터 — 실패율, 호출량을 /actuator/prometheus로 관측(비용, 장애 감지).
                 .whenComplete((result, ex) -> Metrics.counter("llm.calls",
                         "provider", providerName(), "result", ex == null ? "success" : "error").increment());
@@ -160,27 +166,31 @@ abstract class GoogleGenerateContentClient implements LlmClient {
     // 로그로 남기는 응답 본문 상한. 오류 진단에 필요한 앞부분만 남기고 잘라 로그 폭탄, 개인정보 노출을 줄인다.
     private static final int LOG_BODY_LIMIT = 500;
 
-    private String extractText(HttpResponse<String> response) {
+    private String extractText(HttpResponse<String> response, String kind) {
         if (response.statusCode() / 100 != 2) {
             // 오류 본문은 보통 provider 에러 메타(429 한도, 안전성 차단 등)라 진단에 필요하지만, 길이는 자른다.
-            log.error("{} 응답 오류: status={} body={}", providerName(), response.statusCode(),
+            log.error("{} {} 응답 오류: status={} body={}", providerName(), kind, response.statusCode(),
                     snippet(response.body()));
             throw new LlmException();
         }
-        return parseBody(response.body());
+        return parseBody(response.body(), kind);
     }
 
     // 패키지 공개는 테스트용 — 파트 분할 응답의 회귀 방지.
     String parseBody(String body) {
+        return parseBody(body, "테스트");
+    }
+
+    private String parseBody(String body, String kind) {
         try {
             JsonNode root = objectMapper.readTree(body);
-            logUsage(root);
+            logUsage(root, kind);
             JsonNode candidate = root.path("candidates").path(0);
             // 생성이 왜 멈췄는지 반드시 남긴다 — JSON이 중간에 잘려 파싱이 깨질 때(실측)
             // MAX_TOKENS(출력 잘림)인지 SAFETY(안전성 차단)인지 이 값 없이는 추적이 불가능하다.
             String finishReason = candidate.path("finishReason").asText("");
             if (!finishReason.isEmpty() && !"STOP".equals(finishReason)) {
-                log.warn("{} 생성 비정상 종료: finishReason={}", providerName(), finishReason);
+                log.warn("{} {} 생성 비정상 종료: finishReason={}", providerName(), kind, finishReason);
             }
             // 긴 응답은 여러 텍스트 파트로 쪼개져 올 수 있다. 첫 파트만 읽으면 정상 종료(STOP)인데도
             // 본문이 첫 조각에서 끊긴다 — 전부 이어붙인다.
@@ -202,8 +212,8 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             }
             // 응답 구조를 매 호출 남긴다(내용은 미기록) — "정상 종료인데 본문이 잘림" 같은 문제를
             // 파트 분할인지, 정말 이 길이로 온 건지 로그만으로 판별하기 위함.
-            log.info("{} 응답 구조: 파트 {}개(텍스트 {}, 추론 {}), finishReason={}, 본문 {}자",
-                    providerName(), parts.size(), textParts, thoughtParts,
+            log.info("{} {} 응답 구조: 파트 {}개(텍스트 {}, 추론 {}), finishReason={}, 본문 {}자",
+                    providerName(), kind, parts.size(), textParts, thoughtParts,
                     finishReason.isEmpty() ? "없음" : finishReason, text.length());
             if (textParts == 0) {
                 log.error("{} 응답에 텍스트가 없음: finishReason={} body={}",
@@ -227,15 +237,15 @@ abstract class GoogleGenerateContentClient implements LlmClient {
     }
 
     // 호출당 실제 토큰량을 남긴다 — 비용 검증(프롬프트 창 크기, 추출 호출 비용)은 추정이 아니라 이 실측으로 한다.
-    private void logUsage(JsonNode root) {
+    private void logUsage(JsonNode root, String kind) {
         JsonNode usage = root.path("usageMetadata");
         if (usage.isMissingNode()) {
             return;
         }
         int total = usage.path("totalTokenCount").asInt(0);
         // thoughts(추론) 토큰을 따로 남긴다 — output이 작게 잘렸을 때 추론이 예산을 먹었는지 가려낸다.
-        log.info("{} 토큰 사용: input={}, output={}, thoughts={}, total={}",
-                providerName(),
+        log.info("{} {} 토큰 사용: input={}, output={}, thoughts={}, total={}",
+                providerName(), kind,
                 usage.path("promptTokenCount").asInt(0),
                 usage.path("candidatesTokenCount").asInt(0),
                 usage.path("thoughtsTokenCount").asInt(0),
