@@ -20,6 +20,22 @@ import styles from './AssessmentPage.module.css';
 
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
+// 신호별 점수(±N)는 화면에 숫자로 보여주지 않는다 — 숫자는 정밀함을 약속하는데 LLM 점수가
+// 그 약속을 못 받치고(오판 하나가 신뢰 전체를 깎음), 유저가 합산 산수를 검증하다 더 혼란해진다.
+// 대신 강도 단계로 치환한다. 구간은 루브릭 앵커 분포(3~40) 기준: 20 이상 크게, 10~19 기본, 그 밑 조금.
+function strengthLabel(delta: number): string {
+  const size = Math.abs(delta);
+  const verb = delta < 0 ? '낮춤' : '올림';
+  if (size >= 20) return `크게 ${verb}`;
+  if (size >= 10) return verb;
+  return `조금 ${verb}`;
+}
+
+// 영향 큰 순 정렬 — 숫자가 사라진 자리에서 순서가 무게를 말한다.
+function byImpact<T extends { delta: number }>(items: T[]): T[] {
+  return [...items].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+}
+
 /* 로딩/진단 중 점 애니메이션 — 일러스트(달) 대신 쓰는 유일한 장식 */
 function Dots() {
   return (
@@ -346,8 +362,8 @@ export function AssessmentPage() {
   const reunited = result.verdict === 'REUNITED';
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
-  const minus = result.deductions.filter((d) => d.delta < 0);
-  const plus = result.deductions.filter((d) => d.delta > 0);
+  const minus = byImpact(result.deductions.filter((d) => d.delta < 0));
+  const plus = byImpact(result.deductions.filter((d) => d.delta > 0));
   const doItems = result.guidance.filter((g) => g.kind === 'DO');
   const dontItems = result.guidance.filter((g) => g.kind === 'DONT');
 
@@ -567,7 +583,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      <div className={styles.minusDelta}>−{Math.abs(d.delta)}</div>
+                      <div className={styles.minusDelta}>{strengthLabel(d.delta)}</div>
                     </div>
                     {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
@@ -585,7 +601,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      <div className={styles.boostDelta}>+{d.delta}</div>
+                      <div className={styles.boostDelta}>{strengthLabel(d.delta)}</div>
                     </div>
                     {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}

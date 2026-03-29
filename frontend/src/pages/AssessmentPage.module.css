@@ -484,20 +484,21 @@
   line-height: 1.55;
 }
 
-/* 점수 색: 올린 신호는 보라(원래대로), 낮춘 신호는 라벤더와 결이 맞는 차가운 핑크레드
-   (기존 로즈가 주황처럼 보인다는 실측 피드백 — 웜톤을 빼고 핑크 쪽으로) */
+/* 강도 라벨(크게 낮춤/올림 등) — 숫자 대신 단계로. 색은 기존 문법 그대로(낮춤 핑크레드, 올림 라벤더) */
 .minusDelta {
   color: #d88b9f;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;
+  padding-top: 1.5px;
 }
 
 .boostDelta {
   color: #b89dd1;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;
+  padding-top: 1.5px;
 }
 
 /* 행동 가이드 항목 — 신호 카드와 같은 결이되, 점수 없이 문장이 주인공이라 굵기를 낮춘다 */
