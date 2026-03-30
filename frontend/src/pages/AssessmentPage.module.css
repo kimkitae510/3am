@@ -171,11 +171,12 @@
   color: var(--text-sub);
 }
 
-/* 확률 화면 총평 — 잠금 화면의 총평 카드(datingReason)와 같은 결 */
+/* 확률 화면 총평 — 잠금 화면의 총평 카드(datingReason)와 같은 결.
+   본문 카드는 전부 반지름 16, 안여백 14/16으로 통일한다(신호 목록, 유형 카드와 한 언어) */
 .reasonCard {
   margin: 14px 4px 0;
-  padding: 13px 15px;
-  border-radius: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--text);
@@ -219,8 +220,8 @@
 /* 잠금 설명 + 번복 질문을 한 카드로(문장이 흩어져 있으면 어수선하다) */
 .lockCard {
   margin: 12px 4px 0;
-  padding: 14px 15px;
-  border-radius: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
   background: var(--card);
   border: 1px solid var(--border);
 }
@@ -282,8 +283,8 @@
 /* 잠금 상태에서의 총평(갈등 상담 안내) — 잠금 설명과 구분되는 카드 */
 .datingReason {
   margin: 14px 4px 0;
-  padding: 13px 15px;
-  border-radius: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--text);
@@ -484,21 +485,26 @@
   line-height: 1.55;
 }
 
-/* 강도 라벨(크게 낮춤/올림 등) — 숫자 대신 단계로. 색은 기존 문법 그대로(낮춤 핑크레드, 올림 라벤더) */
-.minusDelta {
-  color: #d88b9f;
-  font-size: 12px;
-  font-weight: 700;
+/* 신호 세기 뱃지(강함/보통/약함) — 토스 상태 뱃지 문법의 옅은 틴트 알약.
+   맨글자는 제목과 딱 붙어 보였다(실측). 방향 색은 섹션 문법 그대로(낮춘 핑크레드, 올린 라벤더) */
+.strengthBadge {
   flex-shrink: 0;
-  padding-top: 1.5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3.5px 9px;
+  border-radius: 999px;
+  line-height: 1;
+  margin-top: 1px;
 }
 
-.boostDelta {
+.strengthMinus {
+  color: #d88b9f;
+  background: rgba(216, 139, 159, 0.13);
+}
+
+.strengthPlus {
   color: #b89dd1;
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
-  padding-top: 1.5px;
+  background: rgba(184, 157, 209, 0.13);
 }
 
 /* 행동 가이드 항목 — 신호 카드와 같은 결이되, 점수 없이 문장이 주인공이라 굵기를 낮춘다 */

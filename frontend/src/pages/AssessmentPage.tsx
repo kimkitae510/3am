@@ -22,13 +22,13 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
 // 신호별 점수(±N)는 화면에 숫자로 보여주지 않는다 — 숫자는 정밀함을 약속하는데 LLM 점수가
 // 그 약속을 못 받치고(오판 하나가 신뢰 전체를 깎음), 유저가 합산 산수를 검증하다 더 혼란해진다.
-// 대신 강도 단계로 치환한다. 구간은 루브릭 앵커 분포(3~40) 기준: 20 이상 크게, 10~19 기본, 그 밑 조금.
+// 라벨은 신호의 세기만 말한다 — 방향(낮춤/올림)은 섹션 제목이 이미 말하고 있어서
+// "크게 낮춤" 같은 동사형은 중복이고 낯설다(실측). 구간은 루브릭 앵커 분포(3~40) 기준.
 function strengthLabel(delta: number): string {
   const size = Math.abs(delta);
-  const verb = delta < 0 ? '낮춤' : '올림';
-  if (size >= 20) return `크게 ${verb}`;
-  if (size >= 10) return verb;
-  return `조금 ${verb}`;
+  if (size >= 20) return '강함';
+  if (size >= 10) return '보통';
+  return '약함';
 }
 
 // 영향 큰 순 정렬 — 숫자가 사라진 자리에서 순서가 무게를 말한다.
@@ -583,7 +583,9 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      <div className={styles.minusDelta}>{strengthLabel(d.delta)}</div>
+                      <span className={`${styles.strengthBadge} ${styles.strengthMinus}`}>
+                        {strengthLabel(d.delta)}
+                      </span>
                     </div>
                     {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
@@ -601,7 +603,9 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      <div className={styles.boostDelta}>{strengthLabel(d.delta)}</div>
+                      <span className={`${styles.strengthBadge} ${styles.strengthPlus}`}>
+                        {strengthLabel(d.delta)}
+                      </span>
                     </div>
                     {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
