@@ -22,13 +22,38 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
 // 신호별 점수(±N)는 화면에 숫자로 보여주지 않는다 — 숫자는 정밀함을 약속하는데 LLM 점수가
 // 그 약속을 못 받치고(오판 하나가 신뢰 전체를 깎음), 유저가 합산 산수를 검증하다 더 혼란해진다.
-// 라벨은 신호의 세기만 말한다 — 방향(낮춤/올림)은 섹션 제목이 이미 말하고 있어서
-// "크게 낮춤" 같은 동사형은 중복이고 낯설다(실측). 구간은 루브릭 앵커 분포(3~40) 기준.
-function strengthLabel(delta: number): string {
+// 세기는 3칸 막대 + 텍스트로 — 방향(낮춤/올림)은 섹션 제목이 이미 말하니 세기만 표시한다.
+// 구간은 루브릭 앵커 분포(3~40) 기준: 20 이상 강함(3칸), 10~19 보통(2칸), 그 밑 약함(1칸).
+function strengthLevel(delta: number): { filled: number; label: string } {
   const size = Math.abs(delta);
-  if (size >= 20) return '강함';
-  if (size >= 10) return '보통';
-  return '약함';
+  if (size >= 20) return { filled: 3, label: '강함' };
+  if (size >= 10) return { filled: 2, label: '보통' };
+  return { filled: 1, label: '약함' };
+}
+
+// 세기 막대 — 채워진 칸 수로 크기를 직관적으로. 색은 방향(낮춤 핑크레드, 올림 라벤더).
+function StrengthMeter({ delta }: { delta: number }) {
+  const { filled, label } = strengthLevel(delta);
+  const color = delta < 0 ? '#d88b9f' : '#b89dd1';
+  return (
+    <span className={delta < 0 ? styles.strengthMinus : styles.strengthPlus}>
+      <svg width="26" height="13" viewBox="0 0 26 13" fill="none" aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <rect
+            key={i}
+            x={i * 9}
+            y={0}
+            width={6}
+            height={13}
+            rx={2}
+            fill={color}
+            opacity={i < filled ? 1 : 0.22}
+          />
+        ))}
+      </svg>
+      {label}
+    </span>
+  );
 }
 
 // 영향 큰 순 정렬 — 숫자가 사라진 자리에서 순서가 무게를 말한다.
@@ -583,9 +608,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      <span className={`${styles.strengthBadge} ${styles.strengthMinus}`}>
-                        {strengthLabel(d.delta)}
-                      </span>
+                      <StrengthMeter delta={d.delta} />
                     </div>
                     {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
@@ -603,9 +626,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      <span className={`${styles.strengthBadge} ${styles.strengthPlus}`}>
-                        {strengthLabel(d.delta)}
-                      </span>
+                      <StrengthMeter delta={d.delta} />
                     </div>
                     {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
