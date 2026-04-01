@@ -455,7 +455,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
 }
 
 .dedSignal {
@@ -466,11 +466,12 @@
   font-weight: 600;
 }
 
-/* 상세 텍스트(사실, 이유)는 본문보다 한 단계만 낮춘 밝기 — text-sub는 카드 위에서 너무 가라앉는다(실측) */
+/* 상세 텍스트(사실, 이유)는 본문보다 한 단계만 낮춘 밝기 — text-sub는 카드 위에서 너무 가라앉는다(실측).
+   제목 줄(신호명 + 미터)과 딱 붙어 보여서 위 간격을 넉넉히(실측) */
 .dedEvidence {
   color: #b3b0bc;
   font-size: 12.5px;
-  margin-top: 5px;
+  margin-top: 9px;
   line-height: 1.55;
 }
 
@@ -592,12 +593,14 @@
 }
 
 /* 남은 횟수 배지 + 이용권 구매 진입점을 한 줄에 */
+/* 잔여 줄 — body(스크롤) 밖에 고정. 스크롤과 무관하게 푸터 위에 항상 보인다(채팅과 같은 결) */
 .hintRow {
-  align-self: center;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-top: 16px;
+  padding: 10px 14px 0;
 }
 
 /* 남은 횟수 — 알약 배지 없이 흐린 글자만(채팅 입력창 위 안내와 같은 결) */

@@ -22,13 +22,14 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
 // 신호별 점수(±N)는 화면에 숫자로 보여주지 않는다 — 숫자는 정밀함을 약속하는데 LLM 점수가
 // 그 약속을 못 받치고(오판 하나가 신뢰 전체를 깎음), 유저가 합산 산수를 검증하다 더 혼란해진다.
-// 세기는 3칸 막대 + 텍스트로 — 방향(낮춤/올림)은 섹션 제목이 이미 말하니 세기만 표시한다.
-// 구간은 루브릭 앵커 분포(3~40) 기준: 20 이상 강함(3칸), 10~19 보통(2칸), 그 밑 약함(1칸).
+// 세기는 3칸 막대 + 텍스트로 — 방향(낮춤/올림)은 섹션 제목이 이미 말하니 영향 크기만 표시한다.
+// 라벨은 '영향 큼/보통/작음' — '강함/약함'은 뭐가 강한지 모호해서(신호? 영향?) '영향'을 명사로 박는다.
+// 구간은 루브릭 앵커 분포(3~40) 기준: 20 이상 큼(3칸), 10~19 보통(2칸), 그 밑 작음(1칸).
 function strengthLevel(delta: number): { filled: number; label: string } {
   const size = Math.abs(delta);
-  if (size >= 20) return { filled: 3, label: '강함' };
-  if (size >= 10) return { filled: 2, label: '보통' };
-  return { filled: 1, label: '약함' };
+  if (size >= 20) return { filled: 3, label: '영향 큼' };
+  if (size >= 10) return { filled: 2, label: '영향 보통' };
+  return { filled: 1, label: '영향 작음' };
 }
 
 // 세기 막대 — 채워진 칸 수로 크기를 직관적으로. 색은 방향(낮춤 핑크레드, 올림 라벤더).
@@ -670,32 +671,32 @@ export function AssessmentPage() {
             </>
           )}
 
-          {/* 갱신 안내 문구는 제거 — 새 이야기 없이 다시 진단하면 서버가 사유를 설명하며 거부해서 중복 안내였다 */}
-          <div className={styles.hintRow}>
-            <div className={styles.hintCount}>
-              {/* 무료/이용권 각각 보여주되 숫자만 밝게(채팅 잔여 줄과 같은 문법) */}
-              {remaining != null ? (
-                <>
-                  오늘 남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
-                  {paidRemaining > 0 && (
-                    <>
-                      {' '}+ 이용권 <span className={styles.hintCountNum}>{paidRemaining}회</span>
-                    </>
-                  )}
-                </>
-              ) : (
-                '하루 1회'
-              )}
-            </div>
-            {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅의 충전하기와 같은 동선 */}
-            <button className={styles.topupLink} onClick={() => navigate('/payment')}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 4.5v15M4.5 12h15" stroke="#B89DD1" strokeWidth="2.2" strokeLinecap="round" />
-              </svg>
-              충전하기
-            </button>
-          </div>
+        </div>
 
+        {/* 잔여 줄은 body(스크롤) 밖에 둬서 스크롤과 무관하게 하단에 고정한다 — 채팅처럼 항상 보이게 */}
+        <div className={styles.hintRow}>
+          <div className={styles.hintCount}>
+            {/* 무료/이용권 각각 보여주되 숫자만 밝게(채팅 잔여 줄과 같은 문법) */}
+            {remaining != null ? (
+              <>
+                오늘 남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
+                {paidRemaining > 0 && (
+                  <>
+                    {' '}+ 이용권 <span className={styles.hintCountNum}>{paidRemaining}회</span>
+                  </>
+                )}
+              </>
+            ) : (
+              '하루 1회'
+            )}
+          </div>
+          {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅의 충전하기와 같은 동선 */}
+          <button className={styles.topupLink} onClick={() => navigate('/payment')}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 4.5v15M4.5 12h15" stroke="#B89DD1" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+            충전하기
+          </button>
         </div>
 
         <div className={styles.footer}>
@@ -751,8 +752,12 @@ export function AssessmentPage() {
                 text: '상대가 재회 의사를 실제로 나에게 밝힌 경우입니다. 남은 것은 내 마음이기 때문입니다. 제안이 없던 일이 되면 다시 내려갑니다.',
               },
               {
+                heading: '가능성을 움직인 신호',
+                text: '확률을 낮춘 신호와 올린 신호를 근거와 함께 보여드려요. 신호 옆 막대는 그 신호가 확률에 준 영향의 크기입니다 — 3칸이면 영향 큼, 2칸 보통, 1칸 작음. 영향이 큰 신호부터 위에 옵니다.',
+              },
+              {
                 heading: '상대 애착유형',
-                text: '안정형 : 감정을 말로 풀고 갈등을 대화로 다루는 편\n불안형 : 확인받고 싶어 하고 거리가 생기면 매달리는 편\n거부회피형 : 감정 얘기를 피하고 이별 후 뒤돌아보지 않는 편\n공포회피형 : 밀어내고 다시 찾기를 반복하는 편\n판정에 쓰인 행동 근거는 유형 카드에 함께 보여드립니다. 근거가 아직 얇으면 추정 표시가 붙고, 이야기가 쌓이면 분명해집니다.',
+                text: '상대가 이별과 갈등에서 보인 행동 패턴으로 유형을 봅니다. 안정형, 불안형, 거부회피형, 공포회피형 네 가지가 있고, 각 유형의 자세한 설명은 유형 카드의 "이 유형 더 알아보기"에서 볼 수 있어요. 근거가 아직 얇으면 추정 표시가 붙고, 이야기가 쌓이면 분명해집니다.',
               },
               {
                 heading: '행동 가이드',
