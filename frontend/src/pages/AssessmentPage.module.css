@@ -486,26 +486,31 @@
   line-height: 1.55;
 }
 
-/* 신호 세기 — 3칸 막대 + 텍스트(강함/보통/약함). 채워진 칸 수로 크기를 직관적으로 읽고,
-   텍스트가 뜻을 못박는다. 방향 색은 섹션 문법 그대로(낮춘 핑크레드, 올린 라벤더) */
-.strengthMinus,
-.strengthPlus {
+/* 신호 영향 막대 — 길이가 영향 크기에 비례(꽉 차면 앵커 상한 40). '길수록 크다'가 설명 없이
+   읽힌다. 흐린 트랙 위에 방향 색 채움(낮춘 핑크레드, 올린 라벤더) */
+.impactTrack {
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  font-weight: 700;
-  line-height: 1;
-  margin-top: 2px;
+  width: 60px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+  margin-top: 6px;
 }
 
-.strengthMinus {
-  color: #d88b9f;
+.impactFillMinus,
+.impactFillPlus {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
 }
 
-.strengthPlus {
-  color: #b89dd1;
+.impactFillMinus {
+  background: #d88b9f;
+}
+
+.impactFillPlus {
+  background: #b89dd1;
 }
 
 /* 행동 가이드 항목 — 신호 카드와 같은 결이되, 점수 없이 문장이 주인공이라 굵기를 낮춘다 */

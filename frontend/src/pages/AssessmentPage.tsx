@@ -22,37 +22,25 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
 // 신호별 점수(±N)는 화면에 숫자로 보여주지 않는다 — 숫자는 정밀함을 약속하는데 LLM 점수가
 // 그 약속을 못 받치고(오판 하나가 신뢰 전체를 깎음), 유저가 합산 산수를 검증하다 더 혼란해진다.
-// 세기는 3칸 막대 + 텍스트로 — 방향(낮춤/올림)은 섹션 제목이 이미 말하니 영향 크기만 표시한다.
-// 라벨은 '영향 큼/보통/작음' — '강함/약함'은 뭐가 강한지 모호해서(신호? 영향?) '영향'을 명사로 박는다.
-// 구간은 루브릭 앵커 분포(3~40) 기준: 20 이상 큼(3칸), 10~19 보통(2칸), 그 밑 작음(1칸).
-function strengthLevel(delta: number): { filled: number; label: string } {
+// 신호별 점수(±N)는 숫자로 안 보여준다(정밀함 약속을 LLM 점수가 못 받침). 대신 영향 크기를
+// 길이에 비례하는 막대로 — '막대가 길수록 크다'는 설명 없이 읽히고, 영향 큰 순 정렬과 방향 색이
+// 겹쳐 오해 여지가 없다. 기준 최대는 루브릭 앵커 상한(40) — |delta|가 40이면 막대가 꽉 찬다.
+const IMPACT_MAX = 40;
+
+// 스크린리더용 라벨(막대는 시각 표현이라 텍스트로 뜻을 준다).
+function impactLabel(delta: number): string {
   const size = Math.abs(delta);
-  if (size >= 20) return { filled: 3, label: '영향 큼' };
-  if (size >= 10) return { filled: 2, label: '영향 보통' };
-  return { filled: 1, label: '영향 작음' };
+  const level = size >= 20 ? '큰' : size >= 10 ? '보통' : '작은';
+  return `확률에 ${level} 영향`;
 }
 
-// 세기 막대 — 채워진 칸 수로 크기를 직관적으로. 색은 방향(낮춤 핑크레드, 올림 라벤더).
-function StrengthMeter({ delta }: { delta: number }) {
-  const { filled, label } = strengthLevel(delta);
-  const color = delta < 0 ? '#d88b9f' : '#b89dd1';
+// 영향 막대 — 길이가 영향 크기에 비례. 색은 방향(낮춤 핑크레드, 올림 라벤더).
+function ImpactBar({ delta }: { delta: number }) {
+  const pct = Math.min(Math.abs(delta) / IMPACT_MAX, 1) * 100;
+  const fill = delta < 0 ? styles.impactFillMinus : styles.impactFillPlus;
   return (
-    <span className={delta < 0 ? styles.strengthMinus : styles.strengthPlus}>
-      <svg width="26" height="13" viewBox="0 0 26 13" fill="none" aria-hidden="true">
-        {[0, 1, 2].map((i) => (
-          <rect
-            key={i}
-            x={i * 9}
-            y={0}
-            width={6}
-            height={13}
-            rx={2}
-            fill={color}
-            opacity={i < filled ? 1 : 0.22}
-          />
-        ))}
-      </svg>
-      {label}
+    <span className={styles.impactTrack} role="img" aria-label={impactLabel(delta)}>
+      <span className={fill} style={{ width: `${pct}%` }} />
     </span>
   );
 }
@@ -609,7 +597,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      <StrengthMeter delta={d.delta} />
+                      <ImpactBar delta={d.delta} />
                     </div>
                     {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
@@ -627,7 +615,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{d.signal}</div>
-                      <StrengthMeter delta={d.delta} />
+                      <ImpactBar delta={d.delta} />
                     </div>
                     {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
                     {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
@@ -753,7 +741,7 @@ export function AssessmentPage() {
               },
               {
                 heading: '가능성을 움직인 신호',
-                text: '확률을 낮춘 신호와 올린 신호를 근거와 함께 보여드려요. 신호 옆 막대는 그 신호가 확률에 준 영향의 크기입니다 — 3칸이면 영향 큼, 2칸 보통, 1칸 작음. 영향이 큰 신호부터 위에 옵니다.',
+                text: '확률을 낮춘 신호와 올린 신호를 근거와 함께 보여드려요. 신호 옆 막대는 그 신호가 확률에 준 영향의 크기입니다 — 막대가 길수록 영향이 커요. 영향이 큰 신호부터 위에 옵니다.',
               },
               {
                 heading: '상대 애착유형',
