@@ -486,31 +486,49 @@
   line-height: 1.55;
 }
 
-/* 신호 영향 막대 — 길이가 영향 크기에 비례(꽉 차면 앵커 상한 40). '길수록 크다'가 설명 없이
-   읽힌다. 흐린 트랙 위에 방향 색 채움(낮춘 핑크레드, 올린 라벤더) */
-.impactTrack {
+/* 신호 무게 태그(결정적/중요/참고) — 색 진하기가 서열을 말한다: 결정적은 꽉 찬 색,
+   중요는 옅은 틴트, 참고는 흐린 틴트. 색상은 방향(낮춤 핑크레드, 올림 라벤더) */
+.weightTag {
   flex-shrink: 0;
-  width: 60px;
-  height: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3.5px 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.09);
-  overflow: hidden;
-  margin-top: 6px;
+  line-height: 1;
+  margin-top: 1px;
 }
 
-.impactFillMinus,
-.impactFillPlus {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-}
-
-.impactFillMinus {
+/* 결정적 — 꽉 찬 색 위에 어두운 글자 */
+.weightKeyMinus {
   background: #d88b9f;
+  color: #1a1820;
 }
 
-.impactFillPlus {
+.weightKeyPlus {
   background: #b89dd1;
+  color: #1a1820;
+}
+
+/* 중요 — 옅은 틴트 + 색 글자 */
+.weightMidMinus {
+  background: rgba(216, 139, 159, 0.18);
+  color: #d88b9f;
+}
+
+.weightMidPlus {
+  background: rgba(184, 157, 209, 0.18);
+  color: #b89dd1;
+}
+
+/* 참고 — 흐린 틴트 + 가라앉은 색 글자 */
+.weightLowMinus {
+  background: rgba(216, 139, 159, 0.09);
+  color: rgba(216, 139, 159, 0.75);
+}
+
+.weightLowPlus {
+  background: rgba(184, 157, 209, 0.09);
+  color: rgba(184, 157, 209, 0.75);
 }
 
 /* 행동 가이드 항목 — 신호 카드와 같은 결이되, 점수 없이 문장이 주인공이라 굵기를 낮춘다 */
