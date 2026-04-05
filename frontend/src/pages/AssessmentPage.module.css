@@ -444,6 +444,7 @@
 
 /* 신호 행 — 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스)의 3층 구조 */
 .dedItem {
+  position: relative;
   padding: 14px 16px;
 }
 
@@ -486,67 +487,23 @@
   line-height: 1.55;
 }
 
-/* 신호 무게 태그(결정적/중요/참고) — 솔리드 채움은 결을 깨서(실측) 셋 다 옅은 틴트로 통일하고,
-   서열은 틴트 깊이 + 글자 밝기로만 준다(결정적 밝고 진함 → 참고 흐림). 색상은 방향(낮춤 핑크레드,
-   올림 라벤더). 글자 앞 점으로 무게를 한 번 더 — 결정적은 꽉 찬 점, 참고는 테두리만 */
-.weightTag {
+/* 신호 무게 — 알약 뱃지는 AI 분류 리포트 티가 나서(실측) 버렸다. 무게는 카드 왼쪽 세로 띠의
+   진하기로(결정적 진함 → 참고 흐림), 라벨은 배경 없는 색 글자로만. 색/진하기는 인라인 스타일로
+   방향(낮춤 핑크레드, 올림 라벤더)과 무게 단계를 준다 */
+.weightBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+}
+
+.weightLabel {
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3.5px 9px 3.5px 8px;
-  border-radius: 999px;
+  font-size: 11.5px;
   line-height: 1;
-  margin-top: 1px;
-}
-
-.weightTag::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-/* 결정적 — 가장 진한 틴트 + 밝은 글자 */
-.weightKeyMinus {
-  background: rgba(216, 139, 159, 0.16);
-  color: #e6a4b3;
-}
-
-.weightKeyPlus {
-  background: rgba(184, 157, 209, 0.16);
-  color: #cbb2e2;
-}
-
-/* 중요 — 중간 틴트 + 기본 색 글자 */
-.weightMidMinus {
-  background: rgba(216, 139, 159, 0.1);
-  color: #d88b9f;
-}
-
-.weightMidPlus {
-  background: rgba(184, 157, 209, 0.1);
-  color: #b89dd1;
-}
-
-/* 참고 — 흐린 틴트 + 가라앉은 글자 + 점은 테두리만(가장 가벼움) */
-.weightLowMinus {
-  background: rgba(216, 139, 159, 0.055);
-  color: rgba(216, 139, 159, 0.68);
-}
-
-.weightLowPlus {
-  background: rgba(184, 157, 209, 0.055);
-  color: rgba(184, 157, 209, 0.68);
-}
-
-.weightLowMinus::before,
-.weightLowPlus::before {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px currentColor;
+  margin-top: 2px;
+  letter-spacing: -0.2px;
 }
 
 /* 행동 가이드 항목 — 신호 카드와 같은 결이되, 점수 없이 문장이 주인공이라 굵기를 낮춘다 */
