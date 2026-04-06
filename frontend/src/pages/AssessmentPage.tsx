@@ -23,19 +23,19 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 // 신호별 점수(±N)는 화면에 숫자로 보여주지 않는다 — 숫자는 정밀함을 약속하는데 LLM 점수가
 // 그 약속을 못 받치고(오판 하나가 신뢰 전체를 깎음), 유저가 합산 산수를 검증하다 더 혼란해진다.
 // 신호별 점수(±N)는 숫자로 안 보여준다(정밀함 약속을 LLM 점수가 못 받침). 대신 이 신호를
-// 얼마나 무겁게 봤는지를 결정적/중요/참고로 — 단 알약 뱃지는 AI 분류 리포트 티가 나서(실측),
-// 무게를 '카드 왼쪽 세로 악센트 띠'의 진하기로 표현하고 라벨은 배경 없는 색 글자로만 둔다.
-// 방향(낮춤/올림)은 섹션 제목과 색이 말하니 무게만. 구간은 앵커 분포 20↑/10~19/10↓.
-function weightStyle(delta: number): { label: string; barColor: string; textColor: string; weight: number } {
+// 얼마나 무겁게 봤는지를 결정적/중요/참고로 — 알약 뱃지나 띠 같은 장식은 AI 티가 나서(실측)
+// 배경 없는 색 글자로만 둔다. 무게는 글자 색 진하기와 굵기로, 방향(낮춤/올림)은 섹션 제목과 색이
+// 말한다. 구간은 앵커 분포 20↑/10~19/10↓.
+function weightStyle(delta: number): { label: string; textColor: string; weight: number } {
   const size = Math.abs(delta);
   const rgb = delta < 0 ? '216,139,159' : '184,157,209'; // 낮춤 핑크레드 / 올림 라벤더
   if (size >= 20) {
-    return { label: '결정적', barColor: `rgba(${rgb},1)`, textColor: `rgba(${rgb},1)`, weight: 700 };
+    return { label: '결정적', textColor: `rgba(${rgb},1)`, weight: 700 };
   }
   if (size >= 10) {
-    return { label: '중요', barColor: `rgba(${rgb},0.5)`, textColor: `rgba(${rgb},0.85)`, weight: 600 };
+    return { label: '중요', textColor: `rgba(${rgb},0.85)`, weight: 600 };
   }
-  return { label: '참고', barColor: `rgba(${rgb},0.26)`, textColor: `rgba(${rgb},0.55)`, weight: 600 };
+  return { label: '참고', textColor: `rgba(${rgb},0.5)`, weight: 600 };
 }
 
 // 영향 큰 순 정렬 — 숫자가 사라진 자리에서 순서가 무게를 말한다.
@@ -590,7 +590,6 @@ export function AssessmentPage() {
                   const w = weightStyle(d.delta);
                   return (
                     <div className={styles.dedItem} key={i}>
-                      <span className={styles.weightBar} style={{ background: w.barColor }} />
                       <div className={styles.dedTop}>
                         <div className={styles.dedSignal}>{d.signal}</div>
                         <span className={styles.weightLabel} style={{ color: w.textColor, fontWeight: w.weight }}>
@@ -614,7 +613,6 @@ export function AssessmentPage() {
                   const w = weightStyle(d.delta);
                   return (
                     <div className={styles.dedItem} key={i}>
-                      <span className={styles.weightBar} style={{ background: w.barColor }} />
                       <div className={styles.dedTop}>
                         <div className={styles.dedSignal}>{d.signal}</div>
                         <span className={styles.weightLabel} style={{ color: w.textColor, fontWeight: w.weight }}>
@@ -746,7 +744,7 @@ export function AssessmentPage() {
               },
               {
                 heading: '가능성을 움직인 신호',
-                text: '확률을 낮춘 신호와 올린 신호를 근거와 함께 보여드려요. 각 신호를 얼마나 무겁게 봤는지는 결정적, 중요, 참고로 나뉘고, 카드 왼쪽 띠가 진할수록 무겁게 반영됐어요. 무거운 신호부터 위에 옵니다.',
+                text: '확률을 낮춘 신호와 올린 신호를 근거와 함께 보여드려요. 각 신호를 얼마나 무겁게 봤는지는 결정적, 중요, 참고로 나뉘어요. 무거운 신호부터 위에 옵니다.',
               },
               {
                 heading: '상대 애착유형',

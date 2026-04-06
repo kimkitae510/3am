@@ -444,7 +444,6 @@
 
 /* 신호 행 — 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스)의 3층 구조 */
 .dedItem {
-  position: relative;
   padding: 14px 16px;
 }
 
@@ -487,20 +486,11 @@
   line-height: 1.55;
 }
 
-/* 신호 무게 — 알약 뱃지는 AI 분류 리포트 티가 나서(실측) 버렸다. 무게는 카드 왼쪽 세로 띠의
-   진하기로(결정적 진함 → 참고 흐림), 라벨은 배경 없는 색 글자로만. 색/진하기는 인라인 스타일로
-   방향(낮춤 핑크레드, 올림 라벤더)과 무게 단계를 준다 */
-.weightBar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-}
-
+/* 신호 무게(결정적/중요/참고) — 알약, 띠 같은 장식은 AI 티가 나서(실측) 배경 없는 색 글자로만.
+   무게는 글자 색 진하기 + 굵기로(인라인 스타일), 방향 색은 낮춤 핑크레드/올림 라벤더 */
 .weightLabel {
   flex-shrink: 0;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1;
   margin-top: 2px;
   letter-spacing: -0.2px;
