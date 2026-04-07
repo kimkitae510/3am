@@ -23,19 +23,14 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 // 신호별 점수(±N)는 화면에 숫자로 보여주지 않는다 — 숫자는 정밀함을 약속하는데 LLM 점수가
 // 그 약속을 못 받치고(오판 하나가 신뢰 전체를 깎음), 유저가 합산 산수를 검증하다 더 혼란해진다.
 // 신호별 점수(±N)는 숫자로 안 보여준다(정밀함 약속을 LLM 점수가 못 받침). 대신 이 신호를
-// 얼마나 무겁게 봤는지를 결정적/중요/참고로 — 알약 뱃지나 띠 같은 장식은 AI 티가 나서(실측)
-// 배경 없는 색 글자로만 둔다. 무게는 글자 색 진하기와 굵기로, 방향(낮춤/올림)은 섹션 제목과 색이
-// 말한다. 구간은 앵커 분포 20↑/10~19/10↓.
-function weightStyle(delta: number): { label: string; textColor: string; weight: number } {
+// 얼마나 무겁게 봤는지를 결정적/중요/참고 '단어'로 말한다 — 무게를 색 밝기에 실었더니 실전에선
+// 흐린지 안 흐린지 안 읽혔다(실측). 색은 방향(낮춤 핑크레드/올림 라벤더)만, 무게는 단어와 정렬에
+// 맡긴다. 구간은 앵커 분포 20↑/10~19/10↓.
+function weightLabel(delta: number): string {
   const size = Math.abs(delta);
-  const rgb = delta < 0 ? '216,139,159' : '184,157,209'; // 낮춤 핑크레드 / 올림 라벤더
-  if (size >= 20) {
-    return { label: '결정적', textColor: `rgba(${rgb},1)`, weight: 700 };
-  }
-  if (size >= 10) {
-    return { label: '중요', textColor: `rgba(${rgb},0.85)`, weight: 600 };
-  }
-  return { label: '참고', textColor: `rgba(${rgb},0.5)`, weight: 600 };
+  if (size >= 20) return '결정적';
+  if (size >= 10) return '중요';
+  return '참고';
 }
 
 // 영향 큰 순 정렬 — 숫자가 사라진 자리에서 순서가 무게를 말한다.
@@ -586,21 +581,18 @@ export function AssessmentPage() {
             <>
               <SectionHead title="가능성을 낮춘 신호" count={minus.length} countClass={styles.countMinus} />
               <div className={styles.dedList}>
-                {minus.map((d, i) => {
-                  const w = weightStyle(d.delta);
-                  return (
-                    <div className={styles.dedItem} key={i}>
-                      <div className={styles.dedTop}>
-                        <div className={styles.dedSignal}>{d.signal}</div>
-                        <span className={styles.weightLabel} style={{ color: w.textColor, fontWeight: w.weight }}>
-                          {w.label}
-                        </span>
-                      </div>
-                      {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
-                      {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
+                {minus.map((d, i) => (
+                  <div className={styles.dedItem} key={i}>
+                    <div className={styles.dedTop}>
+                      <div className={styles.dedSignal}>{d.signal}</div>
+                      <span className={`${styles.weightLabel} ${styles.weightMinus}`}>
+                        {weightLabel(d.delta)}
+                      </span>
                     </div>
-                  );
-                })}
+                    {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
+                    {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -609,21 +601,18 @@ export function AssessmentPage() {
             <>
               <SectionHead title="가능성을 올린 신호" count={plus.length} countClass={styles.countPlus} />
               <div className={styles.dedList}>
-                {plus.map((d, i) => {
-                  const w = weightStyle(d.delta);
-                  return (
-                    <div className={styles.dedItem} key={i}>
-                      <div className={styles.dedTop}>
-                        <div className={styles.dedSignal}>{d.signal}</div>
-                        <span className={styles.weightLabel} style={{ color: w.textColor, fontWeight: w.weight }}>
-                          {w.label}
-                        </span>
-                      </div>
-                      {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
-                      {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
+                {plus.map((d, i) => (
+                  <div className={styles.dedItem} key={i}>
+                    <div className={styles.dedTop}>
+                      <div className={styles.dedSignal}>{d.signal}</div>
+                      <span className={`${styles.weightLabel} ${styles.weightPlus}`}>
+                        {weightLabel(d.delta)}
+                      </span>
                     </div>
-                  );
-                })}
+                    {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
+                    {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
+                  </div>
+                ))}
               </div>
             </>
           )}
