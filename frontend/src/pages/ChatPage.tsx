@@ -175,7 +175,7 @@ export function ChatPage() {
     }
     if (aliveRef.current) {
       setWaiting(false);
-      setError('답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요.');
+      setError('답이 좀 늦네, 미안 잠깐 뒤에 다시 보내줄래?');
     }
   }
 
@@ -199,9 +199,9 @@ export function ChatPage() {
         setGuestBlocked(true);
       } else if (code === 'L001') {
         // 생성 실패의 백엔드 문구는 기계 티가 난다 — 입력은 복구돼 있으니 다시 보내라고만
-        setError('답변을 만들지 못했어요. 방금 메시지를 다시 보내주세요.');
+        setError('미안, 지금 답을 정리하기가 어렵네 조금 있다가 다시 보내줄 수 있어?');
       } else {
-        setError(extractErrorMessage(e, '메시지를 보내지 못했어요.'));
+        setError(extractErrorMessage(e, '메시지가 안 보내졌어, 미안 다시 한 번 보내줄래?'));
         setQuotaOver(code === 'Q001');
       }
     }
@@ -368,11 +368,14 @@ export function ChatPage() {
             </div>
           </div>
         )}
-        {/* 150자를 넘어 회수가 올라가는 순간부터 노출 — 모르고 여러 회 쓰는 일이 없게. 평소엔 조용히 */}
+        {/* 150자를 넘어 회수가 올라가는 순간부터 노출 — 모르고 여러 회 쓰는 일이 없게. 평소엔 조용히.
+            '대화 N회'가 진짜 알림이라(비용) 거기만 강조하고, 글자수는 흐린 보조로 뒤에 둔다 */}
         {(input.length > UNIT_LENGTH || input.length >= MAX_LENGTH - 60) && (
           <div className={styles.lengthHint}>
-            {input.length}/{MAX_LENGTH}자
-            {input.length > UNIT_LENGTH && ` — 대화 ${Math.ceil(input.length / UNIT_LENGTH)}회 사용`}
+            {input.length > UNIT_LENGTH && (
+              <span className={styles.lengthCost}>대화 {Math.ceil(input.length / UNIT_LENGTH)}회로 보내져요</span>
+            )}
+            <span className={styles.lengthCount}>{input.length}/{MAX_LENGTH}자</span>
           </div>
         )}
         <div className={styles.inputBar}>
