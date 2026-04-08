@@ -37,8 +37,9 @@ public class StoryService {
     private static final int MAX_PAGE_SIZE = 100;
 
     // LLM 호출 실패 시 답을 빈 채로 두지 않고 대화체로 저장한다. 폴링이 이 메시지를 받고 정상 종료한다.
+    // 이건 페르소나가 말풍선으로 하는 말이라 페르소나 문법을 따른다 — 반말, 마침표 없이.
     private static final String LLM_FALLBACK =
-            "지금은 답을 정리하기가 어렵네요. 잠시 후 다시 한 번 보내줄래요?";
+            "미안, 지금 답을 정리하기가 어렵네\n조금 있다가 다시 보내줄 수 있어?";
 
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
