@@ -373,7 +373,7 @@ export function ChatPage() {
         {(input.length > UNIT_LENGTH || input.length >= MAX_LENGTH - 60) && (
           <div className={styles.lengthHint}>
             {input.length > UNIT_LENGTH && (
-              <span className={styles.lengthCost}>대화 {Math.ceil(input.length / UNIT_LENGTH)}회로 보내져요</span>
+              <span className={styles.lengthCost}>대화 {Math.ceil(input.length / UNIT_LENGTH)}회 소진</span>
             )}
             <span className={styles.lengthCount}>{input.length}/{MAX_LENGTH}자</span>
           </div>
