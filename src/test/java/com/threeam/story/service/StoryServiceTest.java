@@ -141,9 +141,9 @@ class StoryServiceTest {
     }
 
     @Test
-    @DisplayName("메시지 전송 - 150자를 넘는 메시지는 길이에 비례한 회수로 검사, 차감한다(400자 = 3회)")
+    @DisplayName("메시지 전송 - 300자를 넘는 메시지는 길이에 비례한 회수로 검사, 차감한다(700자 = 3회)")
     void sendMessage_longMessageCostsMultipleUnits() {
-        String longContent = "가".repeat(400);
+        String longContent = "가".repeat(700);
         MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, longContent));
         given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, longContent))
                 .willReturn(new MessageTxService.PreparedSend(userMessage, List.of()));

@@ -126,7 +126,9 @@ public class StoryService {
     }
 
     // 대화 1회로 치는 길이. 초과분은 회수로 환산해 긴 메시지가 무료/이용권을 비례해 쓴다(예: 400자=3회).
-    private static final int CHAT_UNIT_CHARS = 150;
+    // 대화 1회로 치는 길이. 150자는 사연을 쓰다 끊겨 흐름이 깨졌다(실측) — 300자로 올린다.
+    // 참고: 실제 원가는 길이가 아니라 호출 수가 정한다(호출당 입력 1.1만 토큰, 유저 메시지는 3~10%).
+    private static final int CHAT_UNIT_CHARS = 300;
 
     private static int chatUnits(String content) {
         return Math.max(1, (content.length() + CHAT_UNIT_CHARS - 1) / CHAT_UNIT_CHARS);
