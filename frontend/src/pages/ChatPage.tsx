@@ -14,8 +14,8 @@ import { getUsage } from '../api/usage';
 import { formatClock, formatDateDivider, isSameCalendarDate } from '../utils/datetime';
 import styles from './ChatPage.module.css';
 
-const MAX_LENGTH = 600; // 서버 검증(@Size)과 동일 값
-const UNIT_LENGTH = 150; // 대화 1회로 치는 길이 — 초과분은 회수로 환산(서버 CHAT_UNIT_CHARS와 동일 값)
+const MAX_LENGTH = 2000; // 서버 검증(@Size)과 동일 값 — 긴 사연이 600자에서 끊겨 흐름이 깨졌다(실측)
+const UNIT_LENGTH = 300; // 대화 1회로 치는 길이 — 초과분은 회수로 환산(서버 CHAT_UNIT_CHARS와 동일 값)
 const POLL_INTERVAL = 1500;
 // 백엔드 LLM 타임아웃(30초) 안에는 답 또는 폴백 메시지가 반드시 저장되므로,
 // 그보다 여유 있게 잡아 "..." 표시가 답이 올 때까지 끊기지 않게 한다.
@@ -368,14 +368,24 @@ export function ChatPage() {
             </div>
           </div>
         )}
-        {/* 150자를 넘어 회수가 올라가는 순간부터 노출 — 모르고 여러 회 쓰는 일이 없게. 평소엔 조용히.
-            '대화 N회'가 진짜 알림이라(비용) 거기만 강조하고, 글자수는 흐린 보조로 뒤에 둔다 */}
-        {(input.length > UNIT_LENGTH || input.length >= MAX_LENGTH - 60) && (
+        {/* 회수가 올라가는 순간부터 노출 — 모르고 여러 회 쓰는 일이 없게. 평소엔 조용히.
+            채운 색 대신 잔여 줄과 같은 문법(흐린 문장 + 숫자만 밝게)으로. 회수가 바뀔 때마다
+            key가 갈려 페이드가 다시 재생돼서, 색을 안 써도 변화가 눈에 들어온다 */}
+        {(input.length > UNIT_LENGTH || input.length >= MAX_LENGTH * 0.9) && (
           <div className={styles.lengthHint}>
             {input.length > UNIT_LENGTH && (
-              <span className={styles.lengthCost}>대화 {Math.ceil(input.length / UNIT_LENGTH)}회 소진</span>
+              <span
+                className={styles.lengthCost}
+                key={Math.ceil(input.length / UNIT_LENGTH)}
+              >
+                대화 <span className={styles.lengthCostNum}>{Math.ceil(input.length / UNIT_LENGTH)}회</span> 소진
+              </span>
             )}
-            <span className={styles.lengthCount}>{input.length}/{MAX_LENGTH}자</span>
+            {input.length >= MAX_LENGTH * 0.9 && (
+              <span className={styles.lengthCount}>
+                {input.length}/{MAX_LENGTH}
+              </span>
+            )}
           </div>
         )}
         <div className={styles.inputBar}>
@@ -419,7 +429,7 @@ export function ChatPage() {
               },
               {
                 heading: '대화 횟수',
-                text: '무료 대화는 하루 5회씩 제공되고, 처음 가입하면 선물로 대화 5회와 진단 1회 이용권을 드립니다(기한 없음). 한 번에 600자까지 보낼 수 있고, 150자를 넘으면 150자마다 대화 1회로 계산됩니다(예: 400자는 3회). 회수가 올라가면 입력창 위에 미리 표시됩니다. 무료 횟수를 다 쓰면 이용권으로 이어서 대화할 수 있으며, 이용권은 위 카드 모양 버튼에서 구매합니다.',
+                text: '무료 대화는 하루 5회씩 제공되고, 처음 가입하면 선물로 대화 5회와 진단 1회 이용권을 드립니다(기한 없음). 한 번에 2000자까지 보낼 수 있고, 300자를 넘으면 300자마다 대화 1회로 계산됩니다(예: 700자는 3회). 회수가 올라가면 입력창 위에 미리 표시됩니다. 무료 횟수를 다 쓰면 이용권으로 이어서 대화할 수 있으며, 이용권은 위 카드 모양 버튼에서 구매합니다.',
               },
               {
                 heading: '진단',

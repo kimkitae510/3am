@@ -284,17 +284,35 @@
   padding: 5px 20px 0;
 }
 
-/* 진짜 알림 — 150자 넘어 회수가 올라간다는 것. 라벤더로 눈에 들어오게(어두운 회색이라 안 보였다) */
+/* 회수 안내 — 채운 라벤더는 촌스러웠다(실측). 잔여 줄과 같은 문법으로: 문장은 흐리게,
+   숫자만 밝게. 회수가 바뀔 때마다 key가 갈려 이 페이드가 재생돼 변화가 눈에 들어온다 */
 .lengthCost {
-  color: #c9b3e2;
-  font-size: 12px;
-  font-weight: 600;
+  color: var(--text-sub);
+  font-size: 11.5px;
+  animation: lh-in 0.28s ease;
 }
 
-/* 글자수는 보조 정보 — 흐리게 뒤에 */
+.lengthCostNum {
+  color: var(--text);
+  font-weight: 700;
+}
+
+@keyframes lh-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 글자수는 상한 근처(90%)에서만 — 평소엔 셀 이유가 없다 */
 .lengthCount {
-  color: var(--text-sub);
+  color: var(--text-muted);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .inputBar {
