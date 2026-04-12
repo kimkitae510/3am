@@ -368,26 +368,32 @@ export function ChatPage() {
             </div>
           </div>
         )}
-        {/* 회수가 올라가는 순간부터 노출 — 모르고 여러 회 쓰는 일이 없게. 평소엔 조용히.
-            채운 색 대신 잔여 줄과 같은 문법(흐린 문장 + 숫자만 밝게)으로. 회수가 바뀔 때마다
-            key가 갈려 페이드가 다시 재생돼서, 색을 안 써도 변화가 눈에 들어온다 */}
-        {(input.length > UNIT_LENGTH || input.length >= MAX_LENGTH * 0.9) && (
-          <div className={styles.lengthHint}>
-            {input.length > UNIT_LENGTH && (
-              <span
-                className={styles.lengthCost}
-                key={Math.ceil(input.length / UNIT_LENGTH)}
-              >
-                대화 <span className={styles.lengthCostNum}>{Math.ceil(input.length / UNIT_LENGTH)}회</span> 소진
-              </span>
-            )}
-            {input.length >= MAX_LENGTH * 0.9 && (
+        {/* 회수가 올라가는 걸 '넘긴 뒤'에 알리면 유저는 놀란다(도움말을 다 읽지도 않는다).
+            경계 60자 전부터 미리 예고하고, 넘긴 뒤엔 현재 회수를 보여준다. 글자수는 안내가
+            떠 있는 동안 늘 같이 — 숫자가 올라가는 걸 봐야 길이와 회수의 관계가 이해된다.
+            색은 안 쓰고(촌스러웠다) 흐린 문장 + 숫자만 밝게, 회수가 바뀌면 key가 갈려 페이드 재생 */}
+        {(() => {
+          const units = Math.ceil(input.length / UNIT_LENGTH);
+          const nextBoundary = units * UNIT_LENGTH;
+          const nearNext = input.length > 0 && nextBoundary - input.length <= 60;
+          if (units <= 1 && !nearNext) return null;
+          return (
+            <div className={styles.lengthHint}>
+              {nearNext ? (
+                <span className={styles.lengthCost} key={`n${units}`}>
+                  <span className={styles.lengthCostNum}>{nextBoundary}자</span>부터 대화 {units + 1}회
+                </span>
+              ) : (
+                <span className={styles.lengthCost} key={units}>
+                  대화 <span className={styles.lengthCostNum}>{units}회</span> 소진
+                </span>
+              )}
               <span className={styles.lengthCount}>
                 {input.length}/{MAX_LENGTH}
               </span>
-            )}
-          </div>
-        )}
+            </div>
+          );
+        })()}
         <div className={styles.inputBar}>
           <textarea
             className={styles.input}
