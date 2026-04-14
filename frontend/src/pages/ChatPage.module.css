@@ -131,6 +131,11 @@
   word-break: break-word;
 }
 
+/* 한 풍선 안의 문장들 — 줄바꿈만으로는 바로 밑에 붙어 빽빽했다(실측). 문장 사이를 띄운다 */
+.bubbleLine + .bubbleLine {
+  margin-top: 9px;
+}
+
 .assistant {
   align-self: flex-start;
   background: var(--card);

@@ -28,11 +28,6 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // 걔한테는 울지 마")로 보고 한 풍선에 남긴다.
 const LONG_LINE = 20;
 
-// 한 답변이 만들 수 있는 말풍선 상한 — 모델이 길게 쏟아내면 풍선이 대여섯 개씩 쌓여
-// 숨 막힌다(실측). 프롬프트로도 3개 이내를 요구하지만, 어겨도 화면은 안 무너지게 여기서 자른다.
-// 초과분은 마지막 풍선에 합쳐 내용은 하나도 잃지 않는다.
-const MAX_BUBBLES = 3;
-
 // 장문 답변을 말풍선으로 쪼갠다 — 사람이 나눠 보내는 것처럼.
 // 빈 줄은 항상 경계. 문단 안 줄바꿈은 길이 기준 하이브리드로만 가른다:
 // 전부 가르면 모든 답이 또박또박 기관총이 되고, 안 가르면 긴 문장 뭉침이 재발한다.
@@ -52,13 +47,8 @@ function splitParagraphs(text: string): string[] {
     if (lines.some((line) => line.length < LONG_LINE)) return [p];
     return lines;
   });
-  if (parts.length === 0) return [text];
-  // 상한 초과분은 마지막 풍선에 합친다 — 잘라 버리면 답이 사라지므로 합치기만 한다.
-  if (parts.length > MAX_BUBBLES) {
-    const head = parts.slice(0, MAX_BUBBLES - 1);
-    return [...head, parts.slice(MAX_BUBBLES - 1).join('\n')];
-  }
-  return parts;
+  // 풍선 개수는 제한하지 않는다 — 분량은 페르소나가 내용에 맞게 정하고, 화면은 그대로 보여준다.
+  return parts.length > 0 ? parts : [text];
 }
 
 export function ChatPage() {
@@ -299,7 +289,13 @@ export function ChatPage() {
                     {segs.slice(0, shown).map((seg, si) => (
                       <div className={`${styles.msgRow} ${m.role === 'USER' ? styles.msgRowUser : ''}`} key={si}>
                         <div className={`${styles.bubble} ${m.role === 'USER' ? styles.user : styles.assistant}`}>
-                          {seg}
+                          {/* 한 풍선 안 여러 문장은 줄만 바꾸면 바로 밑에 붙어 답답하다(실측) —
+                              문장마다 블록으로 나눠 사이를 띄운다 */}
+                          {seg.split('\n').map((line, li) => (
+                            <div className={styles.bubbleLine} key={li}>
+                              {line}
+                            </div>
+                          ))}
                         </div>
                         {/* 시각은 묶음의 마지막 조각에만, 그것도 전부 공개된 뒤에 */}
                         {showTime && shown === segs.length && si === shown - 1 && (
