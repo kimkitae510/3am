@@ -22,32 +22,15 @@ const POLL_INTERVAL = 1500;
 const POLL_TIMEOUT = 45000;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// 문단 안 줄바꿈을 문장 경계로 추가 분리할지 판단하는 길이 기준.
-// 양쪽 다 이보다 길면 "긴 문장 두 개가 뭉친 것"으로 보고 가른다(실측: '다행이네 +
-// 마지막 인상이 될 거야' 뭉침). 한쪽이라도 짧으면 의도된 연속타("울어도 돼 / 근데
-// 걔한테는 울지 마")로 보고 한 풍선에 남긴다.
-const LONG_LINE = 20;
-
 // 장문 답변을 말풍선으로 쪼갠다 — 사람이 나눠 보내는 것처럼.
-// 빈 줄은 항상 경계. 문단 안 줄바꿈은 길이 기준 하이브리드로만 가른다:
-// 전부 가르면 모든 답이 또박또박 기관총이 되고, 안 가르면 긴 문장 뭉침이 재발한다.
-// 저장은 한 덩어리 그대로라 재입장 시에도 같은 규칙으로 똑같이 쪼개진다.
+// 경계는 '빈 줄'만이다. 문장마다 들어오는 줄바꿈(\n)까지 가르면 문장 하나가 곧 말풍선
+// 하나가 돼서 채팅이 대여섯 개씩 쏟아진다(실측) — 줄바꿈은 풍선 안에 남겨 문장을 띄우고,
+// 풍선은 빈 줄에서만 나눈다. 저장은 한 덩어리라 재입장 시에도 똑같이 쪼개진다.
 function splitParagraphs(text: string): string[] {
-  const paragraphs = text
+  const parts = text
     .split(/\n{2,}/)
     .map((s) => s.trim())
     .filter(Boolean);
-  const parts = paragraphs.flatMap((p) => {
-    const lines = p
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (lines.length < 2) return [p];
-    // 짧은 줄이 하나라도 끼면 연속타 문단으로 보고 통째로 유지
-    if (lines.some((line) => line.length < LONG_LINE)) return [p];
-    return lines;
-  });
-  // 풍선 개수는 제한하지 않는다 — 분량은 페르소나가 내용에 맞게 정하고, 화면은 그대로 보여준다.
   return parts.length > 0 ? parts : [text];
 }
 
