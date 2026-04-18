@@ -18,6 +18,7 @@ import com.threeam.llm.LlmJson;
 import com.threeam.story.entity.StoryFact;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -74,12 +75,90 @@ public class ReunionLlm {
                         + "하나로 합쳐라(예: '전남편을 만나러 감'이 환승 감점과 신뢰 파탄 감점 양쪽에 — 이중 계상). "
                         + "3) 상대가 최근 먼저 연락해 그리움을 표현하거나 만남, 대화를 제안했으면 "
                         + "그보다 과거인 마음 축 감점(단호함, 거절, 선 긋기)은 덮어쓰지 않았는지 확인하고, "
-                        + "합산 결과가 캘리브레이션 표의 해당 대역(재회 의사 내비침 70~85)과 크게 어긋나면 다시 훑어라."));
+                        + "합산 결과가 캘리브레이션 표의 해당 대역(재회 의사 내비침 70~85)과 크게 어긋나면 다시 훑어라. "
+                        + "4) guidance의 do와 dont가 같은 장면, 같은 사건을 다루고 있으면 앞뒷면이니 하나로 합쳐라 "
+                        + "(실측: do '연락 시도와 SNS 확인 멈추기' / dont '부계정, 지인 통해 우회 연락하기' — 둘 다 연락 시도 하나다). "
+                        + "표현이 달라 보여도 같은 사건이면 중복이고, 두 항목을 남기려면 서로 다른 장면이어야 한다. "
+                        + "5) rationale이 '재회한 뒤가 어떨지'를 말하고 있으면 고쳐라 — 이 진단이 재는 건 상대가 "
+                        + "돌아올 확률 하나뿐이다('다시 만나도 같은 문제가 반복된다'류는 rationale이 아니라 총평 몫)."));
         // 진단은 긴 루브릭 일관 적용이 필요해 정밀 판단 경로로 — 설정에 따라 더 강한 모델이 배정된다.
         // 파싱 실패의 자동 재시도는 넣었다 뺐다 — 실패마다 진단 1회분(입력 17k)이 소리 없이 2배
-        // 과금된다. 재시도는 유저의 버튼으로, 반복 실패는 실패 가드의 쿨다운으로 관리한다.
-        return llmClient.generateJsonDeep(prompt).thenApply(this::parse);
+        // 과금된다. 게다가 같은 입력의 즉시 재시도는 temperature 0이라 같은 실패를 그대로 재생산한다
+        // (실측: 25초 뒤 재시도가 토큰 수까지 동일하게 실패). 재시도는 유저의 버튼으로,
+        // 반복 실패는 실패 가드의 쿨다운으로 관리한다.
+        return llmClient.generateJsonDeep(prompt, RESPONSE_SCHEMA).thenApply(this::parse);
     }
+
+    // 세 판단 축. 항목마다 axis를 강제해서 "나쁜 행동 = 감점" 같은 도덕 채점을 걸러낸다.
+    // RESPONSE_SCHEMA가 클래스 초기화 때 이 값을 읽으므로 반드시 그보다 먼저 선언한다.
+    private static final Set<String> AXES = Set.of("마음", "복구가능성", "구조");
+
+    // 감점/가점 항목의 스키마. axis를 enum으로 못 박는 게 핵심 — 축 없는 항목은 파싱 단계에서
+    // 폐기되고, 전량 폐기되면 진단이 통째로 INSUFFICIENT로 강등된다(아래 전량 폐기 가드).
+    // 생성 단계에서 세 축 밖의 값이 나올 수 없게 하면 그 경로 자체가 닫힌다.
+    private static Map<String, Object> pointItemSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "signal", Map.of("type", "STRING"),
+                        "axis", Map.of("type", "STRING", "enum", List.copyOf(AXES)),
+                        "points", Map.of("type", "INTEGER"),
+                        "evidence", Map.of("type", "STRING"),
+                        "rationale", Map.of("type", "STRING")),
+                // rationale까지 필수 — 루브릭이 "반드시 채워라"로 지시하는데도 자주 비는 항목이다.
+                "required", List.of("signal", "axis", "points", "evidence", "rationale"),
+                "propertyOrdering", List.of("signal", "axis", "points", "evidence", "rationale"));
+    }
+
+    private static Map<String, Object> guidanceListSchema() {
+        return Map.of(
+                "type", "ARRAY",
+                "items", Map.of(
+                        "type", "OBJECT",
+                        "properties", Map.of(
+                                "text", Map.of("type", "STRING"),
+                                "basis", Map.of("type", "STRING")),
+                        "required", List.of("text", "basis"),
+                        "propertyOrdering", List.of("text", "basis")));
+    }
+
+    // 진단 응답의 문법을 생성 단계에서 강제하는 스키마. 프롬프트(rubric.yml)의 JSON 지시와 짝이며,
+    // 루브릭을 고쳐 필드가 바뀌면 여기도 같이 고쳐야 한다 — 스키마에 없는 필드는 모델이 낼 수 없다.
+    // propertyOrdering은 루브릭이 가르친 순서와 맞춘다(모델이 배운 순서대로 생성해야 판단 품질이 유지된다).
+    private static final Map<String, Object> RESPONSE_SCHEMA = Map.ofEntries(
+            Map.entry("type", "OBJECT"),
+            Map.entry("properties", Map.ofEntries(
+                    Map.entry("verdict", Map.of("type", "STRING",
+                            "enum", List.of("POSSIBLE", "INSUFFICIENT", "DATING", "REUNITED"))),
+                    Map.entry("partnerAttachment", Map.of("type", "STRING", "nullable", true,
+                            "enum", List.of("SECURE", "ANXIOUS", "AVOIDANT", "FEARFUL"))),
+                    Map.entry("attachmentConfidence", Map.of("type", "STRING", "nullable", true,
+                            "enum", List.of("CONFIRMED", "TENTATIVE"))),
+                    Map.entry("attachmentSignals", Map.of("type", "ARRAY", "items", Map.of(
+                            "type", "OBJECT",
+                            "properties", Map.of(
+                                    "signal", Map.of("type", "STRING"),
+                                    "evidence", Map.of("type", "STRING")),
+                            "required", List.of("signal", "evidence"),
+                            "propertyOrdering", List.of("signal", "evidence")))),
+                    Map.entry("activeReunionOffer", Map.of("type", "BOOLEAN")),
+                    Map.entry("deductions", Map.of("type", "ARRAY", "items", pointItemSchema())),
+                    Map.entry("boosts", Map.of("type", "ARRAY", "items", pointItemSchema())),
+                    Map.entry("guidance", Map.of(
+                            "type", "OBJECT",
+                            "properties", Map.of(
+                                    "do", guidanceListSchema(),
+                                    "dont", guidanceListSchema()),
+                            "propertyOrdering", List.of("do", "dont"))),
+                    Map.entry("reason", Map.of("type", "STRING")),
+                    Map.entry("summary", Map.of("type", "STRING")),
+                    Map.entry("newFacts", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))))),
+            // 배열류는 필수에서 뺀다 — DATING, REUNITED, INSUFFICIENT 판정은 루브릭이
+            // deductions, boosts를 비우라고 지시하는데 필수로 걸면 억지로 채우게 된다.
+            Map.entry("required", List.of("verdict", "activeReunionOffer", "reason", "summary")),
+            Map.entry("propertyOrdering", List.of("verdict", "partnerAttachment", "attachmentConfidence",
+                    "attachmentSignals", "activeReunionOffer", "deductions", "boosts", "guidance",
+                    "reason", "summary", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
         try {
@@ -130,17 +209,27 @@ public class ReunionLlm {
                     deductions, boosts, guidance,
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
-            // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 로그에 원문을 남기지 않고
-            // 길이와 잘림 여부만 남긴다(닫는 중괄호로 안 끝나면 중간에 잘린 응답 — finishReason 로그와 짝).
+            // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
+            // 다만 잘린 지점이 어디냐가 원인을 가른다: 문자열 중간에서 끊겼으면 하드 절단(상한, 스트림),
+            // 항목 경계에서 깔끔히 끝났으면 모델이 구조를 놓고 멈춘 것. 그 판별에 필요한 꼬리만 남긴다.
             boolean truncated = json != null && !json.trim().endsWith("}");
-            log.error("재회 진단 JSON 파싱 실패 (본문 길이 {}자, 잘림 의심={})",
-                    json == null ? 0 : json.length(), truncated, e);
+            log.error("재회 진단 JSON 파싱 실패 (본문 길이 {}자, 잘림 의심={}, 꼬리=[{}])",
+                    json == null ? 0 : json.length(), truncated, tail(json), e);
             throw new LlmException();
         }
     }
 
-    // 세 판단 축. 항목마다 axis를 강제해서 "나쁜 행동 = 감점" 같은 도덕 채점을 걸러낸다.
-    private static final Set<String> AXES = Set.of("마음", "복구가능성", "구조");
+    // 잘림 원인 판별용 꼬리 길이. 짧게 잡는다 — 진단 문장이 통째로 남으면 로그가 개인정보 저장소가 된다.
+    private static final int TAIL_LENGTH = 120;
+
+    private String tail(String json) {
+        if (json == null || json.isEmpty()) {
+            return "";
+        }
+        String trimmed = json.stripTrailing();
+        return trimmed.length() <= TAIL_LENGTH ? trimmed
+                : trimmed.substring(trimmed.length() - TAIL_LENGTH);
+    }
 
     // 한 항목이 움직일 수 있는 점수 상한. 앵커 최대치(30)보다 넉넉히 두되, LLM이 실수로 뱉는
     // 폭주값(예: 9999)이 그대로 저장되지 않게 막는다. 부호는 Deduction에서 감점/가점으로 통일된다.
