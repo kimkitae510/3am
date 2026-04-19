@@ -13,7 +13,6 @@ import { getUsage } from '../api/usage';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import { GAUGE_MAX, bandLabel } from '../utils/assessmentScale';
-import { ATTACHMENT_PROFILES, ATTACHMENT_PROFILE_NOTE } from '../utils/attachmentProfiles';
 import styles from './AssessmentPage.module.css';
 
 // 수치 계산 방식(범위, 단계 기준)은 화면에 공개하지 않는다 — "왜 80이 최대냐" 같은 질문만 만든다.
@@ -110,9 +109,13 @@ export function AssessmentPage() {
   const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
   const [isGuest, setIsGuest] = useState(false); // 게스트는 진단 잠금 — 계정 연결 유도
   const [showHelp, setShowHelp] = useState(false);
-  const [showTypeDetail, setShowTypeDetail] = useState(false); // 유형 상세 프로필 펼침
   const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
   const [retracting, setRetracting] = useState(false); // 제안 번복 API 진행 중
+  // 진단 생성이 실패했을 때 뜨는 재시도 패널. 스스로 사라지는 에러 배너와 달리, 유저가 누를
+  // 때까지 남는다 — "다시 진단을 눌러 주세요"라고 시키는 대신 누를 것을 화면에 둔다.
+  const [retryable, setRetryable] = useState(false);
+  // 연속 실패 쿨다운의 남은 초(서버가 내려준 값에서 시작). 0이면 즉시 재시도 가능.
+  const [cooldown, setCooldown] = useState(0);
   const aliveRef = useRef(true);
 
   // 에러 배너(쿼터 소진, 재진단 거부 등)가 화면에 계속 남지 않게 잠시 뒤 스스로 사라진다.
@@ -121,6 +124,14 @@ export function AssessmentPage() {
     const timer = window.setTimeout(() => aliveRef.current && setError(''), 6000);
     return () => clearTimeout(timer);
   }, [error]);
+
+  // 쿨다운 카운트다운. 매 초 setTimeout을 새로 거는 방식이라 interval이 어긋나 쌓이지 않고,
+  // 0이 되면 재시도 버튼이 새로고침 없이 스스로 살아난다.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => aliveRef.current && setCooldown(cooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   async function handleConfirmBreakup() {
     setConfirming(true);
@@ -181,9 +192,22 @@ export function AssessmentPage() {
         // 이야기 부족(INSUFFICIENT)은 결과가 아니라 안내다 — 기존 결과는 그대로 두고
         // 사라지지 않는 안내 배너로 띄운다(저장도 안 되는 임시 응답이라 결과 자리를 차지하면 안 된다).
         if (res.verdict === 'INSUFFICIENT') {
-          setNotice(res.reason);
+          // 쿨다운으로 막힌 응답은 안내가 아니라 재시도 대상이다 — 패널이 사유와 남은 시간을
+          // 함께 보여주므로 같은 말을 배너로 또 띄우지 않는다.
+          if (res.retryAfterSeconds) {
+            setNotice('');
+            setRetryable(true);
+            setCooldown(res.retryAfterSeconds);
+          } else {
+            // 이야기 부족은 재시도가 답이 아니다(대화가 답) — 재시도 패널을 띄우지 않는다.
+            setNotice(res.reason);
+            setRetryable(false);
+            setCooldown(0);
+          }
         } else {
           setNotice('');
+          setRetryable(false);
+          setCooldown(0);
           // 새 결과로 갈아끼우기 전, 화면에 있던 확률이 이번 결과의 비교 기준이 된다.
           setPrevProb(result?.probability ?? null);
           setResult(res);
@@ -195,14 +219,18 @@ export function AssessmentPage() {
       // 구매 권유가 이중이 된다 — 배너는 상태만 알리고, 동선은 링크 하나를 가리킨다(채팅과 동일 패턴).
       if (aliveRef.current) {
         const code = extractErrorCode(e);
-        // L001(생성 실패)의 백엔드 문구는 기계 티가 난다 — 미차감 사실과 다음 행동까지 붙여준다.
-        setError(
-          code === 'Q001'
-            ? '오늘 진단 횟수를 다 썼어요. 아래 충전하기로 이어갈 수 있어요.'
-            : code === 'L001'
-              ? '진단을 만들지 못했어요. 다시 진단을 눌러 주세요. 실패한 진단은 차감되지 않아요.'
+        // L001(생성 실패)은 사라지는 배너로 처리하지 않는다. 유저가 할 일이 '다시 시도'인데
+        // 6초 뒤 배너가 사라지면 무엇을 눌러야 할지가 화면에서 없어진다 — 재시도 패널로 넘긴다.
+        if (code === 'L001') {
+          setRetryable(true);
+          setCooldown(0);
+        } else {
+          setError(
+            code === 'Q001'
+              ? '오늘 진단 횟수를 다 썼어요. 아래 충전하기로 이어갈 수 있어요.'
               : extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'),
-        );
+          );
+        }
       }
     } finally {
       if (aliveRef.current) setDiagnosing(false);
@@ -249,6 +277,26 @@ export function AssessmentPage() {
         </button>
       </div>
     ) : null;
+
+  // 진단 생성 실패와 연속 실패 쿨다운의 공용 조각. 결과가 있을 때(배너 자리)와 없을 때(빈 화면)
+  // 양쪽에서 같은 모양으로 쓰인다 — 실패 화면이 두 벌로 갈라지지 않게.
+  const retryPanel = retryable ? (
+    <div className={styles.retryPanel}>
+      <div className={styles.retryTitle}>
+        {cooldown > 0 ? '연이어 실패해서 잠시 쉬어가요' : '진단을 만들지 못했어요'}
+      </div>
+      <div className={styles.retryBody}>실패한 진단은 횟수가 차감되지 않았어요</div>
+      {cooldown > 0 && (
+        // 남은 시간은 숫자 하나로만. 초 단위로 줄어드는 게 보여야 "그냥 기다리라"는 말과 달라진다.
+        <div className={styles.retryClock} aria-live="off">
+          {Math.floor(cooldown / 60)}:{String(cooldown % 60).padStart(2, '0')}
+        </div>
+      )}
+      <button className={styles.retryBtn} onClick={diagnose} disabled={cooldown > 0}>
+        다시 시도
+      </button>
+    </div>
+  ) : null;
 
   if (loading || diagnosing) {
     return (
@@ -331,25 +379,31 @@ export function AssessmentPage() {
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>
-            {notice ? (
-              <div className={styles.stateBody}>{notice}</div>
-            ) : (
-              <>
-                <div className={styles.stateTitle}>아직 진단 기록이 없어요</div>
-                <div className={styles.stateBody}>
-                  지금까지의 대화를 읽고 재회 가능성을 진단해요
-                  <br />
-                  대화를 충분히 나눌수록 정확해져요
-                </div>
-              </>
+            {retryPanel ?? (
+              notice ? (
+                <div className={styles.stateBody}>{notice}</div>
+              ) : (
+                <>
+                  <div className={styles.stateTitle}>아직 진단 기록이 없어요</div>
+                  <div className={styles.stateBody}>
+                    지금까지의 대화를 읽고 재회 가능성을 진단해요
+                    <br />
+                    대화를 충분히 나눌수록 정확해져요
+                  </div>
+                </>
+              )
             )}
           </div>
           {remainingHint}
-          <div className={styles.footer}>
-            <button className={styles.btnPrimary} onClick={diagnose}>
-              진단 받기
-            </button>
-          </div>
+          {/* 재시도 패널이 떠 있으면 그 안의 버튼이 유일한 동선이다 — 같은 일을 하는 버튼을
+              하단에 또 두면 쿨다운 중 비활성 버튼과 활성 버튼이 나란히 보인다 */}
+          {!retryPanel && (
+            <div className={styles.footer}>
+              <button className={styles.btnPrimary} onClick={diagnose}>
+                진단 받기
+              </button>
+            </div>
+          )}
         </div>
       </PhoneFrame>
     );
@@ -391,6 +445,7 @@ export function AssessmentPage() {
             {notice}
           </div>
         )}
+        {retryPanel}
         <div className={styles.body}>
           <div className={styles.meta}>마지막 진단 {metaDate}</div>
 
@@ -524,54 +579,10 @@ export function AssessmentPage() {
             </div>
           )}
 
-          {/* 상대 유형만 판정한다(내 유형 폐기 — 여기서 궁금한 건 상대다). 일반 설명은 도움말 모달로.
-              판정 근거도 감점 신호처럼 목록으로 보여준다. 추정(TENTATIVE)이면 단정 대신 "~로 보여요" 톤. */}
-          <SectionHead title="상대 애착유형" />
-          <div className={styles.typeRow}>
-            <div className={styles.typeCard}>
-              {/* 확정: 이름 + 확신도 라벨 한 줄. 미확정: 큰 이름("미확정") 대신 안내 한 덩어리로
-                  — 큰 글자 하나만 뜨면 빈 카드처럼 붕 떠 보였다(실측) */}
-              {result.partnerAttachment ? (
-                <div className={styles.typeHead}>
-                  <div className={styles.typeName}>{result.partnerAttachment}</div>
-                  {result.attachmentConfidence === 'TENTATIVE' && (
-                    <span className={styles.typeBadge}>추정</span>
-                  )}
-                </div>
-              ) : (
-                <div className={styles.typeUnknown}>
-                  <div className={styles.typeUnknownTitle}>아직 유형을 잡지 못했어요</div>
-                  <div className={styles.typeUnknownNote}>
-                    갈등이 있을 때 상대가 어떻게 반응했는지, 이별을 어떤 방식으로 전했는지
-                    들려주면 다음 진단에서 잡을 수 있어요.
-                  </div>
-                </div>
-              )}
-              {result.attachmentSignals.length > 0 && (
-                <div className={styles.typeSignals}>
-                  {/* 근거 목록에 이름표가 없으면 유형 설명인지 근거인지 안 갈린다(실측 피드백) */}
-                  <div className={styles.typeSignalsLabel}>판정 근거</div>
-                  {result.attachmentSignals.map((s, i) => (
-                    <div className={styles.typeSignal} key={i}>
-                      <div className={styles.typeSignalName}>{s.signal}</div>
-                      {s.evidence && <div className={styles.typeSignalEvidence}>{s.evidence}</div>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* 유형 상세 — 카드 안에 펼치면 판정 근거와 프로필이 한 더미로 쌓여 복잡했다(실측).
-                  도움말과 같은 모달 문법으로 꺼낸다. 근거 없는 통념("회피형은 몇 달 뒤 무너져
-                  돌아온다")은 본문에서 통념임을 명시해 대기 심리를 안 부추긴다 */}
-              {result.partnerAttachment && ATTACHMENT_PROFILES[result.partnerAttachment] && (
-                <button className={styles.typeMoreBtn} onClick={() => setShowTypeDetail(true)}>
-                  이 유형 더 알아보기
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M10 8l4 4-4 4" stroke="#B89DD1" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
+          {/* 상대 애착유형은 화면에서 뺐다 — 라벨만 던져놓고 갈 곳이 없어 포지션이 애매했고
+              ("이게 왜 이 유형이야?" 논쟁만 남음), 얇은 근거로 사람에 이름표를 붙이는 위험도 컸다.
+              판정은 계속 한다: 유형은 가이드를 상대에 맞게 만드는 내부 렌즈로만 쓰인다
+              (회피형이면 감정적 대면 요구 금지, 불안형이면 의도적 냉담 금지 등 — 루브릭 규칙). */}
 
           {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다.
               카드 구조: 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스) — 층이 한눈에 갈리게.
@@ -683,40 +694,12 @@ export function AssessmentPage() {
           <button className={styles.btnGhost} onClick={() => navigate(`/stories/${storyId}/history`)}>
             기록
           </button>
-          <button className={styles.btnPrimary} onClick={diagnose}>
+          {/* 쿨다운 중엔 여기서도 막는다 — 위 패널은 비활성인데 아래로 우회되면 서버만 거절하고
+              화면은 왜 안 되는지 말해주지 않는 상태가 된다 */}
+          <button className={styles.btnPrimary} onClick={diagnose} disabled={cooldown > 0}>
             다시 진단 (1회 차감)
           </button>
         </div>
-
-        {showTypeDetail && result.partnerAttachment && ATTACHMENT_PROFILES[result.partnerAttachment] && (
-          <HelpModal
-            title={result.partnerAttachment}
-            onClose={() => setShowTypeDetail(false)}
-            showContact={false}
-            sections={[
-              {
-                heading: '연애할 때',
-                text: ATTACHMENT_PROFILES[result.partnerAttachment].during.join('\n'),
-              },
-              {
-                heading: '이별 후에는',
-                text: ATTACHMENT_PROFILES[result.partnerAttachment].after.join('\n'),
-              },
-              {
-                heading: '이 유형을 대할 때',
-                text: ATTACHMENT_PROFILES[result.partnerAttachment].approach.join('\n'),
-              },
-              {
-                heading: '흔한 오해',
-                text: ATTACHMENT_PROFILES[result.partnerAttachment].myths.join('\n'),
-              },
-              {
-                heading: '참고',
-                text: ATTACHMENT_PROFILE_NOTE,
-              },
-            ]}
-          />
-        )}
 
         {showHelp && (
           <HelpModal
@@ -736,12 +719,8 @@ export function AssessmentPage() {
                 text: '확률을 낮춘 신호와 올린 신호를 근거와 함께 보여드려요. 각 신호를 얼마나 무겁게 봤는지는 결정적, 중요, 참고로 나뉘어요. 무거운 신호부터 위에 옵니다.',
               },
               {
-                heading: '상대 애착유형',
-                text: '상대가 이별과 갈등에서 보인 행동 패턴으로 유형을 봅니다. 안정형, 불안형, 거부회피형, 공포회피형 네 가지가 있고, 각 유형의 자세한 설명은 유형 카드의 "이 유형 더 알아보기"에서 볼 수 있어요. 근거가 아직 얇으면 추정 표시가 붙고, 이야기가 쌓이면 분명해집니다.',
-              },
-              {
                 heading: '행동 가이드',
-                text: '이번 진단의 신호와 상대 유형을 근거로 지금 하면 좋은 것(하기)과 피하면 좋은 것(피하기)을 제안합니다. 상대를 되돌리는 기술이 아니라 나를 지키면서 남은 가능성을 깎지 않는 방향의 제안이고, 결정은 언제나 내 몫입니다.',
+                text: '이번 진단의 신호와, 상대가 갈등과 이별에서 보인 행동 패턴을 함께 읽어 지금 하면 좋은 것과 피하면 좋은 것을 제안합니다. 상대를 되돌리는 기술이 아니라 나를 지키면서 남은 가능성을 깎지 않는 방향의 제안이고, 결정은 언제나 내 몫입니다.',
               },
               {
                 heading: '진단 횟수',

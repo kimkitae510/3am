@@ -292,108 +292,6 @@
   line-height: 1.65;
 }
 
-/* 유형 카드 */
-/* 섹션 머리가 이미 아래 여백(10px)을 주므로 카드는 붙인다 — 20px를 더하면 제목이 붕 뜬다(실측) */
-.typeRow {
-  display: flex;
-  gap: 10px;
-}
-
-.typeCard {
-  flex: 1;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px;
-}
-
-/* 유형명 + 확신도 라벨 한 줄 */
-.typeHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.typeName {
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-/* 확신도 라벨 — 문장("~으로 보여요") 대신 흐린 한 단어 */
-.typeBadge {
-  color: var(--text-muted);
-  font-size: 11.5px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-/* 미확정은 판정이 아니라 공백 — 확정 유형과 같은 무게(흰 600)로 두면 결과처럼 읽힌다 */
-/* 미확정 상태 — 큰 이름 없이 안내 한 덩어리로(빈 카드처럼 보이지 않게) */
-.typeUnknownTitle {
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.typeUnknownNote {
-  color: var(--text-sub);
-  font-size: 12.5px;
-  margin-top: 5px;
-  line-height: 1.65;
-}
-
-/* 유형 판정 근거 목록 — 카드 안에서 구분선으로 나뉜다(잠금 카드의 lockAskRow와 같은 문법) */
-.typeSignals {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.typeSignalsLabel {
-  color: var(--text-muted);
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.typeSignalName {
-  color: var(--text);
-  font-size: 13.5px;
-  font-weight: 600;
-}
-
-.typeSignalEvidence {
-  color: #b3b0bc;
-  font-size: 12.5px;
-  margin-top: 2px;
-  line-height: 1.5;
-}
-
-/* 유형 상세 펼침 버튼 — 토스 문법의 풀폭 회색 칩(맨글자 링크는 카드 안에서 묻혔다) */
-/* 유형 상세 진입 — 채운 버튼은 만든 티가 났다(실측). 카드 안 구분선 행 + 쉐브론(토스 리스트 문법),
-   색은 쉐브론 아이콘만 라벤더 */
-.typeMoreBtn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  margin-top: 12px;
-  padding: 11px 2px 1px;
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: transparent;
-  color: var(--text);
-  font-size: 12.5px;
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-}
-
-/* (유형 상세 프로필은 카드 안 펼침 대신 HelpModal로 이동 — 인라인 스타일 제거) */
 
 /* 섹션 머리 — 선 장식 없이 제목 무게와 여백으로만 구획(선을 흘리던 이전 버전은 장식이 많았다) */
 .sectionHead {
@@ -679,3 +577,61 @@
   cursor: default;
 }
 
+
+/* 진단 생성 실패 / 연속 실패 쿨다운 패널.
+   사라지는 에러 배너와 달리 유저가 누를 때까지 남는다 — 실패했을 때 할 일(재시도)이
+   문장이 아니라 누를 것으로 화면에 있어야 한다. */
+.retryPanel {
+  margin: 10px 18px 0;
+  padding: 18px 16px 16px;
+  border-radius: 14px;
+  background: #272430;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.retryTitle {
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.retryBody {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* 남은 시간. 숫자만 밝게 두고 라벨은 붙이지 않는다 — 버튼이 비활성인 맥락에서
+   이 숫자가 무엇인지는 자명하다. 폭이 흔들리지 않게 tabular-nums. */
+.retryClock {
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.retryBtn {
+  margin-top: 10px;
+  width: 100%;
+  height: 46px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.retryBtn:disabled {
+  background: #322f3c;
+  color: var(--text-muted);
+  cursor: default;
+}
