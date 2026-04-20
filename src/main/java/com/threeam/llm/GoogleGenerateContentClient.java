@@ -251,14 +251,23 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             return;
         }
         int total = usage.path("totalTokenCount").asInt(0);
+        int input = usage.path("promptTokenCount").asInt(0);
+        // 캐시 적중 토큰. input에 포함된 값이라 따로 빼서 봐야 "얼마가 할인가로 나갔는지"가 보인다.
+        // 캐시 단가는 입력의 10%라(3.1 Pro 기준 $2.00 → $0.20) 이 비율이 곧 비용 구조다.
+        // 루브릭, 페르소나가 프롬프트 맨 앞에 있어 암묵적 캐싱 조건은 이미 갖춰져 있는데,
+        // 실제로 맞고 있는지는 이 값 없이 알 수 없어 명시적 캐싱 도입 판단이 불가능했다.
+        int cached = usage.path("cachedContentTokenCount").asInt(0);
         // thoughts(추론) 토큰을 따로 남긴다 — output이 작게 잘렸을 때 추론이 예산을 먹었는지 가려낸다.
-        log.info("{} {} 토큰 사용: input={}, output={}, thoughts={}, total={}",
+        log.info("{} {} 토큰 사용: input={}(캐시 {} / 신규 {}), output={}, thoughts={}, total={}",
                 providerName(), kind,
-                usage.path("promptTokenCount").asInt(0),
+                input, cached, input - cached,
                 usage.path("candidatesTokenCount").asInt(0),
                 usage.path("thoughtsTokenCount").asInt(0),
                 total);
         // 토큰 총량 분포 — 프롬프트 창, 추출 호출이 비용에 미치는 영향을 실측으로 집계한다.
         Metrics.summary("llm.tokens.total", "provider", providerName()).record(total);
+        // 캐시 적중률은 호출 종류마다 다르다(채팅은 연속 호출이라 잘 맞고, 진단은 띄엄띄엄해서 불리).
+        // 종류별로 갈라 집계해야 어느 쪽에 명시적 캐싱이 필요한지가 갈린다.
+        Metrics.summary("llm.tokens.cached", "provider", providerName(), "kind", kind).record(cached);
     }
 }
