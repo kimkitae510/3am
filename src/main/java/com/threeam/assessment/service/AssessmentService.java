@@ -65,9 +65,12 @@ public class AssessmentService {
             }
             // 실패 재시도 가드: 실패는 후차감(미차감)이라, 같은 재료가 계속 같은 이유(안전성 차단,
             // 응답 잘림 등)로 실패하면 무한 무료 LLM 호출 루프가 된다(실측). 연속 2회부터 LLM 없이 거부.
-            if (txService.isAssessFailRetryBlocked(storyId)) {
+            int retryAfterSeconds = txService.assessFailRetryBlockedSeconds(storyId);
+            if (retryAfterSeconds > 0) {
                 usageLimiter.releaseInFlight(UsageKind.ASSESSMENT, userId);
-                return CompletableFuture.completedFuture(insufficientGuide(storyId, FAIL_RETRY_GUIDE));
+                // 남은 초를 함께 내려 화면이 "잠시 뒤"가 아니라 실제 카운트다운을 보여주게 한다.
+                return CompletableFuture.completedFuture(
+                        insufficientGuide(storyId, FAIL_RETRY_GUIDE).withRetryAfterSeconds(retryAfterSeconds));
             }
             return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(),
                             context.conversation(), context.previousAttachment())
@@ -161,9 +164,11 @@ public class AssessmentService {
                     + "상대가 최근 어떻게 행동했는지 같은 '있었던 일'을 들려줄래요?";
 
     // 같은 재료로 진단 생성이 연속 실패해 재시도를 막은 경우. 실패는 차감되지 않았음을 함께 알린다.
+    // 남은 시간은 문구에 적지 않는다 — retryAfterSeconds로 내려가 화면이 카운트다운으로 보여준다.
+    // 문구에 "5분쯤 뒤"처럼 박아두면 쿨다운을 조정할 때마다 여기까지 같이 고쳐야 하고, 실제 남은
+    // 시간과 어긋나기도 한다.
     private static final String FAIL_RETRY_GUIDE =
-            "진단 만들기가 계속 실패하고 있어요. 실패한 진단은 횟수가 차감되지 않았으니 안심해요. "
-                    + "대화를 조금 더 나누거나, 5분쯤 뒤에 다시 시도해 줄래요?";
+            "연이어 실패해서 잠시 쉬어가요. 실패한 진단은 횟수가 차감되지 않았어요.";
 
     private static final String DATING_GUIDE =
             "아직 만나고 있는 사이라면 재회 확률은 의미가 없어요. 지금 겪는 갈등은 대화에서 같이 풀어봐요.";

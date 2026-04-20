@@ -37,6 +37,9 @@ export interface AssessmentResponse {
   deductions: DeductionView[];
   guidance: GuidanceView[]; // 행동 가이드. POSSIBLE 외에는 빈 목록
   createdAt: string | null; // INSUFFICIENT는 저장 안 돼서 null
+  // 연속 실패 쿨다운으로 막힌 응답에만 채워진다. 남은 초(시각이 아니라)라서
+  // 기기 시계가 틀어져 있어도 카운트다운이 어긋나지 않는다.
+  retryAfterSeconds?: number | null;
 }
 
 // 지금 대화를 근거로 새 진단을 실행한다(POST). INSUFFICIENT면 저장되지 않는다.

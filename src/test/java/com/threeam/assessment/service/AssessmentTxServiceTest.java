@@ -120,7 +120,8 @@ class AssessmentTxServiceTest {
                 .willReturn(Optional.of(storyWithFailure(2, recentFail)));
         given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, recentFail)).willReturn(false);
 
-        assertThat(txService.isAssessFailRetryBlocked(STORY_ID)).isTrue();
+        // 3분 쿨다운 중 2분이 지났으니 남은 시간은 60초 안쪽 — 화면 카운트다운이 이 값을 쓴다.
+        assertThat(txService.assessFailRetryBlockedSeconds(STORY_ID)).isBetween(1, 60);
     }
 
     @Test
@@ -129,7 +130,7 @@ class AssessmentTxServiceTest {
         given(storyRepository.findById(STORY_ID))
                 .willReturn(Optional.of(storyWithFailure(1, LocalDateTime.now().minusMinutes(2))));
 
-        assertThat(txService.isAssessFailRetryBlocked(STORY_ID)).isFalse();
+        assertThat(txService.assessFailRetryBlockedSeconds(STORY_ID)).isZero();
     }
 
     @Test
@@ -140,16 +141,16 @@ class AssessmentTxServiceTest {
                 .willReturn(Optional.of(storyWithFailure(2, recentFail)));
         given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, recentFail)).willReturn(true);
 
-        assertThat(txService.isAssessFailRetryBlocked(STORY_ID)).isFalse();
+        assertThat(txService.assessFailRetryBlockedSeconds(STORY_ID)).isZero();
     }
 
     @Test
-    @DisplayName("실패 가드 - 새 대화가 없어도 쿨다운(5분)이 지나면 다시 허용한다")
+    @DisplayName("실패 가드 - 새 대화가 없어도 쿨다운(3분)이 지나면 다시 허용한다")
     void failGuard_allowsAfterCooldown() {
         given(storyRepository.findById(STORY_ID))
-                .willReturn(Optional.of(storyWithFailure(2, LocalDateTime.now().minusMinutes(6))));
+                .willReturn(Optional.of(storyWithFailure(2, LocalDateTime.now().minusMinutes(4))));
 
-        assertThat(txService.isAssessFailRetryBlocked(STORY_ID)).isFalse();
+        assertThat(txService.assessFailRetryBlockedSeconds(STORY_ID)).isZero();
     }
 
     @Test

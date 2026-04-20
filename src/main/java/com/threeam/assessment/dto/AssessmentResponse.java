@@ -21,12 +21,16 @@ public class AssessmentResponse {
     private final List<DeductionView> deductions;
     private final List<GuidanceView> guidance; // 행동 가이드(do/dont). POSSIBLE 외에는 빈 목록
     private final LocalDateTime createdAt;
+    // 재시도까지 남은 초. 실패 쿨다운으로 막힌 응답에만 채워진다(그 외 null).
+    // 시각이 아니라 남은 초를 주는 이유: 클라이언트 시계가 틀어져 있어도 카운트다운이 어긋나지 않는다.
+    private final Integer retryAfterSeconds;
 
     private AssessmentResponse(ReunionVerdict verdict, Integer probability,
                               String partnerAttachment, String attachmentConfidence,
                               List<AttachmentSignalView> attachmentSignals,
                               String reason, List<DeductionView> deductions,
-                              List<GuidanceView> guidance, LocalDateTime createdAt) {
+                              List<GuidanceView> guidance, LocalDateTime createdAt,
+                              Integer retryAfterSeconds) {
         this.verdict = verdict;
         this.probability = probability;
         this.partnerAttachment = partnerAttachment;
@@ -36,6 +40,12 @@ public class AssessmentResponse {
         this.deductions = deductions;
         this.guidance = guidance;
         this.createdAt = createdAt;
+        this.retryAfterSeconds = retryAfterSeconds;
+    }
+
+    public AssessmentResponse withRetryAfterSeconds(int seconds) {
+        return new AssessmentResponse(verdict, probability, partnerAttachment, attachmentConfidence,
+                attachmentSignals, reason, deductions, guidance, createdAt, seconds);
     }
 
     public static AssessmentResponse from(Assessment assessment) {
@@ -58,7 +68,8 @@ public class AssessmentResponse {
                 assessment.getReason(),
                 deductions,
                 guidance,
-                assessment.getCreatedAt());
+                assessment.getCreatedAt(),
+                null);
     }
 
     private static String label(AttachmentStyle style) {

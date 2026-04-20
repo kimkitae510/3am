@@ -82,21 +82,30 @@ public class AssessmentTxService {
     // 차단은 이 시간 동안만이다 — 새 대화 없이도 쿨다운이 지나면 다시 열어준다.
     // 생성 불량(정상 종료인데 본문 잘림)은 시간이 지나면 성공하기도 해서, 새 대화만 해제
     // 조건이면 진단만 원하는 유저가 갇힌다. 또 실패하면 다시 쿨다운 — 시도 빈도만 캡된다.
-    private static final Duration FAIL_RETRY_COOLDOWN = Duration.ofMinutes(5);
+    // 3분: 남은 시간을 카운트다운으로 보여주는 이상, 무작정 길게 잡으면 기다릴 마음이 사라진다.
+    private static final Duration FAIL_RETRY_COOLDOWN = Duration.ofMinutes(3);
 
     // 진단 실패 재시도 가드: 실패는 후차감(미차감)이라, 같은 재료가 계속 같은 이유로 실패하면
     // 무한 무료 LLM 호출이 된다(실측). 같은 재료 연속 2회 실패면 새 대화나 쿨다운 전까지 거부.
+    // 반환값은 재시도까지 남은 초 — 0이면 차단 아님. 화면의 카운트다운이 이 값을 쓴다.
     @Transactional(readOnly = true)
-    public boolean isAssessFailRetryBlocked(Long storyId) {
+    public int assessFailRetryBlockedSeconds(Long storyId) {
         Story story = storyRepository.findById(storyId).orElse(null);
         if (story == null || story.getLastAssessFailedAt() == null
                 || story.getAssessFailStreak() < FAIL_STREAK_LIMIT) {
-            return false;
+            return 0;
         }
-        if (story.getLastAssessFailedAt().isBefore(LocalDateTime.now().minus(FAIL_RETRY_COOLDOWN))) {
-            return false;
+        LocalDateTime retryableAt = story.getLastAssessFailedAt().plus(FAIL_RETRY_COOLDOWN);
+        LocalDateTime now = LocalDateTime.now();
+        if (!retryableAt.isAfter(now)) {
+            return 0;
         }
-        return !messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, story.getLastAssessFailedAt());
+        // 새 대화가 쌓였으면 재료가 바뀐 것이라 쿨다운과 무관하게 열어준다.
+        if (messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, story.getLastAssessFailedAt())) {
+            return 0;
+        }
+        // 올림 — 1.2초 남았는데 1초로 내려주면 화면이 0을 찍은 뒤에도 서버가 아직 막는다.
+        return (int) Math.ceil(Duration.between(now, retryableAt).toMillis() / 1000.0);
     }
 
     // 같은 재료(지난 실패 이후 새 대화 없음)의 실패만 연속으로 센다.

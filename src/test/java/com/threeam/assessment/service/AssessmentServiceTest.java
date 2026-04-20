@@ -231,12 +231,14 @@ class AssessmentServiceTest {
     @DisplayName("진단 - 같은 재료 연속 실패로 막혀 있으면 LLM 없이 안내만 돌려준다")
     void assess_failRetryBlocked() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(txService.isAssessFailRetryBlocked(10L)).willReturn(true);
+        given(txService.assessFailRetryBlockedSeconds(10L)).willReturn(167);
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
         assertThat(response.getReason()).contains("실패");
+        // 화면이 카운트다운을 띄우려면 남은 초가 응답에 실려야 한다.
+        assertThat(response.getRetryAfterSeconds()).isEqualTo(167);
         verify(reunionLlm, never()).diagnose(any(), anyList(), anyList(), any()); // 무료 LLM 호출 루프 차단
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
     }
