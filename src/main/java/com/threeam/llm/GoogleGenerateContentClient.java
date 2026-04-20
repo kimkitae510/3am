@@ -59,17 +59,18 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     @Override
     public CompletableFuture<String> generate(List<ChatMessage> messages) {
-        return send(buildRequest(messages, false, false), KIND_CHAT);
+        return send(buildRequest(messages, false, false, null), KIND_CHAT);
     }
 
     @Override
     public CompletableFuture<String> generateJson(List<ChatMessage> messages) {
-        return send(buildRequest(messages, true, false), KIND_EXTRACT);
+        return send(buildRequest(messages, true, false, null), KIND_EXTRACT);
     }
 
     @Override
-    public CompletableFuture<String> generateJsonDeep(List<ChatMessage> messages) {
-        return send(buildRequest(messages, true, true), KIND_DEEP);
+    public CompletableFuture<String> generateJsonDeep(List<ChatMessage> messages,
+                                                      Map<String, Object> responseSchema) {
+        return send(buildRequest(messages, true, true, responseSchema), KIND_DEEP);
     }
 
     private CompletableFuture<String> send(HttpRequest request, String kind) {
@@ -106,7 +107,8 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_NONE"),
             Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_NONE"));
 
-    private HttpRequest buildRequest(List<ChatMessage> messages, boolean json, boolean deep) {
+    private HttpRequest buildRequest(List<ChatMessage> messages, boolean json, boolean deep,
+                                     Map<String, Object> responseSchema) {
         // system은 system_instruction으로, 대화는 contents(user/model)로 나눠 받는다.
         StringBuilder system = new StringBuilder();
         List<Map<String, Object>> contents = new ArrayList<>();
@@ -134,6 +136,12 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         Map<String, Object> generationConfig = new LinkedHashMap<>();
         if (json) {
             generationConfig.put("responseMimeType", "application/json");
+        }
+        // responseMimeType은 "JSON으로 답해달라"는 지시일 뿐이라 모델이 중간에 멈추면 그대로 잘린 JSON이 온다
+        // (실측: finishReason=STOP인데 본문 미완결). 스키마를 주면 생성 단계에서 문법에 맞지 않는 토큰이
+        // 후보에서 제외돼 미완결, 필드 오타, 범위 밖 enum이 구조적으로 나올 수 없다.
+        if (json && responseSchema != null) {
+            generationConfig.put("responseSchema", responseSchema);
         }
         if (deep) {
             generationConfig.put("temperature", 0);

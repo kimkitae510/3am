@@ -2,6 +2,7 @@ package com.threeam.assessment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 
@@ -56,7 +57,7 @@ class ReunionLlmTest {
                   "summary": "상대가 차단함"
                 }
                 """;
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -91,7 +92,7 @@ class ReunionLlmTest {
                   "reason": "", "summary": ""
                 }
                 """;
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -115,7 +116,7 @@ class ReunionLlmTest {
                   "reason": "", "summary": ""
                 }
                 """;
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -138,7 +139,7 @@ class ReunionLlmTest {
                   "reason": "", "summary": ""
                 }
                 """;
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -161,7 +162,7 @@ class ReunionLlmTest {
                   "reason": "", "summary": ""
                 }
                 """;
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -178,7 +179,7 @@ class ReunionLlmTest {
                 {"verdict": "POSSIBLE", "deductions": [], "reason": "", "summary": "",
                  "newFacts": ["사실1", "", "사실2", "사실3", "사실4", "사실5", "사실6"]}
                 """;
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -196,7 +197,7 @@ class ReunionLlmTest {
         }
         String json = "{\"verdict\": \"POSSIBLE\", \"deductions\": [], \"reason\": \"\", \"summary\": \"\","
                 + " \"newFacts\": [" + items + "]}";
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -211,7 +212,7 @@ class ReunionLlmTest {
                  "attachmentSignals": [{"signal": "유형이 없으니", "evidence": "버려질 근거"}],
                  "deductions": [], "reason": "", "summary": ""}
                 """;
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -241,7 +242,7 @@ class ReunionLlmTest {
                  ],
                  "deductions": [], "reason": "", "summary": ""}
                 """.formatted(longSignal);
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -261,7 +262,7 @@ class ReunionLlmTest {
                 {"verdict": "POSSIBLE", "partnerAttachment": "ANXIOUS", "attachmentConfidence": "VERY_SURE",
                  "deductions": [], "reason": "", "summary": ""}
                 """;
-        given(llmClient.generateJsonDeep(anyList()))
+        given(llmClient.generateJsonDeep(anyList(), any()))
                 .willReturn(CompletableFuture.completedFuture(missingJson))
                 .willReturn(CompletableFuture.completedFuture(invalidJson));
 
@@ -289,7 +290,7 @@ class ReunionLlmTest {
                    ]
                  }}
                 """.formatted(longBasis);
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -307,7 +308,7 @@ class ReunionLlmTest {
         String json = """
                 {"verdict": "POSSIBLE", "deductions": [], "reason": "", "summary": ""}
                 """;
-        given(llmClient.generateJsonDeep(anyList())).willReturn(CompletableFuture.completedFuture(json));
+        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
 
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
@@ -317,13 +318,13 @@ class ReunionLlmTest {
     @Test
     @DisplayName("깨진 JSON은 LlmException으로 실패한다 — LLM 재호출(자동 재시도) 없이")
     void parse_malformed_throws() {
-        given(llmClient.generateJsonDeep(anyList()))
+        given(llmClient.generateJsonDeep(anyList(), any()))
                 .willReturn(CompletableFuture.completedFuture("이건 JSON이 아니야"));
 
         assertThatThrownBy(() -> reunionLlm().diagnose(null, List.of(), List.of()).join())
                 .isInstanceOf(CompletionException.class)
                 .hasCauseInstanceOf(LlmException.class);
         // 자동 재시도 금지 — 실패마다 진단 1회분이 2배 과금된다. 재시도는 유저 버튼 몫.
-        org.mockito.Mockito.verify(llmClient, org.mockito.Mockito.times(1)).generateJsonDeep(anyList());
+        org.mockito.Mockito.verify(llmClient, org.mockito.Mockito.times(1)).generateJsonDeep(anyList(), any());
     }
 }
