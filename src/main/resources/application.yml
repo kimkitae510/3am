@@ -19,9 +19,11 @@ spring:
 
   config:
     # 저장소 밖에서 관리하는 설정. 파일이 없으면 조용히 무시된다.
-    # persona.yml: 페르소나 실문구 / rubric.yml: 진단 루브릭 전문 / application-secret.yml: 실연동 키(메일, 소셜 등 — gitignore)
+    # persona.yml: 페르소나 실문구 / reminder.yml: 매 턴 스타일 리마인더 / rubric.yml: 진단 루브릭 전문
+    # application-secret.yml: 실연동 키(메일, 소셜 등 — gitignore)
     import:
       - optional:file:./persona.yml
+      - optional:file:./reminder.yml
       - optional:file:./rubric.yml
       - optional:file:./application-secret.yml
 

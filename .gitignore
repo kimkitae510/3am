@@ -19,6 +19,7 @@ out/
 application-local.yml
 application-secret.yml
 persona.yml
+reminder.yml
 rubric.yml
 
 ### AI 작업 안내 / 로컬 전용 문서 (커밋 제외) ###
