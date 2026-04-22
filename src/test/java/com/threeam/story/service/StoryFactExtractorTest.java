@@ -14,6 +14,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.threeam.llm.FactExtractionProperties;
 import com.threeam.llm.LlmClient;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
@@ -65,7 +66,8 @@ class StoryFactExtractorTest {
     private StoryMemoryService storyMemoryService;
 
     private StoryFactExtractor extractor() {
-        return new StoryFactExtractor(llmClient, new ObjectMapper(), messageRepository, storyRepository, storyFactRepository, storyMemoryRepository,
+        return new StoryFactExtractor(llmClient, new ObjectMapper(), new FactExtractionProperties(),
+                messageRepository, storyRepository, storyFactRepository, storyMemoryRepository,
                 storyFactService, storyMemoryService);
     }
 
