@@ -43,9 +43,20 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class MessageTxServiceTest {
 
-    // 실문구는 로컬 설정으로 주입되므로, 테스트는 기본 자리표시자를 가진 실객체를 쓴다.
+    // 실문구는 로컬 설정(persona.yml, reminder.yml)으로 주입되므로 테스트는 자리표시자를 채운 실객체를 쓴다.
+    // 리마인더 기본값은 빈 문자열이고 비면 주입을 건너뛰므로, 프롬프트 '구조'를 검증하려면 여기서 채워야 한다.
     @Spy
-    private ChatPersonaProperties personaProperties = new ChatPersonaProperties();
+    private ChatPersonaProperties personaProperties = personaProperties();
+
+    private static final String REMINDER = "스타일 리마인더 자리표시자";
+    private static final String ENDING_REMINDER = "끝맺음 리마인더 자리표시자";
+
+    private static ChatPersonaProperties personaProperties() {
+        ChatPersonaProperties properties = new ChatPersonaProperties();
+        properties.setReminder(REMINDER);
+        properties.setEndingReminder(ENDING_REMINDER);
+        return properties;
+    }
 
     @Mock
     private StoryRepository storyRepository;
@@ -153,7 +164,7 @@ class MessageTxServiceTest {
 
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
-                .anyMatch(c -> c.contains("질문으로 끝내지 마라"));
+                .anyMatch(c -> c.contains(ENDING_REMINDER)); // 문구는 reminder.yml 소관 — 여기선 주입 여부만 본다
     }
 
     @Test
@@ -172,7 +183,7 @@ class MessageTxServiceTest {
 
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
-                .noneMatch(c -> c.contains("질문으로 끝내지 마라"));
+                .noneMatch(c -> c.contains(ENDING_REMINDER));
     }
 
     @Test
