@@ -2,6 +2,7 @@ package com.threeam.story.service;
 
 import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.StoryFactRepository;
+import com.threeam.story.repository.StoryRepository;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +26,13 @@ public class StoryFactService {
     private static final int WATCH_THRESHOLD = 100;
 
     private final StoryFactRepository storyFactRepository;
+    private final StoryRepository storyRepository;
+
+    // 추출 워터마크 전진. 추출이 성공했을 때만 부른다 — 실패하면 워터마크가 그대로라 다음 회차가 같은 구간을 다시 집는다.
+    @Transactional
+    public void markExtractedUpTo(Long storyId, Long lastMessageId) {
+        storyRepository.findById(storyId).ifPresent(story -> story.markExtractedUpTo(lastMessageId));
+    }
 
     // 동일 문장은 건너뛴다(프롬프트의 중복 금지 지시가 1차, 여기가 2차 방어). 지우는 일은 없다.
     // sourceAssessmentId는 진단 경로에서만 채워진다(채팅 추출은 null).

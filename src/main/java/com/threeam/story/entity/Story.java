@@ -67,6 +67,13 @@ public class Story {
     @Column(nullable = false)
     private int assessFailStreak;
 
+    // 채팅 사실 추출이 어디까지 훑었는지(마지막으로 추출에 넘긴 message id).
+    // 매 턴 추출을 돌리던 것을 이 워터마크 기준의 묶음 추출로 바꾸면서 생겼다 —
+    // 이게 없으면 "새로 쌓인 것만" 보낼 수가 없어 매번 같은 창을 다시 읽게 된다.
+    // null은 아직 한 번도 안 훑은 사연(처음부터가 미추출 구간).
+    @Column
+    private Long lastExtractedMessageId;
+
     @Builder
     private Story(Long userId, String title) {
         this.userId = userId;
@@ -96,6 +103,11 @@ public class Story {
 
     public void softDelete() {
         this.deletedAt = LocalDateTime.now();
+    }
+
+    // 추출이 성공한 만큼만 전진시킨다 — 실패하면 그대로 두어 다음 회차가 같은 구간을 다시 집는다.
+    public void markExtractedUpTo(Long messageId) {
+        this.lastExtractedMessageId = messageId;
     }
 
     public boolean isDeleted() {

@@ -25,6 +25,12 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     // 재진단 가드용: 마지막 진단 이후 새로 나눈 대화가 있는지.
     boolean existsByStoryIdAndCreatedAtAfter(Long storyId, LocalDateTime createdAt);
 
+    // 사실 추출 게이팅용: 워터마크 이후 아직 안 훑은 메시지가 몇 개인지(임계 미만이면 LLM 호출 자체를 건너뛴다).
+    long countByStoryIdAndIdGreaterThan(Long storyId, Long id);
+
+    // 사실 추출용: 워터마크 이후 미추출 구간만 시간순으로. 밀린 양이 많을 때를 대비해 한 번에 가져올 개수를 제한한다.
+    Slice<Message> findByStoryIdAndIdGreaterThanOrderByIdAsc(Long storyId, Long id, Pageable pageable);
+
     // 목록 미리보기용: 사연별 마지막 메시지를 한 방 쿼리로(IN + GROUP BY MAX — 사연 수만큼 도는 N+1 회피).
     @Query("select m from Message m where m.id in "
             + "(select max(m2.id) from Message m2 where m2.story.id in :storyIds group by m2.story.id)")
