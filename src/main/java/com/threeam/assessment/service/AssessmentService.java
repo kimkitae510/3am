@@ -188,6 +188,10 @@ public class AssessmentService {
     private AssessmentResponse persist(Long storyId, ReunionDiagnosis diagnosis) {
         // 근거 부족은 진단이 아니라 "대화를 더 해달라"는 안내다. 히스토리(확률 추이)를 오염시키지 않도록 저장하지 않고,
         // reason에 담긴 가이드만 임시 응답으로 돌려준다.
+        // save()에 진단 저장과 요약 갱신, 원장 적재가 함께 묶여 있어 이 분기에선 newFacts도 같이 버려진다.
+        // 유실은 아니다 — 이 판정 뒤엔 재진단 가드가 "대화를 더 하고 오라"고 막고, 그 대화를 채팅 사실
+        // 추출이 같은 구간까지 훑어 원장에 넣는다. 버려지는 건 이번 호출이 뽑아둔 중복분뿐이라
+        // save()를 쪼개면서까지 살릴 값어치는 없다고 봤다(이 주석이 없으면 매번 버그로 의심받는 자리다).
         if (diagnosis.verdict() == ReunionVerdict.INSUFFICIENT) {
             String guide = (diagnosis.reason() == null || diagnosis.reason().isBlank())
                     ? NO_BASIS_GUIDE
