@@ -143,6 +143,12 @@ public class MessageTxService {
                     ? ChatMessage.user(message.getContent())
                     : ChatMessage.assistant(message.getContent()));
         }
+        // 출력 직전 점검은 반드시 대화 뒤, 프롬프트의 맨 끝이다 — 앞에 두면 리마인더와 같은
+        // 자리가 되어 같은 이유로 묻힌다. 여기가 마지막으로 읽히는 지시라는 게 이 블록의 전부다.
+        String finalCheck = personaProperties.getFinalCheck();
+        if (finalCheck != null && !finalCheck.isBlank()) {
+            prompt.add(ChatMessage.system(finalCheck));
+        }
         return prompt;
     }
 

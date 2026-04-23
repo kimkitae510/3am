@@ -50,11 +50,13 @@ class MessageTxServiceTest {
 
     private static final String REMINDER = "스타일 리마인더 자리표시자";
     private static final String ENDING_REMINDER = "끝맺음 리마인더 자리표시자";
+    private static final String FINAL_CHECK = "출력 직전 점검 자리표시자";
 
     private static ChatPersonaProperties personaProperties() {
         ChatPersonaProperties properties = new ChatPersonaProperties();
         properties.setReminder(REMINDER);
         properties.setEndingReminder(ENDING_REMINDER);
+        properties.setFinalCheck(FINAL_CHECK);
         return properties;
     }
 
@@ -77,6 +79,24 @@ class MessageTxServiceTest {
     private MessageTxService messageTxService;
 
     @Test
+    @DisplayName("프롬프트 조립 - 출력 직전 점검은 대화보다 뒤, 프롬프트의 맨 끝에 붙는다")
+    void buildPrompt_finalCheckGoesLast() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 힘들어")),
+                        PageRequest.of(0, 20), false));
+
+        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 힘들어").prompt();
+
+        // 앞에 두면 리마인더와 같은 자리가 되어 묻힌다 — 마지막으로 읽히는 지시라는 게 이 블록의 전부다.
+        ChatMessage last = prompt.get(prompt.size() - 1);
+        assertThat(last.role()).isEqualTo(LlmRole.SYSTEM);
+        assertThat(last.content()).isEqualTo(FINAL_CHECK);
+    }
+
+    @Test
     @DisplayName("유저 메시지 저장 - 저장 후 시스템프롬프트 + 최근 맥락으로 프롬프트를 조립한다")
     void appendUser_success() {
         Story story = story(10L);
@@ -89,9 +109,9 @@ class MessageTxServiceTest {
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 힘들어").prompt();
 
         assertThat(prompt.get(0).role()).isEqualTo(LlmRole.SYSTEM); // 맨 앞은 페르소나
-        // 페르소나 + 매 턴 스타일 리마인더 + 유저
+        // 페르소나 + 매 턴 스타일 리마인더 + 유저 + 출력 직전 점검(맨 끝)
         assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER);
+                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
         verify(messageRepository).save(any(Message.class)); // 유저 메시지 저장됨
     }
 
@@ -139,9 +159,9 @@ class MessageTxServiceTest {
 
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "왜 이 진단이야?").prompt();
 
-        // 시스템(페르소나) + 시스템(진단 데이터) + 시스템(스타일 리마인더) + 유저
+        // 시스템(페르소나) + 시스템(진단 데이터) + 시스템(스타일 리마인더) + 유저 + 시스템(출력 직전 점검)
         assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER);
+                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
         assertThat(prompt.get(1).content())
                 .contains("20%")
                 .contains("읽씹당하는 중")

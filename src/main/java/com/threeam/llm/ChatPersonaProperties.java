@@ -20,4 +20,9 @@ public class ChatPersonaProperties {
 
     // 직전 답변이 질문으로 끝났을 때만 덧붙는 리마인더(매 턴 질문으로 끝내는 습관 차단).
     private String endingReminder = "";
+
+    // 프롬프트 맨 끝에 붙는 출력 직전 점검. 리마인더가 길어지면서 중간 규칙이 안 닿는 게
+    // 실측돼(글자 그대로 금지한 문구가 그대로 출력됨) 제일 잘 새는 것만 끝으로 뺐다.
+    // 진단의 '출력 직전 마지막 점검'(ReunionLlm)과 같은 장치다.
+    private String finalCheck = "";
 }
