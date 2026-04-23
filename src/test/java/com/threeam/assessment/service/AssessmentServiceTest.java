@@ -28,11 +28,13 @@ import com.threeam.usage.UsageKind;
 import com.threeam.usage.UsageLimiter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,6 +54,17 @@ class AssessmentServiceTest {
 
     @Mock
     private UsageLimiter usageLimiter;
+
+    // 콜백 전용 풀 자리. 테스트에선 인라인 실행이라 비동기 대기 없이 검증한다(운영에선 LlmCallbackConfig의 풀).
+    @Spy
+    private Executor llmCallbackExecutor = new InlineExecutor();
+
+    static class InlineExecutor implements Executor {
+        @Override
+        public void execute(Runnable command) {
+            command.run();
+        }
+    }
 
     @InjectMocks
     private AssessmentService assessmentService;

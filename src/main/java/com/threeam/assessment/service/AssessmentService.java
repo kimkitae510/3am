@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,8 @@ public class AssessmentService {
     private final ReunionScorer scorer;
     private final AssessmentRepository assessmentRepository;
     private final UsageLimiter usageLimiter;
+    // 진단 저장을 HttpClient 스레드가 아니라 우리 풀에서 돌린다(LlmCallbackConfig 참고).
+    private final Executor llmCallbackExecutor;
 
     // 트랜잭션 밖(NOT_SUPPORTED)에서 오케스트레이션한다.
     // DB 저장은 txService의 짧은 트랜잭션, 느린 LLM 호출은 그 사이에서 논블로킹으로.
@@ -74,7 +77,7 @@ public class AssessmentService {
             }
             return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(),
                             context.conversation(), context.previousAttachment())
-                    .thenApply(diagnosis -> {
+                    .thenApplyAsync(diagnosis -> {
                         AssessmentResponse response = persist(storyId, diagnosis);
                         // LLM 왕복이 정상 처리됐으니 실패 연속 카운트를 지운다(INSUFFICIENT도 실패가 아니라 판정).
                         clearAssessFailQuietly(storyId);
@@ -87,7 +90,7 @@ public class AssessmentService {
                             recordUsageQuietly(userId);
                         }
                         return response;
-                    })
+                    }, llmCallbackExecutor)
                     .whenComplete((ignored, ex) -> {
                         // 진단 실패(LLM 장애, 저장 실패)를 storyId, userId와 함께 남긴다 —
                         // 전역 핸들러 로그엔 맥락이 없어 "돈 깎였는데 결과 없음" CS를 추적할 수 없다.

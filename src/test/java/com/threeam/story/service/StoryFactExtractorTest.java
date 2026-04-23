@@ -68,7 +68,9 @@ class StoryFactExtractorTest {
     private StoryFactExtractor extractor() {
         return new StoryFactExtractor(llmClient, new ObjectMapper(), new FactExtractionProperties(),
                 messageRepository, storyRepository, storyFactRepository, storyMemoryRepository,
-                storyFactService, storyMemoryService);
+                storyFactService, storyMemoryService,
+                // 콜백을 인라인 실행해 비동기 대기 없이 검증한다(운영에선 전용 풀).
+                Runnable::run);
     }
 
     // id가 1..count인 유저/어시스턴트 번갈이 메시지.

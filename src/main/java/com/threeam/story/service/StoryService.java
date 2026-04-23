@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -47,6 +48,8 @@ public class StoryService {
     private final StoryFactExtractor factExtractor;
     private final LlmClient llmClient;
     private final UsageLimiter usageLimiter;
+    // 답변 저장, 원장 적재를 HttpClient 스레드가 아니라 우리 풀에서 돌린다(LlmCallbackConfig 참고).
+    private final Executor llmCallbackExecutor;
 
     @Transactional
     public StoryResponse create(Long userId, StoryCreateRequest request) {
@@ -100,7 +103,7 @@ public class StoryService {
             // fire-and-forget: 응답을 기다리지 않는다. 완료되면 어시스턴트 메시지로 저장, 실패하면 폴백 저장.
             // handle로 LLM 단계 예외와 저장 단계 예외를 분리한다(저장 실패를 'LLM 실패'로 오인 기록하지 않게).
             llmClient.generate(prepared.prompt())
-                    .handle((reply, ex) -> {
+                    .handleAsync((reply, ex) -> {
                         if (ex != null) {
                             log.error("LLM 응답 생성 실패 storyId={} userId={}", storyId, userId, ex);
                             persistFallbackQuietly(storyId);
@@ -108,7 +111,7 @@ public class StoryService {
                             persistReplyQuietly(userId, storyId, reply, units);
                         }
                         return null;
-                    })
+                    }, llmCallbackExecutor)
                     .whenComplete((ignored, ex) -> {
                         // handle에서 예외를 삼키므로 여기 ex는 보통 null이지만, 만일을 대비해 흔적을 남긴다(무로그 방지).
                         if (ex != null) {

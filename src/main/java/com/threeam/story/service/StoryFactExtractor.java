@@ -17,6 +17,7 @@ import com.threeam.story.repository.StoryRepository;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -61,6 +62,8 @@ public class StoryFactExtractor {
     private final StoryMemoryRepository storyMemoryRepository;
     private final StoryFactService storyFactService;
     private final StoryMemoryService storyMemoryService;
+    // 원장 쓰기를 HttpClient 스레드가 아니라 우리 풀에서(LlmCallbackConfig 참고).
+    private final Executor llmCallbackExecutor;
 
     // 답변 저장이 끝난 뒤 매 턴 호출된다. 실제로 LLM을 부를지는 여기서 가른다.
     // 어떤 실패도 밖으로 던지지 않는다 — 채팅 흐름을 오염시키지 않기 위해.
@@ -88,12 +91,12 @@ public class StoryFactExtractor {
             Long batchEnd = batch.get(batch.size() - 1).getId();
 
             llmClient.generateJson(buildPrompt(storyId, batch))
-                    .thenAccept(json -> {
+                    .thenAcceptAsync(json -> {
                         Extraction extraction = parse(json);
                         storyFactService.appendFacts(storyId, null, extraction.newFacts());
                         storyMemoryService.upsert(storyId, extraction.summary());
                         storyFactService.markExtractedUpTo(storyId, batchEnd);
-                    })
+                    }, llmCallbackExecutor)
                     .exceptionally(ex -> {
                         // 워터마크를 안 옮겼으므로 이 구간은 다음 회차가 다시 집는다.
                         log.warn("채팅 사실 추출 실패 storyId={} 미추출 유지 from={}", storyId, from, ex);
