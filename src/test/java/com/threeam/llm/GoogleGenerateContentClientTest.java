@@ -27,6 +27,11 @@ class GoogleGenerateContentClientTest {
                 }
 
                 @Override
+                long assessmentTimeoutSeconds() {
+                    return 3;
+                }
+
+                @Override
                 String providerName() {
                     return "테스트";
                 }

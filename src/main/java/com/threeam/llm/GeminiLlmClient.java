@@ -46,6 +46,11 @@ public class GeminiLlmClient extends GoogleGenerateContentClient {
     }
 
     @Override
+    long assessmentTimeoutSeconds() {
+        return properties.getAssessmentTimeoutSeconds();
+    }
+
+    @Override
     String providerName() {
         return "Gemini";
     }

@@ -73,6 +73,11 @@ public class VertexAiLlmClient extends GoogleGenerateContentClient {
     }
 
     @Override
+    long assessmentTimeoutSeconds() {
+        return properties.getAssessmentTimeoutSeconds();
+    }
+
+    @Override
     String providerName() {
         return "Vertex AI";
     }

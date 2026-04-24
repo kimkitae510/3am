@@ -20,7 +20,7 @@ public class VertexAiProperties {
     private String assessmentModel;
 
     // 응답 전체 대기 상한. 초과 시 호출이 실패로 완료되고 폴백 메시지가 저장된다.
-    private long timeoutSeconds = 30;
+    private long timeoutSeconds = 50;
 
     public String endpoint() {
         return endpointFor(model);
@@ -39,4 +39,9 @@ public class VertexAiProperties {
                 + "/locations/" + location
                 + "/publishers/google/models/" + targetModel + ":generateContent";
     }
+
+    // 진단(deep) 전용 응답 상한. 채팅과 분리해 둔다 — 전에는 채팅 값의 3배로 계산했는데,
+    // 채팅 타임아웃을 만질 때마다 진단이 조용히 따라 움직여 usage.in-flight-ttl-seconds와
+    // spring request-timeout을 넘길 뻔했다(실측). 두 값은 각자의 이유로 정해져야 한다.
+    private long assessmentTimeoutSeconds = 90;
 }

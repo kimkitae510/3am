@@ -48,6 +48,8 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     abstract long timeoutSeconds();
 
+    abstract long assessmentTimeoutSeconds();
+
     // 로그 라벨용
     abstract String providerName();
 
@@ -146,7 +148,11 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         if (deep) {
             generationConfig.put("temperature", 0);
         } else if (endpoint().contains("gemini-2.5")) {
-            generationConfig.put("thinkingConfig", Map.of("thinkingBudget", 512));
+            // 512로 출발했는데 그 뒤 프롬프트 맨 끝에 '출력 직전 점검'(6항목)이 붙었다.
+            // 답을 짓는 것과 그 초안을 6항목으로 되짚는 것을 한 예산 안에서 해야 해서,
+            // 점검이 실제로 돌 여지를 주려면 512로는 빠듯하다. 입력이 2만 토큰대라
+            // 여기서 1~2천을 더 쓰는 건 전체 비용에서 차지하는 몫이 작다.
+            generationConfig.put("thinkingConfig", Map.of("thinkingBudget", 2048));
         } else {
             generationConfig.put("thinkingConfig", Map.of("thinkingLevel", "low"));
         }
@@ -157,9 +163,10 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                     .uri(URI.create(deep ? deepEndpoint() : endpoint()))
                     .header("Content-Type", "application/json")
                     // 타임아웃 없이는 LLM이 매달릴 때 future가 영원히 미완 → 답도 폴백도 저장되지 않는다.
-                    // 정밀 판단(deep)은 긴 루브릭 + 추론(thinking) 모델이라 세 배 준다(50초 기준 150초).
-                    // 이 값을 늘리면 usage의 assessment-lock-ttl도 이보다 길게 유지해야 한다(중복 생성 방지).
-                    .timeout(Duration.ofSeconds(deep ? timeoutSeconds() * 3 : timeoutSeconds()))
+                    // 진단(deep)은 긴 루브릭 + 추론이라 채팅보다 길지만, 채팅 값의 배수가 아니라
+                    // 자기 설정값을 쓴다 — 배수로 묶어두면 채팅을 만질 때 진단이 따라 움직여
+                    // usage.in-flight-ttl-seconds와 spring request-timeout을 말없이 넘어간다.
+                    .timeout(Duration.ofSeconds(deep ? assessmentTimeoutSeconds() : timeoutSeconds()))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8));
             authorize(builder);
             return builder.build();
