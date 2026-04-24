@@ -17,7 +17,7 @@ import styles from './ChatPage.module.css';
 const MAX_LENGTH = 2000; // 서버 검증(@Size)과 동일 값 — 긴 사연이 600자에서 끊겨 흐름이 깨졌다(실측)
 const UNIT_LENGTH = 300; // 대화 1회로 치는 길이 — 초과분은 회수로 환산(서버 CHAT_UNIT_CHARS와 동일 값)
 const POLL_INTERVAL = 1500;
-// 백엔드 LLM 타임아웃(45초) 안에는 답 또는 폴백 메시지가 반드시 저장되므로,
+// 백엔드 LLM 타임아웃(50초) 안에는 답 또는 폴백 메시지가 반드시 저장되므로,
 // 그보다 여유 있게 잡아 "..." 표시가 답이 올 때까지 끊기지 않게 한다.
 // 백엔드 llm.*.timeout-seconds를 올리면 이 값도 같이 올려야 폴백이 화면에 닿는다.
 const POLL_TIMEOUT = 75000;

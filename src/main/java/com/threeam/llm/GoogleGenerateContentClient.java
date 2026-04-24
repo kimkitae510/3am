@@ -157,7 +157,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                     .uri(URI.create(deep ? deepEndpoint() : endpoint()))
                     .header("Content-Type", "application/json")
                     // 타임아웃 없이는 LLM이 매달릴 때 future가 영원히 미완 → 답도 폴백도 저장되지 않는다.
-                    // 정밀 판단(deep)은 긴 루브릭 + 추론(thinking) 모델이라 세 배 준다(45초 기준 135초).
+                    // 정밀 판단(deep)은 긴 루브릭 + 추론(thinking) 모델이라 세 배 준다(50초 기준 150초).
                     // 이 값을 늘리면 usage의 assessment-lock-ttl도 이보다 길게 유지해야 한다(중복 생성 방지).
                     .timeout(Duration.ofSeconds(deep ? timeoutSeconds() * 3 : timeoutSeconds()))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8));

@@ -14,7 +14,7 @@ spring:
       # 비동기 응답(진단 등 CompletableFuture 반환)의 HTTP 대기 상한.
       # 미설정이면 톰캣 기본 30초 — 진단 LLM 대기보다 짧아, 그보다 긴 진단은 성공하고도
       # 요청이 먼저 끊겼다(실측: 타임아웃 3초 뒤 진단 완료, 결과는 저장됨).
-      # 진단 상한(llm.*.timeout-seconds의 3배 = 135초) + 저장 여유를 덮게 180초.
+      # 진단 상한(llm.*.timeout-seconds의 3배 = 150초) + 저장 여유를 덮게 180초.
       # 이게 먼저 터지면 유저는 에러를 보는데 LLM 호출은 계속 돈다.
       request-timeout: 180s
 
@@ -84,10 +84,10 @@ llm:
     assessment-model: ${LLM_ASSESSMENT_MODEL:}
     base-url: https://generativelanguage.googleapis.com/v1beta
     # 응답 대기 상한. 초과 시 실패 처리 → 대화는 폴백 메시지 저장.
-    # thinking을 켠 뒤 30초로는 정상 응답도 잘려서 45초로. 이 값을 만지면 딸려 있는 셋을 같이 봐야 한다:
+    # thinking을 켠 뒤 30초로는 정상 응답도 잘려서 50초로. 이 값을 만지면 딸려 있는 셋을 같이 봐야 한다:
     # 진단은 여기의 3배(deep), 그 3배가 usage.in-flight-ttl-seconds와 spring request-timeout보다 작아야 하고,
     # 이 값 자체는 프론트 폴링 포기 시각(ChatPage POLL_TIMEOUT)보다 작아야 폴백이 화면에 닿는다.
-    timeout-seconds: 45
+    timeout-seconds: 50
   # Vertex AI — 같은 Gemini를 GCP 상품 경로로(크레딧 결제). 인증은 GOOGLE_APPLICATION_CREDENTIALS
   # (서비스 계정 키 파일 경로) 표준 환경변수. 크레딧 소진/만료 시 LLM_PROVIDER=gemini로 복귀.
   vertex:
@@ -96,7 +96,7 @@ llm:
     model: ${LLM_MODEL:gemini-2.5-flash}
     # 진단 전용 모델(선택). 비우면 model 사용. 진단은 긴 루브릭이라 강한 모델 배정 가능.
     assessment-model: ${LLM_ASSESSMENT_MODEL:}
-    timeout-seconds: 45   # gemini 경로와 같은 값 유지(위 주석의 연동 관계 참고)
+    timeout-seconds: 50   # gemini 경로와 같은 값 유지(위 주석의 연동 관계 참고)
 
 # 인증 메일 — 기본은 mock(발송 없이 서버 로그로 코드 확인). 실발송 시 MAIL_PROVIDER=smtp
 # + MAIL_USERNAME(Gmail 주소), MAIL_PASSWORD(앱 비밀번호) 주입.
@@ -124,7 +124,7 @@ usage:
   assessment-daily-limit: 1
   guest-chat-total-limit: 3    # 게스트 대화 총량(리셋 없음). 진단은 게스트 0회 고정(코드에서 차단)
   in-flight-ttl-seconds: 180   # 생성 중 잠금이 해제 유실돼도 이 시간 뒤 자동으로 풀린다
-                               # (진단 응답 상한 135초보다 길어야 한다 — 짧으면 진행 중에 풀려 중복 생성이 된다)
+                               # (진단 응답 상한 150초보다 길어야 한다 — 짧으면 진행 중에 풀려 중복 생성이 된다)
 
 # 결제 — 기본은 mock(키 불필요, 무조건 승인). 실연동 시 PAYMENT_PROVIDER=toss + 키 2종 주입.
 # client-key는 프론트 위젯용(공개 가능), secret-key는 서버 승인/취소용(절대 비공개).
