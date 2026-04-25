@@ -42,6 +42,11 @@ class GoogleGenerateContentClientTest {
                 }
 
                 @Override
+                double[] pricesPerMillion() {
+                    return new double[] {0, 0, 0};
+                }
+
+                @Override
                 String providerName() {
                     return "테스트";
                 }

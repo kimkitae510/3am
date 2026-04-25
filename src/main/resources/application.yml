@@ -95,6 +95,12 @@ llm:
     # 모델을 바꿔도 코드를 안 고치게 설정으로 뺐다. 더 강한 모델로 갈아탈 땐 level도 같이 올려라.
     thinking-budget: ${LLM_THINKING_BUDGET:2048}
     thinking-level: ${LLM_THINKING_LEVEL:low}
+    # 100만 토큰당 단가(USD). 넣으면 호출마다 실제 비용이 로그와 지표(llm.cost.usd)로 남는다.
+    # 0이면 계산을 건너뛴다 — 임의의 기본값을 박아두면 모델을 바꿨을 때 틀린 비용이 맞는 것처럼 찍혀서다.
+    # 모델을 바꾸면 이 셋도 같이 바꿔라. 값은 공식 가격표에서 확인한다.
+    input-price-per-million: ${LLM_PRICE_INPUT:0}
+    cached-input-price-per-million: ${LLM_PRICE_CACHED_INPUT:0}
+    output-price-per-million: ${LLM_PRICE_OUTPUT:0}
   # Vertex AI — 같은 Gemini를 GCP 상품 경로로(크레딧 결제). 인증은 GOOGLE_APPLICATION_CREDENTIALS
   # (서비스 계정 키 파일 경로) 표준 환경변수. 크레딧 소진/만료 시 LLM_PROVIDER=gemini로 복귀.
   vertex:
@@ -107,6 +113,12 @@ llm:
     assessment-timeout-seconds: 90
     thinking-budget: ${LLM_THINKING_BUDGET:2048}
     thinking-level: ${LLM_THINKING_LEVEL:low}
+    # 100만 토큰당 단가(USD). 넣으면 호출마다 실제 비용이 로그와 지표(llm.cost.usd)로 남는다.
+    # 0이면 계산을 건너뛴다 — 임의의 기본값을 박아두면 모델을 바꿨을 때 틀린 비용이 맞는 것처럼 찍혀서다.
+    # 모델을 바꾸면 이 셋도 같이 바꿔라. 값은 공식 가격표에서 확인한다.
+    input-price-per-million: ${LLM_PRICE_INPUT:0}
+    cached-input-price-per-million: ${LLM_PRICE_CACHED_INPUT:0}
+    output-price-per-million: ${LLM_PRICE_OUTPUT:0}
 
 # 인증 메일 — 기본은 mock(발송 없이 서버 로그로 코드 확인). 실발송 시 MAIL_PROVIDER=smtp
 # + MAIL_USERNAME(Gmail 주소), MAIL_PASSWORD(앱 비밀번호) 주입.

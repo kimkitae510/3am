@@ -52,6 +52,9 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     abstract int thinkingBudget();
 
+    // 100만 토큰당 USD. 순서대로 신규 입력, 캐시 적중 입력, 출력.
+    abstract double[] pricesPerMillion();
+
     abstract String thinkingLevel();
 
     // 로그 라벨용
@@ -273,6 +276,19 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                 usage.path("candidatesTokenCount").asInt(0),
                 usage.path("thoughtsTokenCount").asInt(0),
                 total);
+        // 단가가 설정돼 있으면 호출당 실제 비용까지 계산해 남긴다 — 콘솔 청구서는 합계라서
+        // "이 호출이 얼마짜리였나"를 못 본다. 모델을 바꿔 비교할 때 이 줄이 비교 단위가 된다.
+        // 추론(thoughts) 토큰은 출력 단가로 과금되므로 output에 합산한다 — 빠뜨리기 쉬운 자리다.
+        double[] prices = pricesPerMillion();
+        if (prices != null && prices.length == 3 && (prices[0] > 0 || prices[2] > 0)) {
+            int output = usage.path("candidatesTokenCount").asInt(0)
+                    + usage.path("thoughtsTokenCount").asInt(0);
+            double cost = ((input - cached) * prices[0] + cached * prices[1] + output * prices[2]) / 1_000_000d;
+            log.info("{} {} 호출 비용: ${} (신규입력 {} / 캐시 {} / 출력+추론 {})",
+                    providerName(), kind, String.format("%.6f", cost), input - cached, cached, output);
+            // 누적 지출과 호출당 분포를 함께 본다(합계만 보면 어떤 종류가 비싼지 안 갈린다).
+            Metrics.summary("llm.cost.usd", "provider", providerName(), "kind", kind).record(cost);
+        }
         // 토큰 총량 분포 — 프롬프트 창, 추출 호출이 비용에 미치는 영향을 실측으로 집계한다.
         Metrics.summary("llm.tokens.total", "provider", providerName()).record(total);
         // 캐시 적중률은 호출 종류마다 다르다(채팅은 연속 호출이라 잘 맞고, 진단은 띄엄띄엄해서 불리).

@@ -61,6 +61,13 @@ public class GeminiLlmClient extends GoogleGenerateContentClient {
     }
 
     @Override
+    double[] pricesPerMillion() {
+        return new double[] {properties.getInputPricePerMillion(),
+                properties.getCachedInputPricePerMillion(),
+                properties.getOutputPricePerMillion()};
+    }
+
+    @Override
     String providerName() {
         return "Gemini";
     }

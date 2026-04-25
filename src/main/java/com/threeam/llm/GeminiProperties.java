@@ -33,4 +33,11 @@ public class GeminiProperties {
     // 전에는 2.5가 아니면 무조건 low로 떨어져서, 더 강한 모델로 갈아타는 순간 추론만 낮아졌다.
     private int thinkingBudget = 2048;
     private String thinkingLevel = "low";
+
+    // 100만 토큰당 단가(USD). 모델마다 다르므로 기본값은 0으로 두고 실제 값은 설정으로 주입한다 —
+    // 여기 임의의 숫자를 박아두면 모델을 바꿨을 때 옛 단가로 계산된 비용이 맞는 것처럼 찍힌다.
+    // 0이면 비용 계산을 건너뛰고 토큰만 남긴다. 값은 공식 가격표에서 확인해 넣어라.
+    private double inputPricePerMillion = 0;
+    private double cachedInputPricePerMillion = 0;
+    private double outputPricePerMillion = 0;
 }
