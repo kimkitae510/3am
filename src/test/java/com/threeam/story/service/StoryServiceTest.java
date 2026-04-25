@@ -56,6 +56,9 @@ class StoryServiceTest {
     private StoryFactExtractor factExtractor;
 
     @Mock
+    private ReplyLinter replyLinter;
+
+    @Mock
     private LlmClient llmClient;
 
     @Mock

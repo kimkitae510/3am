@@ -46,6 +46,8 @@ public class StoryService {
     private final MessageRepository messageRepository;
     private final MessageTxService messageTxService;
     private final StoryFactExtractor factExtractor;
+    // 답변을 고치지는 않고, 글자로 판정되는 규칙 위반만 세어 남긴다(ReplyLinter 주석 참고).
+    private final ReplyLinter replyLinter;
     private final LlmClient llmClient;
     private final UsageLimiter usageLimiter;
     // 답변 저장, 원장 적재를 HttpClient 스레드가 아니라 우리 풀에서 돌린다(LlmCallbackConfig 참고).
@@ -147,6 +149,7 @@ public class StoryService {
             return;
         }
         recordUsageQuietly(userId, units);   // 성공 시만 차감. 폴백(LLM 장애)은 유저 잘못이 아니라 미차감.
+        replyLinter.inspect(storyId, reply); // 규칙 위반 계측. 답변은 그대로 나간다.
         factExtractor.extractAsync(storyId); // 원장 갱신. 실패해도 채팅에 영향 없음(내부에서 삼킴).
     }
 
