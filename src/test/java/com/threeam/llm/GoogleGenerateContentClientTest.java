@@ -32,6 +32,16 @@ class GoogleGenerateContentClientTest {
                 }
 
                 @Override
+                int thinkingBudget() {
+                    return 2048;
+                }
+
+                @Override
+                String thinkingLevel() {
+                    return "low";
+                }
+
+                @Override
                 String providerName() {
                     return "테스트";
                 }

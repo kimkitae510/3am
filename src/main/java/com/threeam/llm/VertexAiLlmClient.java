@@ -78,6 +78,16 @@ public class VertexAiLlmClient extends GoogleGenerateContentClient {
     }
 
     @Override
+    int thinkingBudget() {
+        return properties.getThinkingBudget();
+    }
+
+    @Override
+    String thinkingLevel() {
+        return properties.getThinkingLevel();
+    }
+
+    @Override
     String providerName() {
         return "Vertex AI";
     }

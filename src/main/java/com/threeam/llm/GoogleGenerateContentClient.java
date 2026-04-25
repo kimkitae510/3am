@@ -50,6 +50,10 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     abstract long assessmentTimeoutSeconds();
 
+    abstract int thinkingBudget();
+
+    abstract String thinkingLevel();
+
     // 로그 라벨용
     abstract String providerName();
 
@@ -148,13 +152,11 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         if (deep) {
             generationConfig.put("temperature", 0);
         } else if (endpoint().contains("gemini-2.5")) {
-            // 512로 출발했는데 그 뒤 프롬프트 맨 끝에 '출력 직전 점검'(6항목)이 붙었다.
-            // 답을 짓는 것과 그 초안을 6항목으로 되짚는 것을 한 예산 안에서 해야 해서,
-            // 점검이 실제로 돌 여지를 주려면 512로는 빠듯하다. 입력이 2만 토큰대라
-            // 여기서 1~2천을 더 쓰는 건 전체 비용에서 차지하는 몫이 작다.
-            generationConfig.put("thinkingConfig", Map.of("thinkingBudget", 2048));
+            // 답을 짓는 것과 그 초안을 출력 직전 점검으로 되짚는 것을 한 예산 안에서 해야 한다 —
+            // 점검이 실제로 돌 여지가 없으면 규칙을 맨 끝으로 옮긴 의미가 없다(실측: 512에선 그냥 통과했다).
+            generationConfig.put("thinkingConfig", Map.of("thinkingBudget", thinkingBudget()));
         } else {
-            generationConfig.put("thinkingConfig", Map.of("thinkingLevel", "low"));
+            generationConfig.put("thinkingConfig", Map.of("thinkingLevel", thinkingLevel()));
         }
         body.put("generationConfig", generationConfig);
 
