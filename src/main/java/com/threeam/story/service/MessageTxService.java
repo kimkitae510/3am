@@ -94,7 +94,14 @@ public class MessageTxService {
                 .getContent();
 
         List<ChatMessage> prompt = new ArrayList<>();
+        // 고정분(페르소나, 리마인더)을 앞에 몰아둔다. 캐싱은 프롬프트 앞에서부터 똑같은 만큼만 먹는데,
+        // 사이에 매번 바뀌는 것(원장, 기억, 진단)이 끼면 거기서 끊겨 뒤쪽 고정분은 캐시를 못 받는다.
         prompt.add(ChatMessage.system(personaProperties.getPersona()));
+        // 리마인더 실문구는 저장소 밖(reminder.yml, gitignore)에서 주입된다. 비어 있으면 건너뛴다.
+        String reminder = personaProperties.getReminder();
+        if (reminder != null && !reminder.isBlank()) {
+            prompt.add(ChatMessage.system(reminder));
+        }
         // 사실 원장: 창 밖으로 밀려나도 잊으면 안 되는 사건, 사실들. 괄호는 기록일.
         // 최근 N개만 최신순으로 가져와 시간순으로 뒤집는다(비용 상한).
         List<StoryFact> recentFacts = storyFactRepository.findByStoryIdOrderByIdDesc(
@@ -116,11 +123,6 @@ public class MessageTxService {
         // 최신 진단을 실어, 유저가 "왜 이 진단이야?" 같은 후속 질문을 하면 근거를 들어 설명할 수 있게 한다.
         assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
                 .ifPresent(assessment -> prompt.add(ChatMessage.system(describeAssessment(assessment))));
-        // 리마인더 실문구는 저장소 밖(reminder.yml, gitignore)에서 주입된다. 비어 있으면 건너뛴다.
-        String reminder = personaProperties.getReminder();
-        if (reminder != null && !reminder.isBlank()) {
-            prompt.add(ChatMessage.system(reminder));
-        }
         // 매 턴 질문으로 끝내는 습관 차단 — 직전 답변이 질문이었으면 이번 턴은 '질문으로 끝내는 것'만 금지.
         // 질문 전면 금지였을 땐 판을 가르는 질문("무슨 잘못이었는데?")까지 죽어서 게이트가 무력화됐다(실측:
         // '내 잘못으로 헤어져서 연락 못 해'에 잘못 내용도 안 묻고 조언만 함). 배치만 제약한다 —

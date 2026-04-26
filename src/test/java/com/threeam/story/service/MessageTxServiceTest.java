@@ -131,10 +131,11 @@ class MessageTxServiceTest {
 
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "안녕").prompt();
 
-        assertThat(prompt.get(1).role()).isEqualTo(LlmRole.SYSTEM);
-        assertThat(prompt.get(1).content())
-                .contains("기록된 사실")
-                .contains("(11/10) 상대가 먼저 이별을 통보함");
+        // 인덱스가 아니라 내용으로 찾는다 — 프롬프트 순서는 캐시 때문에 바뀔 수 있고,
+        // 이 테스트가 검증할 것은 자리가 아니라 "원장이 실렸는가"다.
+        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
+                .extracting(ChatMessage::content)
+                .anyMatch(c -> c.contains("기록된 사실") && c.contains("(11/10) 상대가 먼저 이별을 통보함"));
     }
 
     @Test
@@ -162,10 +163,10 @@ class MessageTxServiceTest {
         // 시스템(페르소나) + 시스템(진단 데이터) + 시스템(스타일 리마인더) + 유저 + 시스템(출력 직전 점검)
         assertThat(prompt).extracting(ChatMessage::role)
                 .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
-        assertThat(prompt.get(1).content())
-                .contains("20%")
-                .contains("읽씹당하는 중")
-                .contains("메시지를 계속 안 읽는다고 함");
+        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
+                .extracting(ChatMessage::content)
+                .anyMatch(c -> c.contains("20%") && c.contains("읽씹당하는 중")
+                        && c.contains("메시지를 계속 안 읽는다고 함"));
     }
 
     @Test

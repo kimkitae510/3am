@@ -119,11 +119,21 @@ abstract class GoogleGenerateContentClient implements LlmClient {
     private HttpRequest buildRequest(List<ChatMessage> messages, boolean json, boolean deep,
                                      Map<String, Object> responseSchema) {
         // system은 system_instruction으로, 대화는 contents(user/model)로 나눠 받는다.
+        // 단 '대화보다 뒤에 온 system 메시지'는 예외다 — 그건 대화 뒤에 놓이길 의도하고 넣은 것이라
+        // (출력 직전 점검), system_instruction으로 접으면 대화 앞으로 가버려 의도가 정반대가 된다.
+        // 실측: 맨 끝에 두려고 만든 점검이 실제로는 대화 20개 앞에 놓여 있었고 그래서 절반만 먹혔다.
         StringBuilder system = new StringBuilder();
         List<Map<String, Object>> contents = new ArrayList<>();
         for (ChatMessage message : messages) {
             if (message.role() == LlmRole.SYSTEM) {
-                system.append(message.content()).append('\n');
+                if (contents.isEmpty()) {
+                    system.append(message.content()).append('\n');
+                } else {
+                    // 유저 발화로 오해하지 않게 앞머리를 붙인다 — 모델이 여기에 답하면 안 된다.
+                    contents.add(Map.of("role", "user", "parts", List.of(Map.of("text",
+                            "(유저가 보낸 말이 아니라 시스템 지시다. 이 지시 자체에 답하지 말고 답변에만 반영해라.)\n"
+                                    + message.content()))));
+                }
                 continue;
             }
             String role = message.role() == LlmRole.USER ? "user" : "model";
@@ -287,8 +297,8 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             int output = usage.path("candidatesTokenCount").asInt(0)
                     + usage.path("thoughtsTokenCount").asInt(0);
             double cost = ((input - cached) * prices[0] + cached * prices[1] + output * prices[2]) / 1_000_000d;
-            log.info("{}[{}] {} 호출 비용: ${} (신규입력 {} / 캐시 {} / 출력+추론 {})",
-                    providerName(), model, kind, String.format("%.6f", cost), input - cached, cached, output);
+            log.info("{}[{}] {} 호출 비용: {} (신규입력 {} / 캐시 {} / 출력+추론 {})",
+                    providerName(), model, kind, String.format("%.4f", cost), input - cached, cached, output);
             // 누적 지출과 호출당 분포를 함께 본다(합계만 보면 어떤 종류가 비싼지 안 갈린다).
             Metrics.summary("llm.cost.usd", "provider", providerName(), "kind", kind).record(cost);
         }
