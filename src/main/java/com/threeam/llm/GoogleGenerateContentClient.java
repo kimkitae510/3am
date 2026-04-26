@@ -270,8 +270,11 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         // 실제로 맞고 있는지는 이 값 없이 알 수 없어 명시적 캐싱 도입 판단이 불가능했다.
         int cached = usage.path("cachedContentTokenCount").asInt(0);
         // thoughts(추론) 토큰을 따로 남긴다 — output이 작게 잘렸을 때 추론이 예산을 먹었는지 가려낸다.
-        log.info("{} {} 토큰 사용: input={}(캐시 {} / 신규 {}), output={}, thoughts={}, total={}",
-                providerName(), kind,
+        // 설정값이 아니라 응답이 알려주는 실제 모델을 남긴다 — 모델을 바꿔가며 비교할 때
+        // "지금 뭐가 돌고 있나"를 로그만 보고 확정할 수 있어야 한다(설정은 환경변수라 눈에 안 보인다).
+        String model = usage.isMissingNode() ? "" : root.path("modelVersion").asText("");
+        log.info("{}[{}] {} 토큰 사용: input={}(캐시 {} / 신규 {}), output={}, thoughts={}, total={}",
+                providerName(), model, kind,
                 input, cached, input - cached,
                 usage.path("candidatesTokenCount").asInt(0),
                 usage.path("thoughtsTokenCount").asInt(0),
@@ -284,8 +287,8 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             int output = usage.path("candidatesTokenCount").asInt(0)
                     + usage.path("thoughtsTokenCount").asInt(0);
             double cost = ((input - cached) * prices[0] + cached * prices[1] + output * prices[2]) / 1_000_000d;
-            log.info("{} {} 호출 비용: ${} (신규입력 {} / 캐시 {} / 출력+추론 {})",
-                    providerName(), kind, String.format("%.6f", cost), input - cached, cached, output);
+            log.info("{}[{}] {} 호출 비용: ${} (신규입력 {} / 캐시 {} / 출력+추론 {})",
+                    providerName(), model, kind, String.format("%.6f", cost), input - cached, cached, output);
             // 누적 지출과 호출당 분포를 함께 본다(합계만 보면 어떤 종류가 비싼지 안 갈린다).
             Metrics.summary("llm.cost.usd", "provider", providerName(), "kind", kind).record(cost);
         }
