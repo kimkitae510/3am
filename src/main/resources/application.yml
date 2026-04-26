@@ -91,8 +91,11 @@ llm:
     # 채팅 타임아웃을 올릴 때마다 진단이 따라 올라 아래 두 상한을 넘길 뻔했다.
     # usage.in-flight-ttl-seconds와 spring request-timeout보다 작아야 한다.
     assessment-timeout-seconds: 90
-    # thinking 세기. 2.5 계열은 budget(토큰), 3.x는 level(low|medium|high)을 쓴다 — 세대마다 필드가 다르다.
-    # 모델을 바꿔도 코드를 안 고치게 설정으로 뺐다. 더 강한 모델로 갈아탈 땐 level도 같이 올려라.
+    # thinking 세기. 2.5 계열은 budget(토큰), 3.x는 level을 쓴다 — 세대마다 필드가 다르다.
+    # level 유효값은 low|medium|high다. minimal은 gemini-3.1-pro-preview에서 거부당한다(실측 오류) —
+    # 예전 기록에 minimal이 보이는 건 그때 쓰던 3.5-flash 얘기다. 모델이 바뀌면 유효값도 바뀐다.
+    # 그리고 같은 low라도 모델마다 실제 추론량이 다르다(실측: 3.5-flash는 thoughts 0,
+    # 3.1-pro-preview는 low에서도 1,600대). 추론은 출력 단가로 과금되니 여기가 곧 비용이다.
     thinking-budget: ${LLM_THINKING_BUDGET:2048}
     thinking-level: ${LLM_THINKING_LEVEL:low}
     # 100만 토큰당 단가(USD). 넣으면 호출마다 실제 비용이 로그와 지표(llm.cost.usd)로 남는다.
