@@ -3,6 +3,7 @@ package com.threeam.story.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -79,6 +80,24 @@ class MessageTxServiceTest {
     private MessageTxService messageTxService;
 
     @Test
+    @DisplayName("프롬프트 조립 - 유저가 진단을 화제로 꺼내지 않은 턴에는 진단 블록을 싣지 않는다")
+    void buildPrompt_skipsAssessmentWhenNotAsked() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 잠이 안 와")),
+                        PageRequest.of(0, 20), false));
+
+        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 잠이 안 와").prompt();
+
+        // 조회 자체를 안 해야 한다 — 쓰지도 않을 블록을 만들려고 DB를 두드릴 이유가 없다.
+        verify(assessmentRepository, never()).findFirstByStoryIdOrderByCreatedAtDesc(anyLong());
+        assertThat(prompt).extracting(ChatMessage::role)
+                .containsExactly(LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
+    }
+
+    @Test
     @DisplayName("프롬프트 조립 - 출력 직전 점검은 대화보다 뒤, 프롬프트의 맨 끝에 붙는다")
     void buildPrompt_finalCheckGoesLast() {
         Story story = story(10L);
@@ -109,9 +128,9 @@ class MessageTxServiceTest {
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 힘들어").prompt();
 
         assertThat(prompt.get(0).role()).isEqualTo(LlmRole.SYSTEM); // 맨 앞은 페르소나
-        // 페르소나 + 매 턴 스타일 리마인더 + 유저 + 출력 직전 점검(맨 끝)
+        // 페르소나 + 유저 + 출력 직전 점검(맨 끝). 리마인더 블록은 페르소나로 흡수돼 사라졌다.
         assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
+                .containsExactly(LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
         verify(messageRepository).save(any(Message.class)); // 유저 메시지 저장됨
     }
 
@@ -146,7 +165,7 @@ class MessageTxServiceTest {
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "왜 이 진단이야?")),
-                        PageRequest.of(0, 20), false));
+                        PageRequest.of(0, 20), false)); // '진단'이 들어가야 블록이 실린다
         Assessment assessment = Assessment.builder()
                 .storyId(10L)
                 .verdict(ReunionVerdict.POSSIBLE)
@@ -160,9 +179,9 @@ class MessageTxServiceTest {
 
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "왜 이 진단이야?").prompt();
 
-        // 시스템(페르소나) + 시스템(진단 데이터) + 시스템(스타일 리마인더) + 유저 + 시스템(출력 직전 점검)
+        // 시스템(페르소나) + 시스템(진단 데이터) + 유저 + 시스템(출력 직전 점검)
         assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
+                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
                 .anyMatch(c -> c.contains("20%") && c.contains("읽씹당하는 중")

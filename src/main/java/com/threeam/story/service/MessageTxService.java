@@ -94,14 +94,12 @@ public class MessageTxService {
                 .getContent();
 
         List<ChatMessage> prompt = new ArrayList<>();
-        // 고정분(페르소나, 리마인더)을 앞에 몰아둔다. 캐싱은 프롬프트 앞에서부터 똑같은 만큼만 먹는데,
-        // 사이에 매번 바뀌는 것(원장, 기억, 진단)이 끼면 거기서 끊겨 뒤쪽 고정분은 캐시를 못 받는다.
+        // 페르소나가 프롬프트의 맨 앞이자 유일한 고정 지시 블록이다. 캐싱은 앞에서부터 똑같은
+        // 만큼만 먹으므로 고정분은 전부 여기 모으고, 매번 바뀌는 것(원장, 기억, 진단)은 뒤에 둔다.
+        // 별도 리마인더 블록은 없앴다 — '프롬프트 말미에 다시 박는다'는 전제로 만들었는데
+        // system 메시지는 언제나 대화보다 앞이라 말미인 적이 없었고, 결국 페르소나의 중복이었다.
+        // 진짜 말미가 필요한 것은 출력 직전 점검뿐이고 그건 대화 뒤(contents)로 따로 나간다.
         prompt.add(ChatMessage.system(personaProperties.getPersona()));
-        // 리마인더 실문구는 저장소 밖(reminder.yml, gitignore)에서 주입된다. 비어 있으면 건너뛴다.
-        String reminder = personaProperties.getReminder();
-        if (reminder != null && !reminder.isBlank()) {
-            prompt.add(ChatMessage.system(reminder));
-        }
         // 사실 원장: 창 밖으로 밀려나도 잊으면 안 되는 사건, 사실들. 괄호는 기록일.
         // 최근 N개만 최신순으로 가져와 시간순으로 뒤집는다(비용 상한).
         List<StoryFact> recentFacts = storyFactRepository.findByStoryIdOrderByIdDesc(
@@ -120,9 +118,13 @@ public class MessageTxService {
                 .map(StoryMemory::getSummary)
                 .filter(summary -> !summary.isBlank())
                 .ifPresent(summary -> prompt.add(ChatMessage.system("지금까지 요약: " + summary)));
-        // 최신 진단을 실어, 유저가 "왜 이 진단이야?" 같은 후속 질문을 하면 근거를 들어 설명할 수 있게 한다.
-        assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                .ifPresent(assessment -> prompt.add(ChatMessage.system(describeAssessment(assessment))));
+        // 최신 진단은 유저가 "왜 이 진단이야?" 같은 후속 질문을 할 때만 쓰인다. 그런데 이 블록은
+        // 감점마다 근거와 판독 이유까지 붙어 꽤 크고, 고정분 뒤라 캐시도 못 받아 전액 정가다 —
+        // 쓰이지도 않는 턴에 매번 싣던 비용이라 필요한 턴에만 싣는다.
+        if (needsAssessment(recent)) {
+            assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                    .ifPresent(assessment -> prompt.add(ChatMessage.system(describeAssessment(assessment))));
+        }
         // 매 턴 질문으로 끝내는 습관 차단 — 직전 답변이 질문이었으면 이번 턴은 '질문으로 끝내는 것'만 금지.
         // 질문 전면 금지였을 땐 판을 가르는 질문("무슨 잘못이었는데?")까지 죽어서 게이트가 무력화됐다(실측:
         // '내 잘못으로 헤어져서 연락 못 해'에 잘못 내용도 안 묻고 조언만 함). 배치만 제약한다 —
@@ -152,6 +154,20 @@ public class MessageTxService {
             prompt.add(ChatMessage.system(finalCheck));
         }
         return prompt;
+    }
+
+
+    // 진단 데이터를 실어야 하는 턴인지. 유저가 진단을 화제로 꺼냈을 때만 필요하다.
+    // 넉넉하게 잡는다 — 안 실어서 "왜 이 확률이야?"에 답을 못 하는 쪽이, 몇 번 더 싣는 것보다 나쁘다.
+    private static final List<String> ASSESSMENT_CUES = List.of(
+            "진단", "확률", "퍼센트", "%", "가능성", "점수", "감점", "가점", "애착", "유형");
+
+    private boolean needsAssessment(List<Message> recent) {
+        if (recent.isEmpty()) {
+            return false;
+        }
+        String latest = recent.get(0).getContent();
+        return latest != null && ASSESSMENT_CUES.stream().anyMatch(latest::contains);
     }
 
     // 진단 결과를 설명용 데이터 블록으로 만든다. 재계산, 창작, 그리고 "묻지 않은 확률 들이대기"를 막는 지시를 함께 싣는다.
