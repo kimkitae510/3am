@@ -36,6 +36,9 @@ public class ReplyLinter {
 
     private static final Pattern BULLET = Pattern.compile("^\\s*[-*]\\s|[·•]");
 
+    // 양자택일 질문. 한 문장이든 두 문장으로 쪼갰든 '물음표 뒤 아니면'이라는 형태는 같다.
+    private static final Pattern EITHER_OR = Pattern.compile("\\?\\s*아니면|,\\s*아니면[^?]*\\?");
+
     // 마크다운 강조, 제목.
     private static final Pattern MARKDOWN = Pattern.compile("\\*\\*|^#{1,6}\\s");
 
@@ -48,6 +51,7 @@ public class ReplyLinter {
         count(hits, "거다어미", WRITTEN_ENDING, reply);
         count(hits, "불릿", BULLET, reply);
         count(hits, "마크다운", MARKDOWN, reply);
+        count(hits, "양자택일", EITHER_OR, reply);
         // 마침표는 줄 단위로 본다 — 본문 중간의 소수점, 줄임표를 마침표로 세지 않기 위해.
         int periods = 0;
         for (String line : reply.split("\n")) {
@@ -86,6 +90,7 @@ public class ReplyLinter {
         count(hits, "거다어미", WRITTEN_ENDING, reply);
         count(hits, "불릿", BULLET, reply);
         count(hits, "마크다운", MARKDOWN, reply);
+        count(hits, "양자택일", EITHER_OR, reply);
         return new ArrayList<>(hits.keySet());
     }
 }

@@ -40,6 +40,14 @@ class ReplyLinterTest {
     }
 
     @Test
+    @DisplayName("양자택일 - 한 문장이든 두 문장으로 쪼갰든 잡는다(프롬프트에서 뺀 규칙을 여기서 감시한다)")
+    void catchesEitherOr() {
+        assertThat(linter.violatedRules("답장이 오긴 했어? 아니면 그냥 읽고 무시한 상태야?")).contains("양자택일");
+        assertThat(linter.violatedRules("차단할 거야, 아니면 그대로 둘 거야?")).contains("양자택일");
+        assertThat(linter.violatedRules("그 뒤로 걔한테서 뭐 온 건 있어?")).isEmpty();
+    }
+
+    @Test
     @DisplayName("정상 답변은 아무것도 걸리지 않는다")
     void cleanReplyPasses() {
         assertThat(linter.violatedRules("걔가 조율 대신 이별을 고른 거야\n\n지금은 연락 안 하는 게 맞아")).isEmpty();
