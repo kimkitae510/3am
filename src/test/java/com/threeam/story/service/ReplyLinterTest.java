@@ -42,8 +42,8 @@ class ReplyLinterTest {
     @Test
     @DisplayName("양자택일 - 한 문장이든 두 문장으로 쪼갰든 잡는다(프롬프트에서 뺀 규칙을 여기서 감시한다)")
     void catchesEitherOr() {
-        assertThat(linter.violatedRules("답장이 오긴 했어? 아니면 그냥 읽고 무시한 상태야?")).contains("양자택일");
-        assertThat(linter.violatedRules("차단할 거야, 아니면 그대로 둘 거야?")).contains("양자택일");
+        assertThat(linter.violatedRules("답장이 오긴 했어? 아니면 그냥 읽고 무시한 상태야?")).contains("양자택일형태");
+        assertThat(linter.violatedRules("차단할 거야, 아니면 그대로 둘 거야?")).contains("양자택일형태");
         assertThat(linter.violatedRules("그 뒤로 걔한테서 뭐 온 건 있어?")).isEmpty();
     }
 

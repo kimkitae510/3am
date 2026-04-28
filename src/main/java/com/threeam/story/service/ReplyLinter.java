@@ -36,7 +36,9 @@ public class ReplyLinter {
 
     private static final Pattern BULLET = Pattern.compile("^\\s*[-*]\\s|[·•]");
 
-    // 양자택일 질문. 한 문장이든 두 문장으로 쪼갰든 '물음표 뒤 아니면'이라는 형태는 같다.
+    // 양자택일 '형태'. 선택지가 실제로 그 둘뿐인 사실 확인('먼저 제안한 게 너야 걔야?')은
+    // 규칙상 허용이라 이 지표에는 오탐이 섞인다 — 위반 수가 아니라 형태 출현 수로 읽어라.
+    // 형태만 세는 이유는, 다른 답을 지우는 나쁜 양자택일과 그렇지 않은 것을 정규식으로는 못 가르기 때문이다.
     private static final Pattern EITHER_OR = Pattern.compile("\\?\\s*아니면|,\\s*아니면[^?]*\\?");
 
     // 마크다운 강조, 제목.
@@ -51,7 +53,7 @@ public class ReplyLinter {
         count(hits, "거다어미", WRITTEN_ENDING, reply);
         count(hits, "불릿", BULLET, reply);
         count(hits, "마크다운", MARKDOWN, reply);
-        count(hits, "양자택일", EITHER_OR, reply);
+        count(hits, "양자택일형태", EITHER_OR, reply);
         // 마침표는 줄 단위로 본다 — 본문 중간의 소수점, 줄임표를 마침표로 세지 않기 위해.
         int periods = 0;
         for (String line : reply.split("\n")) {
@@ -90,7 +92,7 @@ public class ReplyLinter {
         count(hits, "거다어미", WRITTEN_ENDING, reply);
         count(hits, "불릿", BULLET, reply);
         count(hits, "마크다운", MARKDOWN, reply);
-        count(hits, "양자택일", EITHER_OR, reply);
+        count(hits, "양자택일형태", EITHER_OR, reply);
         return new ArrayList<>(hits.keySet());
     }
 }
