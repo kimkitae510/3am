@@ -5,7 +5,6 @@ import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
 import com.threeam.assessment.entity.Assessment;
-import com.threeam.assessment.entity.AttachmentSignal;
 import com.threeam.assessment.entity.Deduction;
 import com.threeam.assessment.entity.GuidanceItem;
 import com.threeam.assessment.entity.ReunionVerdict;
@@ -76,7 +75,7 @@ public class AssessmentService {
                         insufficientGuide(storyId, FAIL_RETRY_GUIDE).withRetryAfterSeconds(retryAfterSeconds));
             }
             return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(),
-                            context.conversation(), context.previousAttachment())
+                            context.conversation())
                     .thenApplyAsync(diagnosis -> {
                         AssessmentResponse response = persist(storyId, diagnosis);
                         // LLM 왕복이 정상 처리됐으니 실패 연속 카운트를 지운다(INSUFFICIENT도 실패가 아니라 판정).
@@ -208,7 +207,7 @@ public class AssessmentService {
         }
 
         // 사귀는 중(DATING)이거나 재회에 성공(REUNITED) — 둘 다 확률 계산을 구조적으로 건너뛴다.
-        // LLM이 실수로 감점을 보냈어도 버린다. 애착유형과 총평, 원장은 그대로 저장 —
+        // LLM이 실수로 감점을 보냈어도 버린다. 총평과 원장은 그대로 저장 —
         // 저장해야 화면의 최신 결과가 이전 확률 대신 이 판정으로 교체된다.
         if (diagnosis.verdict() == ReunionVerdict.DATING || diagnosis.verdict() == ReunionVerdict.REUNITED) {
             String fallback = diagnosis.verdict() == ReunionVerdict.DATING ? DATING_GUIDE : REUNITED_GUIDE;
@@ -218,9 +217,6 @@ public class AssessmentService {
             Assessment assessment = Assessment.builder()
                     .storyId(storyId)
                     .verdict(diagnosis.verdict())
-                    .partnerAttachment(diagnosis.partnerAttachment())
-                    .attachmentConfidence(diagnosis.attachmentConfidence())
-                    .attachmentSignals(toAttachmentSignals(diagnosis))
                     .reason(reason)
                     .build();
             return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts());
@@ -254,9 +250,6 @@ public class AssessmentService {
                 .storyId(storyId)
                 .verdict(diagnosis.verdict())
                 .probability(probability)
-                .partnerAttachment(diagnosis.partnerAttachment())
-                .attachmentConfidence(diagnosis.attachmentConfidence())
-                .attachmentSignals(toAttachmentSignals(diagnosis))
                 .reason(diagnosis.reason())
                 .deductions(deductions)
                 .guidanceItems(guidanceItems)
@@ -267,11 +260,5 @@ public class AssessmentService {
 
     private Deduction toDeduction(DeductionItem item) {
         return Deduction.of(item.signal(), item.points(), item.evidence(), item.rationale());
-    }
-
-    private List<AttachmentSignal> toAttachmentSignals(ReunionDiagnosis diagnosis) {
-        return diagnosis.attachmentSignals().stream()
-                .map(s -> AttachmentSignal.of(s.signal(), s.evidence()))
-                .toList();
     }
 }

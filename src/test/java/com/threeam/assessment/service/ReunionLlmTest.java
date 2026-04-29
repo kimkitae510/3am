@@ -9,8 +9,6 @@ import static org.mockito.BDDMockito.given;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.AssessmentProperties;
 import com.threeam.assessment.dto.ReunionDiagnosis;
-import com.threeam.assessment.entity.AttachmentConfidence;
-import com.threeam.assessment.entity.AttachmentStyle;
 import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.LlmClient;
@@ -42,12 +40,6 @@ class ReunionLlmTest {
         String json = """
                 {
                   "verdict": "POSSIBLE",
-                  "partnerAttachment": "AVOIDANT",
-                  "attachmentConfidence": "CONFIRMED",
-                  "attachmentSignals": [
-                    {"signal": "갈등 시 대화 회피", "evidence": "갈등 얘기를 꺼내면 화제를 돌림"},
-                    {"signal": "이별 후 일관된 무심함", "evidence": "연락 시도에 몇 달째 반응 없음"}
-                  ],
                   "activeReunionOffer": true,
                   "deductions": [
                     {"signal": "차단", "axis": "마음", "points": 30, "evidence": "차단당함", "rationale": "연락 통로를 스스로 닫은 강한 거절"},
@@ -62,10 +54,6 @@ class ReunionLlmTest {
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE);
-        assertThat(diagnosis.partnerAttachment()).isEqualTo(AttachmentStyle.AVOIDANT);
-        assertThat(diagnosis.attachmentConfidence()).isEqualTo(AttachmentConfidence.CONFIRMED);
-        assertThat(diagnosis.attachmentSignals()).hasSize(2);
-        assertThat(diagnosis.attachmentSignals().get(0).signal()).isEqualTo("갈등 시 대화 회피");
         assertThat(diagnosis.activeReunionOffer()).isTrue();
         assertThat(diagnosis.deductions()).hasSize(1); // points=0 항목은 버려진다
         assertThat(diagnosis.deductions().get(0).points()).isEqualTo(30);
@@ -205,11 +193,10 @@ class ReunionLlmTest {
     }
 
     @Test
-    @DisplayName("알 수 없는 enum 값은 안전한 기본값으로 떨어지고, 유형 없는 근거는 함께 버려진다")
+    @DisplayName("알 수 없는 enum 값은 안전한 기본값으로 떨어진다")
     void parse_unknownEnum_fallsBack() {
         String json = """
-                {"verdict": "???", "partnerAttachment": "WAT", "attachmentConfidence": "CONFIRMED",
-                 "attachmentSignals": [{"signal": "유형이 없으니", "evidence": "버려질 근거"}],
+                {"verdict": "???",
                  "deductions": [], "reason": "", "summary": ""}
                 """;
         given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
@@ -217,60 +204,7 @@ class ReunionLlmTest {
         ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
 
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE); // 기본값
-        assertThat(diagnosis.partnerAttachment()).isNull();
-        assertThat(diagnosis.attachmentConfidence()).isNull();  // 유형이 안 잡히면 확신도도 무효
-        assertThat(diagnosis.attachmentSignals()).isEmpty();    // 유형이 안 잡히면 근거도 무효
         assertThat(diagnosis.activeReunionOffer()).isFalse(); // 필드 누락 시 안전한 기본값
-    }
-
-    @Test
-    @DisplayName("유형 근거 목록 — 빈 항목은 버리고, 신호명은 컬럼 길이로 자르고, 개수 상한을 지킨다")
-    void parse_attachmentSignals_sanitized() {
-        String longSignal = "가".repeat(150);
-        String json = """
-                {"verdict": "POSSIBLE",
-                 "partnerAttachment": "AVOIDANT",
-                 "attachmentSignals": [
-                   {"signal": "%s", "evidence": "근거1"},
-                   {"signal": "  ", "evidence": "신호명 없음 - 버려짐"},
-                   {"signal": "근거 없음 - 버려짐", "evidence": ""},
-                   {"signal": "정상2", "evidence": "근거2"},
-                   {"signal": "정상3", "evidence": "근거3"},
-                   {"signal": "정상4", "evidence": "근거4"},
-                   {"signal": "정상5", "evidence": "근거5"},
-                   {"signal": "상한 초과 - 버려짐", "evidence": "근거6"}
-                 ],
-                 "deductions": [], "reason": "", "summary": ""}
-                """.formatted(longSignal);
-        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
-
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
-
-        assertThat(diagnosis.attachmentSignals()).hasSize(5); // 상한 5개
-        assertThat(diagnosis.attachmentSignals().get(0).signal()).hasSize(100); // 150자 → 컬럼 길이
-        assertThat(diagnosis.attachmentSignals().get(1).signal()).isEqualTo("정상2"); // 빈 항목은 건너뜀
-    }
-
-    @Test
-    @DisplayName("유형이 잡혔는데 확신도가 누락되거나 이상하면 TENTATIVE(추정)로 보수한다")
-    void parse_attachmentConfidence_defaultsToTentative() {
-        String missingJson = """
-                {"verdict": "POSSIBLE", "partnerAttachment": "ANXIOUS",
-                 "deductions": [], "reason": "", "summary": ""}
-                """;
-        String invalidJson = """
-                {"verdict": "POSSIBLE", "partnerAttachment": "ANXIOUS", "attachmentConfidence": "VERY_SURE",
-                 "deductions": [], "reason": "", "summary": ""}
-                """;
-        given(llmClient.generateJsonDeep(anyList(), any()))
-                .willReturn(CompletableFuture.completedFuture(missingJson))
-                .willReturn(CompletableFuture.completedFuture(invalidJson));
-
-        ReunionDiagnosis missing = reunionLlm().diagnose(null, List.of(), List.of()).join();
-        ReunionDiagnosis invalid = reunionLlm().diagnose(null, List.of(), List.of()).join();
-
-        assertThat(missing.attachmentConfidence()).isEqualTo(AttachmentConfidence.TENTATIVE);
-        assertThat(invalid.attachmentConfidence()).isEqualTo(AttachmentConfidence.TENTATIVE);
     }
 
     @Test

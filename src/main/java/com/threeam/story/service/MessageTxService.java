@@ -1,7 +1,6 @@
 package com.threeam.story.service;
 
 import com.threeam.assessment.entity.Assessment;
-import com.threeam.assessment.entity.AttachmentSignal;
 import com.threeam.assessment.entity.Deduction;
 import com.threeam.assessment.entity.GuidanceItem;
 import com.threeam.assessment.entity.GuidanceKind;
@@ -160,7 +159,7 @@ public class MessageTxService {
     // 진단 데이터를 실어야 하는 턴인지. 유저가 진단을 화제로 꺼냈을 때만 필요하다.
     // 넉넉하게 잡는다 — 안 실어서 "왜 이 확률이야?"에 답을 못 하는 쪽이, 몇 번 더 싣는 것보다 나쁘다.
     private static final List<String> ASSESSMENT_CUES = List.of(
-            "진단", "확률", "퍼센트", "%", "가능성", "점수", "감점", "가점", "애착", "유형");
+            "진단", "확률", "퍼센트", "%", "가능성", "점수", "감점", "가점");
 
     private boolean needsAssessment(List<Message> recent) {
         if (recent.isEmpty()) {
@@ -191,18 +190,6 @@ public class MessageTxService {
         }
         if (assessment.getProbability() != null) {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
-        }
-        if (assessment.getPartnerAttachment() != null) {
-            block.append("- 상대 애착유형: ").append(assessment.getPartnerAttachment().getLabel());
-            if (assessment.getAttachmentConfidence() != null) {
-                block.append(" [").append(assessment.getAttachmentConfidence().getLabel()).append(']');
-            }
-            block.append('\n');
-            // 판정 근거 목록 — "왜 이 유형이야?"에 즉석 재구성 대신 실제 판정 근거로 답하게.
-            for (AttachmentSignal signal : assessment.getAttachmentSignals()) {
-                block.append("  - 유형 근거: ").append(signal.getSignal())
-                        .append(" (").append(signal.getEvidence()).append(")\n");
-            }
         }
         for (Deduction deduction : assessment.getDeductions()) {
             // 가점(양수 delta)까지 "감점"으로 라벨링하면 모순된 데이터가 주입된다
