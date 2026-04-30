@@ -10,6 +10,7 @@ import {
   type AssessmentResponse,
 } from '../api/assessment';
 import { getUsage } from '../api/usage';
+import { getSimilarCases, type SimilarCases } from '../api/match';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import { GAUGE_MAX, bandLabel } from '../utils/assessmentScale';
@@ -109,6 +110,10 @@ export function AssessmentPage() {
   const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
   const [isGuest, setIsGuest] = useState(false); // 게스트는 진단 잠금 — 계정 연결 유도
   const [showHelp, setShowHelp] = useState(false);
+  // 비슷한 사례. 진단이 뽑아둔 분류로 찾으므로 LLM 호출도 차감도 없다 — 실패해도 조용히 접는다.
+  const [similar, setSimilar] = useState<SimilarCases | null>(null);
+  // 본문이 길어 기본은 접어두고, 펼친 것만 전문을 보여준다.
+  const [openCase, setOpenCase] = useState<number | null>(null);
   const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
   const [retracting, setRetracting] = useState(false); // 제안 번복 API 진행 중
   // 진단 생성이 실패했을 때 뜨는 재시도 패널. 스스로 사라지는 에러 배너와 달리, 유저가 누를
@@ -211,6 +216,8 @@ export function AssessmentPage() {
           // 새 결과로 갈아끼우기 전, 화면에 있던 확률이 이번 결과의 비교 기준이 된다.
           setPrevProb(result?.probability ?? null);
           setResult(res);
+          // 이번 진단이 분류를 새로 뽑았을 수 있으니 사례도 다시 찾는다.
+          refreshSimilar();
         }
         refreshUsage(); // 후차감이라 성공 시점에 갱신
       }
@@ -237,9 +244,18 @@ export function AssessmentPage() {
     }
   }
 
+  // 사례 조회는 조회 한 번이라 진단과 달리 자유롭게 부른다. 실패는 삼킨다 —
+  // 부속 정보라 못 불러왔다고 진단 화면에 에러를 띄울 일이 아니다.
+  function refreshSimilar() {
+    getSimilarCases(storyId)
+      .then((res) => aliveRef.current && setSimilar(res))
+      .catch(() => {});
+  }
+
   useEffect(() => {
     aliveRef.current = true;
     refreshUsage();
+    refreshSimilar();
     // 진입 시엔 저장된 최신 진단만 보여준다. LLM 호출 없음.
     getAssessments(storyId)
       .then((all) => {
@@ -658,6 +674,68 @@ export function AssessmentPage() {
             </>
           )}
 
+          {/* 비슷한 사례 — 진단이 뽑은 분류로 찾은 참조 사례. 유사도 순 그대로 보여준다:
+              성공담을 골라 끼우면 헛된 희망을 파는 것이라, 확률에서 지켜온 원칙과 어긋난다.
+              그래서 "너도 이렇게 된다"가 아니라 "비슷한 상황이 이랬다"로 읽히게 문구를 잡는다 */}
+          {similar && similar.cases.length > 0 && (
+            <>
+              <SectionHead title="비슷한 사례" count={similar.cases.length} />
+              <div className={styles.caseNote}>
+                이별 사유와 상황이 닮은 사례예요. 결과가 내 경우를 예고하진 않아요.
+              </div>
+              <div className={styles.dedList}>
+                {similar.cases.map((c) => {
+                  const open = openCase === c.id;
+                  return (
+                    <div className={styles.caseItem} key={c.id}>
+                      <div className={styles.caseTop}>
+                        <span
+                          className={`${styles.caseOutcome} ${
+                            c.outcome === '성공'
+                              ? styles.outcomeSuccess
+                              : c.outcome === '성공후재이별'
+                                ? styles.outcomeMixed
+                                : styles.outcomeFail
+                          }`}
+                        >
+                          {c.outcome ?? '진행 중'}
+                        </span>
+                        {c.periodLabel && <span className={styles.caseBadge}>{c.periodLabel}</span>}
+                      </div>
+                      <div className={styles.caseTags}>
+                        {[c.reason, ...c.subReasons].filter(Boolean).map((tag, i) => (
+                          <span className={styles.caseTag} key={i}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      <div className={open ? styles.caseStory : styles.caseStoryClamped}>
+                        {c.story}
+                      </div>
+                      <button
+                        className={styles.caseMore}
+                        onClick={() => setOpenCase(open ? null : c.id)}
+                      >
+                        {open ? '접기' : '더 보기'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* 사례가 없을 때도 이유를 갈라 말한다 — 대화를 더 하면 열리는 것과, 데이터가 모자란
+              것은 유저가 할 수 있는 일이 다르다. 진단 기록이 없는 첫 화면에선 굳이 띄우지 않는다 */}
+          {similar?.emptyReason === 'NO_PROFILE' && (
+            <div className={styles.caseEmpty}>
+              어쩌다 헤어졌는지 대화에서 더 들려주면 비슷한 사례를 찾아드려요.
+            </div>
+          )}
+          {similar?.emptyReason === 'NO_MATCH' && (
+            <div className={styles.caseEmpty}>아직 닮은 사례를 찾지 못했어요.</div>
+          )}
+
         </div>
 
         {/* 잔여 줄은 body(스크롤) 밖에 둬서 스크롤과 무관하게 하단에 고정한다 — 채팅처럼 항상 보이게 */}
@@ -717,6 +795,10 @@ export function AssessmentPage() {
               {
                 heading: '행동 가이드',
                 text: '이번 진단의 신호와, 상대가 갈등과 이별에서 보인 행동 패턴을 함께 읽어 지금 하면 좋은 것과 피하면 좋은 것을 제안합니다. 상대를 되돌리는 기술이 아니라 나를 지키면서 남은 가능성을 깎지 않는 방향의 제안이고, 결정은 언제나 내 몫입니다.',
+              },
+              {
+                heading: '비슷한 사례',
+                text: '이별 사유와 상황이 닮은 사례를 찾아 보여드려요. 이별을 부른 계기가 얼마나 겹치는지를 가장 크게 보고, 통보한 쪽과 지금 연락 상태, 이별 후 지난 기간을 함께 견줍니다. 결과가 좋은 사례를 골라 보여드리지는 않아요. 남의 결말이 내 결말을 예고하지 않기 때문입니다. 사례 보기는 횟수가 차감되지 않습니다.',
               },
               {
                 heading: '진단 횟수',

@@ -635,3 +635,108 @@
   color: var(--text-muted);
   cursor: default;
 }
+
+/* 비슷한 사례 — 감점 카드와 같은 그릇(dedList)을 쓰되, 사례는 남의 이야기라
+   판정 카드처럼 단정적으로 보이지 않게 태그와 결과 배지로 층을 나눈다 */
+.caseNote {
+  color: var(--text-sub);
+  font-size: 11.5px;
+  line-height: 1.55;
+  margin: -2px 2px 8px;
+}
+
+.caseItem {
+  padding: 14px 16px;
+}
+
+.caseItem + .caseItem {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.caseTop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* 결과는 이 사례에서 가장 먼저 읽히는 정보라 맨 위에 둔다 — 본문을 다 읽고서야
+   실패였음을 아는 것보다, 알고 읽는 편이 덜 휘둘린다 */
+.caseOutcome {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.outcomeSuccess {
+  background: rgba(184, 157, 209, 0.18);
+  color: #c9b3dd;
+}
+
+.outcomeFail {
+  background: rgba(255, 255, 255, 0.07);
+  color: #9d9aa8;
+}
+
+.outcomeMixed {
+  background: rgba(216, 139, 159, 0.15);
+  color: #d8a3b1;
+}
+
+.caseBadge {
+  color: var(--text-sub);
+  font-size: 11px;
+}
+
+.caseTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.caseTag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b3b0bc;
+  font-size: 11px;
+}
+
+.caseStory {
+  color: #b3b0bc;
+  font-size: 12.5px;
+  line-height: 1.62;
+  margin-top: 10px;
+  white-space: pre-wrap;
+}
+
+/* 사례 본문이 길어 목록이 밀리므로 기본은 네 줄로 접는다 */
+.caseStoryClamped {
+  composes: caseStory;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.caseMore {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #b89dd1;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.caseEmpty {
+  margin-top: 14px;
+  padding: 13px 15px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-sub);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
