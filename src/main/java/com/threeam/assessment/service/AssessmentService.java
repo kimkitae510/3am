@@ -219,7 +219,8 @@ public class AssessmentService {
                     .verdict(diagnosis.verdict())
                     .reason(reason)
                     .build();
-            return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts());
+            return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts(),
+                diagnosis.matchProfile());
         }
 
         // 감점(음수 delta)과 가점(양수 delta)을 한 컬렉션에 부호로 구분해 담는다.
@@ -255,7 +256,8 @@ public class AssessmentService {
                 .guidanceItems(guidanceItems)
                 .build();
 
-        return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts());
+        return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts(),
+                diagnosis.matchProfile());
     }
 
     private Deduction toDeduction(DeductionItem item) {

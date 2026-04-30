@@ -2,12 +2,14 @@ package com.threeam.assessment.service;
 
 import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
+import com.threeam.assessment.dto.ReunionDiagnosis.MatchProfileItem;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
+import com.threeam.match.service.MatchProfileService;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
@@ -52,6 +54,7 @@ public class AssessmentTxService {
     private final StoryFactRepository storyFactRepository;
     private final StoryFactService storyFactService;
     private final AssessmentRepository assessmentRepository;
+    private final MatchProfileService matchProfileService;
     private final ReunionScorer scorer;
 
     // INSUFFICIENT 재시도 가드: 지난 근거부족 시점 이후 새 대화가 없으면 막는다(같은 재료 = 같은 답).
@@ -186,13 +189,14 @@ public class AssessmentTxService {
         return new AssessmentContext(summary, factLines(storyId), conversation);
     }
 
-    // tx2: 진단 결과 저장 + 기억(감정 요약) 갱신 + 새 사실 원장 append.
+    // tx2: 진단 결과 저장 + 기억(감정 요약) 갱신 + 새 사실 원장 append + 매칭 프로필 갱신.
     @Transactional
     public AssessmentResponse save(Long storyId, Assessment assessment, String newSummary,
-                                   List<String> newFacts) {
+                                   List<String> newFacts, MatchProfileItem matchProfile) {
         Assessment saved = assessmentRepository.save(assessment);
         storyMemoryService.upsert(storyId, newSummary);
         storyFactService.appendFacts(storyId, saved.getId(), newFacts);
+        matchProfileService.upsert(storyId, matchProfile);
         return AssessmentResponse.from(saved);
     }
 

@@ -13,6 +13,7 @@ public record ReunionDiagnosis(
         List<DeductionItem> deductions,
         List<DeductionItem> boosts,
         List<GuidanceEntry> guidance,       // 행동 가이드(do/dont). POSSIBLE 외에는 빈 목록
+        MatchProfileItem matchProfile,      // 사례 매칭용 분류(분류체계 어휘). 못 뽑으면 null
         String reason,
         String summary,           // 감정 흐름, 현재 상태 요약 → StoryMemory에 반영
         List<String> newFacts) {  // 새로 드러난 사실 → StoryFact 원장에 append
@@ -24,5 +25,14 @@ public record ReunionDiagnosis(
 
     // 행동 가이드 한 항목. basis = 어떤 신호/유형에서 나온 조언인지(없으면 null).
     public record GuidanceEntry(GuidanceKind kind, String advice, String basis) {
+    }
+
+    // 사례 매칭에 쓸 분류. 확률과 무관하며, 값은 전부 분류체계 사전의 어휘여야 한다.
+    // 대화에 안 드러난 항목은 null — 지어내면 엉뚱한 사례에 걸린다.
+    // subReasons는 순서가 뜻을 가진다: 0번이 이별을 당긴 방아쇠, 뒤는 밑에 깔린 요인.
+    public record MatchProfileItem(String reason, List<String> subReasons, String dumper,
+                                   String fault, String contactState, Integer monthsSinceBreakup,
+                                   Integer datingMonths, String ageGroup, String gender,
+                                   Boolean repeatBreakup) {
     }
 }

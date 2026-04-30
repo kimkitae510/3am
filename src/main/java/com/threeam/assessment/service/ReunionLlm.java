@@ -12,6 +12,8 @@ import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
 import com.threeam.llm.LlmException;
 import com.threeam.llm.LlmJson;
+import com.threeam.match.MatchTaxonomy;
+import com.threeam.match.entity.SubReasons;
 import com.threeam.story.entity.StoryFact;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +48,8 @@ public class ReunionLlm {
         if (memorySummary != null && !memorySummary.isBlank()) {
             prompt.add(ChatMessage.system("지금까지 요약: " + memorySummary));
         }
+        // 매칭 분류 지시. 대화 앞(고정분)에 둬서 캐시를 받게 한다 — 사전이 길어 매번 정가로 내면 비싸다.
+        prompt.add(ChatMessage.system(MATCH_PROFILE_GUIDE));
         prompt.addAll(conversation);
         // 루브릭 깊숙한 규칙은 긴 프롬프트에서 자주 무시된다(실측: 관점 뒤집힘, 같은 사건 쪼개기가
         // 규칙 신설 후에도 재발). 제일 잘 어기는 것만 프롬프트 맨 끝에 출력 직전 점검으로 다시 박는다
@@ -80,6 +84,20 @@ public class ReunionLlm {
         return llmClient.generateJsonDeep(prompt, RESPONSE_SCHEMA).thenApply(this::parse);
     }
 
+    // matchProfile 작성 지시. 어휘 자체는 응답 스키마가 enum으로 막으므로 여기선 "어떻게 고를지"만 말한다
+    // (사전을 프롬프트에 또 나열하면 같은 목록을 두 번 보내는 셈이라 토큰만 든다).
+    private static final String MATCH_PROFILE_GUIDE = """
+            matchProfile은 확률과 무관하다 — 이 사연과 닮은 참조 사례를 찾기 위한 분류일 뿐이니
+            감점 판단과 섞지 마라. 값은 스키마에 열거된 어휘에서만 고르고, 대화에 드러나지 않은 항목은
+            비워라(null). 지어낸 분류는 엉뚱한 사례를 물어와 유저에게 남의 이야기를 보여주게 된다.
+            subReasons는 순서가 뜻을 가진다: 첫 번째가 이별을 실제로 당긴 방아쇠, 그 뒤는 밑에 깔려 있던
+            요인이다. 최대 3개까지만 쓰고, 확실한 게 하나면 하나만 써라 — 애매한 걸 채워 넣으면
+            변별력이 사라진다. reason은 그중 지배적인 갈래 하나다.
+            누구 잘못인지는 subReasons가 아니라 reason(본인과실, 상대과실)과 fault로 가른다 —
+            같은 행동 태그를 양쪽이 공유하므로 태그에는 방향을 담지 마라.
+            monthsSinceBreakup과 datingMonths는 개월 수 정수다. 반복 이별(온오프)을 겪었으면
+            repeatBreakup을 true로 둔다.""";
+
     // 세 판단 축. 항목마다 axis를 강제해서 "나쁜 행동 = 감점" 같은 도덕 채점을 걸러낸다.
     // RESPONSE_SCHEMA가 클래스 초기화 때 이 값을 읽으므로 반드시 그보다 먼저 선언한다.
     private static final Set<String> AXES = Set.of("마음", "복구가능성", "구조");
@@ -99,6 +117,35 @@ public class ReunionLlm {
                 // rationale까지 필수 — 루브릭이 "반드시 채워라"로 지시하는데도 자주 비는 항목이다.
                 "required", List.of("signal", "axis", "points", "evidence", "rationale"),
                 "propertyOrdering", List.of("signal", "axis", "points", "evidence", "rationale"));
+    }
+
+    // 매칭 분류의 스키마. 어휘를 enum으로 못 박는 게 핵심 — 자유 서술을 허용하면
+    // "여사친 문제"처럼 뜻은 같고 글자가 다른 값이 나와 사례의 태그와 안 겹친다.
+    // 생성 단계에서 사전 밖 값이 나올 수 없게 하면 그 경로 자체가 닫힌다(파싱에서 한 번 더 거른다).
+    private static Map<String, Object> matchProfileSchema() {
+        return Map.ofEntries(
+                Map.entry("type", "OBJECT"),
+                Map.entry("nullable", true),
+                Map.entry("properties", Map.ofEntries(
+                        Map.entry("reason", Map.of("type", "STRING", "nullable", true,
+                                "enum", MatchTaxonomy.REASONS)),
+                        Map.entry("subReasons", Map.of("type", "ARRAY",
+                                "items", Map.of("type", "STRING",
+                                        "enum", List.copyOf(MatchTaxonomy.SUB_REASONS)))),
+                        Map.entry("dumper", Map.of("type", "STRING", "nullable", true,
+                                "enum", MatchTaxonomy.DUMPERS)),
+                        Map.entry("fault", Map.of("type", "STRING", "nullable", true,
+                                "enum", MatchTaxonomy.FAULTS)),
+                        Map.entry("contactState", Map.of("type", "STRING", "nullable", true,
+                                "enum", MatchTaxonomy.CONTACT_STATES)),
+                        Map.entry("monthsSinceBreakup", Map.of("type", "INTEGER", "nullable", true)),
+                        Map.entry("datingMonths", Map.of("type", "INTEGER", "nullable", true)),
+                        Map.entry("ageGroup", Map.of("type", "STRING", "nullable", true)),
+                        Map.entry("gender", Map.of("type", "STRING", "nullable", true)),
+                        Map.entry("repeatBreakup", Map.of("type", "BOOLEAN", "nullable", true)))),
+                Map.entry("propertyOrdering", List.of("reason", "subReasons", "dumper", "fault",
+                        "contactState", "monthsSinceBreakup", "datingMonths", "ageGroup",
+                        "gender", "repeatBreakup")));
     }
 
     private static Map<String, Object> guidanceListSchema() {
@@ -122,6 +169,7 @@ public class ReunionLlm {
                     Map.entry("verdict", Map.of("type", "STRING",
                             "enum", List.of("POSSIBLE", "INSUFFICIENT", "DATING", "REUNITED"))),
                     Map.entry("activeReunionOffer", Map.of("type", "BOOLEAN")),
+                    Map.entry("matchProfile", matchProfileSchema()),
                     Map.entry("deductions", Map.of("type", "ARRAY", "items", pointItemSchema())),
                     Map.entry("boosts", Map.of("type", "ARRAY", "items", pointItemSchema())),
                     Map.entry("guidance", Map.of(
@@ -137,7 +185,7 @@ public class ReunionLlm {
             // deductions, boosts를 비우라고 지시하는데 필수로 걸면 억지로 채우게 된다.
             Map.entry("required", List.of("verdict", "activeReunionOffer", "reason", "summary")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "deductions", "boosts",
-                    "guidance", "reason", "summary", "newFacts")));
+                    "guidance", "matchProfile", "reason", "summary", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
         try {
@@ -177,7 +225,7 @@ public class ReunionLlm {
             appendGuidance(guidance, root, "dont", GuidanceKind.DONT);
 
             return new ReunionDiagnosis(verdict, activeReunionOffer,
-                    deductions, boosts, guidance,
+                    deductions, boosts, guidance, matchProfile(root),
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
             // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
@@ -252,6 +300,79 @@ public class ReunionLlm {
                     : basis.length() > GUIDANCE_BASIS_MAX ? basis.substring(0, GUIDANCE_BASIS_MAX) : basis));
             added++;
         }
+    }
+
+    // 사전에 없는 값은 사례와 겹칠 수 없으니 저장할 값어치가 없다 — 통째로 버리는 대신 항목별로 거른다
+    // (사유 하나가 틀렸다고 연락 상태나 기간까지 버리면 매칭 재료가 통째로 사라진다).
+    // 전 필드가 비면 null을 돌려줘 "뽑지 못함"과 "빈 프로필을 뽑음"을 구분한다.
+    private ReunionDiagnosis.MatchProfileItem matchProfile(JsonNode root) {
+        JsonNode node = root.path("matchProfile");
+        if (!node.isObject()) {
+            return null;
+        }
+        String reason = dictionaryValue(node, "reason", MatchTaxonomy::isReason);
+
+        List<String> subReasons = new ArrayList<>();
+        for (JsonNode item : node.path("subReasons")) {
+            String tag = item.asText("").trim();
+            if (!MatchTaxonomy.isSubReason(tag)) {
+                if (!tag.isBlank()) {
+                    // 사전 밖 어휘가 계속 나오면 사전이 현실을 못 담고 있다는 신호다(태그 신설 근거).
+                    log.warn("매칭 서브태그 폐기(사전에 없음): {}", tag);
+                }
+                continue;
+            }
+            if (!subReasons.contains(tag) && subReasons.size() < SubReasons.MAX) {
+                subReasons.add(tag);
+            }
+        }
+
+        String dumper = dictionaryValue(node, "dumper", MatchTaxonomy.DUMPERS::contains);
+        String fault = dictionaryValue(node, "fault", MatchTaxonomy.FAULTS::contains);
+        String contactState =
+                dictionaryValue(node, "contactState", MatchTaxonomy.CONTACT_STATES::contains);
+        Integer monthsSinceBreakup = monthValue(node, "monthsSinceBreakup");
+        Integer datingMonths = monthValue(node, "datingMonths");
+        String ageGroup = text(node, "ageGroup", AGE_GROUP_MAX);
+        String gender = text(node, "gender", GENDER_MAX);
+        Boolean repeatBreakup = node.path("repeatBreakup").isBoolean()
+                ? node.path("repeatBreakup").asBoolean() : null;
+
+        boolean empty = reason == null && subReasons.isEmpty() && dumper == null && fault == null
+                && contactState == null && monthsSinceBreakup == null && datingMonths == null
+                && ageGroup == null && gender == null && repeatBreakup == null;
+        return empty ? null : new ReunionDiagnosis.MatchProfileItem(reason, subReasons, dumper,
+                fault, contactState, monthsSinceBreakup, datingMonths, ageGroup, gender,
+                repeatBreakup);
+    }
+
+    // 프로필 문자열 컬럼 길이 — 넘치면 저장이 실패하므로 입구에서 자른다.
+    private static final int AGE_GROUP_MAX = 20;
+    private static final int GENDER_MAX = 10;
+
+    // 개월 수 상한(약 42년). 음수와 폭주값은 버킷 계산을 망가뜨린다.
+    private static final int MONTHS_MAX = 500;
+
+    private String dictionaryValue(JsonNode node, String field, java.util.function.Predicate<String> allowed) {
+        String value = node.path(field).asText("").trim();
+        return allowed.test(value) ? value : null;
+    }
+
+    private Integer monthValue(JsonNode node, String field) {
+        JsonNode value = node.path(field);
+        if (!value.isNumber()) {
+            return null;
+        }
+        int months = value.asInt();
+        return months < 0 || months > MONTHS_MAX ? null : months;
+    }
+
+    private String text(JsonNode node, String field, int max) {
+        String value = node.path(field).asText("").trim();
+        if (value.isEmpty()) {
+            return null;
+        }
+        return value.length() > max ? value.substring(0, max) : value;
     }
 
     private <E extends Enum<E>> E enumValue(Class<E> type, String raw, E fallback) {

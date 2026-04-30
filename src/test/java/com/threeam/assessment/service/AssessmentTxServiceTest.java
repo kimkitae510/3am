@@ -15,6 +15,7 @@ import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
+import com.threeam.match.service.MatchProfileService;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.Story;
 import com.threeam.story.entity.StoryFact;
@@ -65,6 +66,9 @@ class AssessmentTxServiceTest {
     private AssessmentRepository assessmentRepository;
 
     @Mock
+    private MatchProfileService matchProfileService;
+
+    @Mock
     private ReunionScorer scorer;
 
     @InjectMocks
@@ -87,7 +91,7 @@ class AssessmentTxServiceTest {
         given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));
         List<String> newFacts = List.of("일주일 전 상대에게서 연락 옴");
 
-        txService.save(STORY_ID, savedAssessment(null), null, newFacts);
+        txService.save(STORY_ID, savedAssessment(null), null, newFacts, null);
 
         verify(storyFactService).appendFacts(STORY_ID, 99L, newFacts);
     }
@@ -97,7 +101,7 @@ class AssessmentTxServiceTest {
     void save_delegatesSummary() {
         given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));
 
-        txService.save(STORY_ID, savedAssessment(null), "감정이 안정되어 가는 중", null);
+        txService.save(STORY_ID, savedAssessment(null), "감정이 안정되어 가는 중", null, null);
 
         verify(storyMemoryService).upsert(STORY_ID, "감정이 안정되어 가는 중");
         verifyNoInteractions(storyMemoryRepository);   // 쓰기는 서비스 경유, 직접 접근 없음
