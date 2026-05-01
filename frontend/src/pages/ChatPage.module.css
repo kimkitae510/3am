@@ -370,3 +370,36 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* 읽는 중 새 답 알림 — 화면을 끌어내리는 대신 카톡처럼 하단에 떠 있고, 누르면 내려간다.
+   스크롤 컨테이너 안에서 sticky라 목록 어디를 보고 있어도 하단에 붙는다 */
+.newMsgBar {
+  position: sticky;
+  bottom: 10px;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 86%;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(44, 40, 54, 0.96);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  color: #e8e6ee;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.newMsgLabel {
+  color: #b89dd1;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.newMsgText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #b3b0bc;
+}

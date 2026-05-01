@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type UIEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { HelpModal } from '../components/HelpModal';
@@ -71,6 +71,12 @@ export function ChatPage() {
 
   const aliveRef = useRef(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // 유저가 맨 아래 근처를 보고 있는지 — 위로 올려 읽는 중이면 새 답이 와도 화면을 끌어내리지 않는다.
+  const atBottomRef = useRef(true);
+  // 마지막으로 본 메시지 id. 이게 바뀌었을 때만 "새 메시지"로 취급한다(이전 대화 더 보기와 구분).
+  const lastMsgIdRef = useRef<number | null>(null);
+  // 읽는 중에 도착한 답의 미리보기 — 카톡처럼 하단 배너로 알리고, 누르면 내려간다.
+  const [newPreview, setNewPreview] = useState<string | null>(null);
 
   // 진단 화면의 "대화로 물어보기"로 넘어온 경우 질문을 입력창에 미리 채워준다.
   useEffect(() => {
@@ -101,10 +107,36 @@ export function ChatPage() {
     };
   }, [storyId]);
 
-  // 새 메시지, 타이핑 표시, 조각 공개 시 맨 아래로.
+  // 새 메시지, 타이핑 표시, 조각 공개 시 맨 아래로 — 단, 유저가 맨 아래를 보고 있을 때만.
+  // 위로 올려 읽는 중이면 따라 내려가지 않고 하단 배너로만 알린다. 내가 보낸 메시지는 예외로
+  // 항상 내려간다(내가 방금 쳤는데 안 내려가면 전송이 안 된 것처럼 보인다).
   useEffect(() => {
+    const last = messages[messages.length - 1];
+    const lastChanged = last != null && last.id !== lastMsgIdRef.current;
+    if (lastChanged) lastMsgIdRef.current = last.id;
+    if (atBottomRef.current || (lastChanged && last.role === 'USER')) {
+      bottomRef.current?.scrollIntoView({ block: 'end' });
+      setNewPreview(null);
+      return;
+    }
+    if (lastChanged && last.role !== 'USER') {
+      // 여러 문단이어도 배너엔 첫 줄만 — 미리보기는 한 줄이면 충분하다
+      setNewPreview(last.content.split('\n')[0]);
+    }
+  }, [messages, waiting, reveal]);
+
+  // 스크롤 위치 추적. 맨 아래로 돌아오면 배너는 볼 일이 끝난 것이라 치운다.
+  function handleScroll(e: UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    atBottomRef.current = atBottom;
+    if (atBottom) setNewPreview(null);
+  }
+
+  function jumpToLatest() {
     bottomRef.current?.scrollIntoView({ block: 'end' });
-  }, [messages.length, waiting, reveal]);
+    setNewPreview(null);
+  }
 
   // 다음 조각 길이에 비례한 간격으로 하나씩 공개 — 실제로 치는 듯한 리듬.
   // 늦게 발화한 타이머가 다른 방/다른 답의 공개 상태를 덮지 않게 자기 id일 때만 갱신.
@@ -233,7 +265,7 @@ export function ChatPage() {
           </div>
         </div>
 
-        <div className={styles.messages}>
+        <div className={styles.messages} onScroll={handleScroll}>
           {loading ? (
             <div className={styles.state}>불러오는 중…</div>
           ) : (
@@ -301,6 +333,15 @@ export function ChatPage() {
             </>
           )}
           <div ref={bottomRef} />
+          {newPreview != null && (
+            <button className={styles.newMsgBar} onClick={jumpToLatest}>
+              <span className={styles.newMsgLabel}>새 메시지</span>
+              <span className={styles.newMsgText}>{newPreview}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 10l6 6 6-6" stroke="#B89DD1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {chatRemaining != null && (
