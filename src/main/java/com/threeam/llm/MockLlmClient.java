@@ -36,6 +36,18 @@ public class MockLlmClient implements LlmClient {
                 {
                   "verdict": "POSSIBLE",
                   "activeReunionOffer": false,
+                  "matchProfile": {
+                    "reason": "잦은싸움",
+                    "subReasons": ["사소한반복", "감정누적"],
+                    "dumper": "상대",
+                    "fault": "양쪽",
+                    "contactState": "무연락",
+                    "monthsSinceBreakup": 2,
+                    "datingMonths": 18,
+                    "ageGroup": null,
+                    "gender": null,
+                    "repeatBreakup": null
+                  },
                   "deductions": [
                     {"signal": "상대가 먼저 이별을 통보", "axis": "마음", "points": 15, "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시 판독 이유) 통보한 쪽은 결심이 선행된 상태라 감점"},
                     {"signal": "연락이 뜸해진 상태", "axis": "마음", "points": 5, "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시 판독 이유) 연결이 약해지는 방향의 신호라 감점"}
