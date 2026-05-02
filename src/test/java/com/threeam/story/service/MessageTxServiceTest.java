@@ -44,19 +44,15 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class MessageTxServiceTest {
 
-    // 실문구는 로컬 설정(persona.yml, reminder.yml)으로 주입되므로 테스트는 자리표시자를 채운 실객체를 쓴다.
-    // 리마인더 기본값은 빈 문자열이고 비면 주입을 건너뛰므로, 프롬프트 '구조'를 검증하려면 여기서 채워야 한다.
+    // 실문구는 로컬 설정(persona.yml 등)으로 주입되므로 테스트는 자리표시자를 채운 실객체를 쓴다.
+    // 점검 기본값은 빈 문자열이고 비면 주입을 건너뛰므로, 프롬프트 '구조'를 검증하려면 여기서 채워야 한다.
     @Spy
     private ChatPersonaProperties personaProperties = personaProperties();
 
-    private static final String REMINDER = "스타일 리마인더 자리표시자";
-    private static final String ENDING_REMINDER = "끝맺음 리마인더 자리표시자";
     private static final String FINAL_CHECK = "출력 직전 점검 자리표시자";
 
     private static ChatPersonaProperties personaProperties() {
         ChatPersonaProperties properties = new ChatPersonaProperties();
-        properties.setReminder(REMINDER);
-        properties.setEndingReminder(ENDING_REMINDER);
         properties.setFinalCheck(FINAL_CHECK);
         return properties;
     }
@@ -186,44 +182,6 @@ class MessageTxServiceTest {
                 .extracting(ChatMessage::content)
                 .anyMatch(c -> c.contains("20%") && c.contains("읽씹당하는 중")
                         && c.contains("메시지를 계속 안 읽는다고 함"));
-    }
-
-    @Test
-    @DisplayName("프롬프트 조립 - 직전 답변이 질문으로 끝났으면 이번 턴은 질문으로 끝내지 말라는 배치 지시를 싣는다")
-    void buildPrompt_bansQuestionAfterQuestionReply() {
-        Story story = story(10L);
-        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
-        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
-        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(
-                        message(MessageRole.USER, "서운했던 것 같아"),
-                        message(MessageRole.ASSISTANT, "가장 먼저 든 감정이 억울함이야, 아니면 서운함이야?")),
-                        PageRequest.of(0, 20), false));
-
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "서운했던 것 같아").prompt();
-
-        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
-                .extracting(ChatMessage::content)
-                .anyMatch(c -> c.contains(ENDING_REMINDER)); // 문구는 reminder.yml 소관 — 여기선 주입 여부만 본다
-    }
-
-    @Test
-    @DisplayName("프롬프트 조립 - 직전 답변이 질문이 아니면 질문 배치 지시를 싣지 않는다")
-    void buildPrompt_noBanWhenLastReplyNotQuestion() {
-        Story story = story(10L);
-        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
-        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
-        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(
-                        message(MessageRole.USER, "고마워"),
-                        message(MessageRole.ASSISTANT, "울어도 돼. 근데 걔한테는 울지 마.")),
-                        PageRequest.of(0, 20), false));
-
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "고마워").prompt();
-
-        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
-                .extracting(ChatMessage::content)
-                .noneMatch(c -> c.contains(ENDING_REMINDER));
     }
 
     @Test

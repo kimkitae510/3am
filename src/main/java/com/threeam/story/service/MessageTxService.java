@@ -124,22 +124,6 @@ public class MessageTxService {
             assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
                     .ifPresent(assessment -> prompt.add(ChatMessage.system(describeAssessment(assessment))));
         }
-        // 매 턴 질문으로 끝내는 습관 차단 — 직전 답변이 질문이었으면 이번 턴은 '질문으로 끝내는 것'만 금지.
-        // 질문 전면 금지였을 땐 판을 가르는 질문("무슨 잘못이었는데?")까지 죽어서 게이트가 무력화됐다(실측:
-        // '내 잘못으로 헤어져서 연락 못 해'에 잘못 내용도 안 묻고 조언만 함). 배치만 제약한다 —
-        // 질문은 중간 메시지에, 끝은 받아주기나 판독으로. 유저가 방금 물어본 턴은 이 제약도 건너뛴다.
-        boolean userAsking = !recent.isEmpty()
-                && recent.get(0).getRole() == MessageRole.USER
-                && recent.get(0).getContent().contains("?");
-        String endingReminder = personaProperties.getEndingReminder();
-        if (!userAsking && endingReminder != null && !endingReminder.isBlank()) {
-            recent.stream()
-                    .filter(message -> message.getRole() == MessageRole.ASSISTANT)
-                    .findFirst() // recent는 최신순이라 첫 매치가 직전 답변
-                    .map(Message::getContent)
-                    .filter(content -> content.strip().endsWith("?"))
-                    .ifPresent(content -> prompt.add(ChatMessage.system(endingReminder)));
-        }
         for (int i = recent.size() - 1; i >= 0; i--) {
             Message message = recent.get(i);
             prompt.add(message.getRole() == MessageRole.USER

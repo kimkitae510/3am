@@ -26,8 +26,6 @@ public class PromptFilesCheck {
         warnIfPlaceholder("persona.yml", "llm.chat.persona", chatProperties.getPersona());
         warnIfPlaceholder("extractor.yml", "llm.extraction.prompt", extractionProperties.getPrompt());
         warnIfPlaceholder("rubric.yml", "llm.assessment.rubric", assessmentProperties.getRubric());
-        warnIfBlank("reminder.yml", "llm.chat.reminder", chatProperties.getReminder());
-        warnIfBlank("reminder.yml", "llm.chat.ending-reminder", chatProperties.getEndingReminder());
     }
 
     // 실문구로 보기엔 너무 짧은 길이. 자리표시자 기본값은 전부 이 아래다.
@@ -40,12 +38,6 @@ public class PromptFilesCheck {
         }
     }
 
-    private void warnIfBlank(String file, String key, String value) {
-        if (value == null || value.isBlank()) {
-            log.warn("프롬프트 미주입: {}가 비었다 — {}이(가) 없거나 안 읽혔다. 해당 지시는 주입 자체를 건너뛴다.",
-                    key, file);
-        }
-    }
 
     private String length(String value) {
         return (value == null ? 0 : value.strip().length()) + "자";
