@@ -6,6 +6,8 @@ import com.threeam.match.entity.ReunionCase;
 import com.threeam.match.entity.StoryMatchProfile;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import java.util.Arrays;
+import java.util.List;
 import org.springframework.beans.BeanUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -25,7 +27,8 @@ class CaseScorerTest {
         ReunionCase target = BeanUtils.instantiateClass(ReunionCase.class);
         ReflectionTestUtils.setField(target, "id", 1L);
         ReflectionTestUtils.setField(target, "reason", reason);
-        ReflectionTestUtils.setField(target, "subReasons", subReasons);
+        ReflectionTestUtils.setField(target, "subReasons",
+                subReasons == null ? null : Arrays.asList(subReasons.split(",")));
         return target;
     }
 

@@ -9,7 +9,7 @@ import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.match.dto.SimilarCasesResponse;
 import com.threeam.match.entity.ReunionCase;
 import com.threeam.match.entity.StoryMatchProfile;
-import com.threeam.match.repository.ReunionCaseRepository;
+import com.threeam.match.CaseStore;
 import com.threeam.match.repository.StoryMatchProfileRepository;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.StoryRepository;
@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import java.util.Arrays;
 import org.springframework.beans.BeanUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -34,7 +35,7 @@ class MatchServiceTest {
     private StoryMatchProfileRepository profileRepository;
 
     @Mock
-    private ReunionCaseRepository caseRepository;
+    private CaseStore caseStore;
 
     @org.mockito.Spy
     private CaseScorer scorer = new CaseScorer();
@@ -54,7 +55,8 @@ class MatchServiceTest {
         ReunionCase target = BeanUtils.instantiateClass(ReunionCase.class);
         ReflectionTestUtils.setField(target, "id", id);
         ReflectionTestUtils.setField(target, "reason", reason);
-        ReflectionTestUtils.setField(target, "subReasons", subReasons);
+        ReflectionTestUtils.setField(target, "subReasons",
+                subReasons == null ? null : Arrays.asList(subReasons.split(",")));
         ReflectionTestUtils.setField(target, "story", "사례 본문 " + id);
         return target;
     }
@@ -80,7 +82,7 @@ class MatchServiceTest {
 
         assertThat(response.cases()).isEmpty();
         assertThat(response.emptyReason()).isEqualTo("NO_PROFILE");
-        org.mockito.Mockito.verifyNoInteractions(caseRepository);
+        org.mockito.Mockito.verifyNoInteractions(caseStore);
     }
 
     @Test
@@ -102,7 +104,7 @@ class MatchServiceTest {
         given(profileRepository.findFirstByStoryIdOrderByIdDesc(STORY_ID)).willReturn(Optional.of(
                 StoryMatchProfile.builder().storyId(STORY_ID).reason("장거리")
                         .subReasons("거리지침").build()));
-        given(caseRepository.findAll()).willReturn(List.of(reunionCase(1L, "외도", "상대가바람")));
+        given(caseStore.all()).willReturn(List.of(reunionCase(1L, "외도", "상대가바람")));
 
         SimilarCasesResponse response = matchService.findSimilar(USER_ID, STORY_ID);
 
@@ -117,7 +119,7 @@ class MatchServiceTest {
         given(profileRepository.findFirstByStoryIdOrderByIdDesc(STORY_ID)).willReturn(Optional.of(
                 StoryMatchProfile.builder().storyId(STORY_ID).reason("본인과실")
                         .subReasons("질투의심,무심소홀").build()));
-        given(caseRepository.findAll()).willReturn(List.of(
+        given(caseStore.all()).willReturn(List.of(
                 reunionCase(1L, "본인과실", "무심소홀,질투의심"),  // 엇갈림 겹침
                 reunionCase(2L, "본인과실", "질투의심,무심소홀"),  // 주와 부가 모두 일치(최고점)
                 reunionCase(3L, "본인과실", "질투의심")));         // 주만 일치
@@ -137,7 +139,7 @@ class MatchServiceTest {
         given(profileRepository.findFirstByStoryIdOrderByIdDesc(STORY_ID)).willReturn(Optional.of(
                 StoryMatchProfile.builder().storyId(STORY_ID).reason("잦은싸움")
                         .subReasons("사소한반복").build()));
-        given(caseRepository.findAll()).willReturn(List.of(
+        given(caseStore.all()).willReturn(List.of(
                 reunionCase(7L, "잦은싸움", "사소한반복"),
                 reunionCase(3L, "잦은싸움", "사소한반복"),
                 reunionCase(5L, "잦은싸움", "사소한반복")));

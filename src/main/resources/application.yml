@@ -186,3 +186,7 @@ management:
 
 # 로그 레벨, 출력(콘솔/파일), traceId 패턴은 logback-spring.xml에서 프로파일별로 관리한다.
 # show-sql은 개발 기본값만 여기 두고, 운영(prod)에서는 application-prod.yml이 꺼서 개인정보(사연) 쿼리 노출을 막는다.
+
+# 참조 사례 파일(서비스 자산, gitignore) — 시동 때 메모리로 로드. 경로는 환경변수로 주입한다.
+match:
+  case-file: ${MATCH_CASE_FILE:사례데이터.json}
