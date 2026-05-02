@@ -196,7 +196,7 @@ public class AssessmentTxService {
         Assessment saved = assessmentRepository.save(assessment);
         storyMemoryService.upsert(storyId, newSummary);
         storyFactService.appendFacts(storyId, saved.getId(), newFacts);
-        matchProfileService.upsert(storyId, matchProfile);
+        matchProfileService.append(storyId, matchProfile);
         return AssessmentResponse.from(saved);
     }
 

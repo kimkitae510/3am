@@ -35,7 +35,7 @@ public class MatchService {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
 
-        StoryMatchProfile profile = profileRepository.findById(storyId).orElse(null);
+        StoryMatchProfile profile = profileRepository.findFirstByStoryIdOrderByIdDesc(storyId).orElse(null);
         if (profile == null || !profile.matchable()) {
             return SimilarCasesResponse.noProfile();
         }

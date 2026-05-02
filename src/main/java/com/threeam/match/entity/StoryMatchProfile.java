@@ -2,6 +2,8 @@ package com.threeam.match.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
@@ -10,11 +12,11 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.CreationTimestamp;
 
-// 사례 매칭에 쓰는 "지금 이 사연의 상황" 한 장. 진단 LLM이 대화에서 함께 뽑아 준다.
-// 확률(assessments)과 달리 사연당 한 행만 두고 덮어쓴다 — 매칭이 보는 건 언제나 최신 상황이고,
-// 과거 프로필은 추이로서의 값어치가 없다(확률은 변화 자체가 상품이라 쌓지만 여기는 아니다).
+// 사례 매칭에 쓰는 "이 사연의 상황" 스냅샷. 진단 LLM이 대화에서 함께 뽑아 준다.
+// 진단마다 한 행씩 새로 쌓는다(assessments와 같은 문법) — 진단은 하루 1회 쿼터라 양이 안 늘고,
+// 덮어쓰면 과거 진단 시점에 상황이 어땠는지를 잃는다. 매칭은 최신 행만 읽는다.
 // 전 필드 null 허용: 대화 초반엔 안 드러난 것이 많고, 없는 걸 지어내는 쪽이 더 나쁘다.
 @Entity
 @Table(name = "story_match_profile")
@@ -22,8 +24,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class StoryMatchProfile {
 
-    // 사연당 하나뿐이라 storyId가 그대로 PK다(대리키를 두면 중복 행이 생길 여지만 남는다).
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
     private Long storyId;
 
     @Column(length = 20)
@@ -53,9 +58,9 @@ public class StoryMatchProfile {
 
     private Boolean repeatBreakup;
 
-    @UpdateTimestamp
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     @Builder
     private StoryMatchProfile(Long storyId, String reason, String subReasons, String dumper,
@@ -75,20 +80,20 @@ public class StoryMatchProfile {
         this.repeatBreakup = repeatBreakup;
     }
 
-    // 새 진단이 뽑아온 값으로 덮어쓴다. null은 "이번엔 안 드러남"이지 "없어졌다"가 아니라서
-    // 기존 값을 지우지 않는다 — 한 번 밝혀진 이별 사유가 다음 진단에서 사라지면 매칭이 끊긴다.
-    public void merge(StoryMatchProfile fresh) {
-        this.reason = fresh.reason != null ? fresh.reason : this.reason;
-        this.subReasons = fresh.subReasons != null ? fresh.subReasons : this.subReasons;
-        this.dumper = fresh.dumper != null ? fresh.dumper : this.dumper;
-        this.fault = fresh.fault != null ? fresh.fault : this.fault;
-        this.contactState = fresh.contactState != null ? fresh.contactState : this.contactState;
-        this.monthsSinceBreakup = fresh.monthsSinceBreakup != null
-                ? fresh.monthsSinceBreakup : this.monthsSinceBreakup;
-        this.datingMonths = fresh.datingMonths != null ? fresh.datingMonths : this.datingMonths;
-        this.ageGroup = fresh.ageGroup != null ? fresh.ageGroup : this.ageGroup;
-        this.gender = fresh.gender != null ? fresh.gender : this.gender;
-        this.repeatBreakup = fresh.repeatBreakup != null ? fresh.repeatBreakup : this.repeatBreakup;
+    // 이번 진단이 못 뽑은 항목을 직전 스냅샷에서 이어받는다. null은 "이번엔 안 드러남"이지
+    // "없어졌다"가 아니라서 — 한 번 밝혀진 이별 사유가 다음 진단에서 사라지면 매칭이 끊긴다.
+    public void backfillFrom(StoryMatchProfile previous) {
+        this.reason = this.reason != null ? this.reason : previous.reason;
+        this.subReasons = this.subReasons != null ? this.subReasons : previous.subReasons;
+        this.dumper = this.dumper != null ? this.dumper : previous.dumper;
+        this.fault = this.fault != null ? this.fault : previous.fault;
+        this.contactState = this.contactState != null ? this.contactState : previous.contactState;
+        this.monthsSinceBreakup = this.monthsSinceBreakup != null
+                ? this.monthsSinceBreakup : previous.monthsSinceBreakup;
+        this.datingMonths = this.datingMonths != null ? this.datingMonths : previous.datingMonths;
+        this.ageGroup = this.ageGroup != null ? this.ageGroup : previous.ageGroup;
+        this.gender = this.gender != null ? this.gender : previous.gender;
+        this.repeatBreakup = this.repeatBreakup != null ? this.repeatBreakup : previous.repeatBreakup;
     }
 
     // 매칭을 시작할 최소 조건. 이별 사유 축이 하나도 없으면 유사도가 나이, 기간 같은

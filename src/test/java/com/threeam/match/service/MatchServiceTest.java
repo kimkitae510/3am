@@ -74,7 +74,7 @@ class MatchServiceTest {
     @DisplayName("프로필이 없으면 NO_PROFILE - 사례 조회조차 하지 않는다")
     void noProfile() {
         ownsStory();
-        given(profileRepository.findById(STORY_ID)).willReturn(Optional.empty());
+        given(profileRepository.findFirstByStoryIdOrderByIdDesc(STORY_ID)).willReturn(Optional.empty());
 
         SimilarCasesResponse response = matchService.findSimilar(USER_ID, STORY_ID);
 
@@ -87,7 +87,7 @@ class MatchServiceTest {
     @DisplayName("사유 축이 비면 NO_PROFILE - 나이, 기간만으로는 매칭하지 않는다")
     void profileWithoutReasonIsNotMatchable() {
         ownsStory();
-        given(profileRepository.findById(STORY_ID)).willReturn(Optional.of(
+        given(profileRepository.findFirstByStoryIdOrderByIdDesc(STORY_ID)).willReturn(Optional.of(
                 StoryMatchProfile.builder().storyId(STORY_ID).ageGroup("20대 후반").build()));
 
         SimilarCasesResponse response = matchService.findSimilar(USER_ID, STORY_ID);
@@ -99,7 +99,7 @@ class MatchServiceTest {
     @DisplayName("임계 미달만 있으면 NO_MATCH")
     void belowThreshold() {
         ownsStory();
-        given(profileRepository.findById(STORY_ID)).willReturn(Optional.of(
+        given(profileRepository.findFirstByStoryIdOrderByIdDesc(STORY_ID)).willReturn(Optional.of(
                 StoryMatchProfile.builder().storyId(STORY_ID).reason("장거리")
                         .subReasons("거리지침").build()));
         given(caseRepository.findAll()).willReturn(List.of(reunionCase(1L, "외도", "상대가바람")));
@@ -114,7 +114,7 @@ class MatchServiceTest {
     @DisplayName("점수 높은 순으로 2건만 준다 - 데이터가 적어 세 번째부터는 안 닮는다")
     void topTwoByScore() {
         ownsStory();
-        given(profileRepository.findById(STORY_ID)).willReturn(Optional.of(
+        given(profileRepository.findFirstByStoryIdOrderByIdDesc(STORY_ID)).willReturn(Optional.of(
                 StoryMatchProfile.builder().storyId(STORY_ID).reason("본인과실")
                         .subReasons("질투의심,무심소홀").build()));
         given(caseRepository.findAll()).willReturn(List.of(
@@ -134,7 +134,7 @@ class MatchServiceTest {
     @DisplayName("동점이면 id 순으로 갈라 새로고침해도 같은 사례를 보여준다")
     void tieBrokenDeterministically() {
         ownsStory();
-        given(profileRepository.findById(STORY_ID)).willReturn(Optional.of(
+        given(profileRepository.findFirstByStoryIdOrderByIdDesc(STORY_ID)).willReturn(Optional.of(
                 StoryMatchProfile.builder().storyId(STORY_ID).reason("잦은싸움")
                         .subReasons("사소한반복").build()));
         given(caseRepository.findAll()).willReturn(List.of(
