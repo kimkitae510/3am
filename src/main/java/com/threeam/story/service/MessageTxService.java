@@ -2,8 +2,6 @@ package com.threeam.story.service;
 
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.Deduction;
-import com.threeam.assessment.entity.GuidanceItem;
-import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -156,13 +154,10 @@ public class MessageTxService {
     // 진단 결과를 설명용 데이터 블록으로 만든다. 재계산, 창작, 그리고 "묻지 않은 확률 들이대기"를 막는 지시를 함께 싣는다.
     private String describeAssessment(Assessment assessment) {
         StringBuilder block = new StringBuilder(
-                "최근 재회 진단 결과 데이터(사용 규칙: "
-                        + "유저가 이 진단의 이유나 점수를 '직접' 물을 때만 이 데이터를 근거로 설명하라. "
-                        + "유저가 상대 행동의 의미나 가능성을 일반적으로 물으면(예: 이거 재회 신호 아니야?) "
-                        + "이 확률 숫자를 꺼내지 말고 대화로만 답하라 — 묻지 않은 확률을 먼저 말하는 건 금지다. "
-                        + "진단 일시를 그대로 낭독하지 말고, 진단이 대화로 자동 갱신되지 않는다는 걸 전할 필요가 "
-                        + "있을 때만 '지난번 진단 기준'처럼 자연스럽게 짚어라. "
-                        + "확률을 다시 계산하거나 여기 없는 진단 내용을 지어내지 마라):\n");
+                "최근 재회 진단 결과 데이터(사용 규칙: 유저가 이 진단의 이유나 확률을 직접 물을 때만 "
+                        + "이 데이터를 근거로 설명하라. 묻지 않은 확률을 먼저 꺼내지 마라. 진단은 대화로 "
+                        + "자동 갱신되지 않는다 — 필요할 때만 '지난번 진단 기준'처럼 자연스럽게 짚어라. "
+                        + "여기 없는 내용을 지어내거나 확률을 다시 계산하지 마라):\n");
         block.append("- 진단 일시: ").append(ASSESSED_AT.format(assessment.getCreatedAt())).append('\n');
         if (assessment.getVerdict() == ReunionVerdict.DATING) {
             block.append("- 판정: 아직 사귀는 중 — 재회 확률은 이별 전제라 산출하지 않음. "
@@ -175,31 +170,28 @@ public class MessageTxService {
         if (assessment.getProbability() != null) {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
         }
+        // 신호는 방향, 무게, 판독 이유만 싣는다. 근거(evidence)는 원장과 겹치고, 총평은 요약과
+        // 화면에 이미 있고, 가이드는 개편 예정이라 뺐다. 판독 이유는 이 블록에만 있는 정보라 유지 —
+        // 없으면 "왜 이 점수야?"에 페르소나가 이유를 지어내 화면 카드와 다른 말을 하게 된다.
         for (Deduction deduction : assessment.getDeductions()) {
-            // 가점(양수 delta)까지 "감점"으로 라벨링하면 모순된 데이터가 주입된다
-            block.append(deduction.getDelta() < 0 ? "- 감점 " : "- 가점 +").append(deduction.getDelta());
-            block.append(": ").append(deduction.getSignal());
-            if (deduction.getEvidence() != null && !deduction.getEvidence().isBlank()) {
-                block.append(" (근거: ").append(deduction.getEvidence()).append(')');
-            }
+            block.append(deduction.getDelta() < 0 ? "- 낮춘 신호(" : "- 올린 신호(")
+                    .append(weightLabel(deduction.getDelta())).append("): ")
+                    .append(deduction.getSignal());
             if (deduction.getRationale() != null && !deduction.getRationale().isBlank()) {
-                block.append(" (판독 이유: ").append(deduction.getRationale()).append(')');
+                block.append(" — ").append(deduction.getRationale());
             }
             block.append('\n');
-        }
-        // 행동 가이드도 싣는다 — 화면 카드와 채팅의 조언이 서로 어긋나면 신뢰가 깨진다.
-        for (GuidanceItem guidance : assessment.getGuidanceItems()) {
-            block.append(guidance.getKind() == GuidanceKind.DO ? "- 가이드(할 것): " : "- 가이드(피할 것): ")
-                    .append(guidance.getAdvice());
-            if (guidance.getBasis() != null && !guidance.getBasis().isBlank()) {
-                block.append(" (근거: ").append(guidance.getBasis()).append(')');
-            }
-            block.append('\n');
-        }
-        if (assessment.getReason() != null && !assessment.getReason().isBlank()) {
-            block.append("- 총평: ").append(assessment.getReason());
         }
         return block.toString().trim();
+    }
+
+    // 화면(진단 페이지)의 무게 라벨과 같은 경계 — 채팅과 화면이 다른 말을 하면 신뢰가 깨진다.
+    private String weightLabel(int delta) {
+        int size = Math.abs(delta);
+        if (size >= 20) {
+            return "결정적";
+        }
+        return size >= 10 ? "중요" : "참고";
     }
 
 }

@@ -167,7 +167,7 @@ class MessageTxServiceTest {
                 .verdict(ReunionVerdict.POSSIBLE)
                 .probability(20)
                 .reason("솔직히 쉽지 않아.")
-                .deduction(Deduction.of("읽씹당하는 중", 15, "메시지를 계속 안 읽는다고 함"))
+                .deduction(Deduction.of("읽씹당하는 중", 15, "메시지를 계속 안 읽는다고 함", "연락 통로가 닫히는 방향의 신호"))
                 .build();
         ReflectionTestUtils.setField(assessment, "createdAt", java.time.LocalDateTime.now());
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
@@ -181,7 +181,11 @@ class MessageTxServiceTest {
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
                 .anyMatch(c -> c.contains("20%") && c.contains("읽씹당하는 중")
-                        && c.contains("메시지를 계속 안 읽는다고 함"));
+                        && c.contains("중요") && c.contains("연락 통로가 닫히는 방향의 신호"));
+        // 근거(evidence)는 원장과 겹쳐 더는 싣지 않는다
+        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
+                .extracting(ChatMessage::content)
+                .noneMatch(c -> c.contains("메시지를 계속 안 읽는다고 함"));
     }
 
     @Test
