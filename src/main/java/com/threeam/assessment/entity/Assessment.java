@@ -58,11 +58,6 @@ public class Assessment {
     @BatchSize(size = 100)
     private List<Deduction> deductions = new ArrayList<>();
 
-    // 이번 진단의 신호/유형에서 도출한 행동 가이드(do/dont). POSSIBLE에서만 채워진다.
-    @ElementCollection
-    @CollectionTable(name = "assessment_guidance", joinColumns = @JoinColumn(name = "assessment_id"))
-    @BatchSize(size = 100)
-    private List<GuidanceItem> guidanceItems = new ArrayList<>();
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
@@ -70,14 +65,12 @@ public class Assessment {
 
     @Builder
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
-                       String reason, @Singular List<Deduction> deductions,
-                       List<GuidanceItem> guidanceItems) {
+                       String reason, @Singular List<Deduction> deductions) {
         this.storyId = storyId;
         this.verdict = verdict;
         this.probability = probability;
         this.reason = reason;
         this.deductions = deductions != null ? deductions : new ArrayList<>();
-        this.guidanceItems = guidanceItems != null ? guidanceItems : new ArrayList<>();
     }
 
     // 상대 제안 확정(100)을 유저가 번복할 때 — 저장된 신호의 합산 값으로 되돌린다(원장 정정과 세트).

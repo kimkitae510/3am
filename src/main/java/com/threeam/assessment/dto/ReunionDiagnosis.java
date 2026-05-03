@@ -1,6 +1,5 @@
 package com.threeam.assessment.dto;
 
-import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.util.List;
 
@@ -12,7 +11,6 @@ public record ReunionDiagnosis(
         boolean activeReunionOffer,         // 상대가 먼저 만남/재회를 제안했고 철회되지 않음
         List<DeductionItem> deductions,
         List<DeductionItem> boosts,
-        List<GuidanceEntry> guidance,       // 행동 가이드(do/dont). POSSIBLE 외에는 빈 목록
         MatchProfileItem matchProfile,      // 사례 매칭용 분류(분류체계 어휘). 못 뽑으면 null
         String reason,
         String summary,           // 감정 흐름, 현재 상태 요약 → StoryMemory에 반영
@@ -21,10 +19,6 @@ public record ReunionDiagnosis(
     // points: 움직일 양(양수). 백엔드가 부호를 붙여 합산한다(감점 음수, 가점 양수).
     // rationale: 이 사실이 왜 확률을 움직이는지(판독 메커니즘) — 유저 납득용. 없으면 null.
     public record DeductionItem(String signal, int points, String evidence, String rationale) {
-    }
-
-    // 행동 가이드 한 항목. basis = 어떤 신호/유형에서 나온 조언인지(없으면 null).
-    public record GuidanceEntry(GuidanceKind kind, String advice, String basis) {
     }
 
     // 사례 매칭에 쓸 분류. 확률과 무관하며, 값은 전부 분류체계 사전의 어휘여야 한다.

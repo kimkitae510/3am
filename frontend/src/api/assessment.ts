@@ -11,19 +11,11 @@ export interface DeductionView {
   rationale: string | null; // 이 사실이 왜 확률을 움직이는지(판독 이유). 과거 진단은 null
 }
 
-// 행동 가이드 한 항목. DO = 지금 도움이 되는 것, DONT = 지금은 피할 것.
-export interface GuidanceView {
-  kind: 'DO' | 'DONT';
-  advice: string;
-  basis: string | null; // 어떤 신호/유형에서 나온 조언인지 한 줄
-}
-
 export interface AssessmentResponse {
   verdict: Verdict;
   probability: number | null; // POSSIBLE일 때만
   reason: string;
   deductions: DeductionView[];
-  guidance: GuidanceView[]; // 행동 가이드. POSSIBLE 외에는 빈 목록
   createdAt: string | null; // INSUFFICIENT는 저장 안 돼서 null
   // 연속 실패 쿨다운으로 막힌 응답에만 채워진다. 남은 초(시각이 아니라)라서
   // 기기 시계가 틀어져 있어도 카운트다운이 어긋나지 않는다.

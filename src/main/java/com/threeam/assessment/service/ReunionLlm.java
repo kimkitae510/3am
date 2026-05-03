@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.AssessmentProperties;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
-import com.threeam.assessment.dto.ReunionDiagnosis.GuidanceEntry;
-import com.threeam.assessment.entity.GuidanceKind;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
@@ -58,22 +56,19 @@ public class ReunionLlm {
                 "출력 직전 마지막 점검 — 아래에 걸리는 signal은 고치고 출력해라: "
                         + "1) 각 감점의 주어: 신뢰가 무너지고 실망하고 속은 쪽이 '상대'인가? "
                         + "상대의 거짓말이나 배신으로 '유저가' 느낀 것이면 그 감점은 삭제해라 — "
-                        + "확률은 상대가 돌아올지만 잰다, 유저의 상처는 총평과 guidance 몫이다. "
+                        + "확률은 상대가 돌아올지만 잰다, 유저의 상처는 총평 몫이다. "
                         + "2) 같은 사건이나 같은 발화가 이름만 바꿔 두 개의 감점으로 쪼개져 있으면 "
                         + "하나로 합쳐라(예: '전남편을 만나러 감'이 환승 감점과 신뢰 파탄 감점 양쪽에 — 이중 계상). "
                         + "3) 상대가 최근 먼저 연락해 그리움을 표현하거나 만남, 대화를 제안했으면 "
                         + "그보다 과거인 마음 축 감점(단호함, 거절, 선 긋기)은 덮어쓰지 않았는지 확인하고, "
                         + "합산 결과가 캘리브레이션 표의 해당 대역(재회 의사 내비침 70~85)과 크게 어긋나면 다시 훑어라. "
-                        + "4) guidance의 do와 dont가 같은 장면, 같은 사건을 다루고 있으면 앞뒷면이니 하나로 합쳐라 "
-                        + "(실측: do '연락 시도와 SNS 확인 멈추기' / dont '부계정, 지인 통해 우회 연락하기' — 둘 다 연락 시도 하나다). "
-                        + "표현이 달라 보여도 같은 사건이면 중복이고, 두 항목을 남기려면 서로 다른 장면이어야 한다. "
-                        + "5) rationale이 '재회한 뒤가 어떨지'를 말하고 있으면 고쳐라 — 이 진단이 재는 건 상대가 "
+                        + "4) rationale이 '재회한 뒤가 어떨지'를 말하고 있으면 고쳐라 — 이 진단이 재는 건 상대가 "
                         + "돌아올 확률 하나뿐이다('다시 만나도 같은 문제가 반복된다'류는 rationale이 아니라 총평 몫). "
                         // 이 둘은 루브릭 중반(43~45%)에 있는데도 계속 뚫려서 맨 끝으로 승격시켰다
                         // (실측 총평: "상대가 관계를 유지할 책임감이 부족했던 거니까 자책할 필요 없어").
-                        + "6) reason에 상대가 어떤 인간인지 규정한 말('책임감이 부족하다', '이기적이다', '가벼운 사람')이 "
+                        + "5) reason에 상대가 어떤 인간인지 규정한 말('책임감이 부족하다', '이기적이다', '가벼운 사람')이 "
                         + "있으면 지워라 — 상대가 실제로 한 선택이 재회 확률에 무엇을 뜻하는지까지만 남긴다. "
-                        + "7) reason에 누구 잘못인지 가려준 말('네 잘못이 아니야', '자책할 필요 없어', "
+                        + "6) reason에 누구 잘못인지 가려준 말('네 잘못이 아니야', '자책할 필요 없어', "
                         + "'네가 매력이 없어서가 아니라')이 있으면 통째로 지워라 — 이 진단은 확률을 매기지 잘잘못을 "
                         + "가리지 않는다. 위로도 마찬가지다."));
         // 진단은 긴 루브릭 일관 적용이 필요해 정밀 판단 경로로 — 설정에 따라 더 강한 모델이 배정된다.
@@ -148,18 +143,6 @@ public class ReunionLlm {
                         "gender", "repeatBreakup")));
     }
 
-    private static Map<String, Object> guidanceListSchema() {
-        return Map.of(
-                "type", "ARRAY",
-                "items", Map.of(
-                        "type", "OBJECT",
-                        "properties", Map.of(
-                                "text", Map.of("type", "STRING"),
-                                "basis", Map.of("type", "STRING")),
-                        "required", List.of("text", "basis"),
-                        "propertyOrdering", List.of("text", "basis")));
-    }
-
     // 진단 응답의 문법을 생성 단계에서 강제하는 스키마. 프롬프트(rubric.yml)의 JSON 지시와 짝이며,
     // 루브릭을 고쳐 필드가 바뀌면 여기도 같이 고쳐야 한다 — 스키마에 없는 필드는 모델이 낼 수 없다.
     // propertyOrdering은 루브릭이 가르친 순서와 맞춘다(모델이 배운 순서대로 생성해야 판단 품질이 유지된다).
@@ -172,12 +155,6 @@ public class ReunionLlm {
                     Map.entry("matchProfile", matchProfileSchema()),
                     Map.entry("deductions", Map.of("type", "ARRAY", "items", pointItemSchema())),
                     Map.entry("boosts", Map.of("type", "ARRAY", "items", pointItemSchema())),
-                    Map.entry("guidance", Map.of(
-                            "type", "OBJECT",
-                            "properties", Map.of(
-                                    "do", guidanceListSchema(),
-                                    "dont", guidanceListSchema()),
-                            "propertyOrdering", List.of("do", "dont"))),
                     Map.entry("reason", Map.of("type", "STRING")),
                     Map.entry("summary", Map.of("type", "STRING")),
                     Map.entry("newFacts", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))))),
@@ -185,7 +162,7 @@ public class ReunionLlm {
             // deductions, boosts를 비우라고 지시하는데 필수로 걸면 억지로 채우게 된다.
             Map.entry("required", List.of("verdict", "activeReunionOffer", "reason", "summary")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "deductions", "boosts",
-                    "guidance", "matchProfile", "reason", "summary", "newFacts")));
+                    "matchProfile", "reason", "summary", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
         try {
@@ -220,12 +197,8 @@ public class ReunionLlm {
                         : fact);
             }
 
-            List<GuidanceEntry> guidance = new ArrayList<>();
-            appendGuidance(guidance, root, "do", GuidanceKind.DO);
-            appendGuidance(guidance, root, "dont", GuidanceKind.DONT);
-
             return new ReunionDiagnosis(verdict, activeReunionOffer,
-                    deductions, boosts, guidance, matchProfile(root),
+                    deductions, boosts, matchProfile(root),
                     root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
         } catch (Exception e) {
             // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
@@ -280,26 +253,6 @@ public class ReunionLlm {
                             : rationale.length() > RATIONALE_MAX ? rationale.substring(0, RATIONALE_MAX) : rationale));
         }
         return items;
-    }
-
-    // 방향별 가이드 개수 상한(폭주 방어). 루브릭은 1~3개를 지시한다.
-    private static final int MAX_GUIDANCE_PER_KIND = 3;
-
-    // 근거 컬럼 길이(VARCHAR(200)) — 넘치면 잘라서 저장 실패를 막는다.
-    private static final int GUIDANCE_BASIS_MAX = 200;
-
-    private void appendGuidance(List<GuidanceEntry> guidance, JsonNode root, String field, GuidanceKind kind) {
-        int added = 0;
-        for (JsonNode node : root.path("guidance").path(field)) {
-            String advice = node.path("text").asText("").trim();
-            if (advice.isBlank() || added >= MAX_GUIDANCE_PER_KIND) {
-                continue;
-            }
-            String basis = node.path("basis").asText("").trim();
-            guidance.add(new GuidanceEntry(kind, advice, basis.isBlank() ? null
-                    : basis.length() > GUIDANCE_BASIS_MAX ? basis.substring(0, GUIDANCE_BASIS_MAX) : basis));
-            added++;
-        }
     }
 
     // 사전에 없는 값은 사례와 겹칠 수 없으니 저장할 값어치가 없다 — 통째로 버리는 대신 항목별로 거른다
