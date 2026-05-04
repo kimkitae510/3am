@@ -1,7 +1,8 @@
 package com.threeam.story.service;
 
 import com.threeam.assessment.entity.Assessment;
-import com.threeam.assessment.entity.Deduction;
+import com.threeam.assessment.entity.AssessmentFactor;
+import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -167,31 +168,39 @@ public class MessageTxService {
             block.append("- 판정: 재회 성공, 다시 만나는 중 — 확률 산출 없음. "
                     + "이제 관계를 잘 이어가는 쪽을 도와라(숫자를 지어내지 마라)\n");
         }
+        if (assessment.getVerdict() == ReunionVerdict.NOT_ADVISABLE) {
+            block.append("- 판정: 확률 미산출 — 관계에 폭력이나 학대가 확인돼 확률의 형식이 맞지 않음. "
+                    + "확률을 물으면 숫자 없이 이 이유를 담담하게 설명하라\n");
+        }
         if (assessment.getProbability() != null) {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
         }
-        // 신호는 방향, 무게, 판독 이유만 싣는다. 근거(evidence)는 원장과 겹치고, 총평은 요약과
-        // 화면에 이미 있고, 가이드는 개편 예정이라 뺐다. 판독 이유는 이 블록에만 있는 정보라 유지 —
-        // 없으면 "왜 이 점수야?"에 페르소나가 이유를 지어내 화면 카드와 다른 말을 하게 된다.
-        for (Deduction deduction : assessment.getDeductions()) {
-            block.append(deduction.getDelta() < 0 ? "- 낮춘 신호(" : "- 올린 신호(")
-                    .append(weightLabel(deduction.getDelta())).append("): ")
-                    .append(deduction.getSignal());
-            if (deduction.getRationale() != null && !deduction.getRationale().isBlank()) {
-                block.append(" — ").append(deduction.getRationale());
+        if (assessment.getBreakupType() != null) {
+            block.append("- 이별 유형: ").append(assessment.getBreakupType().label()).append('\n');
+        }
+        // 요인은 판정과 판독 이유만 싣는다. 근거(evidence)는 원장과 겹치고, 총평은 요약과 화면에
+        // 이미 있다. 판독 이유는 이 블록에만 있는 정보라 유지 — 없으면 "왜 이 판정이야?"에
+        // 페르소나가 이유를 지어내 화면 카드와 다른 말을 하게 된다. 중립(근거 없음)은 정보가
+        // 아니라 잡음이라 뺀다.
+        for (AssessmentFactor factor : assessment.getFactors()) {
+            if (factor.getLevel() == FactorLevel.NEUTRAL) {
+                continue;
+            }
+            block.append(factor.getLevel() == FactorLevel.FAVORABLE ? "- 유리 요인(" : "- 불리 요인(")
+                    .append(factor.getName().label()).append(")");
+            if (factor.getRationale() != null && !factor.getRationale().isBlank()) {
+                block.append(": ").append(factor.getRationale());
+            }
+            block.append('\n');
+        }
+        if (assessment.getRelapseRisk() != null) {
+            block.append("- 재회 후 같은 문제 반복 위험: ").append(assessment.getRelapseRisk().label());
+            if (assessment.getRelapseReason() != null && !assessment.getRelapseReason().isBlank()) {
+                block.append(" — ").append(assessment.getRelapseReason());
             }
             block.append('\n');
         }
         return block.toString().trim();
-    }
-
-    // 화면(진단 페이지)의 무게 라벨과 같은 경계 — 채팅과 화면이 다른 말을 하면 신뢰가 깨진다.
-    private String weightLabel(int delta) {
-        int size = Math.abs(delta);
-        if (size >= 20) {
-            return "결정적";
-        }
-        return size >= 10 ? "중요" : "참고";
     }
 
 }

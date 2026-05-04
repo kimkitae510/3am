@@ -10,7 +10,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.threeam.assessment.entity.Assessment;
-import com.threeam.assessment.entity.Deduction;
+import com.threeam.assessment.entity.AssessmentFactor;
+import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.FactorLevel;
+import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -154,7 +157,7 @@ class MessageTxServiceTest {
     }
 
     @Test
-    @DisplayName("프롬프트 조립 - 최신 진단이 있으면 설명용 데이터 블록(확률, 감점, 근거)을 시스템 메시지로 싣는다")
+    @DisplayName("프롬프트 조립 - 최신 진단이 있으면 설명용 데이터 블록(확률, 유형, 요인)을 시스템 메시지로 싣는다")
     void buildPrompt_includesLatestAssessment() {
         Story story = story(10L);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
@@ -167,7 +170,11 @@ class MessageTxServiceTest {
                 .verdict(ReunionVerdict.POSSIBLE)
                 .probability(20)
                 .reason("솔직히 쉽지 않아.")
-                .deduction(Deduction.of("읽씹당하는 중", 15, "메시지를 계속 안 읽는다고 함", "연락 통로가 닫히는 방향의 신호"))
+                .breakupType(BreakupType.BURNOUT)
+                .factor(AssessmentFactor.of(FactorName.PARTNER_SIGNAL, FactorLevel.UNFAVORABLE,
+                        "메시지를 계속 안 읽는다고 함", "연락 통로가 닫히는 방향의 신호", null))
+                .factor(AssessmentFactor.of(FactorName.REPLACEMENT, FactorLevel.NEUTRAL,
+                        "근거 없음", null, null))
                 .build();
         ReflectionTestUtils.setField(assessment, "createdAt", java.time.LocalDateTime.now());
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
@@ -180,12 +187,12 @@ class MessageTxServiceTest {
                 .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
-                .anyMatch(c -> c.contains("20%") && c.contains("읽씹당하는 중")
-                        && c.contains("중요") && c.contains("연락 통로가 닫히는 방향의 신호"));
-        // 근거(evidence)는 원장과 겹쳐 더는 싣지 않는다
+                .anyMatch(c -> c.contains("20%") && c.contains("소진형")
+                        && c.contains("불리 요인(상대신호)") && c.contains("연락 통로가 닫히는 방향의 신호"));
+        // 근거(evidence)는 원장과 겹치고, 중립(근거 없음) 슬롯은 잡음이라 싣지 않는다
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
-                .noneMatch(c -> c.contains("메시지를 계속 안 읽는다고 함"));
+                .noneMatch(c -> c.contains("메시지를 계속 안 읽는다고 함") || c.contains("대체자"));
     }
 
     @Test
