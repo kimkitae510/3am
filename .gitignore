@@ -22,6 +22,7 @@ persona.yml
 reminder.yml
 extractor.yml
 rubric.yml
+rubric-v2.yml
 
 ### AI 작업 안내 / 로컬 전용 문서 (커밋 제외) ###
 CLAUDE.md
@@ -41,3 +42,4 @@ logs/
 사례데이터.json
 사례시드.sql
 분류체계.md
+루브릭v2.md
