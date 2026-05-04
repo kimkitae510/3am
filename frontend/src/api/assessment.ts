@@ -1,21 +1,35 @@
 import { api } from './client';
 
 // LET_GO(놓아주기)는 폐기. 확률(POSSIBLE), 근거부족(INSUFFICIENT), 사귀는 중(DATING — 확률 잠금),
-// 재회 성공(REUNITED — 전용 축하 화면, 확률 없음).
-export type Verdict = 'POSSIBLE' | 'INSUFFICIENT' | 'DATING' | 'REUNITED';
+// 재회 성공(REUNITED — 전용 축하 화면), NOT_ADVISABLE(폭력/학대 확인 — 확률 미산출 잠금).
+export type Verdict = 'POSSIBLE' | 'INSUFFICIENT' | 'DATING' | 'REUNITED' | 'NOT_ADVISABLE';
 
-export interface DeductionView {
-  signal: string;
-  delta: number;
-  evidence: string; // 관찰된 사실
-  rationale: string | null; // 이 사실이 왜 확률을 움직이는지(판독 이유). 과거 진단은 null
+// 고정 5요인의 판정 하나. 백엔드가 화면 표기용 한국어 라벨로 내려준다.
+// level '중립' + evidence '근거 없음'이면 "알려주면 정확해져요" 안내로 바뀐다.
+export interface FactorView {
+  name: string; // "상대신호" 등 5종 — 내려오는 순서가 무게 순서
+  level: '유리' | '중립' | '불리';
+  evidence: string;
+  rationale: string | null;
+  stage: string | null; // 대체자 불리의 세분("정황"/"정착"). 그 외 null
+}
+
+// 관찰 포인트 — "이게 확인되면 판이 바뀐다".
+export interface WatchView {
+  point: string;
+  effect: string;
 }
 
 export interface AssessmentResponse {
   verdict: Verdict;
-  probability: number | null; // POSSIBLE일 때만
+  probability: number | null; // 잠금 판정이면 null
+  breakupType: string | null; // 이별 유형 라벨("충동형"). 과거(v1) 데이터와 잠금 판정은 null
+  typeEvidence: string | null;
+  relapseRisk: string | null; // 유지 전망 라벨("높음")
+  relapseReason: string | null;
   reason: string;
-  deductions: DeductionView[];
+  factors: FactorView[];
+  watchFor: WatchView[];
   createdAt: string | null; // INSUFFICIENT는 저장 안 돼서 null
   // 연속 실패 쿨다운으로 막힌 응답에만 채워진다. 남은 초(시각이 아니라)라서
   // 기기 시계가 틀어져 있어도 카운트다운이 어긋나지 않는다.

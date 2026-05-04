@@ -171,6 +171,83 @@
   color: var(--text-sub);
 }
 
+/* 이별 유형 배지 + 유지 전망 — 확률이 어느 판에서 나온 숫자인지 먼저 말해주는 카드 */
+.typeCard {
+  margin: 14px 4px 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.typeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.typeBadge {
+  display: inline-block;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(184, 157, 209, 0.16);
+  color: #b89dd1;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* 재이별 위험 — 방향이 경고라 낮춘 신호와 같은 핑크레드 계열 */
+.relapseChip {
+  display: inline-block;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(216, 139, 159, 0.14);
+  color: #d88b9f;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.typeEvidence {
+  margin-top: 8px;
+  color: var(--text-sub);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.relapseReason {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* 부족 정보 안내 — 판정 카드가 아니라 "이걸 알려주면 정확해져요" 목록 */
+.missingCard {
+  margin: 0 4px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px dashed var(--border);
+}
+
+.missingItem {
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.missingItem::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  margin-right: 8px;
+  vertical-align: 2.5px;
+}
+
 /* 확률 화면 총평 — 잠금 화면의 총평 카드(datingReason)와 같은 결.
    본문 카드는 전부 반지름 16, 안여백 14/16으로 통일한다(신호 목록, 유형 카드와 한 언어) */
 .reasonCard {

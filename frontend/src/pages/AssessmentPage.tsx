@@ -20,23 +20,20 @@ import styles from './AssessmentPage.module.css';
 
 const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 
-// 신호별 점수(±N)는 화면에 숫자로 보여주지 않는다 — 숫자는 정밀함을 약속하는데 LLM 점수가
-// 그 약속을 못 받치고(오판 하나가 신뢰 전체를 깎음), 유저가 합산 산수를 검증하다 더 혼란해진다.
-// 신호별 점수(±N)는 숫자로 안 보여준다(정밀함 약속을 LLM 점수가 못 받침). 대신 이 신호를
-// 얼마나 무겁게 봤는지를 결정적/중요/참고 '단어'로 말한다 — 무게를 색 밝기에 실었더니 실전에선
-// 흐린지 안 흐린지 안 읽혔다(실측). 색은 방향(낮춤 핑크레드/올림 라벤더)만, 무게는 단어와 정렬에
-// 맡긴다. 구간은 앵커 분포 20↑/10~19/10↓.
-function weightLabel(delta: number): string {
-  const size = Math.abs(delta);
-  if (size >= 20) return '결정적';
-  if (size >= 10) return '중요';
-  return '참고';
-}
+// 요인별 점수는 화면에 숫자로 보여주지 않는다 — 숫자는 백엔드 상수라 정밀해 보이지만
+// 유저에겐 합산 산수 검증거리만 된다. 방향(유리/불리)은 색으로, 무게는 순서로 말한다
+// (백엔드가 무게 순으로 내려준다).
+// 근거 없는 요인(중립 + "근거 없음")은 판정 카드 대신 "알려주면 정확해져요" 안내로 바꾼다.
+const NO_EVIDENCE = '근거 없음';
 
-// 영향 큰 순 정렬 — 숫자가 사라진 자리에서 순서가 무게를 말한다.
-function byImpact<T extends { delta: number }>(items: T[]): T[] {
-  return [...items].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
-}
+// 요인별로 유저에게 물을 문구 — 부족 정보 안내에 쓴다.
+const FACTOR_ASK: Record<string, string> = {
+  상대신호: '이별 후 상대의 반응(연락, 차단, SNS)',
+  대체자: '상대에게 새로 만나는 사람이 있는지',
+  유저대처: '이별 후 내가 어떻게 했는지',
+  통보온도: '헤어지자던 순간 상대의 태도',
+  상대패턴: '상대의 과거 연애 패턴(재회 이력, 성향)',
+};
 
 /* 로딩/진단 중 점 애니메이션 — 일러스트(달) 대신 쓰는 유일한 장식 */
 function Dots() {
@@ -429,13 +426,18 @@ export function AssessmentPage() {
   const metaDate = result.createdAt ? formatListTime(result.createdAt) : '방금';
 
   // INSUFFICIENT는 저장되지 않고 diagnose()에서 배너로 처리되므로 여기 도달하는 결과는
-  // POSSIBLE(확률), DATING(사귀는 중 — 확률만 잠금), REUNITED(재회 성공 — 게이지 대신 축하)뿐이다.
+  // POSSIBLE(확률), DATING/REUNITED/NOT_ADVISABLE(잠금 — 게이지 대신 전용 화면)뿐이다.
   const dating = result.verdict === 'DATING';
   const reunited = result.verdict === 'REUNITED';
+  const notAdvisable = result.verdict === 'NOT_ADVISABLE';
+  const locked = dating || reunited || notAdvisable;
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
-  const minus = byImpact(result.deductions.filter((d) => d.delta < 0));
-  const plus = byImpact(result.deductions.filter((d) => d.delta > 0));
+  const factors = result.factors ?? [];
+  const unfavorable = factors.filter((f) => f.level === '불리');
+  const favorable = factors.filter((f) => f.level === '유리');
+  // 판단 근거가 없던 요인 — 카드 대신 "알려주면 정확해져요"로 뒤집어 다음 대화를 유도한다.
+  const missing = factors.filter((f) => f.level === '중립' && f.evidence === NO_EVIDENCE);
 
   return (
     <PhoneFrame>
@@ -481,6 +483,15 @@ export function AssessmentPage() {
                 재회 확률은 이별을 전제로 한 진단이라
                 <br />
                 헤어진 뒤에 다시 열려요.
+              </div>
+            </div>
+          ) : notAdvisable ? (
+            <div className={styles.reunitedHero}>
+              <div className={styles.reunitedTitle}>확률로 말할 수 없는 상태예요</div>
+              <div className={styles.reunitedSub}>
+                이 관계엔 확률보다 먼저 살펴야 할 것이 있어요.
+                <br />
+                대화에서 같이 정리해봐요.
               </div>
             </div>
           ) : (
@@ -559,6 +570,10 @@ export function AssessmentPage() {
               </div>
               {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
             </>
+          ) : notAdvisable ? (
+            /* 폭력/학대 잠금 — 번복 창구가 없다(오판이면 대화에서 정정되고 다음 진단이 풀어준다).
+               훈계 대신 총평만 담담하게 싣는다 */
+            <>{result.reason && <div className={styles.datingReason}>{result.reason}</div>}</>
           ) : prob >= 100 ? (
             /* 100은 합산 결과가 아니라 "상대의 유효한 재회 제안" 확정값 — 사유 설명과 번복 창구를
                커플 잠금과 같은 카드 문법으로 제공한다. 번복하면 아래 신호들의 합산으로 즉시 되돌아간다 */
@@ -585,53 +600,97 @@ export function AssessmentPage() {
             <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
           )}
 
-          {/* 확률 화면에도 총평을 싣는다 — 신호 조각들만으론 서사가 없어 숫자가 건조하게 남는다 */}
-          {!dating && !reunited && result.reason && (
+          {/* 이별 유형 배지 + 유지 전망 — 확률이 "어느 판에서 나온 숫자인지"를 먼저 말해준다 */}
+          {!locked && result.breakupType && (
+            <div className={styles.typeCard}>
+              <div className={styles.typeRow}>
+                <span className={styles.typeBadge}>{result.breakupType} 이별</span>
+                {result.relapseRisk && (
+                  <span className={styles.relapseChip}>재이별 위험 {result.relapseRisk}</span>
+                )}
+              </div>
+              {result.typeEvidence && <div className={styles.typeEvidence}>{result.typeEvidence}</div>}
+              {result.relapseReason && (
+                <div className={styles.relapseReason}>{result.relapseReason}</div>
+              )}
+            </div>
+          )}
+
+          {/* 확률 화면에도 총평을 싣는다 — 요인 조각들만으론 서사가 없어 숫자가 건조하게 남는다 */}
+          {!locked && result.reason && (
             <div className={styles.reasonCard}>
               <div className={styles.reasonLabel}>총평</div>
               {result.reason}
             </div>
           )}
 
-
-          {/* 한 목록에 부호로 섞여 오므로(감점 음수, 가점 양수) 나눠서 보여준다.
-              카드 구조: 제목+점수(상단 정렬) / 사실 / 판독 이유(어두운 박스) — 층이 한눈에 갈리게.
-              제안 확정(100%)일 땐 숨긴다 — 수락만 남은 상태에 점수 셈이 떠 있으면 어색하다
-              (재회 성공 화면과 같은 원칙, 신호는 번복 대비로 저장만 유지) */}
-          {prob < 100 && minus.length > 0 && (
+          {/* 요인 카드: 제목 / 사실 / 판독 이유(어두운 박스). 무게는 내려온 순서가 말한다.
+              제안 확정(100%)일 땐 숨긴다 — 수락만 남은 상태에 판정 셈이 떠 있으면 어색하다
+              (재회 성공 화면과 같은 원칙, 판정은 번복 대비로 저장만 유지) */}
+          {!locked && prob < 100 && unfavorable.length > 0 && (
             <>
-              <SectionHead title="가능성을 낮춘 신호" count={minus.length} countClass={styles.countMinus} />
+              <SectionHead title="가능성을 낮춘 요인" count={unfavorable.length} countClass={styles.countMinus} />
               <div className={styles.dedList}>
-                {minus.map((d, i) => (
-                  <div className={styles.dedItem} key={i}>
+                {unfavorable.map((f) => (
+                  <div className={styles.dedItem} key={f.name}>
                     <div className={styles.dedTop}>
-                      <div className={styles.dedSignal}>{d.signal}</div>
-                      <span className={`${styles.weightLabel} ${styles.weightMinus}`}>
-                        {weightLabel(d.delta)}
-                      </span>
+                      <div className={styles.dedSignal}>{f.name}</div>
+                      <span className={`${styles.weightLabel} ${styles.weightMinus}`}>불리</span>
                     </div>
-                    {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
-                    {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
+                    {f.evidence && f.evidence !== NO_EVIDENCE && (
+                      <div className={styles.dedEvidence}>{f.evidence}</div>
+                    )}
+                    {f.rationale && <div className={styles.dedRationale}>{f.rationale}</div>}
                   </div>
                 ))}
               </div>
             </>
           )}
 
-          {prob < 100 && plus.length > 0 && (
+          {!locked && prob < 100 && favorable.length > 0 && (
             <>
-              <SectionHead title="가능성을 올린 신호" count={plus.length} countClass={styles.countPlus} />
+              <SectionHead title="가능성을 올린 요인" count={favorable.length} countClass={styles.countPlus} />
               <div className={styles.dedList}>
-                {plus.map((d, i) => (
-                  <div className={styles.dedItem} key={i}>
+                {favorable.map((f) => (
+                  <div className={styles.dedItem} key={f.name}>
                     <div className={styles.dedTop}>
-                      <div className={styles.dedSignal}>{d.signal}</div>
-                      <span className={`${styles.weightLabel} ${styles.weightPlus}`}>
-                        {weightLabel(d.delta)}
-                      </span>
+                      <div className={styles.dedSignal}>{f.name}</div>
+                      <span className={`${styles.weightLabel} ${styles.weightPlus}`}>유리</span>
                     </div>
-                    {d.evidence && <div className={styles.dedEvidence}>{d.evidence}</div>}
-                    {d.rationale && <div className={styles.dedRationale}>{d.rationale}</div>}
+                    {f.evidence && f.evidence !== NO_EVIDENCE && (
+                      <div className={styles.dedEvidence}>{f.evidence}</div>
+                    )}
+                    {f.rationale && <div className={styles.dedRationale}>{f.rationale}</div>}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* 관찰 포인트 — "이게 확인되면 판이 바뀐다". 행동 지시가 아니라 판독의 연장이고,
+              유저가 다음 진단을 돌릴 이유가 되는 자리다 */}
+          {!locked && prob < 100 && (result.watchFor?.length ?? 0) > 0 && (
+            <>
+              <SectionHead title="지켜볼 신호" />
+              <div className={styles.dedList}>
+                {result.watchFor.map((w, i) => (
+                  <div className={styles.dedItem} key={i}>
+                    <div className={styles.dedSignal}>{w.point}</div>
+                    <div className={styles.dedRationale}>{w.effect}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* 근거가 없어 중립으로 남은 요인 — 채워달라는 요청으로 뒤집어 다음 대화를 유도한다 */}
+          {!locked && prob < 100 && missing.length > 0 && (
+            <>
+              <SectionHead title="알려주면 더 정확해져요" />
+              <div className={styles.missingCard}>
+                {missing.map((f) => (
+                  <div className={styles.missingItem} key={f.name}>
+                    {FACTOR_ASK[f.name] ?? f.name}
                   </div>
                 ))}
               </div>
