@@ -9,6 +9,11 @@ import static org.mockito.BDDMockito.given;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.AssessmentProperties;
 import com.threeam.assessment.dto.ReunionDiagnosis;
+import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.FactorLevel;
+import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.RelapseRisk;
+import com.threeam.assessment.entity.ReplacementStage;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.LlmClient;
 import com.threeam.llm.LlmException;
@@ -29,146 +34,125 @@ class ReunionLlmTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private ReunionLlm reunionLlm() {
-        return new ReunionLlm(llmClient, objectMapper, new AssessmentProperties());
+    private ReunionDiagnosis diagnose(String json) {
+        given(llmClient.generateJsonDeep(anyList(), any()))
+                .willReturn(CompletableFuture.completedFuture(json));
+        return new ReunionLlm(llmClient, objectMapper, new AssessmentProperties())
+                .diagnose(List.of(), List.of(), null, null).join();
     }
 
     @Test
-    @DisplayName("정상 JSON을 진단으로 파싱한다 (verdict/타입/감점/요약)")
+    @DisplayName("정상 JSON을 진단으로 파싱한다 (유형/요인/유지전망/관찰포인트)")
     void parse_success() {
-        String json = """
+        ReunionDiagnosis diagnosis = diagnose("""
                 {
                   "verdict": "POSSIBLE",
-                  "activeReunionOffer": true,
-                  "deductions": [
-                    {"signal": "차단", "axis": "마음", "points": 30, "evidence": "차단당함", "rationale": "연락 통로를 스스로 닫은 강한 거절"},
-                    {"signal": "무시할 값", "axis": "마음", "points": 0, "evidence": "버려짐"}
+                  "activeReunionOffer": false,
+                  "breakupType": "소진형",
+                  "typeEvidence": "반복 다툼 끝에 지쳐 통보",
+                  "userDumpedPartnerLingering": false,
+                  "factors": [
+                    {"name": "상대신호", "level": "불리", "evidence": "두 달째 무반응", "rationale": "무반응이 굳어지는 방향"},
+                    {"name": "대체자", "level": "불리", "evidence": "새 연인 소식", "rationale": "복귀 유인이 사라짐", "stage": "정착"},
+                    {"name": "유저대처", "level": "유리", "evidence": "연락 중단", "rationale": "절제가 유지됨"}
+                  ],
+                  "relapseRisk": {"level": "높음", "reason": "지치게 한 행동의 교정 미확인"},
+                  "watchFor": [
+                    {"point": "상대의 선연락 여부", "effect": "오면 상대신호가 유리로 바뀜"}
                   ],
                   "reason": "쉽지 않아",
-                  "summary": "상대가 차단함"
+                  "newFacts": ["상대에게 새 연인이 생김"]
                 }
-                """;
-        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
-
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+                """);
 
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE);
-        assertThat(diagnosis.activeReunionOffer()).isTrue();
-        assertThat(diagnosis.deductions()).hasSize(1); // points=0 항목은 버려진다
-        assertThat(diagnosis.deductions().get(0).points()).isEqualTo(30);
-        assertThat(diagnosis.deductions().get(0).rationale()).isEqualTo("연락 통로를 스스로 닫은 강한 거절");
-        assertThat(diagnosis.summary()).isEqualTo("상대가 차단함");
+        assertThat(diagnosis.breakupType()).isEqualTo(BreakupType.BURNOUT);
+        assertThat(diagnosis.typeEvidence()).isEqualTo("반복 다툼 끝에 지쳐 통보");
+        // 요인은 항상 5슬롯 — 응답에 없던 슬롯은 중립(근거 없음)으로 채워진다
+        assertThat(diagnosis.factors()).hasSize(5);
+        assertThat(diagnosis.factors().get(0).level()).isEqualTo(FactorLevel.UNFAVORABLE);
+        assertThat(diagnosis.factors().get(1).stage()).isEqualTo(ReplacementStage.SETTLED);
+        assertThat(diagnosis.factors().get(3).level()).isEqualTo(FactorLevel.NEUTRAL);
+        assertThat(diagnosis.factors().get(3).evidence()).isEqualTo(ReunionLlm.NO_EVIDENCE);
+        assertThat(diagnosis.relapseRisk()).isEqualTo(RelapseRisk.HIGH);
+        assertThat(diagnosis.watchFor()).hasSize(1);
+        assertThat(diagnosis.watchFor().get(0).point()).isEqualTo("상대의 선연락 여부");
     }
 
     @Test
-    @DisplayName("판단 축(axis)이 없거나 세 축이 아닌 항목은 도덕 채점으로 보고 버린다")
-    void parse_dropsItemsWithoutValidAxis() {
-        String json = """
-                {
-                  "verdict": "POSSIBLE",
-                  "breakupType": "REGRETTER",
-                  "partnerType": "AMBIVALENT",
-                  "deductions": [
-                    {"signal": "이별 후 문란한 사생활", "points": 20, "evidence": "클럽 방문"},
-                    {"signal": "무책임한 인성", "axis": "도덕", "points": 10, "evidence": "근거"},
-                    {"signal": "상대가 지쳐서 떠남", "axis": "마음", "points": 20, "evidence": "근거"}
-                  ],
-                  "boosts": [
-                    {"signal": "먼저 안부 연락", "points": 5, "evidence": "축 없음 - 버려짐"}
-                  ],
-                  "reason": "", "summary": ""
-                }
-                """;
-        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
-
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
-
-        assertThat(diagnosis.deductions()).hasSize(1);
-        assertThat(diagnosis.deductions().get(0).signal()).isEqualTo("상대가 지쳐서 떠남");
-        assertThat(diagnosis.boosts()).isEmpty();
-    }
-
-    @Test
-    @DisplayName("신호가 있었는데 축이 없어 전부 폐기되면 근거 없는 70%를 막으려 INSUFFICIENT로 강등한다")
-    void parse_allSignalsDropped_downgradesToInsufficient() {
-        String json = """
+    @DisplayName("슬롯 밖 요인과 3단계 밖 판정은 버리고, 같은 슬롯 중복은 첫 판정만 남긴다")
+    void parse_normalizesFactors() {
+        ReunionDiagnosis diagnosis = diagnose("""
                 {
                   "verdict": "POSSIBLE",
                   "activeReunionOffer": false,
-                  "deductions": [
-                    {"signal": "이별 후 문란한 사생활", "points": 20, "evidence": "축 없음"},
-                    {"signal": "무책임한 인성", "axis": "도덕", "points": 10, "evidence": "잘못된 축"}
+                  "breakupType": "충동형",
+                  "userDumpedPartnerLingering": false,
+                  "factors": [
+                    {"name": "도덕성", "level": "불리", "evidence": "슬롯 밖", "rationale": "버려짐"},
+                    {"name": "상대신호", "level": "애매함", "evidence": "판정 밖", "rationale": "버려짐"},
+                    {"name": "상대신호", "level": "유리", "evidence": "먼저 연락 옴", "rationale": "첫 판정"},
+                    {"name": "상대신호", "level": "불리", "evidence": "중복", "rationale": "무시됨"}
                   ],
-                  "boosts": [],
-                  "reason": "", "summary": ""
+                  "reason": ""
                 }
-                """;
-        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
+                """);
 
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+        assertThat(diagnosis.factors()).hasSize(5);
+        assertThat(diagnosis.factors().get(0).name()).isEqualTo(FactorName.PARTNER_SIGNAL);
+        assertThat(diagnosis.factors().get(0).level()).isEqualTo(FactorLevel.FAVORABLE);
+        assertThat(diagnosis.factors().get(0).evidence()).isEqualTo("먼저 연락 옴");
+    }
 
-        // 남은 감점이 0인데 BASE(70)를 그대로 확률로 내보내지 않는다.
+    @Test
+    @DisplayName("POSSIBLE인데 유형이 없으면 INSUFFICIENT로 강등한다 — 대역 없는 확률 방지")
+    void parse_missingType_downgradesToInsufficient() {
+        ReunionDiagnosis diagnosis = diagnose("""
+                {"verdict": "POSSIBLE", "activeReunionOffer": false,
+                 "userDumpedPartnerLingering": false, "factors": [], "reason": ""}
+                """);
+
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
-        assertThat(diagnosis.deductions()).isEmpty();
     }
 
     @Test
-    @DisplayName("활성 재회 제안이면 감점 신호가 전부 폐기돼도 강등하지 않는다(확률은 100으로 확정될 경로)")
-    void parse_allDroppedButActiveOffer_staysPossible() {
-        String json = """
-                {
-                  "verdict": "POSSIBLE",
-                  "activeReunionOffer": true,
-                  "deductions": [
-                    {"signal": "문란한 사생활", "points": 20, "evidence": "축 없음"}
-                  ],
-                  "boosts": [],
-                  "reason": "", "summary": ""
-                }
-                """;
-        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
-
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+    @DisplayName("활성 재회 제안이면 유형이 없어도 강등하지 않는다(확률은 100으로 확정될 경로)")
+    void parse_missingTypeButActiveOffer_staysPossible() {
+        ReunionDiagnosis diagnosis = diagnose("""
+                {"verdict": "POSSIBLE", "activeReunionOffer": true,
+                 "userDumpedPartnerLingering": false, "factors": [], "reason": ""}
+                """);
 
         assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE);
         assertThat(diagnosis.activeReunionOffer()).isTrue();
     }
 
     @Test
-    @DisplayName("points는 크기만 보고 상한(100)으로 자른다 — 음수, 폭주값 방어")
-    void parse_pointsClampedAndAbs() {
-        String json = """
-                {
-                  "verdict": "POSSIBLE",
-                  "activeReunionOffer": false,
-                  "deductions": [
-                    {"signal": "폭주값", "axis": "마음", "points": 9999, "evidence": "근거"},
-                    {"signal": "음수값", "axis": "구조", "points": -15, "evidence": "근거"}
-                  ],
-                  "boosts": [],
-                  "reason": "", "summary": ""
-                }
-                """;
-        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
+    @DisplayName("관찰 포인트는 최대 2개, 빈 항목은 버린다")
+    void parse_watchForCappedAndFiltered() {
+        ReunionDiagnosis diagnosis = diagnose("""
+                {"verdict": "POSSIBLE", "activeReunionOffer": false, "breakupType": "충동형",
+                 "userDumpedPartnerLingering": false, "factors": [], "reason": "",
+                 "watchFor": [
+                   {"point": "하나", "effect": "효과1"},
+                   {"point": "", "effect": "빈 point는 버려짐"},
+                   {"point": "둘", "effect": "효과2"},
+                   {"point": "셋", "effect": "상한 초과로 버려짐"}
+                 ]}
+                """);
 
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
-
-        assertThat(diagnosis.deductions()).hasSize(2);
-        assertThat(diagnosis.deductions().get(0).points()).isEqualTo(100); // 9999 → 상한 100
-        assertThat(diagnosis.deductions().get(0).rationale()).isNull();    // rationale 누락 허용(구 응답 호환)
-        assertThat(diagnosis.deductions().get(1).points()).isEqualTo(15);  // -15 → 크기 15
+        assertThat(diagnosis.watchFor()).hasSize(2);
+        assertThat(diagnosis.watchFor().get(1).point()).isEqualTo("둘");
     }
 
     @Test
     @DisplayName("newFacts를 파싱한다 — 빈 문자열은 버리고, 정상 범위의 개수는 자르지 않는다")
     void parse_newFacts() {
-        String json = """
-                {"verdict": "POSSIBLE", "deductions": [], "reason": "", "summary": "",
+        ReunionDiagnosis diagnosis = diagnose("""
+                {"verdict": "POSSIBLE", "activeReunionOffer": false, "breakupType": "충동형",
+                 "userDumpedPartnerLingering": false, "factors": [], "reason": "",
                  "newFacts": ["사실1", "", "사실2", "사실3", "사실4", "사실5", "사실6"]}
-                """;
-        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
-
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+                """);
 
         // 중요한 사실을 개수로 자르지 않는다(빈 문자열만 제거) — 원장 무상한 정책과 한 몸
         assertThat(diagnosis.newFacts())
@@ -182,28 +166,27 @@ class ReunionLlmTest {
         for (int i = 1; i <= 30; i++) {
             items.append(i > 1 ? "," : "").append("\"사실").append(i).append("\"");
         }
-        String json = "{\"verdict\": \"POSSIBLE\", \"deductions\": [], \"reason\": \"\", \"summary\": \"\","
-                + " \"newFacts\": [" + items + "]}";
-        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
+        String json = "{\"verdict\": \"POSSIBLE\", \"activeReunionOffer\": false,"
+                + " \"breakupType\": \"충동형\", \"userDumpedPartnerLingering\": false,"
+                + " \"factors\": [], \"reason\": \"\", \"newFacts\": [" + items + "]}";
 
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
+        ReunionDiagnosis diagnosis = diagnose(json);
 
         assertThat(diagnosis.newFacts()).hasSize(20).startsWith("사실1").endsWith("사실20");
     }
 
     @Test
-    @DisplayName("알 수 없는 enum 값은 안전한 기본값으로 떨어진다")
+    @DisplayName("알 수 없는 verdict와 유형은 안전한 기본값으로 떨어진다")
     void parse_unknownEnum_fallsBack() {
-        String json = """
-                {"verdict": "???",
-                 "deductions": [], "reason": "", "summary": ""}
-                """;
-        given(llmClient.generateJsonDeep(anyList(), any())).willReturn(CompletableFuture.completedFuture(json));
+        ReunionDiagnosis diagnosis = diagnose("""
+                {"verdict": "???", "breakupType": "이상한유형",
+                 "factors": [], "reason": ""}
+                """);
 
-        ReunionDiagnosis diagnosis = reunionLlm().diagnose(null, List.of(), List.of()).join();
-
-        assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.POSSIBLE); // 기본값
+        // verdict 기본값 POSSIBLE + 유형 미상 → 강등 경로를 타고 INSUFFICIENT가 된다
+        assertThat(diagnosis.verdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
         assertThat(diagnosis.activeReunionOffer()).isFalse(); // 필드 누락 시 안전한 기본값
+        assertThat(diagnosis.breakupType()).isNull();
     }
 
     @Test
@@ -211,8 +194,9 @@ class ReunionLlmTest {
     void parse_malformed_throws() {
         given(llmClient.generateJsonDeep(anyList(), any()))
                 .willReturn(CompletableFuture.completedFuture("이건 JSON이 아니야"));
+        ReunionLlm reunionLlm = new ReunionLlm(llmClient, objectMapper, new AssessmentProperties());
 
-        assertThatThrownBy(() -> reunionLlm().diagnose(null, List.of(), List.of()).join())
+        assertThatThrownBy(() -> reunionLlm.diagnose(List.of(), List.of(), null, null).join())
                 .isInstanceOf(CompletionException.class)
                 .hasCauseInstanceOf(LlmException.class);
         // 자동 재시도 금지 — 실패마다 진단 1회분이 2배 과금된다. 재시도는 유저 버튼 몫.

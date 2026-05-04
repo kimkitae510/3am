@@ -36,6 +36,20 @@ public class MockLlmClient implements LlmClient {
                 {
                   "verdict": "POSSIBLE",
                   "activeReunionOffer": false,
+                  "breakupType": "소진형",
+                  "typeEvidence": "(개발용 임시) 반복된 다툼 끝에 상대가 지쳐 통보",
+                  "userDumpedPartnerLingering": false,
+                  "factors": [
+                    {"name": "상대신호", "level": "불리", "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시) 두 달째 무반응이 이어져 불리"},
+                    {"name": "대체자", "level": "중립", "evidence": "근거 없음", "rationale": null},
+                    {"name": "유저대처", "level": "유리", "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시) 짧게 마무리하고 연락을 멈춰 유리"},
+                    {"name": "통보온도", "level": "중립", "evidence": "근거 없음", "rationale": null},
+                    {"name": "상대패턴", "level": "중립", "evidence": "근거 없음", "rationale": null}
+                  ],
+                  "relapseRisk": {"level": "높음", "reason": "(개발용 임시) 지치게 한 행동의 교정이 확인되지 않음"},
+                  "watchFor": [
+                    {"point": "상대가 먼저 연락해 오는지", "effect": "오면 상대신호가 유리로 바뀌어 판이 크게 달라짐"}
+                  ],
                   "matchProfile": {
                     "reason": "잦은싸움",
                     "subReasons": ["사소한반복", "감정누적"],
@@ -48,15 +62,7 @@ public class MockLlmClient implements LlmClient {
                     "gender": null,
                     "repeatBreakup": null
                   },
-                  "deductions": [
-                    {"signal": "상대가 먼저 이별을 통보", "axis": "마음", "points": 15, "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시 판독 이유) 통보한 쪽은 결심이 선행된 상태라 감점"},
-                    {"signal": "연락이 뜸해진 상태", "axis": "마음", "points": 5, "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시 판독 이유) 연결이 약해지는 방향의 신호라 감점"}
-                  ],
-                  "boosts": [
-                    {"signal": "상대가 먼저 안부 연락", "axis": "마음", "points": 5, "evidence": "(개발용 임시 근거)", "rationale": "(개발용 임시 판독 이유) 스스로 먼저 닿아온 행동이라 가점"}
-                  ],
                   "reason": "개발용 임시 진단 — 실제 LLM 연동 전 고정 응답입니다.",
-                  "summary": "개발용 임시 요약.",
                   "newFacts": ["상대가 먼저 이별을 통보함 (개발용 임시 사실)"]
                 }
                 """);

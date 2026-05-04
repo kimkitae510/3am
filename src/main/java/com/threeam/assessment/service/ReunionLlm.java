@@ -4,7 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.AssessmentProperties;
 import com.threeam.assessment.dto.ReunionDiagnosis;
-import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
+import com.threeam.assessment.dto.ReunionDiagnosis.FactorItem;
+import com.threeam.assessment.dto.ReunionDiagnosis.WatchItem;
+import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.FactorLevel;
+import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.RelapseRisk;
+import com.threeam.assessment.entity.ReplacementStage;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
@@ -14,18 +20,19 @@ import com.threeam.match.MatchTaxonomy;
 import com.threeam.match.entity.SubReasons;
 import com.threeam.story.entity.StoryFact;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-// 재회 진단 LLM 호출 담당. 대화 + 기억을 회의론자 프롬프트로 감싸 JSON 감점 판단을 받아 파싱한다.
-// 최종 확률은 여기서 만들지 않는다 → 백엔드(ReunionScorer)가 합산한다.
-// 진단 루브릭(회의론자 톤 + 감점/가점 앵커 + 오판 교정 규칙 + JSON 스키마) 전문은 이 서비스의 핵심이라
-// 소스에 두지 않고 AssessmentProperties(로컬 rubric.yml, gitignore)로 주입받는다.
+// 재회 진단 LLM 호출 담당(v2: 대역+요인 체계). 대화 + 원장을 루브릭으로 감싸
+// 유형(1층)과 요인 판정(2층)을 JSON으로 받아 파싱한다.
+// 최종 확률은 여기서 만들지 않는다 → 백엔드(TypeBandScorer)가 대역과 상수로 계산한다.
+// 진단 루브릭 전문은 이 서비스의 핵심이라 소스에 두지 않고
+// AssessmentProperties(로컬 rubric.yml, gitignore)로 주입받는다.
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -35,55 +42,56 @@ public class ReunionLlm {
     private final ObjectMapper objectMapper;
     private final AssessmentProperties assessmentProperties;
 
-    public CompletableFuture<ReunionDiagnosis> diagnose(String memorySummary, List<String> knownFactLines,
-                                                        List<ChatMessage> conversation) {
+    // todayLine: "오늘 날짜: ..." — 루브릭의 시간 규칙(5주/3개월, 소진형 1개월)의 기준점.
+    // previousDigest: 직전 진단 요지(유형, 확률, 요인 판정) — 새 사실 없이 유형이 흔들리는 것을 막는다.
+    public CompletableFuture<ReunionDiagnosis> diagnose(List<String> knownFactLines,
+                                                        List<ChatMessage> conversation,
+                                                        String todayLine, String previousDigest) {
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(assessmentProperties.getRubric()));
         if (knownFactLines != null && !knownFactLines.isEmpty()) {
             prompt.add(ChatMessage.system("이미 기록된 사실(괄호는 기록일):\n- "
                     + String.join("\n- ", knownFactLines)));
         }
-        if (memorySummary != null && !memorySummary.isBlank()) {
-            prompt.add(ChatMessage.system("지금까지 요약: " + memorySummary));
-        }
         // 매칭 분류 지시. 대화 앞(고정분)에 둬서 캐시를 받게 한다 — 사전이 길어 매번 정가로 내면 비싸다.
         prompt.add(ChatMessage.system(MATCH_PROFILE_GUIDE));
+        // 날짜와 직전 진단은 매번 바뀌는 재료라 고정분(루브릭, 사전) 뒤에 둔다 — 캐시 프리픽스 보호.
+        if (todayLine != null && !todayLine.isBlank()) {
+            prompt.add(ChatMessage.system(todayLine));
+        }
+        if (previousDigest != null && !previousDigest.isBlank()) {
+            prompt.add(ChatMessage.system(previousDigest));
+        }
         prompt.addAll(conversation);
-        // 루브릭 깊숙한 규칙은 긴 프롬프트에서 자주 무시된다(실측: 관점 뒤집힘, 같은 사건 쪼개기가
-        // 규칙 신설 후에도 재발). 제일 잘 어기는 것만 프롬프트 맨 끝에 출력 직전 점검으로 다시 박는다
-        // — 채팅의 매 턴 리마인더와 같은 장치다.
+        // 루브릭 깊숙한 규칙은 긴 프롬프트에서 자주 무시된다(v1 실측: 관점 뒤집힘, 이중 계상이
+        // 규칙 신설 후에도 재발). 제일 잘 어기는 것만 프롬프트 맨 끝에 출력 직전 점검으로 다시 박는다.
         prompt.add(ChatMessage.system(
-                "출력 직전 마지막 점검 — 아래에 걸리는 signal은 고치고 출력해라: "
-                        + "1) 각 감점의 주어: 신뢰가 무너지고 실망하고 속은 쪽이 '상대'인가? "
-                        + "상대의 거짓말이나 배신으로 '유저가' 느낀 것이면 그 감점은 삭제해라 — "
+                "출력 직전 마지막 점검 — 아래에 걸리면 고치고 출력해라: "
+                        + "1) 요인 판정의 주어: 신뢰가 무너지고 실망하고 속은 쪽이 '상대'인가? "
+                        + "상대의 거짓말이나 배신으로 '유저가' 느낀 것이면 그 근거는 빼라 — "
                         + "확률은 상대가 돌아올지만 잰다, 유저의 상처는 총평 몫이다. "
-                        + "2) 같은 사건이나 같은 발화가 이름만 바꿔 두 개의 감점으로 쪼개져 있으면 "
-                        + "하나로 합쳐라(예: '전남편을 만나러 감'이 환승 감점과 신뢰 파탄 감점 양쪽에 — 이중 계상). "
-                        + "3) 상대가 최근 먼저 연락해 그리움을 표현하거나 만남, 대화를 제안했으면 "
-                        + "그보다 과거인 마음 축 감점(단호함, 거절, 선 긋기)은 덮어쓰지 않았는지 확인하고, "
-                        + "합산 결과가 캘리브레이션 표의 해당 대역(재회 의사 내비침 70~85)과 크게 어긋나면 다시 훑어라. "
-                        + "4) rationale이 '재회한 뒤가 어떨지'를 말하고 있으면 고쳐라 — 이 진단이 재는 건 상대가 "
-                        + "돌아올 확률 하나뿐이다('다시 만나도 같은 문제가 반복된다'류는 rationale이 아니라 총평 몫). "
-                        // 이 둘은 루브릭 중반(43~45%)에 있는데도 계속 뚫려서 맨 끝으로 승격시켰다
-                        // (실측 총평: "상대가 관계를 유지할 책임감이 부족했던 거니까 자책할 필요 없어").
-                        + "5) reason에 상대가 어떤 인간인지 규정한 말('책임감이 부족하다', '이기적이다', '가벼운 사람')이 "
-                        + "있으면 지워라 — 상대가 실제로 한 선택이 재회 확률에 무엇을 뜻하는지까지만 남긴다. "
-                        + "6) reason에 누구 잘못인지 가려준 말('네 잘못이 아니야', '자책할 필요 없어', "
-                        + "'네가 매력이 없어서가 아니라')이 있으면 통째로 지워라 — 이 진단은 확률을 매기지 잘잘못을 "
-                        + "가리지 않는다. 위로도 마찬가지다."));
+                        + "2) 같은 사건이 두 요인의 근거(evidence)로 중복돼 있으면 가장 정확한 요인 "
+                        + "하나에만 남기고 다른 쪽은 다시 판정해라. "
+                        + "3) 상대신호를 유리로 판정했다면 근거가 '관계가 움직이는' 행동인지 확인해라 — "
+                        + "답장, 스토리 열람, 부드러운 말투뿐이면 중립으로 내려라(착각 신호). "
+                        + "4) rationale이 '재회한 뒤가 어떨지'를 말하고 있으면 고쳐라 — 요인은 상대가 "
+                        + "돌아올 확률만 잰다. 유지 얘기는 relapseRisk와 총평 몫이다. "
+                        + "5) reason에 상대가 어떤 인간인지 규정한 말('책임감이 부족하다', '이기적이다')이 "
+                        + "있으면 지워라 — 상대의 선택이 확률에 무엇을 뜻하는지까지만 남긴다. "
+                        + "6) reason에 잘잘못을 가려준 말('네 잘못이 아니야', '자책할 필요 없어')이나 "
+                        + "위로가 있으면 통째로 지워라 — 이 진단은 확률을 매기지 잘잘못을 가리지 않는다. "
+                        + "7) verdict가 POSSIBLE인데 breakupType이 비어 있으면 유형부터 다시 판정해라 — "
+                        + "유형 없는 확률은 낼 수 없다."));
         // 진단은 긴 루브릭 일관 적용이 필요해 정밀 판단 경로로 — 설정에 따라 더 강한 모델이 배정된다.
-        // 파싱 실패의 자동 재시도는 넣었다 뺐다 — 실패마다 진단 1회분(입력 17k)이 소리 없이 2배
-        // 과금된다. 게다가 같은 입력의 즉시 재시도는 temperature 0이라 같은 실패를 그대로 재생산한다
-        // (실측: 25초 뒤 재시도가 토큰 수까지 동일하게 실패). 재시도는 유저의 버튼으로,
-        // 반복 실패는 실패 가드의 쿨다운으로 관리한다.
+        // 파싱 실패의 자동 재시도는 없다 — temperature 0의 즉시 재시도는 같은 실패를 재생산하고
+        // 진단 1회분이 소리 없이 2배 과금된다(v1 실측). 재시도는 유저 버튼, 반복 실패는 쿨다운 가드.
         return llmClient.generateJsonDeep(prompt, RESPONSE_SCHEMA).thenApply(this::parse);
     }
 
-    // matchProfile 작성 지시. 어휘 자체는 응답 스키마가 enum으로 막으므로 여기선 "어떻게 고를지"만 말한다
-    // (사전을 프롬프트에 또 나열하면 같은 목록을 두 번 보내는 셈이라 토큰만 든다).
+    // matchProfile 작성 지시. 어휘 자체는 응답 스키마가 enum으로 막으므로 여기선 "어떻게 고를지"만 말한다.
     private static final String MATCH_PROFILE_GUIDE = """
             matchProfile은 확률과 무관하다 — 이 사연과 닮은 참조 사례를 찾기 위한 분류일 뿐이니
-            감점 판단과 섞지 마라. 값은 스키마에 열거된 어휘에서만 고르고, 대화에 드러나지 않은 항목은
+            유형, 요인 판단과 섞지 마라. 값은 스키마에 열거된 어휘에서만 고르고, 대화에 드러나지 않은 항목은
             비워라(null). 지어낸 분류는 엉뚱한 사례를 물어와 유저에게 남의 이야기를 보여주게 된다.
             subReasons는 순서가 뜻을 가진다: 첫 번째가 이별을 실제로 당긴 방아쇠, 그 뒤는 밑에 깔려 있던
             요인이다. 최대 3개까지만 쓰고, 확실한 게 하나면 하나만 써라 — 애매한 걸 채워 넣으면
@@ -93,30 +101,47 @@ public class ReunionLlm {
             monthsSinceBreakup과 datingMonths는 개월 수 정수다. 반복 이별(온오프)을 겪었으면
             repeatBreakup을 true로 둔다.""";
 
-    // 세 판단 축. 항목마다 axis를 강제해서 "나쁜 행동 = 감점" 같은 도덕 채점을 걸러낸다.
-    // RESPONSE_SCHEMA가 클래스 초기화 때 이 값을 읽으므로 반드시 그보다 먼저 선언한다.
-    private static final Set<String> AXES = Set.of("마음", "복구가능성", "구조");
-
-    // 감점/가점 항목의 스키마. axis를 enum으로 못 박는 게 핵심 — 축 없는 항목은 파싱 단계에서
-    // 폐기되고, 전량 폐기되면 진단이 통째로 INSUFFICIENT로 강등된다(아래 전량 폐기 가드).
-    // 생성 단계에서 세 축 밖의 값이 나올 수 없게 하면 그 경로 자체가 닫힌다.
-    private static Map<String, Object> pointItemSchema() {
+    // 요인 판정 항목의 스키마. name과 level을 enum으로 못 박는 게 핵심 — 슬롯 밖 요인이나
+    // 3단계 밖 판정은 생성 단계에서 나올 수 없다. stage는 대체자 불리의 세분(정황/정착).
+    private static Map<String, Object> factorItemSchema() {
         return Map.of(
                 "type", "OBJECT",
                 "properties", Map.of(
-                        "signal", Map.of("type", "STRING"),
-                        "axis", Map.of("type", "STRING", "enum", List.copyOf(AXES)),
-                        "points", Map.of("type", "INTEGER"),
+                        "name", Map.of("type", "STRING", "enum", FactorName.labels()),
+                        "level", Map.of("type", "STRING",
+                                "enum", List.of("유리", "중립", "불리")),
                         "evidence", Map.of("type", "STRING"),
-                        "rationale", Map.of("type", "STRING")),
-                // rationale까지 필수 — 루브릭이 "반드시 채워라"로 지시하는데도 자주 비는 항목이다.
-                "required", List.of("signal", "axis", "points", "evidence", "rationale"),
-                "propertyOrdering", List.of("signal", "axis", "points", "evidence", "rationale"));
+                        "rationale", Map.of("type", "STRING"),
+                        "stage", Map.of("type", "STRING", "nullable", true,
+                                "enum", List.of("정황", "정착"))),
+                "required", List.of("name", "level", "evidence", "rationale"),
+                "propertyOrdering", List.of("name", "level", "evidence", "rationale", "stage"));
+    }
+
+    private static Map<String, Object> watchItemSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "point", Map.of("type", "STRING"),
+                        "effect", Map.of("type", "STRING")),
+                "required", List.of("point", "effect"),
+                "propertyOrdering", List.of("point", "effect"));
+    }
+
+    private static Map<String, Object> relapseRiskSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "nullable", true,
+                "properties", Map.of(
+                        "level", Map.of("type", "STRING",
+                                "enum", List.of("낮음", "중간", "높음")),
+                        "reason", Map.of("type", "STRING")),
+                "required", List.of("level", "reason"),
+                "propertyOrdering", List.of("level", "reason"));
     }
 
     // 매칭 분류의 스키마. 어휘를 enum으로 못 박는 게 핵심 — 자유 서술을 허용하면
     // "여사친 문제"처럼 뜻은 같고 글자가 다른 값이 나와 사례의 태그와 안 겹친다.
-    // 생성 단계에서 사전 밖 값이 나올 수 없게 하면 그 경로 자체가 닫힌다(파싱에서 한 번 더 거른다).
     private static Map<String, Object> matchProfileSchema() {
         return Map.ofEntries(
                 Map.entry("type", "OBJECT"),
@@ -145,24 +170,31 @@ public class ReunionLlm {
 
     // 진단 응답의 문법을 생성 단계에서 강제하는 스키마. 프롬프트(rubric.yml)의 JSON 지시와 짝이며,
     // 루브릭을 고쳐 필드가 바뀌면 여기도 같이 고쳐야 한다 — 스키마에 없는 필드는 모델이 낼 수 없다.
-    // propertyOrdering은 루브릭이 가르친 순서와 맞춘다(모델이 배운 순서대로 생성해야 판단 품질이 유지된다).
+    // propertyOrdering은 루브릭의 절차 순서와 맞춘다(판정 → 유형 → 요인 → 전망 → 관찰 → 총평).
     private static final Map<String, Object> RESPONSE_SCHEMA = Map.ofEntries(
             Map.entry("type", "OBJECT"),
             Map.entry("properties", Map.ofEntries(
                     Map.entry("verdict", Map.of("type", "STRING",
-                            "enum", List.of("POSSIBLE", "INSUFFICIENT", "DATING", "REUNITED"))),
+                            "enum", List.of("POSSIBLE", "INSUFFICIENT", "DATING", "REUNITED",
+                                    "NOT_ADVISABLE"))),
                     Map.entry("activeReunionOffer", Map.of("type", "BOOLEAN")),
+                    Map.entry("breakupType", Map.of("type", "STRING", "nullable", true,
+                            "enum", BreakupType.labels())),
+                    Map.entry("typeEvidence", Map.of("type", "STRING", "nullable", true)),
+                    Map.entry("userDumpedPartnerLingering", Map.of("type", "BOOLEAN")),
+                    Map.entry("factors", Map.of("type", "ARRAY", "items", factorItemSchema())),
+                    Map.entry("relapseRisk", relapseRiskSchema()),
+                    Map.entry("watchFor", Map.of("type", "ARRAY", "items", watchItemSchema())),
                     Map.entry("matchProfile", matchProfileSchema()),
-                    Map.entry("deductions", Map.of("type", "ARRAY", "items", pointItemSchema())),
-                    Map.entry("boosts", Map.of("type", "ARRAY", "items", pointItemSchema())),
                     Map.entry("reason", Map.of("type", "STRING")),
-                    Map.entry("summary", Map.of("type", "STRING")),
                     Map.entry("newFacts", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))))),
-            // 배열류는 필수에서 뺀다 — DATING, REUNITED, INSUFFICIENT 판정은 루브릭이
-            // deductions, boosts를 비우라고 지시하는데 필수로 걸면 억지로 채우게 된다.
-            Map.entry("required", List.of("verdict", "activeReunionOffer", "reason", "summary")),
-            Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "deductions", "boosts",
-                    "matchProfile", "reason", "summary", "newFacts")));
+            // 배열류와 유형은 필수에서 뺀다 — 잠금 판정(DATING 등)은 루브릭이 비우라고 지시하는데
+            // 필수로 걸면 억지로 채우게 된다.
+            Map.entry("required", List.of("verdict", "activeReunionOffer",
+                    "userDumpedPartnerLingering", "reason")),
+            Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
+                    "typeEvidence", "userDumpedPartnerLingering", "factors", "relapseRisk",
+                    "watchFor", "matchProfile", "reason", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
         try {
@@ -172,18 +204,19 @@ public class ReunionLlm {
                     ReunionVerdict.POSSIBLE);
             boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
 
-            int[] dropped = {0};
-            List<DeductionItem> deductions = parseItems(root, "deductions", dropped);
-            List<DeductionItem> boosts = parseItems(root, "boosts", dropped);
+            BreakupType breakupType = BreakupType.fromLabel(root.path("breakupType").asText(null));
+            List<FactorItem> factors = parseFactors(root);
 
-            // LLM이 감점/가점을 냈는데 축을 못 붙여 전부 폐기되면, 남은 근거가 0이라 점수가 BASE(50)로 나온다.
-            // 그 50은 "재회 가능성 50%"가 아니라 "근거가 유실됨"이다 — 근거 없는 확률을 유저에게 보이지 않도록
-            // 진단 자체를 INSUFFICIENT로 강등한다(활성 재회 제안이면 감점과 무관하게 100이므로 예외).
-            if (verdict == ReunionVerdict.POSSIBLE && !activeReunionOffer
-                    && deductions.isEmpty() && boosts.isEmpty() && dropped[0] > 0) {
-                log.warn("진단 신호 전량 폐기 — 근거 없는 확률 방지 위해 INSUFFICIENT로 강등 droppedCount={}", dropped[0]);
+            // 유형 없는 POSSIBLE은 확률을 계산할 대역이 없다 — 근거 없는 확률을 유저에게 보이지 않게
+            // INSUFFICIENT로 강등한다(활성 재회 제안이면 유형과 무관하게 100이므로 예외).
+            if (verdict == ReunionVerdict.POSSIBLE && !activeReunionOffer && breakupType == null) {
+                log.warn("진단 유형 누락 — 근거 없는 확률 방지 위해 INSUFFICIENT로 강등");
                 verdict = ReunionVerdict.INSUFFICIENT;
             }
+
+            RelapseRisk relapseRisk = RelapseRisk.fromLabel(
+                    root.path("relapseRisk").path("level").asText(null));
+            String relapseReason = clip(root.path("relapseRisk").path("reason").asText(""), TEXT_MAX);
 
             // 개수 제한은 폭주 방어용 안전핀뿐(정상 진단에선 닿지 않는다). 길이는 원장 컬럼에 맞춰 자른다.
             List<String> newFacts = new ArrayList<>();
@@ -197,18 +230,77 @@ public class ReunionLlm {
                         : fact);
             }
 
-            return new ReunionDiagnosis(verdict, activeReunionOffer,
-                    deductions, boosts, matchProfile(root),
-                    root.path("reason").asText(""), root.path("summary").asText(""), newFacts);
+            return new ReunionDiagnosis(verdict, activeReunionOffer, breakupType,
+                    clip(root.path("typeEvidence").asText(""), TEXT_MAX),
+                    root.path("userDumpedPartnerLingering").asBoolean(false),
+                    factors, relapseRisk, relapseReason, parseWatch(root), matchProfile(root),
+                    root.path("reason").asText(""), newFacts);
         } catch (Exception e) {
             // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
-            // 다만 잘린 지점이 어디냐가 원인을 가른다: 문자열 중간에서 끊겼으면 하드 절단(상한, 스트림),
-            // 항목 경계에서 깔끔히 끝났으면 모델이 구조를 놓고 멈춘 것. 그 판별에 필요한 꼬리만 남긴다.
             boolean truncated = json != null && !json.trim().endsWith("}");
             log.error("재회 진단 JSON 파싱 실패 (본문 길이 {}자, 잘림 의심={}, 꼬리=[{}])",
                     json == null ? 0 : json.length(), truncated, tail(json), e);
             throw new LlmException();
         }
+    }
+
+    // 문자열 컬럼 공통 길이(VARCHAR(300)) — 넘치면 잘라서 저장 실패를 막는다.
+    private static final int TEXT_MAX = 300;
+
+    // 관찰 포인트 상한. 루브릭이 1~2개를 지시하지만 스키마는 배열이라 안전핀을 건다.
+    private static final int WATCH_MAX = 2;
+
+    // 요인은 항상 5슬롯으로 정규화한다: 중복은 첫 판정만 남기고, 누락은 중립("근거 없음")으로 채운다.
+    // 슬롯이 고정이어야 화면과 재계산(제안 번복)이 요인 유무를 걱정하지 않는다.
+    private List<FactorItem> parseFactors(JsonNode root) {
+        Map<FactorName, FactorItem> byName = new EnumMap<>(FactorName.class);
+        for (JsonNode node : root.path("factors")) {
+            FactorName name = FactorName.fromLabel(node.path("name").asText(null));
+            FactorLevel level = FactorLevel.fromLabel(node.path("level").asText(null));
+            if (name == null || level == null) {
+                log.warn("진단 요인 폐기(슬롯 밖): name={} level={}",
+                        node.path("name").asText(""), node.path("level").asText(""));
+                continue;
+            }
+            if (byName.containsKey(name)) {
+                log.warn("진단 요인 중복 — 첫 판정만 유지: {}", name);
+                continue;
+            }
+            String rationale = clip(node.path("rationale").asText("").trim(), TEXT_MAX);
+            byName.put(name, new FactorItem(name, level,
+                    node.path("evidence").asText("").trim(),
+                    rationale.isBlank() ? null : rationale,
+                    ReplacementStage.fromLabel(node.path("stage").asText(null))));
+        }
+        List<FactorItem> factors = new ArrayList<>();
+        for (FactorName name : FactorName.values()) {
+            factors.add(byName.getOrDefault(name,
+                    new FactorItem(name, FactorLevel.NEUTRAL, NO_EVIDENCE, null, null)));
+        }
+        return factors;
+    }
+
+    // 근거 없는 슬롯의 표준 문구. 화면의 "이걸 알려주면 정확해져요" 안내가 이 값으로 갈린다.
+    public static final String NO_EVIDENCE = "근거 없음";
+
+    private List<WatchItem> parseWatch(JsonNode root) {
+        List<WatchItem> items = new ArrayList<>();
+        for (JsonNode node : root.path("watchFor")) {
+            String point = clip(node.path("point").asText("").trim(), TEXT_MAX);
+            String effect = clip(node.path("effect").asText("").trim(), TEXT_MAX);
+            if (point.isBlank() || effect.isBlank() || items.size() >= WATCH_MAX) {
+                continue;
+            }
+            items.add(new WatchItem(point, effect));
+        }
+        return items;
+    }
+
+    private String clip(String value, int max) {
+        if (value == null) {
+            return "";
+        }
+        return value.length() > max ? value.substring(0, max) : value;
     }
 
     // 잘림 원인 판별용 꼬리 길이. 짧게 잡는다 — 진단 문장이 통째로 남으면 로그가 개인정보 저장소가 된다.
@@ -223,40 +315,7 @@ public class ReunionLlm {
                 : trimmed.substring(trimmed.length() - TAIL_LENGTH);
     }
 
-    // 한 항목이 움직일 수 있는 점수 상한. 앵커 최대치(30)보다 넉넉히 두되, LLM이 실수로 뱉는
-    // 폭주값(예: 9999)이 그대로 저장되지 않게 막는다. 부호는 Deduction에서 감점/가점으로 통일된다.
-    private static final int MAX_POINTS = 100;
-
-    // 판독 이유 컬럼 길이(VARCHAR(300)) — 넘치면 잘라서 저장 실패를 막는다.
-    private static final int RATIONALE_MAX = 300;
-
-    // dropped[0]에 "신호는 있으나 축이 없어 버린 항목 수"를 누적한다(전량 폐기 감지에 쓰인다).
-    private List<DeductionItem> parseItems(JsonNode root, String field, int[] dropped) {
-        List<DeductionItem> items = new ArrayList<>();
-        for (JsonNode node : root.path(field)) {
-            String signal = node.path("signal").asText("");
-            // 부호는 저장 단계에서 정해지므로 여기선 크기만 본다. 0은 신호 없음, 상한은 폭주 방어.
-            int points = Math.min(Math.abs(node.path("points").asInt(0)), MAX_POINTS);
-            if (signal.isBlank() || points == 0) {
-                continue;
-            }
-            String axis = node.path("axis").asText("");
-            if (!AXES.contains(axis)) {
-                // 축 없는 신호는 확률 신호가 아니다. 버리되, 프롬프트 조정 근거로 관측 로그를 남긴다.
-                log.warn("진단 신호 폐기(축 없음): field={} signal={} axis={}", field, signal, axis);
-                dropped[0]++;
-                continue;
-            }
-            String rationale = node.path("rationale").asText("").trim();
-            items.add(new DeductionItem(signal, points, node.path("evidence").asText(""),
-                    rationale.isBlank() ? null
-                            : rationale.length() > RATIONALE_MAX ? rationale.substring(0, RATIONALE_MAX) : rationale));
-        }
-        return items;
-    }
-
-    // 사전에 없는 값은 사례와 겹칠 수 없으니 저장할 값어치가 없다 — 통째로 버리는 대신 항목별로 거른다
-    // (사유 하나가 틀렸다고 연락 상태나 기간까지 버리면 매칭 재료가 통째로 사라진다).
+    // 사전에 없는 값은 사례와 겹칠 수 없으니 저장할 값어치가 없다 — 통째로 버리는 대신 항목별로 거른다.
     // 전 필드가 비면 null을 돌려줘 "뽑지 못함"과 "빈 프로필을 뽑음"을 구분한다.
     private ReunionDiagnosis.MatchProfileItem matchProfile(JsonNode root) {
         JsonNode node = root.path("matchProfile");
