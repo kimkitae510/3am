@@ -21,10 +21,8 @@ import com.threeam.story.entity.Story;
 import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryFactRepository;
-import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import com.threeam.story.service.StoryFactService;
-import com.threeam.story.service.StoryMemoryService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -51,12 +49,6 @@ class AssessmentTxServiceTest {
     private MessageRepository messageRepository;
 
     @Mock
-    private StoryMemoryRepository storyMemoryRepository;
-
-    @Mock
-    private StoryMemoryService storyMemoryService;
-
-    @Mock
     private StoryFactRepository storyFactRepository;
 
     @Mock
@@ -69,7 +61,7 @@ class AssessmentTxServiceTest {
     private MatchProfileService matchProfileService;
 
     @Mock
-    private ReunionScorer scorer;
+    private TypeBandScorer scorer;
 
     @InjectMocks
     private AssessmentTxService txService;
@@ -91,20 +83,9 @@ class AssessmentTxServiceTest {
         given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));
         List<String> newFacts = List.of("일주일 전 상대에게서 연락 옴");
 
-        txService.save(STORY_ID, savedAssessment(null), null, newFacts, null);
+        txService.save(STORY_ID, savedAssessment(null), newFacts, null);
 
         verify(storyFactService).appendFacts(STORY_ID, 99L, newFacts);
-    }
-
-    @Test
-    @DisplayName("진단 저장 - 새 요약을 기억 서비스로 위임한다(빈 요약 처리는 서비스 책임)")
-    void save_delegatesSummary() {
-        given(assessmentRepository.save(any(Assessment.class))).willReturn(savedAssessment(99L));
-
-        txService.save(STORY_ID, savedAssessment(null), "감정이 안정되어 가는 중", null, null);
-
-        verify(storyMemoryService).upsert(STORY_ID, "감정이 안정되어 가는 중");
-        verifyNoInteractions(storyMemoryRepository);   // 쓰기는 서비스 경유, 직접 접근 없음
     }
 
     private Story storyWithFailure(int streak, LocalDateTime failedAt) {
@@ -361,7 +342,7 @@ class AssessmentTxServiceTest {
         givenOwnedStory();
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
                 .willReturn(Optional.of(offerAssessment()));
-        given(scorer.apply(any())).willReturn(40);
+        given(scorer.apply(any(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyList())).willReturn(40);
 
         var response = txService.retractOffer(1L, STORY_ID);
 
@@ -402,7 +383,6 @@ class AssessmentTxServiceTest {
         Message message = Message.user(Story.builder().userId(1L).title("사연").build(), "걔가 먼저 헤어지자 했어");
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(STORY_ID), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(message), PageRequest.of(0, 20), false));
-        given(storyMemoryRepository.findByStoryId(STORY_ID)).willReturn(Optional.empty());
         given(storyFactRepository.findByStoryIdOrderByIdDesc(eq(STORY_ID), any(Pageable.class)))
                 .willReturn(List.of());
     }

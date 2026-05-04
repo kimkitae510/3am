@@ -3,15 +3,14 @@ package com.threeam.assessment.service;
 import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.dto.ReunionDiagnosis;
-import com.threeam.assessment.dto.ReunionDiagnosis.DeductionItem;
 import com.threeam.assessment.entity.Assessment;
-import com.threeam.assessment.entity.Deduction;
+import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.ReunionVerdict;
+import com.threeam.assessment.entity.WatchPoint;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.llm.LlmRole;
 import com.threeam.usage.UsageKind;
 import com.threeam.usage.UsageLimiter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -33,7 +32,7 @@ public class AssessmentService {
 
     private final AssessmentTxService txService;
     private final ReunionLlm reunionLlm;
-    private final ReunionScorer scorer;
+    private final TypeBandScorer scorer;
     private final AssessmentRepository assessmentRepository;
     private final UsageLimiter usageLimiter;
     // 진단 저장을 HttpClient 스레드가 아니라 우리 풀에서 돌린다(LlmCallbackConfig 참고).
@@ -73,8 +72,8 @@ public class AssessmentService {
                 return CompletableFuture.completedFuture(
                         insufficientGuide(storyId, FAIL_RETRY_GUIDE).withRetryAfterSeconds(retryAfterSeconds));
             }
-            return reunionLlm.diagnose(context.memorySummary(), context.knownFactLines(),
-                            context.conversation())
+            return reunionLlm.diagnose(context.knownFactLines(), context.conversation(),
+                            context.todayLine(), context.previousDigest())
                     .thenApplyAsync(diagnosis -> {
                         AssessmentResponse response = persist(storyId, diagnosis);
                         // LLM 왕복이 정상 처리됐으니 실패 연속 카운트를 지운다(INSUFFICIENT도 실패가 아니라 판정).
@@ -177,6 +176,10 @@ public class AssessmentService {
     private static final String REUNITED_GUIDE =
             "다시 만나게 됐네요. 여기서부터는 확률이 아니라 관계를 이어가는 이야기예요. 대화에서 함께해요.";
 
+    // 폭력/학대가 확인된 관계 — 확률의 형식 자체가 맞지 않는 판정. LLM reason이 비었을 때의 안전값.
+    private static final String NOT_ADVISABLE_GUIDE =
+            "이 관계는 확률의 문제가 아니에요. 숫자 대신, 지금 상황을 대화에서 같이 정리해봐요.";
+
     // 사전 가드용 임시 응답. 히스토리에 저장하지 않는다(확률 추이 오염 방지).
     private AssessmentResponse insufficientGuide(Long storyId, String guide) {
         return AssessmentResponse.from(Assessment.builder()
@@ -205,11 +208,17 @@ public class AssessmentService {
             return AssessmentResponse.from(transientResult);
         }
 
-        // 사귀는 중(DATING)이거나 재회에 성공(REUNITED) — 둘 다 확률 계산을 구조적으로 건너뛴다.
-        // LLM이 실수로 감점을 보냈어도 버린다. 총평과 원장은 그대로 저장 —
+        // 잠금 판정(DATING, REUNITED, NOT_ADVISABLE) — 확률 계산을 구조적으로 건너뛴다.
+        // LLM이 실수로 유형이나 요인을 보냈어도 버린다. 총평과 원장은 그대로 저장 —
         // 저장해야 화면의 최신 결과가 이전 확률 대신 이 판정으로 교체된다.
-        if (diagnosis.verdict() == ReunionVerdict.DATING || diagnosis.verdict() == ReunionVerdict.REUNITED) {
-            String fallback = diagnosis.verdict() == ReunionVerdict.DATING ? DATING_GUIDE : REUNITED_GUIDE;
+        if (diagnosis.verdict() == ReunionVerdict.DATING
+                || diagnosis.verdict() == ReunionVerdict.REUNITED
+                || diagnosis.verdict() == ReunionVerdict.NOT_ADVISABLE) {
+            String fallback = switch (diagnosis.verdict()) {
+                case DATING -> DATING_GUIDE;
+                case REUNITED -> REUNITED_GUIDE;
+                default -> NOT_ADVISABLE_GUIDE;
+            };
             String reason = (diagnosis.reason() == null || diagnosis.reason().isBlank())
                     ? fallback
                     : diagnosis.reason();
@@ -218,42 +227,42 @@ public class AssessmentService {
                     .verdict(diagnosis.verdict())
                     .reason(reason)
                     .build();
-            return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts(),
-                diagnosis.matchProfile());
+            return txService.save(storyId, assessment, diagnosis.newFacts(),
+                    diagnosis.matchProfile());
         }
 
-        // 감점(음수 delta)과 가점(양수 delta)을 한 컬렉션에 부호로 구분해 담는다.
-        List<Deduction> deductions = new ArrayList<>(diagnosis.deductions().stream()
-                .map(this::toDeduction)
-                .toList());
-        diagnosis.boosts().stream()
-                .map(b -> Deduction.boostOf(b.signal(), b.points(), b.evidence(), b.rationale()))
-                .forEach(deductions::add);
+        List<AssessmentFactor> factors = diagnosis.factors().stream()
+                .map(f -> AssessmentFactor.of(f.name(), f.level(), f.evidence(),
+                        f.rationale(), f.stage()))
+                .toList();
 
         // 확률은 POSSIBLE일 때만. 상대의 유효한 만남/재회 제안이 있으면 유저 수락만 남은
-        // 상태라 감점 합산을 건너뛰고 100으로 확정한다(제안이 회수되면 다음 진단부터 일반 합산).
-        // 신호들은 그대로 저장한다 — 유저가 제안을 번복하면(retract-offer) 재진단 없이
-        // 이 신호들의 합산으로 즉시 되돌리기 위한 재료다. 100과 신호 합이 안 맞아 보이는 건
-        // 화면의 확정 카드가 "제안이 없던 일이 되면 아래 신호로 다시 계산"이라고 설명한다.
-        boolean offerConfirmed =
-                diagnosis.verdict() == ReunionVerdict.POSSIBLE && diagnosis.activeReunionOffer();
-        Integer probability = diagnosis.verdict() == ReunionVerdict.POSSIBLE
-                ? (offerConfirmed ? 100 : scorer.apply(deductions))
-                : null;
+        // 상태라 대역 계산을 건너뛰고 100으로 확정한다(제안이 회수되면 다음 진단부터 일반 계산).
+        // 유형과 요인은 그대로 저장한다 — 유저가 제안을 번복하면(retract-offer) 재진단 없이
+        // 저장된 판정의 재계산으로 즉시 되돌리기 위한 재료다.
+        boolean offerConfirmed = diagnosis.activeReunionOffer();
+        Integer probability = offerConfirmed ? 100
+                : scorer.apply(diagnosis.breakupType(), diagnosis.userDumpedPartnerLingering(),
+                        factors);
 
-        Assessment assessment = Assessment.builder()
+        Assessment.AssessmentBuilder builder = Assessment.builder()
                 .storyId(storyId)
                 .verdict(diagnosis.verdict())
                 .probability(probability)
+                .breakupType(diagnosis.breakupType())
+                .typeEvidence(blankToNull(diagnosis.typeEvidence()))
+                .userDumpedPartnerLingering(diagnosis.userDumpedPartnerLingering())
+                .relapseRisk(diagnosis.relapseRisk())
+                .relapseReason(blankToNull(diagnosis.relapseReason()))
                 .reason(diagnosis.reason())
-                .deductions(deductions)
-                .build();
+                .factors(factors);
+        diagnosis.watchFor().forEach(w -> builder.watchPoint(WatchPoint.of(w.point(), w.effect())));
 
-        return txService.save(storyId, assessment, diagnosis.summary(), diagnosis.newFacts(),
+        return txService.save(storyId, builder.build(), diagnosis.newFacts(),
                 diagnosis.matchProfile());
     }
 
-    private Deduction toDeduction(DeductionItem item) {
-        return Deduction.of(item.signal(), item.points(), item.evidence(), item.rationale());
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }

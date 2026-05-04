@@ -4,6 +4,7 @@ import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.dto.ReunionDiagnosis.MatchProfileItem;
 import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -14,14 +15,12 @@ import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
 import com.threeam.story.entity.StoryFact;
-import com.threeam.story.entity.StoryMemory;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryFactRepository;
-import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import com.threeam.story.service.StoryFactService;
-import com.threeam.story.service.StoryMemoryService;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -49,13 +48,11 @@ public class AssessmentTxService {
 
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
-    private final StoryMemoryRepository storyMemoryRepository;
-    private final StoryMemoryService storyMemoryService;
     private final StoryFactRepository storyFactRepository;
     private final StoryFactService storyFactService;
     private final AssessmentRepository assessmentRepository;
     private final MatchProfileService matchProfileService;
-    private final ReunionScorer scorer;
+    private final TypeBandScorer scorer;
 
     // INSUFFICIENT 재시도 가드: 지난 근거부족 시점 이후 새 대화가 없으면 막는다(같은 재료 = 같은 답).
     // 표시는 stories.last_insufficient_at(DB)에 있어 재시작, 멀티인스턴스에서도 유지된다.
@@ -182,19 +179,46 @@ public class AssessmentTxService {
                     : ChatMessage.assistant(message.getContent()));
         }
 
-        String summary = storyMemoryRepository.findByStoryId(storyId)
-                .map(StoryMemory::getSummary)
-                .orElse(null);
-
-        return new AssessmentContext(summary, factLines(storyId), conversation);
+        return new AssessmentContext(factLines(storyId), conversation,
+                todayLine(), previousDigest(lastAssessment.orElse(null)));
     }
 
-    // tx2: 진단 결과 저장 + 기억(감정 요약) 갱신 + 새 사실 원장 append + 매칭 프로필 갱신.
+    // 루브릭 시간 규칙(5주/3개월, 소진형 1개월)의 기준점. 원장 기록일 추정에 맡기지 않고 명시한다.
+    private String todayLine() {
+        return "오늘 날짜: " + LocalDate.now() + ". 이별 경과 등 시간 계산은 이 날짜 기준이다.";
+    }
+
+    // 직전 진단 요지 — 새 사실 없이 유형이 진단마다 흔들리는 것을 막는 앵커.
+    // 판정값만 싣는다(근거, 총평 제외) — 지난 판단의 서사까지 주면 반향실이 된다.
+    // v1 데이터(유형 없음)나 잠금 판정이면 null.
+    private String previousDigest(Assessment last) {
+        if (last == null || last.getBreakupType() == null) {
+            return null;
+        }
+        StringBuilder digest = new StringBuilder("직전 진단 요지(참고 — 루브릭의 직전 진단 규칙 적용): 유형=")
+                .append(last.getBreakupType().label());
+        if (last.getProbability() != null) {
+            digest.append(", 확률=").append(last.getProbability());
+        }
+        if (last.isUserDumpedPartnerLingering()) {
+            digest.append(", 점프 규칙 발동");
+        }
+        if (!last.getFactors().isEmpty()) {
+            digest.append(", 요인:");
+            for (AssessmentFactor factor : last.getFactors()) {
+                digest.append(" ").append(factor.getName().label())
+                        .append("=").append(factor.getLevel().label());
+            }
+        }
+        return digest.toString();
+    }
+
+    // tx2: 진단 결과 저장 + 새 사실 원장 append + 매칭 프로필 갱신.
+    // 기억 요약은 여기서 건드리지 않는다 — 채팅 사실 추출이 전담한다(주인 단일화, v2).
     @Transactional
-    public AssessmentResponse save(Long storyId, Assessment assessment, String newSummary,
+    public AssessmentResponse save(Long storyId, Assessment assessment,
                                    List<String> newFacts, MatchProfileItem matchProfile) {
         Assessment saved = assessmentRepository.save(assessment);
-        storyMemoryService.upsert(storyId, newSummary);
         storyFactService.appendFacts(storyId, saved.getId(), newFacts);
         matchProfileService.append(storyId, matchProfile);
         return AssessmentResponse.from(saved);
@@ -238,7 +262,8 @@ public class AssessmentTxService {
                 .filter(a -> a.getVerdict() == ReunionVerdict.POSSIBLE
                         && Integer.valueOf(100).equals(a.getProbability()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.ASSESSMENT_NOT_OFFER));
-        last.retractOffer(scorer.apply(last.getDeductions()));
+        last.retractOffer(scorer.apply(last.getBreakupType(),
+                last.isUserDumpedPartnerLingering(), last.getFactors()));
         storyFactService.appendCorrection(storyId, OFFER_RETRACTED_FACT);
         return AssessmentResponse.from(last);
     }
