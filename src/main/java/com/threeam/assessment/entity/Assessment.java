@@ -25,7 +25,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 // 한 시점의 재회 진단 결과. 사연(storyId)별로 쌓여 시간에 따른 확률 변화 히스토리가 된다.
-// 감점 항목(deductions)을 통째로 남겨 "왜 이 확률?"에 조목조목 답한다.
+// v2: 자유 감점(deductions) 대신 유형(1층) + 고정 요인 판정(2층)을 남긴다 —
+// 확률은 TypeBandScorer가 이 둘로 계산하므로, 제안 번복(retract-offer) 때 재진단 없이 재현된다.
 @Entity
 @Table(name = "assessments")
 @Getter
@@ -45,19 +46,48 @@ public class Assessment {
     @Column(nullable = false, length = 20)
     private ReunionVerdict verdict;
 
-    // 졸업 판정(LET_GO)일 땐 null. 숫자를 주면 그 숫자에 매달리므로 일부러 안 준다.
+    // 잠금 판정(DATING, REUNITED, NOT_ADVISABLE)일 땐 null.
     @Column
     private Integer probability;
+
+    // 이별 유형(1층 — 대역을 정한다). POSSIBLE에만 있고 잠금 판정은 null.
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 20)
+    private BreakupType breakupType;
+
+    // 유형 판정 근거 한 줄 — 화면의 유형 배지가 "왜 이 유형?"에 답하는 재료.
+    @Column(length = 300)
+    private String typeEvidence;
+
+    // 점프 규칙 발동 여부(유저 통보 + 상대 미련 → 유형 대역 대신 상향 대역).
+    // 재계산 재료라 판정 자체를 저장한다.
+    @Column(nullable = false)
+    private boolean userDumpedPartnerLingering;
+
+    // 유지 전망 — 성사 확률과 별개 축.
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 10)
+    private RelapseRisk relapseRisk;
+
+    @Column(length = 300)
+    private String relapseReason;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
 
-    // 점수에서 깎인 근거. 별도 테이블(assessment_deductions)에 쌓인다.
+    // 요인 판정(2층). 별도 테이블(assessment_factors)에 쌓인다.
     @ElementCollection
-    @CollectionTable(name = "assessment_deductions", joinColumns = @JoinColumn(name = "assessment_id"))
+    @CollectionTable(name = "assessment_factors", joinColumns = @JoinColumn(name = "assessment_id"))
     @BatchSize(size = 100)
-    private List<Deduction> deductions = new ArrayList<>();
+    private List<AssessmentFactor> factors = new ArrayList<>();
 
+    // 관찰 포인트 — "이게 확인되면 판이 바뀐다". 별도 테이블(assessment_watch).
+    @ElementCollection
+    @CollectionTable(name = "assessment_watch", joinColumns = @JoinColumn(name = "assessment_id"))
+    @BatchSize(size = 100)
+    private List<WatchPoint> watchPoints = new ArrayList<>();
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
@@ -65,15 +95,25 @@ public class Assessment {
 
     @Builder
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
-                       String reason, @Singular List<Deduction> deductions) {
+                       BreakupType breakupType, String typeEvidence,
+                       boolean userDumpedPartnerLingering,
+                       RelapseRisk relapseRisk, String relapseReason, String reason,
+                       @Singular List<AssessmentFactor> factors,
+                       @Singular List<WatchPoint> watchPoints) {
         this.storyId = storyId;
         this.verdict = verdict;
         this.probability = probability;
+        this.breakupType = breakupType;
+        this.typeEvidence = typeEvidence;
+        this.userDumpedPartnerLingering = userDumpedPartnerLingering;
+        this.relapseRisk = relapseRisk;
+        this.relapseReason = relapseReason;
         this.reason = reason;
-        this.deductions = deductions != null ? deductions : new ArrayList<>();
+        this.factors = factors != null ? new ArrayList<>(factors) : new ArrayList<>();
+        this.watchPoints = watchPoints != null ? new ArrayList<>(watchPoints) : new ArrayList<>();
     }
 
-    // 상대 제안 확정(100)을 유저가 번복할 때 — 저장된 신호의 합산 값으로 되돌린다(원장 정정과 세트).
+    // 상대 제안 확정(100)을 유저가 번복할 때 — 저장된 유형과 요인의 재계산 값으로 되돌린다(원장 정정과 세트).
     public void retractOffer(int recalculatedProbability) {
         this.probability = recalculatedProbability;
     }
