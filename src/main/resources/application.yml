@@ -102,7 +102,7 @@ llm:
     # 추론이 더 필요하고, 하루 1회 쿼터라 비용 여파는 채팅보다 작다.
     # budget은 2.5 계열용(-1=동적, 모델 재량), level은 3.x용(low|medium|high).
     assessment-thinking-budget: ${LLM_ASSESSMENT_THINKING_BUDGET:-1}
-    assessment-thinking-level: ${LLM_ASSESSMENT_THINKING_LEVEL:high}
+    assessment-thinking-level: ${LLM_ASSESSMENT_THINKING_LEVEL:medium}
     # 100만 토큰당 단가(USD). 넣으면 호출마다 실제 비용이 로그와 지표(llm.cost.usd)로 남는다.
     # 0이면 계산을 건너뛴다 — 임의의 기본값을 박아두면 모델을 바꿨을 때 틀린 비용이 맞는 것처럼 찍혀서다.
     # 모델을 바꾸면 이 셋도 같이 바꿔라. 값은 공식 가격표에서 확인한다.
@@ -125,7 +125,7 @@ llm:
     # 추론이 더 필요하고, 하루 1회 쿼터라 비용 여파는 채팅보다 작다.
     # budget은 2.5 계열용(-1=동적, 모델 재량), level은 3.x용(low|medium|high).
     assessment-thinking-budget: ${LLM_ASSESSMENT_THINKING_BUDGET:-1}
-    assessment-thinking-level: ${LLM_ASSESSMENT_THINKING_LEVEL:high}
+    assessment-thinking-level: ${LLM_ASSESSMENT_THINKING_LEVEL:medium}
     # 100만 토큰당 단가(USD). 넣으면 호출마다 실제 비용이 로그와 지표(llm.cost.usd)로 남는다.
     # 0이면 계산을 건너뛴다 — 임의의 기본값을 박아두면 모델을 바꿨을 때 틀린 비용이 맞는 것처럼 찍혀서다.
     # 모델을 바꾸면 이 셋도 같이 바꿔라. 값은 공식 가격표에서 확인한다.
