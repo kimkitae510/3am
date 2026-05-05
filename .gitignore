@@ -21,8 +21,7 @@ application-secret.yml
 persona.yml
 reminder.yml
 extractor.yml
-rubric.yml
-rubric-v2.yml
+rubric*.yml
 
 ### AI 작업 안내 / 로컬 전용 문서 (커밋 제외) ###
 CLAUDE.md
