@@ -237,6 +237,13 @@
   line-height: 1.7;
 }
 
+/* 안내 카드 꼬리 — 이 목록이 '입력 폼'이 아니라 대화로 채우는 것임을 말해준다 */
+.missingHint {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
 .missingItem::before {
   content: '';
   display: inline-block;

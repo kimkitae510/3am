@@ -615,7 +615,7 @@ export function AssessmentPage() {
               (재회 성공 화면과 같은 원칙, 판정은 번복 대비로 저장만 유지) */}
           {!locked && prob < 100 && unfavorable.length > 0 && (
             <>
-              <SectionHead title="가능성을 낮춘 요인" count={unfavorable.length} countClass={styles.countMinus} />
+              <SectionHead title="가능성을 낮춘 요인" />
               <div className={styles.dedList}>
                 {unfavorable.map((f) => (
                   <div className={styles.dedItem} key={f.name}>
@@ -635,7 +635,7 @@ export function AssessmentPage() {
 
           {!locked && prob < 100 && favorable.length > 0 && (
             <>
-              <SectionHead title="가능성을 올린 요인" count={favorable.length} countClass={styles.countPlus} />
+              <SectionHead title="가능성을 올린 요인" />
               <div className={styles.dedList}>
                 {favorable.map((f) => (
                   <div className={styles.dedItem} key={f.name}>
@@ -663,20 +663,6 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={i}>
                     <div className={styles.dedSignal}>{w.point}</div>
                     <div className={styles.dedRationale}>{w.effect}</div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* 근거가 없어 중립으로 남은 요인 — 채워달라는 요청으로 뒤집어 다음 대화를 유도한다 */}
-          {!locked && prob < 100 && missing.length > 0 && (
-            <>
-              <SectionHead title="알려주면 더 정확해져요" />
-              <div className={styles.missingCard}>
-                {missing.map((f) => (
-                  <div className={styles.missingItem} key={f.name}>
-                    {FACTOR_ASK[f.name] ?? f.name}
                   </div>
                 ))}
               </div>
@@ -743,6 +729,24 @@ export function AssessmentPage() {
           )}
           {similar?.emptyReason === 'NO_MATCH' && (
             <div className={styles.caseEmpty}>아직 닮은 사례를 찾지 못했어요.</div>
+          )}
+
+          {/* 근거가 없어 중립으로 남은 요인 — 채워달라는 요청으로 뒤집어 다음 대화를 유도한다.
+              채팅에서 말하면 다음 진단에 반영된다. 맨 아래 배치 — 판독(요인, 사례)이 먼저,
+              다음 진단을 위한 요청은 마지막이 자연스러운 독서 순서다 */
+          }
+          {!locked && prob < 100 && missing.length > 0 && (
+            <>
+              <SectionHead title="알려주면 더 정확해져요" />
+              <div className={styles.missingCard}>
+                {missing.map((f) => (
+                  <div className={styles.missingItem} key={f.name}>
+                    {FACTOR_ASK[f.name] ?? f.name}
+                  </div>
+                ))}
+                <div className={styles.missingHint}>대화에서 알려주면 다음 진단에 반영돼요</div>
+              </div>
+            </>
           )}
 
         </div>
