@@ -175,8 +175,7 @@ public class ReunionLlm {
             Map.entry("type", "OBJECT"),
             Map.entry("properties", Map.ofEntries(
                     Map.entry("verdict", Map.of("type", "STRING",
-                            "enum", List.of("POSSIBLE", "INSUFFICIENT", "DATING", "REUNITED",
-                                    "NOT_ADVISABLE"))),
+                            "enum", List.of("POSSIBLE", "INSUFFICIENT", "DATING", "REUNITED"))),
                     Map.entry("activeReunionOffer", Map.of("type", "BOOLEAN")),
                     Map.entry("breakupType", Map.of("type", "STRING", "nullable", true,
                             "enum", BreakupType.labels())),

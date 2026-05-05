@@ -176,10 +176,6 @@ public class AssessmentService {
     private static final String REUNITED_GUIDE =
             "다시 만나게 됐네요. 여기서부터는 확률이 아니라 관계를 이어가는 이야기예요. 대화에서 함께해요.";
 
-    // 폭력/학대가 확인된 관계 — 확률의 형식 자체가 맞지 않는 판정. LLM reason이 비었을 때의 안전값.
-    private static final String NOT_ADVISABLE_GUIDE =
-            "이 관계는 확률의 문제가 아니에요. 숫자 대신, 지금 상황을 대화에서 같이 정리해봐요.";
-
     // 사전 가드용 임시 응답. 히스토리에 저장하지 않는다(확률 추이 오염 방지).
     private AssessmentResponse insufficientGuide(Long storyId, String guide) {
         return AssessmentResponse.from(Assessment.builder()
@@ -208,17 +204,13 @@ public class AssessmentService {
             return AssessmentResponse.from(transientResult);
         }
 
-        // 잠금 판정(DATING, REUNITED, NOT_ADVISABLE) — 확률 계산을 구조적으로 건너뛴다.
+        // 잠금 판정(DATING, REUNITED) — 확률 계산을 구조적으로 건너뛴다.
         // LLM이 실수로 유형이나 요인을 보냈어도 버린다. 총평과 원장은 그대로 저장 —
         // 저장해야 화면의 최신 결과가 이전 확률 대신 이 판정으로 교체된다.
         if (diagnosis.verdict() == ReunionVerdict.DATING
-                || diagnosis.verdict() == ReunionVerdict.REUNITED
-                || diagnosis.verdict() == ReunionVerdict.NOT_ADVISABLE) {
-            String fallback = switch (diagnosis.verdict()) {
-                case DATING -> DATING_GUIDE;
-                case REUNITED -> REUNITED_GUIDE;
-                default -> NOT_ADVISABLE_GUIDE;
-            };
+                || diagnosis.verdict() == ReunionVerdict.REUNITED) {
+            String fallback = diagnosis.verdict() == ReunionVerdict.DATING
+                    ? DATING_GUIDE : REUNITED_GUIDE;
             String reason = (diagnosis.reason() == null || diagnosis.reason().isBlank())
                     ? fallback
                     : diagnosis.reason();

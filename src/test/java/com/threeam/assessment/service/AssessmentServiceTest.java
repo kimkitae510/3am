@@ -172,25 +172,6 @@ class AssessmentServiceTest {
     }
 
     @Test
-    @DisplayName("진단 - NOT_ADVISABLE(폭력/학대)이면 확률 없이 저장한다 — 숫자 자체를 내지 않는 판정")
-    void assess_notAdvisableLocksProbability() {
-        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
-                .willReturn(CompletableFuture.completedFuture(
-                        locked(ReunionVerdict.NOT_ADVISABLE, "", List.of("관계에 폭력이 있었음"))));
-        given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
-                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
-
-        AssessmentResponse response = assessmentService.assess(1L, 10L).join();
-
-        assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.NOT_ADVISABLE);
-        assertThat(response.getProbability()).isNull();
-        assertThat(response.getReason()).isNotBlank(); // 빈 총평이면 안전 문구로 대체된다
-        verify(scorer, never()).apply(any(), anyBoolean(), anyList());
-        verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L, 1);
-    }
-
-    @Test
     @DisplayName("진단 - REUNITED(재회 성공)면 확률 없이 저장하고 쿼터는 차감한다")
     void assess_reunitedSavesWithoutProbability() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);

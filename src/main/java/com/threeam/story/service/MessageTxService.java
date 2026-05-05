@@ -142,7 +142,10 @@ public class MessageTxService {
     // 진단 데이터를 실어야 하는 턴인지. 유저가 진단을 화제로 꺼냈을 때만 필요하다.
     // 넉넉하게 잡는다 — 안 실어서 "왜 이 확률이야?"에 답을 못 하는 쪽이, 몇 번 더 싣는 것보다 나쁘다.
     private static final List<String> ASSESSMENT_CUES = List.of(
-            "진단", "확률", "퍼센트", "%", "가능성", "점수", "감점", "가점");
+            "진단", "확률", "퍼센트", "%", "가능성", "점수", "감점", "가점",
+            // v2 개편으로 유저 어휘가 바뀌는 것 + "우리 다시 될까" 같은 확률 질문의 흔한 형태 보강.
+            // 안 실어서 페르소나가 진단과 다른 방향을 말하는 쪽이, 몇 번 더 싣는 것보다 나쁘다.
+            "될까", "승산", "유리", "불리", "요인", "유형");
 
     private boolean needsAssessment(List<Message> recent) {
         if (recent.isEmpty()) {
@@ -167,10 +170,6 @@ public class MessageTxService {
         if (assessment.getVerdict() == ReunionVerdict.REUNITED) {
             block.append("- 판정: 재회 성공, 다시 만나는 중 — 확률 산출 없음. "
                     + "이제 관계를 잘 이어가는 쪽을 도와라(숫자를 지어내지 마라)\n");
-        }
-        if (assessment.getVerdict() == ReunionVerdict.NOT_ADVISABLE) {
-            block.append("- 판정: 확률 미산출 — 관계에 폭력이나 학대가 확인돼 확률의 형식이 맞지 않음. "
-                    + "확률을 물으면 숫자 없이 이 이유를 담담하게 설명하라\n");
         }
         if (assessment.getProbability() != null) {
             block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");

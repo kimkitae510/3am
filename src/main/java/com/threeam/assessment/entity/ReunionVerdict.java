@@ -6,16 +6,15 @@ package com.threeam.assessment.entity;
 //   커플 고백 뒤에도 이전 확률이 화면에 남았다 — 저장되는 정식 판정으로 만들어 최신 결과를 교체한다.
 // REUNITED=재회에 성공해 다시 만나는 중 — 목표를 이룬 상태라 확률 산출이 없고,
 //   DATING(원래 안 헤어진 커플)과 구분해 전용 화면(축하)으로 보여준다.
-// NOT_ADVISABLE=관계에 폭력, 학대가 확인됨 — 확률을 산출하지 않는 잠금 판정.
-//   숫자를 주는 것 자체가 잘못된 메시지라 확률의 형식 밖으로 뺀다(대역 하한으로 낮게 주는 것도 금지).
 // LET_GO(놓아주기)는 폐기 — "못 놓아서 온 사람"에게 놓아주라는 판정은 하지 않는다.
 //   가망 낮은 케이스도 낮은 확률(POSSIBLE)로 표현한다. 과거 데이터 호환 위해 상수만 남겨둔다.
+// 폭력/학대 전용 잠금(NOT_ADVISABLE)은 만들었다 폐기 — 그런 관계에서도 재회는 실제로 일어나므로
+//   확률은 사실을 재야 한다. 확률은 정직하게 내고 안전 우려는 총평이 사실로만 담는다.
 public enum ReunionVerdict {
     POSSIBLE,
     INSUFFICIENT,
     DATING,
     REUNITED,
-    NOT_ADVISABLE,
     @Deprecated
     LET_GO
 }

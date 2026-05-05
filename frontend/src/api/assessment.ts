@@ -1,8 +1,8 @@
 import { api } from './client';
 
 // LET_GO(놓아주기)는 폐기. 확률(POSSIBLE), 근거부족(INSUFFICIENT), 사귀는 중(DATING — 확률 잠금),
-// 재회 성공(REUNITED — 전용 축하 화면), NOT_ADVISABLE(폭력/학대 확인 — 확률 미산출 잠금).
-export type Verdict = 'POSSIBLE' | 'INSUFFICIENT' | 'DATING' | 'REUNITED' | 'NOT_ADVISABLE';
+// 재회 성공(REUNITED — 전용 축하 화면). 폭력/학대 전용 잠금도 폐기 — 확률은 사실을 잰다.
+export type Verdict = 'POSSIBLE' | 'INSUFFICIENT' | 'DATING' | 'REUNITED';
 
 // 고정 5요인의 판정 하나. 백엔드가 화면 표기용 한국어 라벨로 내려준다.
 // level '중립' + evidence '근거 없음'이면 "알려주면 정확해져요" 안내로 바뀐다.

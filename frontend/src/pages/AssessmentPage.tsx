@@ -426,11 +426,10 @@ export function AssessmentPage() {
   const metaDate = result.createdAt ? formatListTime(result.createdAt) : '방금';
 
   // INSUFFICIENT는 저장되지 않고 diagnose()에서 배너로 처리되므로 여기 도달하는 결과는
-  // POSSIBLE(확률), DATING/REUNITED/NOT_ADVISABLE(잠금 — 게이지 대신 전용 화면)뿐이다.
+  // POSSIBLE(확률), DATING/REUNITED(잠금 — 게이지 대신 전용 화면)뿐이다.
   const dating = result.verdict === 'DATING';
   const reunited = result.verdict === 'REUNITED';
-  const notAdvisable = result.verdict === 'NOT_ADVISABLE';
-  const locked = dating || reunited || notAdvisable;
+  const locked = dating || reunited;
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
   const factors = result.factors ?? [];
@@ -483,15 +482,6 @@ export function AssessmentPage() {
                 재회 확률은 이별을 전제로 한 진단이라
                 <br />
                 헤어진 뒤에 다시 열려요.
-              </div>
-            </div>
-          ) : notAdvisable ? (
-            <div className={styles.reunitedHero}>
-              <div className={styles.reunitedTitle}>확률로 말할 수 없는 상태예요</div>
-              <div className={styles.reunitedSub}>
-                이 관계엔 확률보다 먼저 살펴야 할 것이 있어요.
-                <br />
-                대화에서 같이 정리해봐요.
               </div>
             </div>
           ) : (
@@ -570,10 +560,6 @@ export function AssessmentPage() {
               </div>
               {result.reason && <div className={styles.datingReason}>{result.reason}</div>}
             </>
-          ) : notAdvisable ? (
-            /* 폭력/학대 잠금 — 번복 창구가 없다(오판이면 대화에서 정정되고 다음 진단이 풀어준다).
-               훈계 대신 총평만 담담하게 싣는다 */
-            <>{result.reason && <div className={styles.datingReason}>{result.reason}</div>}</>
           ) : prob >= 100 ? (
             /* 100은 합산 결과가 아니라 "상대의 유효한 재회 제안" 확정값 — 사유 설명과 번복 창구를
                커플 잠금과 같은 카드 문법으로 제공한다. 번복하면 아래 신호들의 합산으로 즉시 되돌아간다 */
