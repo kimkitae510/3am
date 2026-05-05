@@ -42,6 +42,16 @@ class GoogleGenerateContentClientTest {
                 }
 
                 @Override
+                int assessmentThinkingBudget() {
+                    return -1;
+                }
+
+                @Override
+                String assessmentThinkingLevel() {
+                    return "high";
+                }
+
+                @Override
                 double[] pricesPerMillion() {
                     return new double[] {0, 0, 0};
                 }

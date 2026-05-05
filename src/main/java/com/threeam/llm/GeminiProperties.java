@@ -34,6 +34,11 @@ public class GeminiProperties {
     private int thinkingBudget = 2048;
     private String thinkingLevel = "low";
 
+    // 진단(deep) 전용 thinking. 진단은 유형 게이트 → 요인 5슬롯 → 교차 점검의 다단 절차라
+    // 채팅보다 추론량이 크다. 2.5 계열은 -1이 동적(모델 재량), 3.x는 high 고정.
+    private int assessmentThinkingBudget = -1;
+    private String assessmentThinkingLevel = "high";
+
     // 100만 토큰당 단가(USD). 모델마다 다르므로 기본값은 0으로 두고 실제 값은 설정으로 주입한다 —
     // 여기 임의의 숫자를 박아두면 모델을 바꿨을 때 옛 단가로 계산된 비용이 맞는 것처럼 찍힌다.
     // 0이면 비용 계산을 건너뛰고 토큰만 남긴다. 값은 공식 가격표에서 확인해 넣어라.

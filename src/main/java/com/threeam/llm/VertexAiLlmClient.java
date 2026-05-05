@@ -88,6 +88,16 @@ public class VertexAiLlmClient extends GoogleGenerateContentClient {
     }
 
     @Override
+    int assessmentThinkingBudget() {
+        return properties.getAssessmentThinkingBudget();
+    }
+
+    @Override
+    String assessmentThinkingLevel() {
+        return properties.getAssessmentThinkingLevel();
+    }
+
+    @Override
     double[] pricesPerMillion() {
         return new double[] {properties.getInputPricePerMillion(),
                 properties.getCachedInputPricePerMillion(),

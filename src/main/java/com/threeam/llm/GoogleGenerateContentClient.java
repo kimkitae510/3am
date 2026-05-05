@@ -57,6 +57,11 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     abstract String thinkingLevel();
 
+    // 진단(deep) 전용 thinking 세기 — 채팅(low)과 분리. 2.5 계열은 예산 숫자(-1=동적), 3.x는 단계.
+    abstract int assessmentThinkingBudget();
+
+    abstract String assessmentThinkingLevel();
+
     // 로그 라벨용
     abstract String providerName();
 
@@ -164,6 +169,17 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         }
         if (deep) {
             generationConfig.put("temperature", 0);
+            // 진단은 유형 게이트 → 요인 5슬롯 → 출력 직전 점검의 다단 절차라 thinking을 명시한다.
+            // 판별은 진단이 실제로 때리는 deep 엔드포인트의 모델명으로(진단 전용 모델이 다를 수 있다).
+            if (deepEndpoint().contains("gemini-2.5")) {
+                if (assessmentThinkingBudget() >= 0) {
+                    generationConfig.put("thinkingConfig",
+                            Map.of("thinkingBudget", assessmentThinkingBudget()));
+                }
+            } else if (!assessmentThinkingLevel().isBlank()) {
+                generationConfig.put("thinkingConfig",
+                        Map.of("thinkingLevel", assessmentThinkingLevel()));
+            }
         } else if (endpoint().contains("gemini-2.5")) {
             // 답을 짓는 것과 그 초안을 출력 직전 점검으로 되짚는 것을 한 예산 안에서 해야 한다 —
             // 점검이 실제로 돌 여지가 없으면 규칙을 맨 끝으로 옮긴 의미가 없다(실측: 512에선 그냥 통과했다).
