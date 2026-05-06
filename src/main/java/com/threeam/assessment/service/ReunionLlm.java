@@ -147,9 +147,11 @@ public class ReunionLlm {
     // 매칭 분류의 스키마. 어휘를 enum으로 못 박는 게 핵심 — 자유 서술을 허용하면
     // "여사친 문제"처럼 뜻은 같고 글자가 다른 값이 나와 사례의 태그와 안 겹친다.
     private static Map<String, Object> matchProfileSchema() {
+        // nullable을 두지 않는다 — v2 전환 후 모델이 이 필드만 조용히 null로 내는 게 실측됐다
+        // (프롬프트 지시 보강으로도 재발). 객체 생성을 스키마로 강제하고, 내부 필드가 전부
+        // 비면 파서가 null로 접는다(잠금 판정, 정보 없음 케이스는 그 경로로 처리된다).
         return Map.ofEntries(
                 Map.entry("type", "OBJECT"),
-                Map.entry("nullable", true),
                 Map.entry("properties", Map.ofEntries(
                         Map.entry("reason", Map.of("type", "STRING", "nullable", true,
                                 "enum", MatchTaxonomy.REASONS)),
@@ -194,7 +196,7 @@ public class ReunionLlm {
             // 배열류와 유형은 필수에서 뺀다 — 잠금 판정(DATING 등)은 루브릭이 비우라고 지시하는데
             // 필수로 걸면 억지로 채우게 된다.
             Map.entry("required", List.of("verdict", "activeReunionOffer",
-                    "userDumpedPartnerLingering", "reason")),
+                    "userDumpedPartnerLingering", "matchProfile", "reason")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
                     "typeEvidence", "userDumpedPartnerLingering", "factors", "relapseRisk",
                     "watchFor", "matchProfile", "reason", "newFacts")));
@@ -356,6 +358,10 @@ public class ReunionLlm {
         boolean empty = reason == null && subReasons.isEmpty() && dumper == null && fault == null
                 && contactState == null && monthsSinceBreakup == null && datingMonths == null
                 && ageGroup == null && gender == null && repeatBreakup == null;
+        if (empty) {
+            // 정상 진단에서 반복되면 스키마/지시가 또 뚫린 것 — 매칭이 조용히 죽는 걸 관측 가능하게.
+            log.warn("매칭 분류 미추출 — matchProfile이 비어 있음");
+        }
         return empty ? null : new ReunionDiagnosis.MatchProfileItem(reason, subReasons, dumper,
                 fault, contactState, monthsSinceBreakup, datingMonths, ageGroup, gender,
                 repeatBreakup);
