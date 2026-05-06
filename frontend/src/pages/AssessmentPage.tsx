@@ -720,15 +720,17 @@ export function AssessmentPage() {
             </>
           )}
 
-          {/* 사례가 없을 때도 이유를 갈라 말한다 — 대화를 더 하면 열리는 것과, 데이터가 모자란
-              것은 유저가 할 수 있는 일이 다르다. 진단 기록이 없는 첫 화면에선 굳이 띄우지 않는다 */}
-          {similar?.emptyReason === 'NO_PROFILE' && (
-            <div className={styles.caseEmpty}>
-              어쩌다 헤어졌는지 대화에서 더 들려주면 비슷한 사례를 찾아드려요.
-            </div>
-          )}
-          {similar?.emptyReason === 'NO_MATCH' && (
-            <div className={styles.caseEmpty}>아직 닮은 사례를 찾지 못했어요.</div>
+          {/* 사례가 없을 때도 섹션 머리를 달고 이유를 갈라 말한다 — 머리 없이 문장만 있으면
+              어느 섹션의 말인지 못 읽는다(실측). 진단 기록이 없는 첫 화면에선 굳이 띄우지 않는다 */}
+          {(similar?.emptyReason === 'NO_PROFILE' || similar?.emptyReason === 'NO_MATCH') && (
+            <>
+              <SectionHead title="비슷한 사례" />
+              <div className={styles.caseEmpty}>
+                {similar?.emptyReason === 'NO_PROFILE'
+                  ? '어쩌다 헤어졌는지 대화에서 더 들려주면 비슷한 사례를 찾아드려요.'
+                  : '아직 닮은 사례를 찾지 못했어요.'}
+              </div>
+            </>
           )}
 
           {/* 근거가 없어 중립으로 남은 요인 — 채워달라는 요청으로 뒤집어 다음 대화를 유도한다.
