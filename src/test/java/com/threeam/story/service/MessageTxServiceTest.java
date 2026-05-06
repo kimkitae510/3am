@@ -79,21 +79,33 @@ class MessageTxServiceTest {
     private MessageTxService messageTxService;
 
     @Test
-    @DisplayName("프롬프트 조립 - 유저가 진단을 화제로 꺼내지 않은 턴에는 진단 블록을 싣지 않는다")
-    void buildPrompt_skipsAssessmentWhenNotAsked() {
+    @DisplayName("프롬프트 조립 - 진단을 화제로 꺼내지 않은 턴에는 상세 블록 대신 미니 라인만 싣는다")
+    void buildPrompt_miniLineWhenNotAsked() {
         Story story = story(10L);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 잠이 안 와")),
                         PageRequest.of(0, 20), false));
+        Assessment assessment = Assessment.builder()
+                .storyId(10L)
+                .verdict(ReunionVerdict.POSSIBLE)
+                .probability(19)
+                .breakupType(BreakupType.BURNOUT)
+                .reason("총평")
+                .build();
+        ReflectionTestUtils.setField(assessment, "createdAt", java.time.LocalDateTime.now());
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
+                .willReturn(Optional.of(assessment));
 
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 잠이 안 와").prompt();
 
-        // 조회 자체를 안 해야 한다 — 쓰지도 않을 블록을 만들려고 DB를 두드릴 이유가 없다.
-        verify(assessmentRepository, never()).findFirstByStoryIdOrderByCreatedAtDesc(anyLong());
-        assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
+        // 미니 라인(확률+유형 요지)은 실리되, 상세 블록(요인, 판독 이유)은 아니다 —
+        // 큐워드 없는 턴에 페르소나가 진단과 다른 방향을 말하는 사고 방지.
+        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
+                .extracting(ChatMessage::content)
+                .anyMatch(c -> c.contains("19%") && c.contains("소진형") && c.contains("어긋나게 말하지 마라"))
+                .noneMatch(c -> c.contains("낮춘 신호") || c.contains("유리 요인") || c.contains("판정 근거"));
     }
 
     @Test

@@ -116,13 +116,15 @@ public class MessageTxService {
                 .map(StoryMemory::getSummary)
                 .filter(summary -> !summary.isBlank())
                 .ifPresent(summary -> prompt.add(ChatMessage.system("지금까지 요약: " + summary)));
-        // 최신 진단은 유저가 "왜 이 진단이야?" 같은 후속 질문을 할 때만 쓰인다. 그런데 이 블록은
-        // 감점마다 근거와 판독 이유까지 붙어 꽤 크고, 고정분 뒤라 캐시도 못 받아 전액 정가다 —
-        // 쓰이지도 않는 턴에 매번 싣던 비용이라 필요한 턴에만 싣는다.
-        if (needsAssessment(recent)) {
-            assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                    .ifPresent(assessment -> prompt.add(ChatMessage.system(describeAssessment(assessment))));
-        }
+        // 최신 진단: 상세 블록(요인, 판독 이유)은 유저가 진단을 화제로 꺼낸 턴에만 싣지만(비용),
+        // 확률+유형 한 줄짜리 미니 라인은 매 턴 싣는다 — 큐워드에 안 걸리는 표현("우리 어떻게
+        // 될 것 같아?")에서 페르소나가 진단과 다른 방향("꽤 있는 편")을 말한 사고가 실측됐다.
+        // 서비스가 두 입으로 말하는 걸 막는 30토큰이다.
+        assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .ifPresent(assessment -> prompt.add(ChatMessage.system(
+                        needsAssessment(recent)
+                                ? describeAssessment(assessment)
+                                : assessmentMiniLine(assessment))));
         for (int i = recent.size() - 1; i >= 0; i--) {
             Message message = recent.get(i);
             prompt.add(message.getRole() == MessageRole.USER
@@ -153,6 +155,23 @@ public class MessageTxService {
         }
         String latest = recent.get(0).getContent();
         return latest != null && ASSESSMENT_CUES.stream().anyMatch(latest::contains);
+    }
+
+    // 매 턴 실리는 한 줄 요지 — 재회 가능성의 '방향'을 말할 일이 생기면 이 판정과 어긋나지 않게.
+    // 상세 설명 재료(요인, 판독 이유)는 없으므로 구체 설명이 필요한 질문엔 큐워드 턴의 상세 블록이 답한다.
+    private String assessmentMiniLine(Assessment assessment) {
+        StringBuilder line = new StringBuilder("최신 재회 진단 요지(내부 참고): ");
+        if (assessment.getProbability() != null) {
+            line.append("확률 ").append(assessment.getProbability()).append('%');
+        } else {
+            line.append("판정 ").append(assessment.getVerdict());
+        }
+        if (assessment.getBreakupType() != null) {
+            line.append(", 유형 ").append(assessment.getBreakupType().label());
+        }
+        line.append(" — 재회 가능성의 방향을 말하게 되면 이 판정과 어긋나게 말하지 마라. ")
+                .append("확률 숫자와 유형명을 직접 입에 올리지는 마라(화면의 몫이다).");
+        return line.toString();
     }
 
     // 진단 결과를 설명용 데이터 블록으로 만든다. 재계산, 창작, 그리고 "묻지 않은 확률 들이대기"를 막는 지시를 함께 싣는다.
