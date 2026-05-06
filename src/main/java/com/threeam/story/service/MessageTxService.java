@@ -204,8 +204,9 @@ public class MessageTxService {
             if (factor.getLevel() == FactorLevel.NEUTRAL) {
                 continue;
             }
-            block.append(factor.getLevel() == FactorLevel.FAVORABLE ? "- 유리 요인(" : "- 불리 요인(")
-                    .append(factor.getName().label()).append(")");
+            block.append(factor.getLevel().favorableSide() ? "- 유리 요인(" : "- 불리 요인(")
+                    .append(factor.getName().label()).append(", ")
+                    .append(factor.getLevel().label()).append(")");
             if (factor.getRationale() != null && !factor.getRationale().isBlank()) {
                 block.append(": ").append(factor.getRationale());
             }

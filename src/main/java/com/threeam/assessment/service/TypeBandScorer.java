@@ -4,6 +4,7 @@ import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.BreakupType;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.ReplacementStage;
 import java.util.EnumMap;
 import java.util.List;
@@ -20,9 +21,13 @@ public class TypeBandScorer {
     private static final int ABS_MIN = 3;
     private static final int ABS_MAX = 95; // 96~100은 상대의 유효한 재회 제안(확정 100) 몫
 
-    // 점프 대역: 유저가 통보했고 상대에게 미련이 남은 판 — 유형 무관 최상 대역.
-    // 찬 쪽의 복귀는 "돌아올 확률"이 아니라 "받아줄 확률"이라 문이 열려 있다.
-    private static final Band JUMP = new Band(60, 85);
+    // 점프 대역 — 유형 대역을 통째로 교체한다.
+    // USER_DUMPED, PARTNER_HINT 60~85: 상대의 마음이 열려 있음이 확인된 판.
+    // REPEAT_CYCLE 55~80: 같은 사유로 헤어지고도 매번 돌아온 관계 — 패턴이 입증됨(충동형급).
+    private static final Map<JumpRule, Band> JUMP_BANDS = new EnumMap<>(Map.of(
+            JumpRule.USER_DUMPED, new Band(60, 85),
+            JumpRule.PARTNER_HINT, new Band(60, 85),
+            JumpRule.REPEAT_CYCLE, new Band(55, 80)));
 
     private static final Map<BreakupType, Band> BANDS = new EnumMap<>(Map.of(
             BreakupType.IMPULSIVE, new Band(55, 80),
@@ -34,50 +39,63 @@ public class TypeBandScorer {
             BreakupType.TRANSFER, new Band(10, 30),
             BreakupType.TRUST_BROKEN, new Band(5, 15)));
 
-    // 요인별 조정 폭. 순서(FactorName 선언 순)가 무게 순서와 일치한다.
+    // 요인별 조정 폭(매우X = 전체 폭, X = 절반). 선언 순서가 무게 순서와 일치한다.
     private static final Map<FactorName, Integer> WIDTHS = new EnumMap<>(Map.of(
             FactorName.PARTNER_SIGNAL, 10,
             FactorName.REPLACEMENT, 4,   // 유리(부재 확인)일 때만 이 값. 불리는 stage가 정한다
             FactorName.USER_CONDUCT, 8,
             FactorName.NOTICE_TONE, 6,
-            FactorName.PARTNER_PATTERN, 5));
+            FactorName.PARTNER_PATTERN, 5,
+            FactorName.RELATIONSHIP_ASSET, 4,
+            FactorName.CONTACT_PATH, 4));
 
     // 대체자 불리의 세분 폭. 정착은 대역 하한을 뚫는다(아래 clamp에서 허용).
     private static final int REPLACEMENT_SEEING = 6;
     private static final int REPLACEMENT_SETTLED = 12;
     private static final int SETTLED_FLOOR_BREACH = 10;
 
-    public int apply(BreakupType type, boolean userDumpedPartnerLingering,
-                     List<AssessmentFactor> factors) {
-        Band band = userDumpedPartnerLingering ? JUMP : BANDS.get(type);
+    // 상대신호 '매우유리'(만남에서의 적극적 미련, 반복되는 능동 신호)는 대역 상한을 뚫는다 —
+    // 정착이 하한을 뚫는 것과 대칭. 상한이 강한 반전 신호를 막던 실측(소진형 35 캡) 대응.
+    private static final int STRONG_SIGNAL_CEILING_BREACH = 10;
+
+    public int apply(BreakupType type, JumpRule jumpRule, List<AssessmentFactor> factors) {
+        Band band = JUMP_BANDS.getOrDefault(jumpRule == null ? JumpRule.NONE : jumpRule,
+                BANDS.get(type));
         int score = (band.lo() + band.hi()) / 2;
         boolean settled = false;
+        boolean strongSignal = false;
         for (AssessmentFactor factor : factors) {
             score += delta(factor);
             settled = settled || isSettled(factor);
+            strongSignal = strongSignal || (factor.getName() == FactorName.PARTNER_SIGNAL
+                    && factor.getLevel() == FactorLevel.STRONG_FAVORABLE);
         }
-        // 대역 클램프 — 요인이 아무리 쌓여도 유형이 정한 구간을 벗어나지 않는다.
-        // 예외 하나: 새 연인 '정착'은 하한을 뚫는다(대체자가 실질 마감선이라는 조사 결론).
+        // 대역 클램프 — 요인이 쌓여도 유형이 정한 구간을 벗어나지 않는다. 예외 둘(대칭):
+        // 새 연인 '정착'은 하한을, 상대신호 '매우유리'는 상한을 뚫는다.
         int lo = settled ? band.lo() - SETTLED_FLOOR_BREACH : band.lo();
-        score = Math.max(lo, Math.min(band.hi(), score));
+        int hi = strongSignal ? band.hi() + STRONG_SIGNAL_CEILING_BREACH : band.hi();
+        score = Math.max(lo, Math.min(hi, score));
         return Math.max(ABS_MIN, Math.min(ABS_MAX, score));
     }
 
     private int delta(AssessmentFactor factor) {
-        if (factor.getLevel() == FactorLevel.NEUTRAL) {
+        FactorLevel level = factor.getLevel();
+        if (level == FactorLevel.NEUTRAL) {
             return 0;
         }
-        boolean favorable = factor.getLevel() == FactorLevel.FAVORABLE;
-        if (factor.getName() == FactorName.REPLACEMENT && !favorable) {
+        if (factor.getName() == FactorName.REPLACEMENT && level.unfavorableSide()) {
             return isSettled(factor) ? -REPLACEMENT_SETTLED : -REPLACEMENT_SEEING;
         }
         int width = WIDTHS.get(factor.getName());
-        return favorable ? width : -width;
+        int size = (level == FactorLevel.STRONG_FAVORABLE || level == FactorLevel.STRONG_UNFAVORABLE)
+                ? width
+                : Math.max(1, width / 2);
+        return level.favorableSide() ? size : -size;
     }
 
     private boolean isSettled(AssessmentFactor factor) {
         return factor.getName() == FactorName.REPLACEMENT
-                && factor.getLevel() == FactorLevel.UNFAVORABLE
+                && factor.getLevel().unfavorableSide()
                 && factor.getStage() == ReplacementStage.SETTLED;
     }
 

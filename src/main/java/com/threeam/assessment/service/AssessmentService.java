@@ -234,8 +234,7 @@ public class AssessmentService {
         // 저장된 판정의 재계산으로 즉시 되돌리기 위한 재료다.
         boolean offerConfirmed = diagnosis.activeReunionOffer();
         Integer probability = offerConfirmed ? 100
-                : scorer.apply(diagnosis.breakupType(), diagnosis.userDumpedPartnerLingering(),
-                        factors);
+                : scorer.apply(diagnosis.breakupType(), diagnosis.jumpRule(), factors);
 
         Assessment.AssessmentBuilder builder = Assessment.builder()
                 .storyId(storyId)
@@ -243,7 +242,7 @@ public class AssessmentService {
                 .probability(probability)
                 .breakupType(diagnosis.breakupType())
                 .typeEvidence(blankToNull(diagnosis.typeEvidence()))
-                .userDumpedPartnerLingering(diagnosis.userDumpedPartnerLingering())
+                .jumpRule(diagnosis.jumpRule())
                 .relapseRisk(diagnosis.relapseRisk())
                 .relapseReason(blankToNull(diagnosis.relapseReason()))
                 .reason(diagnosis.reason())

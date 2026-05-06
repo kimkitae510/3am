@@ -9,6 +9,7 @@ import com.threeam.assessment.dto.ReunionDiagnosis.WatchItem;
 import com.threeam.assessment.entity.BreakupType;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.RelapseRisk;
 import com.threeam.assessment.entity.ReplacementStage;
 import com.threeam.assessment.entity.ReunionVerdict;
@@ -113,7 +114,7 @@ public class ReunionLlm {
                 "properties", Map.of(
                         "name", Map.of("type", "STRING", "enum", FactorName.labels()),
                         "level", Map.of("type", "STRING",
-                                "enum", List.of("유리", "중립", "불리")),
+                                "enum", List.of("매우유리", "유리", "중립", "불리", "매우불리")),
                         "evidence", Map.of("type", "STRING"),
                         "rationale", Map.of("type", "STRING"),
                         "stage", Map.of("type", "STRING", "nullable", true,
@@ -186,7 +187,8 @@ public class ReunionLlm {
                     Map.entry("breakupType", Map.of("type", "STRING", "nullable", true,
                             "enum", BreakupType.labels())),
                     Map.entry("typeEvidence", Map.of("type", "STRING", "nullable", true)),
-                    Map.entry("userDumpedPartnerLingering", Map.of("type", "BOOLEAN")),
+                    Map.entry("jumpRule", Map.of("type", "STRING",
+                            "enum", List.of("없음", "유저통보상대미련", "상대재회의사", "반복재회패턴"))),
                     Map.entry("factors", Map.of("type", "ARRAY", "items", factorItemSchema())),
                     Map.entry("relapseRisk", relapseRiskSchema()),
                     Map.entry("watchFor", Map.of("type", "ARRAY", "items", watchItemSchema())),
@@ -196,9 +198,9 @@ public class ReunionLlm {
             // 배열류와 유형은 필수에서 뺀다 — 잠금 판정(DATING 등)은 루브릭이 비우라고 지시하는데
             // 필수로 걸면 억지로 채우게 된다.
             Map.entry("required", List.of("verdict", "activeReunionOffer",
-                    "userDumpedPartnerLingering", "matchProfile", "reason")),
+                    "jumpRule", "matchProfile", "reason")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
-                    "typeEvidence", "userDumpedPartnerLingering", "factors", "relapseRisk",
+                    "typeEvidence", "jumpRule", "factors", "relapseRisk",
                     "watchFor", "matchProfile", "reason", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
@@ -237,7 +239,7 @@ public class ReunionLlm {
 
             return new ReunionDiagnosis(verdict, activeReunionOffer, breakupType,
                     clip(root.path("typeEvidence").asText(""), TEXT_MAX),
-                    root.path("userDumpedPartnerLingering").asBoolean(false),
+                    JumpRule.fromLabel(root.path("jumpRule").asText(null)),
                     factors, relapseRisk, relapseReason, parseWatch(root), matchProfile(root),
                     root.path("reason").asText(""), newFacts);
         } catch (Exception e) {

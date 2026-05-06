@@ -60,10 +60,11 @@ public class Assessment {
     @Column(length = 300)
     private String typeEvidence;
 
-    // 점프 규칙 발동 여부(유저 통보 + 상대 미련 → 유형 대역 대신 상향 대역).
-    // 재계산 재료라 판정 자체를 저장한다.
-    @Column(nullable = false)
-    private boolean userDumpedPartnerLingering;
+    // 점프 규칙(유형 대역을 통째로 교체하는 판) — 재계산 재료라 판정 자체를 저장한다.
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 30)
+    private JumpRule jumpRule;
 
     // 유지 전망 — 성사 확률과 별개 축.
     @Enumerated(EnumType.STRING)
@@ -95,8 +96,7 @@ public class Assessment {
 
     @Builder
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
-                       BreakupType breakupType, String typeEvidence,
-                       boolean userDumpedPartnerLingering,
+                       BreakupType breakupType, String typeEvidence, JumpRule jumpRule,
                        RelapseRisk relapseRisk, String relapseReason, String reason,
                        @Singular List<AssessmentFactor> factors,
                        @Singular List<WatchPoint> watchPoints) {
@@ -105,7 +105,7 @@ public class Assessment {
         this.probability = probability;
         this.breakupType = breakupType;
         this.typeEvidence = typeEvidence;
-        this.userDumpedPartnerLingering = userDumpedPartnerLingering;
+        this.jumpRule = jumpRule;
         this.relapseRisk = relapseRisk;
         this.relapseReason = relapseReason;
         this.reason = reason;

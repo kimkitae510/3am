@@ -200,7 +200,7 @@ class MessageTxServiceTest {
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
                 .anyMatch(c -> c.contains("20%") && c.contains("소진형")
-                        && c.contains("불리 요인(상대신호)") && c.contains("연락 통로가 닫히는 방향의 신호"));
+                        && c.contains("불리 요인(상대신호, 불리)") && c.contains("연락 통로가 닫히는 방향의 신호"));
         // 근거(evidence)는 원장과 겹치고, 중립(근거 없음) 슬롯은 잡음이라 싣지 않는다
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)

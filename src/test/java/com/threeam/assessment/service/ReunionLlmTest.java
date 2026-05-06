@@ -69,7 +69,7 @@ class ReunionLlmTest {
         assertThat(diagnosis.breakupType()).isEqualTo(BreakupType.BURNOUT);
         assertThat(diagnosis.typeEvidence()).isEqualTo("반복 다툼 끝에 지쳐 통보");
         // 요인은 항상 5슬롯 — 응답에 없던 슬롯은 중립(근거 없음)으로 채워진다
-        assertThat(diagnosis.factors()).hasSize(5);
+        assertThat(diagnosis.factors()).hasSize(7); // 고정 7슬롯(누락은 중립 채움)
         assertThat(diagnosis.factors().get(0).level()).isEqualTo(FactorLevel.UNFAVORABLE);
         assertThat(diagnosis.factors().get(1).stage()).isEqualTo(ReplacementStage.SETTLED);
         assertThat(diagnosis.factors().get(3).level()).isEqualTo(FactorLevel.NEUTRAL);
@@ -98,7 +98,7 @@ class ReunionLlmTest {
                 }
                 """);
 
-        assertThat(diagnosis.factors()).hasSize(5);
+        assertThat(diagnosis.factors()).hasSize(7); // 고정 7슬롯(누락은 중립 채움)
         assertThat(diagnosis.factors().get(0).name()).isEqualTo(FactorName.PARTNER_SIGNAL);
         assertThat(diagnosis.factors().get(0).level()).isEqualTo(FactorLevel.FAVORABLE);
         assertThat(diagnosis.factors().get(0).evidence()).isEqualTo("먼저 연락 옴");

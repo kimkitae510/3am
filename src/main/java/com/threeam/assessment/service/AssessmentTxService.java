@@ -5,6 +5,7 @@ import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.dto.ReunionDiagnosis.MatchProfileItem;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
+import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -200,8 +201,8 @@ public class AssessmentTxService {
         if (last.getProbability() != null) {
             digest.append(", 확률=").append(last.getProbability());
         }
-        if (last.isUserDumpedPartnerLingering()) {
-            digest.append(", 점프 규칙 발동");
+        if (last.getJumpRule() != null && last.getJumpRule() != JumpRule.NONE) {
+            digest.append(", 점프 규칙: ").append(last.getJumpRule().label());
         }
         if (!last.getFactors().isEmpty()) {
             digest.append(", 요인:");
@@ -263,7 +264,7 @@ public class AssessmentTxService {
                         && Integer.valueOf(100).equals(a.getProbability()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.ASSESSMENT_NOT_OFFER));
         last.retractOffer(scorer.apply(last.getBreakupType(),
-                last.isUserDumpedPartnerLingering(), last.getFactors()));
+                last.getJumpRule(), last.getFactors()));
         storyFactService.appendCorrection(storyId, OFFER_RETRACTED_FACT);
         return AssessmentResponse.from(last);
     }

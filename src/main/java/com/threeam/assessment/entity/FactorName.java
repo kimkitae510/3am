@@ -7,11 +7,13 @@ import java.util.List;
 // 자유 신호 대신 슬롯을 고정한 이유: 같은 사실이면 같은 자리에 같은 판정이 재현되게 —
 // v1의 자유 signal은 진단마다 이름과 점수가 달라져 확률이 출렁였다.
 public enum FactorName {
-    PARTNER_SIGNAL("상대신호"),   // 상대의 이별 후 행동 방향
-    REPLACEMENT("대체자"),        // 상대에게 새 사람이 있는가
-    USER_CONDUCT("유저대처"),     // 이별 후 유저의 절제 vs 매달림
-    NOTICE_TONE("통보온도"),      // 통보 순간 상대의 태도
-    PARTNER_PATTERN("상대패턴");  // 상대의 성향과 재회 이력
+    PARTNER_SIGNAL("상대신호"),       // 상대의 이별 후 행동 방향
+    REPLACEMENT("대체자"),            // 상대에게 새 사람이 있는가
+    USER_CONDUCT("유저대처"),         // 이별 후 유저의 절제 vs 매달림
+    NOTICE_TONE("통보온도"),          // 통보 순간 상대의 태도
+    PARTNER_PATTERN("상대패턴"),      // 상대의 성향과 재회 이력
+    RELATIONSHIP_ASSET("관계자산"),   // 관계의 깊이 — 기간, 헌신 표지, 첫사랑
+    CONTACT_PATH("접점");             // 만날 구조 — 잡힌 약속, 같은 소속, 공통 지인
 
     private final String label;
 

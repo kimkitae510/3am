@@ -24,7 +24,7 @@ public class AssessmentFactor {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, length = 15)
+    @Column(nullable = false, length = 20)
     private FactorLevel level;
 
     @Column(nullable = false, columnDefinition = "TEXT")

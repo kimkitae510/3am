@@ -3,6 +3,7 @@ package com.threeam.assessment.dto;
 import com.threeam.assessment.entity.BreakupType;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.RelapseRisk;
 import com.threeam.assessment.entity.ReplacementStage;
 import com.threeam.assessment.entity.ReunionVerdict;
@@ -17,7 +18,7 @@ public record ReunionDiagnosis(
         boolean activeReunionOffer,         // 상대가 먼저 만남/재회를 제안했고 철회되지 않음
         BreakupType breakupType,            // 잠금 판정(DATING 등)이면 null
         String typeEvidence,                // 유형 판정 근거 한 줄
-        boolean userDumpedPartnerLingering, // 점프 규칙: 유저 통보 + 상대 미련
+        JumpRule jumpRule,                  // 유형 대역을 교체하는 점프 규칙(없으면 NONE)
         List<FactorItem> factors,           // 고정 5슬롯 판정
         RelapseRisk relapseRisk,            // 유지 전망(성사 확률과 별개 축)
         String relapseReason,

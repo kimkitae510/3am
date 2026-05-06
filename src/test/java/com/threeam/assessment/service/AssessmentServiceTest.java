@@ -3,7 +3,6 @@ package com.threeam.assessment.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -19,6 +18,7 @@ import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.BreakupType;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.RelapseRisk;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
@@ -93,13 +93,13 @@ class AssessmentServiceTest {
 
     private static ReunionDiagnosis possible(boolean offer) {
         return new ReunionDiagnosis(ReunionVerdict.POSSIBLE, offer, BreakupType.BURNOUT,
-                "반복 다툼 끝에 지쳐 통보", false, FACTORS, RelapseRisk.HIGH, "교정 미확인",
+                "반복 다툼 끝에 지쳐 통보", JumpRule.NONE, FACTORS, RelapseRisk.HIGH, "교정 미확인",
                 List.of(new WatchItem("상대의 선연락 여부", "오면 상대신호가 유리로 바뀜")),
                 null, "총평", List.of("상대가 먼저 통보함"));
     }
 
     private static ReunionDiagnosis locked(ReunionVerdict verdict, String reason, List<String> newFacts) {
-        return new ReunionDiagnosis(verdict, false, null, null, false, List.of(),
+        return new ReunionDiagnosis(verdict, false, null, null, JumpRule.NONE, List.of(),
                 null, null, List.of(), null, reason, newFacts);
     }
 
@@ -113,7 +113,7 @@ class AssessmentServiceTest {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(possible(false)));
-        given(scorer.apply(eq(BreakupType.BURNOUT), eq(false), anyList())).willReturn(20);
+        given(scorer.apply(eq(BreakupType.BURNOUT), eq(JumpRule.NONE), anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
                 .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
 
@@ -141,7 +141,7 @@ class AssessmentServiceTest {
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
         assertThat(response.getProbability()).isEqualTo(100);
-        verify(scorer, never()).apply(any(), anyBoolean(), anyList()); // 계산을 건너뛴다
+        verify(scorer, never()).apply(any(), any(), anyList()); // 계산을 건너뛴다
         // 유형과 요인은 그대로 저장된다 — 유저가 제안을 번복하면 저장된 판정의 재계산으로 즉시 되돌린다
         assertThat(response.getBreakupType()).isEqualTo("소진형");
         assertThat(response.getFactors()).hasSize(5);
@@ -154,7 +154,7 @@ class AssessmentServiceTest {
         // LLM이 실수로 offer=true와 유형을 보냈어도 전부 무시돼야 한다(구조적 잠금)
         given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(new ReunionDiagnosis(
-                        ReunionVerdict.DATING, true, BreakupType.FADED, "실수 판정", false,
+                        ReunionVerdict.DATING, true, BreakupType.FADED, "실수 판정", JumpRule.NONE,
                         FACTORS, RelapseRisk.LOW, null, List.of(), null,
                         "아직 만나는 중이면 재회 확률은 의미가 없어",
                         List.of("유저와 상대는 아직 사귀는 중"))));
@@ -167,7 +167,7 @@ class AssessmentServiceTest {
         assertThat(response.getProbability()).isNull();   // activeReunionOffer=true여도 100이 안 된다
         assertThat(response.getBreakupType()).isNull();   // 유형/요인 폐기
         assertThat(response.getFactors()).isEmpty();
-        verify(scorer, never()).apply(any(), anyBoolean(), anyList());
+        verify(scorer, never()).apply(any(), any(), anyList());
         verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L, 1); // 정식 결과라 차감
     }
 
@@ -186,7 +186,7 @@ class AssessmentServiceTest {
 
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.REUNITED);
         assertThat(response.getProbability()).isNull(); // 목표 달성 상태 — 확률 산출 없음
-        verify(scorer, never()).apply(any(), anyBoolean(), anyList());
+        verify(scorer, never()).apply(any(), any(), anyList());
         verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L, 1);
     }
 
