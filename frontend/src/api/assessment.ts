@@ -7,8 +7,8 @@ export type Verdict = 'POSSIBLE' | 'INSUFFICIENT' | 'DATING' | 'REUNITED';
 // 고정 5요인의 판정 하나. 백엔드가 화면 표기용 한국어 라벨로 내려준다.
 // level '중립' + evidence '근거 없음'이면 "알려주면 정확해져요" 안내로 바뀐다.
 export interface FactorView {
-  name: string; // "상대신호" 등 5종 — 내려오는 순서가 무게 순서
-  level: '유리' | '중립' | '불리';
+  name: string; // "상대신호" 등 7종 — 내려오는 순서가 무게 순서
+  level: '매우유리' | '유리' | '중립' | '불리' | '매우불리';
   evidence: string;
   rationale: string | null;
   stage: string | null; // 대체자 불리의 세분("정황"/"정착"). 그 외 null

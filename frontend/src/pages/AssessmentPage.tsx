@@ -33,6 +33,8 @@ const FACTOR_ASK: Record<string, string> = {
   유저대처: '이별 후 내가 어떻게 했는지',
   통보온도: '헤어지자던 순간 상대의 태도',
   상대패턴: '상대의 과거 연애 패턴(재회 이력, 성향)',
+  관계자산: '얼마나 만났고 얼마나 깊었는지(공개 연애, 미래 얘기)',
+  접점: '다시 만날 접점이 있는지(약속, 같은 소속, 공통 지인)',
 };
 
 /* 로딩/진단 중 점 애니메이션 — 일러스트(달) 대신 쓰는 유일한 장식 */
@@ -433,8 +435,8 @@ export function AssessmentPage() {
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
   const factors = result.factors ?? [];
-  const unfavorable = factors.filter((f) => f.level === '불리');
-  const favorable = factors.filter((f) => f.level === '유리');
+  const unfavorable = factors.filter((f) => f.level === '불리' || f.level === '매우불리');
+  const favorable = factors.filter((f) => f.level === '유리' || f.level === '매우유리');
   // 판단 근거가 없던 요인 — 카드 대신 "알려주면 정확해져요"로 뒤집어 다음 대화를 유도한다.
   const missing = factors.filter((f) => f.level === '중립' && f.evidence === NO_EVIDENCE);
 
@@ -621,7 +623,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={f.name}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{f.name}</div>
-                      <span className={`${styles.weightLabel} ${styles.weightMinus}`}>불리</span>
+                      <span className={`${styles.weightLabel} ${styles.weightMinus}`}>{f.level}</span>
                     </div>
                     {f.evidence && f.evidence !== NO_EVIDENCE && (
                       <div className={styles.dedEvidence}>{f.evidence}</div>
@@ -641,7 +643,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={f.name}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{f.name}</div>
-                      <span className={`${styles.weightLabel} ${styles.weightPlus}`}>유리</span>
+                      <span className={`${styles.weightLabel} ${styles.weightPlus}`}>{f.level}</span>
                     </div>
                     {f.evidence && f.evidence !== NO_EVIDENCE && (
                       <div className={styles.dedEvidence}>{f.evidence}</div>
