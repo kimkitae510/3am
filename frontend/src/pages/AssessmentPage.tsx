@@ -438,15 +438,25 @@ export function AssessmentPage() {
   const factors = result.factors ?? [];
   // 이별 사유(유형)는 요인이 아니라 기본 구간을 정하는 1층이지만, 유저 눈엔 "가능성을
   // 낮춘/올린 것" 중 가장 큰 항목이다 — 목록 맨 위에 합성 카드로 보여준다.
+  // 사실 줄은 LLM이 쓴 유형 판정 근거(typeEvidence)를 그대로 싣고, 판독 줄만 유형별 고정
+  // 문장(다른 카드와 같은 관찰문 결)으로 채운다 — 프론트가 지어낸 티가 나면 안 된다.
   const typeRaises = result.breakupType === '충동형' || result.breakupType === '상황형';
+  const TYPE_READING: Record<string, string> = {
+    충동형: '감정이 격해진 순간의 이별이라 기본 확률 구간이 높은 축에 속함.',
+    상황형: '마음보다 환경이 가른 이별이라 기본 확률 구간이 높은 축에 속함.',
+    외부요인형: '마음 밖의 고착된 조건이 막는 이별이라 기본 확률 구간이 중간 아래에 속함.',
+    권태식음형: '설렘과 애정이 잦아들어 끝난 이별이라 기본 확률 구간이 낮은 축에 속함.',
+    소진형: '상대가 지쳐서 끝낸 이별이라 기본 확률 구간이 낮은 축에 속함.',
+    결심완료형: '오래 고민하고 정리를 끝낸 통보라 기본 확률 구간이 낮은 축에 속함.',
+    환승형: '마음이 이미 다른 사람에게 옮겨간 이별이라 기본 확률 구간이 낮은 축에 속함.',
+    신뢰붕괴형: '상대의 신뢰가 무너진 이별이라 기본 확률 구간이 가장 낮은 축에 속함.',
+  };
   const typeItem: FactorView | null = result.breakupType
     ? {
         name: `이별 사유(${result.breakupType})`,
         level: typeRaises ? '유리' : '불리',
-        evidence: '',
-        rationale: typeRaises
-          ? '기본 확률 구간이 높은 축의 이별이에요'
-          : '기본 확률 구간이 낮은 축의 이별이에요',
+        evidence: result.typeEvidence ?? '',
+        rationale: TYPE_READING[result.breakupType] ?? null,
         stage: null,
       }
     : null;
@@ -618,7 +628,6 @@ export function AssessmentPage() {
                   <span className={styles.relapseChip}>재이별 위험 {result.relapseRisk}</span>
                 )}
               </div>
-              {result.typeEvidence && <div className={styles.typeEvidence}>{result.typeEvidence}</div>}
               {result.relapseReason && (
                 <div className={styles.relapseReason}>{result.relapseReason}</div>
               )}
