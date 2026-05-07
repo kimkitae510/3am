@@ -8,6 +8,7 @@ import {
   retractOffer,
   runAssessment,
   type AssessmentResponse,
+  type FactorView,
 } from '../api/assessment';
 import { getUsage } from '../api/usage';
 import { getSimilarCases, type SimilarCases } from '../api/match';
@@ -435,8 +436,28 @@ export function AssessmentPage() {
   const prob = result.probability ?? 0;
   const fill = (Math.min(prob, GAUGE_MAX) / GAUGE_MAX) * ARC_LEN;
   const factors = result.factors ?? [];
-  const unfavorable = factors.filter((f) => f.level === '불리' || f.level === '매우불리');
-  const favorable = factors.filter((f) => f.level === '유리' || f.level === '매우유리');
+  // 이별 사유(유형)는 요인이 아니라 기본 구간을 정하는 1층이지만, 유저 눈엔 "가능성을
+  // 낮춘/올린 것" 중 가장 큰 항목이다 — 목록 맨 위에 합성 카드로 보여준다.
+  const typeRaises = result.breakupType === '충동형' || result.breakupType === '상황형';
+  const typeItem: FactorView | null = result.breakupType
+    ? {
+        name: `이별 사유(${result.breakupType})`,
+        level: typeRaises ? '유리' : '불리',
+        evidence: '',
+        rationale: typeRaises
+          ? '기본 확률 구간이 높은 축의 이별이에요'
+          : '기본 확률 구간이 낮은 축의 이별이에요',
+        stage: null,
+      }
+    : null;
+  const unfavorable = [
+    ...(typeItem && !typeRaises ? [typeItem] : []),
+    ...factors.filter((f) => f.level === '불리' || f.level === '매우불리'),
+  ];
+  const favorable = [
+    ...(typeItem && typeRaises ? [typeItem] : []),
+    ...factors.filter((f) => f.level === '유리' || f.level === '매우유리'),
+  ];
   // 판단 근거가 없던 요인 — 카드 대신 "알려주면 정확해져요"로 뒤집어 다음 대화를 유도한다.
   const missing = factors.filter((f) => f.level === '중립' && f.evidence === NO_EVIDENCE);
 
