@@ -116,20 +116,23 @@ public class MessageTxService {
                 .map(StoryMemory::getSummary)
                 .filter(summary -> !summary.isBlank())
                 .ifPresent(summary -> prompt.add(ChatMessage.system("지금까지 요약: " + summary)));
-        // 최신 진단: 상세 블록(요인, 판독 이유)은 유저가 진단을 화제로 꺼낸 턴에만 싣지만(비용),
-        // 확률+유형 한 줄짜리 미니 라인은 매 턴 싣는다 — 큐워드에 안 걸리는 표현("우리 어떻게
-        // 될 것 같아?")에서 페르소나가 진단과 다른 방향("꽤 있는 편")을 말한 사고가 실측됐다.
-        // 서비스가 두 입으로 말하는 걸 막는 30토큰이다.
-        assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                .ifPresent(assessment -> prompt.add(ChatMessage.system(
-                        needsAssessment(recent)
-                                ? describeAssessment(assessment)
-                                : assessmentMiniLine(assessment))));
+        // 최신 진단: 상세 블록(요인, 판독 이유)은 유저가 진단을 화제로 꺼낸 턴에만 싣는다(비용).
+        java.util.Optional<Assessment> latestAssessment =
+                assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId);
+        if (needsAssessment(recent)) {
+            latestAssessment.ifPresent(a -> prompt.add(ChatMessage.system(describeAssessment(a))));
+        }
         for (int i = recent.size() - 1; i >= 0; i--) {
             Message message = recent.get(i);
             prompt.add(message.getRole() == MessageRole.USER
                     ? ChatMessage.user(message.getContent())
                     : ChatMessage.assistant(message.getContent()));
+        }
+        // 확률+유형 한 줄짜리 미니 라인은 매 턴, 그리고 '대화 뒤'에 싣는다 — 큐워드에 안 걸리는
+        // 표현에서 페르소나가 진단과 다른 방향을 말한 사고 대응인데, 대화 앞에 실었더니
+        // 페르소나 본문에 묻혀 그대로 재발했다(리마인더가 묻히던 것과 같은 자리 문제).
+        if (!needsAssessment(recent)) {
+            latestAssessment.ifPresent(a -> prompt.add(ChatMessage.system(assessmentMiniLine(a))));
         }
         // 출력 직전 점검은 반드시 대화 뒤, 프롬프트의 맨 끝이다 — 앞에 두면 리마인더와 같은
         // 자리가 되어 같은 이유로 묻힌다. 여기가 마지막으로 읽히는 지시라는 게 이 블록의 전부다.
@@ -157,8 +160,8 @@ public class MessageTxService {
         return latest != null && ASSESSMENT_CUES.stream().anyMatch(latest::contains);
     }
 
-    // 매 턴 실리는 한 줄 요지 — 재회 가능성의 '방향'을 말할 일이 생기면 이 판정과 어긋나지 않게.
-    // 상세 설명 재료(요인, 판독 이유)는 없으므로 구체 설명이 필요한 질문엔 큐워드 턴의 상세 블록이 답한다.
+    // 매 턴 실리는 한 줄 요지. 코드는 데이터(확률, 유형)만 만들고 지시 문구는 프롬프트 자산이라
+    // 로컬 yml(assessment-mini-guide)에서 주입한다 — 상세 재료는 큐워드 턴의 상세 블록이 답한다.
     private String assessmentMiniLine(Assessment assessment) {
         StringBuilder line = new StringBuilder("최신 재회 진단 요지(내부 참고): ");
         if (assessment.getProbability() != null) {
@@ -169,11 +172,10 @@ public class MessageTxService {
         if (assessment.getBreakupType() != null) {
             line.append(", 유형 ").append(assessment.getBreakupType().label());
         }
-        line.append(" — 재회 가능성의 방향을 말하게 되면 이 판정과 어긋나게 말하지 마라. ")
-                .append("확률 숫자와 유형명을 직접 입에 올리지는 마라(화면의 몫이다). ")
-                // 낡은 진단에 채팅이 묶이는 것 방지 — 새 사실이 판을 바꿨으면 정렬 대신 재진단 유도.
-                .append("단 이 진단 이후의 대화에서 판을 바꾸는 새 사실(상대의 연락, 만남, 새 사람 등)이 ")
-                .append("나왔으면 옛 판정에 묶이지 말고, 상황이 달라졌으니 진단을 새로 받아보라고 권하라.");
+        String guide = personaProperties.getAssessmentMiniGuide();
+        if (guide != null && !guide.isBlank()) {
+            line.append(" — ").append(guide.trim());
+        }
         return line.toString();
     }
 

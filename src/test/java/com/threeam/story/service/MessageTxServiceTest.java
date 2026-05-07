@@ -57,6 +57,7 @@ class MessageTxServiceTest {
     private static ChatPersonaProperties personaProperties() {
         ChatPersonaProperties properties = new ChatPersonaProperties();
         properties.setFinalCheck(FINAL_CHECK);
+        properties.setAssessmentMiniGuide("이 판정과 어긋나게 말하지 마라");
         return properties;
     }
 

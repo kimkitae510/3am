@@ -17,4 +17,8 @@ public class ChatPersonaProperties {
     // 실측돼(글자 그대로 금지한 문구가 그대로 출력됨) 제일 잘 새는 것만 끝으로 뺐다.
     // 진단의 '출력 직전 마지막 점검'(ReunionLlm)과 같은 장치다.
     private String finalCheck = "";
+
+    // 진단 미니 라인의 지시문 꼬리. 코드에는 데이터(확률, 유형)만 있고 지시 문구는
+    // 프롬프트 자산이라 로컬 yml로 주입한다 — 비면 데이터 한 줄만 실린다.
+    private String assessmentMiniGuide = "";
 }
