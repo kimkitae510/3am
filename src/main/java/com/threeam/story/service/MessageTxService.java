@@ -163,7 +163,10 @@ public class MessageTxService {
     // 매 턴 실리는 한 줄 요지. 코드는 데이터(확률, 유형)만 만들고 지시 문구는 프롬프트 자산이라
     // 로컬 yml(assessment-mini-guide)에서 주입한다 — 상세 재료는 큐워드 턴의 상세 블록이 답한다.
     private String assessmentMiniLine(Assessment assessment) {
-        StringBuilder line = new StringBuilder("최신 재회 진단 요지(내부 참고): ");
+        // 라벨을 상세 블록과 같은 접두어로 — 페르소나의 정렬 규칙("최근 재회 진단 결과 데이터가
+        // 실려 있으면 맞춰라")이 문자열로 이 블록을 가리키므로, 라벨이 다르면 규칙이 안 물린다(실측:
+        // 요지 라벨을 못 알아보고 큐워드 턴에만 정렬돼 턴마다 방향이 뒤집힘).
+        StringBuilder line = new StringBuilder("최근 재회 진단 결과 데이터(요지): ");
         if (assessment.getProbability() != null) {
             line.append("확률 ").append(assessment.getProbability()).append('%');
         } else {
