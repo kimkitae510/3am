@@ -170,7 +170,10 @@ public class MessageTxService {
             line.append(", 유형 ").append(assessment.getBreakupType().label());
         }
         line.append(" — 재회 가능성의 방향을 말하게 되면 이 판정과 어긋나게 말하지 마라. ")
-                .append("확률 숫자와 유형명을 직접 입에 올리지는 마라(화면의 몫이다).");
+                .append("확률 숫자와 유형명을 직접 입에 올리지는 마라(화면의 몫이다). ")
+                // 낡은 진단에 채팅이 묶이는 것 방지 — 새 사실이 판을 바꿨으면 정렬 대신 재진단 유도.
+                .append("단 이 진단 이후의 대화에서 판을 바꾸는 새 사실(상대의 연락, 만남, 새 사람 등)이 ")
+                .append("나왔으면 옛 판정에 묶이지 말고, 상황이 달라졌으니 진단을 새로 받아보라고 권하라.");
         return line.toString();
     }
 
