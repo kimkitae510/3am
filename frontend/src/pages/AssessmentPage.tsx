@@ -722,7 +722,13 @@ export function AssessmentPage() {
                                 : styles.outcomeFail
                           }`}
                         >
-                          {c.outcome ?? '진행 중'}
+                          {c.outcome === '성공'
+                            ? '재회 성공'
+                            : c.outcome === '실패'
+                              ? '재회 실패'
+                              : c.outcome === '성공후재이별'
+                                ? '재회 후 재이별'
+                                : '진행 중'}
                         </span>
                       </div>
                       <div className={open ? styles.caseStory : styles.caseStoryClamped}>
