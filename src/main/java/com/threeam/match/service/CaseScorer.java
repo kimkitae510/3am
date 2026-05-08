@@ -91,7 +91,10 @@ public class CaseScorer {
         if (!"미상".equals(profile.getDumper()) && same(profile.getDumper(), target.getDumper())) {
             score += DUMPER;
         }
-        score += same(profile.getFault(), target.getFault()) ? FAULT : 0;
+        // 미상끼리 맞은 건 dumper와 같은 이유로 가점하지 않는다.
+        if (!"미상".equals(profile.getFault()) && same(profile.getFault(), target.getFault())) {
+            score += FAULT;
+        }
         return score;
     }
 

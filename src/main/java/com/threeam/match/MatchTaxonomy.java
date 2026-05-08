@@ -55,7 +55,9 @@ public final class MatchTaxonomy {
     }
 
     public static final List<String> DUMPERS = List.of("나", "상대", "미상");
-    public static final List<String> FAULTS = List.of("나", "상대", "양쪽", "없음");
+    // 미상: 사례 데이터가 이미 쓰는 값("모름"은 "잘못 없음"과 다르다). 미상끼리 일치는
+    // dumper처럼 가점하지 않는다 — 둘 다 모른다는 건 닮은 게 아니다(CaseScorer).
+    public static final List<String> FAULTS = List.of("나", "상대", "양쪽", "없음", "미상");
     public static final List<String> CONTACT_STATES =
             List.of("무연락", "차단", "읽씹", "상대가연락", "연락중");
 
