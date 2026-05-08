@@ -39,10 +39,24 @@ public class CaseScorer {
     public static final int MIN_SCORE = 45;
 
     public int score(StoryMatchProfile profile, ReunionCase target) {
+        // 방향 게이트: 통보 주체나 과실이 '나'와 '상대'로 명시 반대인 사례는 태그가 아무리
+        // 겹쳐도 남의 이야기다(실측: 유저가 마음이 식어 찬 사연에 "상대가 식어서 나를 찼다"
+        // 사례가 최상위로 매칭됨 — 같은 애정식음이어도 겪는 자리가 반대면 공감이 아니라 오독을
+        // 만든다). 합의, 미상, 양쪽, 없음은 반대가 아니므로 게이트에 안 걸린다.
+        if (opposed(profile.getDumper(), target.getDumper())
+                || opposed(profile.getFault(), target.getFault())) {
+            return 0;
+        }
         return subReasonScore(profile.subReasonList(), target.subReasonList())
                 + tierTwo(profile, target)
                 + tierThree(profile, target)
                 + tierFour(profile, target);
+    }
+
+    // '나'와 '상대'가 서로 맞부딪히는 경우만 반대다.
+    private boolean opposed(String mine, String theirs) {
+        return ("나".equals(mine) && "상대".equals(theirs))
+                || ("상대".equals(mine) && "나".equals(theirs));
     }
 
     // 순서 있는 두 목록의 겹침을 위치까지 보고 점수화한다. 가장 센 겹침 하나만 인정하지 않고
