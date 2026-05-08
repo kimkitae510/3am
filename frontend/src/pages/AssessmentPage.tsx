@@ -441,6 +441,18 @@ export function AssessmentPage() {
   // 사실 줄은 LLM이 쓴 유형 판정 근거(typeEvidence)를 그대로 싣고, 판독 줄만 유형별 고정
   // 문장(다른 카드와 같은 관찰문 결)으로 채운다 — 프론트가 지어낸 티가 나면 안 된다.
   const typeRaises = result.breakupType === '충동형' || result.breakupType === '상황형';
+  // 유형은 판정이 아니라 대역이지만, 카드 칩은 대역 위치를 4단으로 번역해 보여준다
+  // (신뢰붕괴형에 '불리'는 과소 표현이라는 실측 피드백 — 바닥 구간 유형은 '매우불리'로).
+  const TYPE_CHIP: Record<string, '매우유리' | '유리' | '불리' | '매우불리'> = {
+    충동형: '매우유리',
+    상황형: '유리',
+    외부요인형: '불리',
+    권태식음형: '불리',
+    소진형: '불리',
+    결심완료형: '매우불리',
+    환승형: '매우불리',
+    신뢰붕괴형: '매우불리',
+  };
   const TYPE_READING: Record<string, string> = {
     충동형: '감정이 격해진 순간의 이별이라 기본 확률 구간이 높은 축에 속함.',
     상황형: '마음보다 환경이 가른 이별이라 기본 확률 구간이 높은 축에 속함.',
@@ -454,7 +466,7 @@ export function AssessmentPage() {
   const typeItem: FactorView | null = result.breakupType
     ? {
         name: `이별 사유(${result.breakupType})`,
-        level: typeRaises ? '유리' : '불리',
+        level: TYPE_CHIP[result.breakupType] ?? (typeRaises ? '유리' : '불리'),
         evidence: result.typeEvidence ?? '',
         rationale: TYPE_READING[result.breakupType] ?? null,
         stage: null,
