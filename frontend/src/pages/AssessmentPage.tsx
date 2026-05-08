@@ -631,21 +631,6 @@ export function AssessmentPage() {
             <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
           )}
 
-          {/* 이별 유형 배지 + 유지 전망 — 확률이 "어느 판에서 나온 숫자인지"를 먼저 말해준다 */}
-          {!locked && result.breakupType && (
-            <div className={styles.typeCard}>
-              <div className={styles.typeRow}>
-                <span className={styles.typeBadge}>{result.breakupType} 이별</span>
-                {result.relapseRisk && (
-                  <span className={styles.relapseChip}>재이별 위험 {result.relapseRisk}</span>
-                )}
-              </div>
-              {result.relapseReason && (
-                <div className={styles.relapseReason}>{result.relapseReason}</div>
-              )}
-            </div>
-          )}
-
           {/* 확률 화면에도 총평을 싣는다 — 요인 조각들만으론 서사가 없어 숫자가 건조하게 남는다 */}
           {!locked && result.reason && (
             <div className={styles.reasonCard}>
@@ -739,14 +724,6 @@ export function AssessmentPage() {
                         >
                           {c.outcome ?? '진행 중'}
                         </span>
-                        {c.periodLabel && <span className={styles.caseBadge}>{c.periodLabel}</span>}
-                      </div>
-                      <div className={styles.caseTags}>
-                        {[c.reason, ...c.subReasons].filter(Boolean).map((tag, i) => (
-                          <span className={styles.caseTag} key={i}>
-                            {tag}
-                          </span>
-                        ))}
                       </div>
                       <div className={open ? styles.caseStory : styles.caseStoryClamped}>
                         {c.story}
