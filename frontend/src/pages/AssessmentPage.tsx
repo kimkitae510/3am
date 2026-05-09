@@ -703,10 +703,9 @@ export function AssessmentPage() {
               그래서 "너도 이렇게 된다"가 아니라 "비슷한 상황이 이랬다"로 읽히게 문구를 잡는다 */}
           {similar && similar.cases.length > 0 && (
             <>
-              <SectionHead title="비슷한 사례" count={similar.cases.length} />
+              <SectionHead title="비슷한 사례" />
               <div className={styles.caseNote}>
-                이별 사유와 상황이 닮은 사례예요. 실제 사례들을 참고해 글로 요약했고,
-                결과가 내 경우를 예고하진 않아요.
+                실제 사례들을 참고해 글로 요약했고, 사례들의 결과가 내 경우를 예고하진 않습니다.
               </div>
               <div className={styles.dedList}>
                 {similar.cases.map((c) => {
