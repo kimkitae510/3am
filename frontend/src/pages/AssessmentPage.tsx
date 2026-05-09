@@ -705,7 +705,8 @@ export function AssessmentPage() {
             <>
               <SectionHead title="비슷한 사례" count={similar.cases.length} />
               <div className={styles.caseNote}>
-                이별 사유와 상황이 닮은 사례예요. 결과가 내 경우를 예고하진 않아요.
+                이별 사유와 상황이 닮은 사례예요. 실제 사례들을 참고해 글로 요약했고,
+                결과가 내 경우를 예고하진 않아요.
               </div>
               <div className={styles.dedList}>
                 {similar.cases.map((c) => {
