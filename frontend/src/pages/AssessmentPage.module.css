@@ -423,17 +423,8 @@
   color: #c9a27a;
 }
 
-/* '매우' 단계는 같은 계열에서 더 진하게 — 색상은 방향, 채도는 무게 */
-.weightMinusStrong {
-  color: #e0a96d;
-}
-
 .weightPlus {
   color: #b89dd1;
-}
-
-.weightPlusStrong {
-  color: #d0bce6;
 }
 
 .guideItem + .guideItem {

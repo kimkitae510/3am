@@ -650,7 +650,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={f.name}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{f.name}</div>
-                      <span className={`${styles.weightLabel} ${f.level === '매우불리' ? styles.weightMinusStrong : styles.weightMinus}`}>{f.level}</span>
+                      <span className={`${styles.weightLabel} ${styles.weightMinus}`}>{f.level}</span>
                     </div>
                     {f.evidence && f.evidence !== NO_EVIDENCE && (
                       <div className={styles.dedEvidence}>{f.evidence}</div>
@@ -670,7 +670,7 @@ export function AssessmentPage() {
                   <div className={styles.dedItem} key={f.name}>
                     <div className={styles.dedTop}>
                       <div className={styles.dedSignal}>{f.name}</div>
-                      <span className={`${styles.weightLabel} ${f.level === '매우유리' ? styles.weightPlusStrong : styles.weightPlus}`}>{f.level}</span>
+                      <span className={`${styles.weightLabel} ${styles.weightPlus}`}>{f.level}</span>
                     </div>
                     {f.evidence && f.evidence !== NO_EVIDENCE && (
                       <div className={styles.dedEvidence}>{f.evidence}</div>
