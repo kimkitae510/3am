@@ -351,15 +351,6 @@
   flex-shrink: 0;
 }
 
-/* 신호 섹션의 개수는 그 섹션 점수와 같은 색 — 제목만 보고도 방향이 읽히게 */
-.countMinus {
-  color: #d88b9f;
-}
-
-.countPlus {
-  color: #b89dd1;
-}
-
 /* 신호/가이드 목록 — 낱개 카드 더미 대신 한 카드 안 구분선 목록(토스식 그룹 카드).
    주의: overflow hidden은 최소 높이를 0으로 만들어, 플렉스 컬럼인 .body가 이 카드를
    화면 높이에 맞춰 0으로 짜부라뜨렸다(실측: 내용이 선택은 되는데 안 보임) — shrink 금지 필수 */
@@ -429,11 +420,20 @@
 }
 
 .weightMinus {
-  color: #d88b9f;
+  color: #c9a27a;
+}
+
+/* '매우' 단계는 같은 계열에서 더 진하게 — 색상은 방향, 채도는 무게 */
+.weightMinusStrong {
+  color: #e0a96d;
 }
 
 .weightPlus {
   color: #b89dd1;
+}
+
+.weightPlusStrong {
+  color: #d0bce6;
 }
 
 .guideItem + .guideItem {
@@ -682,8 +682,8 @@
 }
 
 .outcomeMixed {
-  background: rgba(216, 139, 159, 0.15);
-  color: #d8a3b1;
+  background: rgba(201, 162, 122, 0.15);
+  color: #d4b58c;
 }
 
 .caseBadge {
