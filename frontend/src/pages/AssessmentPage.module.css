@@ -656,6 +656,9 @@
    실패였음을 아는 것보다, 알고 읽는 편이 덜 휘둘린다 */
 .caseOutcome {
   padding: 3px 9px;
+  /* 필 안쪽 여백만큼 왼쪽으로 당겨 배지 '글자'가 본문 왼끝과 정렬되게 —
+     박스 기준 정렬이면 배지 글자가 본문보다 오른쪽에 떠 보인다(실측 지적) */
+  margin-left: -9px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
@@ -674,10 +677,10 @@
 
 /* 기록 보관소 문법의 메타 줄 — 성별 / 나이 / 기간 / 경과. 미상 포함, 건조하게 */
 .caseMeta {
+  margin-top: 8px;
   color: var(--text-muted);
   font-size: 11.5px;
   letter-spacing: 0.1px;
-  min-width: 0;
 }
 
 /* 왜 이 사례가 나왔는지 — 분류명 없이 서술 라벨만 */
