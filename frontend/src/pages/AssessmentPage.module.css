@@ -674,10 +674,10 @@
 
 /* 기록 보관소 문법의 메타 줄 — 성별 / 나이 / 기간 / 경과. 미상 포함, 건조하게 */
 .caseMeta {
-  margin-top: 8px;
   color: var(--text-muted);
   font-size: 11.5px;
   letter-spacing: 0.1px;
+  min-width: 0;
 }
 
 /* 왜 이 사례가 나왔는지 — 분류명 없이 서술 라벨만 */

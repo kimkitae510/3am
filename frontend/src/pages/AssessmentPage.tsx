@@ -736,19 +736,20 @@ export function AssessmentPage() {
                                 ? '재회 후 재이별'
                                 : '진행 중'}
                         </span>
-                      </div>
-                      {/* 기록 보관소 문법의 메타 줄 — 서비스가 붙인 건조한 필드가 요약 프레임의
-                          신빙성을 받친다. 미상도 표기한다(기록엔 빈칸이 있는 게 정상) */}
-                      <div className={styles.caseMeta}>
-                        {[
-                          c.gender ?? '성별 미상',
-                          c.ageGroup ?? '나이 미상',
-                          c.datingMonths != null ? `${formatMonths(c.datingMonths)} 만남` : '기간 미상',
-                          c.periodLabel ??
-                            (c.monthsSinceBreakup != null ? `이별 ${c.monthsSinceBreakup}개월째` : null),
-                        ]
-                          .filter(Boolean)
-                          .join(' / ')}
+                        {/* 기록 보관소 문법의 메타 — 서비스가 붙인 건조한 필드가 요약 프레임의
+                            신빙성을 받친다. 미상도 표기(기록엔 빈칸이 있는 게 정상).
+                            배지와 한 줄 — 줄을 쪼개면 카드 머리가 산만해진다 */}
+                        <span className={styles.caseMeta}>
+                          {[
+                            c.gender ?? '성별 미상',
+                            c.ageGroup ?? '나이 미상',
+                            c.datingMonths != null ? `${formatMonths(c.datingMonths)} 만남` : '기간 미상',
+                            c.periodLabel ??
+                              (c.monthsSinceBreakup != null ? `이별 ${c.monthsSinceBreakup}개월째` : null),
+                          ]
+                            .filter(Boolean)
+                            .join(' / ')}
+                        </span>
                       </div>
                       {c.matchedOn && (
                         <div className={styles.caseMatched}>닮은 지점: {c.matchedOn}</div>
