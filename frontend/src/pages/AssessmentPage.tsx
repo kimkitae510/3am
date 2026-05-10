@@ -27,6 +27,14 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 // 근거 없는 요인(중립 + "근거 없음")은 판정 카드 대신 "알려주면 정확해져요" 안내로 바꾼다.
 const NO_EVIDENCE = '근거 없음';
 
+// 사례 메타 줄의 기간 표기: 8 → "8개월", 24 → "2년", 30 → "2년 6개월"
+function formatMonths(m: number): string {
+  if (m < 12) return `${m}개월`;
+  const y = Math.floor(m / 12);
+  const r = m % 12;
+  return r === 0 ? `${y}년` : `${y}년 ${r}개월`;
+}
+
 // 요인별로 유저에게 물을 문구 — 부족 정보 안내에 쓴다.
 const FACTOR_ASK: Record<string, string> = {
   상대신호: '이별 후 상대의 반응(연락, 차단, SNS)',
@@ -704,9 +712,7 @@ export function AssessmentPage() {
           {similar && similar.cases.length > 0 && (
             <>
               <SectionHead title="비슷한 사례" />
-              <div className={styles.caseNote}>
-                실제 사례들을 참고해 글로 요약했고, 사례들의 결과가 내 경우를 예고하진 않습니다.
-              </div>
+              <div className={styles.caseNote}>실제 사례들을 참고해 요약한 글입니다.</div>
               <div className={styles.dedList}>
                 {similar.cases.map((c) => {
                   const open = openCase === c.id;
@@ -731,6 +737,22 @@ export function AssessmentPage() {
                                 : '진행 중'}
                         </span>
                       </div>
+                      {/* 기록 보관소 문법의 메타 줄 — 서비스가 붙인 건조한 필드가 요약 프레임의
+                          신빙성을 받친다. 미상도 표기한다(기록엔 빈칸이 있는 게 정상) */}
+                      <div className={styles.caseMeta}>
+                        {[
+                          c.gender ?? '성별 미상',
+                          c.ageGroup ?? '나이 미상',
+                          c.datingMonths != null ? `${formatMonths(c.datingMonths)} 만남` : '기간 미상',
+                          c.periodLabel ??
+                            (c.monthsSinceBreakup != null ? `이별 ${c.monthsSinceBreakup}개월째` : null),
+                        ]
+                          .filter(Boolean)
+                          .join(' / ')}
+                      </div>
+                      {c.matchedOn && (
+                        <div className={styles.caseMatched}>닮은 지점: {c.matchedOn}</div>
+                      )}
                       <div className={open ? styles.caseStory : styles.caseStoryClamped}>
                         {c.story}
                       </div>

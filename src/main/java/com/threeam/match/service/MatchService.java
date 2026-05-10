@@ -49,12 +49,19 @@ public class MatchService {
                 .sorted(Comparator.comparingInt((Scored s) -> s.score).reversed()
                         .thenComparing(s -> s.target.getId()))
                 .limit(TOP_N)
-                .map(scored -> SimilarCaseResponse.from(scored.target))
+                .map(scored -> SimilarCaseResponse.from(scored.target,
+                        matchedOn(profile, scored.target)))
                 .toList();
 
         return SimilarCasesResponse.of(matched);
     }
 
     private record Scored(ReunionCase target, int score) {
+    }
+
+    // "왜 이 사례가 나왔는지" 한 줄 재료. 라벨 나열만 내려주고 문장은 화면이 만든다.
+    private String matchedOn(StoryMatchProfile profile, ReunionCase target) {
+        List<String> aspects = scorer.matchedAspects(profile, target);
+        return aspects.isEmpty() ? null : String.join(", ", aspects);
     }
 }

@@ -10,8 +10,11 @@ export interface SimilarCase {
   dumper: string | null;
   contactState: string | null;
   outcome: string | null; // 성공 / 실패 / 성공후재이별
-  periodLabel: string | null; // 배지 문구
+  periodLabel: string | null; // "재회 네 달째" 같은 시점 프로즈
   reunionRecord: string | null;
+  datingMonths: number | null; // 만난 기간(개월) — 카드 메타 줄
+  monthsSinceBreakup: number | null; // 이별 후 경과(개월)
+  matchedOn: string | null; // 닮은 지점 라벨 나열("이별 사유, 지금 연락 상태")
 }
 
 // emptyReason: NO_PROFILE(진단을 더 해야 열림) / NO_MATCH(닮은 사례가 아직 없음).

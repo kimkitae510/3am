@@ -15,10 +15,13 @@ public record SimilarCaseResponse(
         String dumper,
         String contactState,
         String outcome,          // 성공 / 실패 / 성공후재이별
-        String periodLabel,      // 배지: "재회 네 달째"
-        String reunionRecord) {
+        String periodLabel,      // "재회 네 달째" 같은 시점 프로즈
+        String reunionRecord,
+        Integer datingMonths,        // 만난 기간(개월) — 카드 메타 줄용, 미상이면 null
+        Integer monthsSinceBreakup,  // 이별 후 경과(개월)
+        String matchedOn) {          // 왜 이 사례가 나왔는지: "이별 사유, 지금 연락 상태" (없으면 null)
 
-    public static SimilarCaseResponse from(ReunionCase source) {
+    public static SimilarCaseResponse from(ReunionCase source, String matchedOn) {
         return new SimilarCaseResponse(
                 source.getId(),
                 source.getStory(),
@@ -30,6 +33,9 @@ public record SimilarCaseResponse(
                 source.getContactState(),
                 source.getOutcome(),
                 source.getPeriodLabel(),
-                source.getReunionRecord());
+                source.getReunionRecord(),
+                source.getDatingMonths(),
+                source.getMonthsSinceBreakup(),
+                matchedOn);
     }
 }

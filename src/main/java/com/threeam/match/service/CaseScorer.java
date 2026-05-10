@@ -142,4 +142,47 @@ public class CaseScorer {
     private boolean same(String mine, String theirs) {
         return mine != null && !mine.isBlank() && Objects.equals(mine, theirs);
     }
+
+    // 이 사례가 왜 뽑혔는지의 서술 라벨(무게 순, 최대 3개). 분류명(태그)은 노출하지 않는다 —
+    // 태그를 화면에서 걷어낸 뒤 "왜 이 사례지?"가 비어 있던 자리를 채우는 근거 문장 재료다.
+    public List<String> matchedAspects(StoryMatchProfile profile, ReunionCase target) {
+        List<String> aspects = new java.util.ArrayList<>();
+        List<String> mine = profile.subReasonList();
+        List<String> theirs = target.subReasonList();
+        boolean primaryish = false;
+        boolean secondary = false;
+        for (int i = 0; i < mine.size(); i++) {
+            int j = theirs.indexOf(mine.get(i));
+            if (j < 0) {
+                continue;
+            }
+            if (i == 0 || j == 0) {
+                primaryish = true;
+            } else {
+                secondary = true;
+            }
+        }
+        if (primaryish) {
+            aspects.add("이별의 결정적 계기");
+        }
+        if (same(profile.getReason(), target.getReason())) {
+            aspects.add("이별 사유");
+        }
+        if (!primaryish && secondary) {
+            aspects.add("이별의 배경 사정");
+        }
+        if (!"미상".equals(profile.getDumper()) && same(profile.getDumper(), target.getDumper())) {
+            aspects.add("헤어지자고 한 쪽");
+        }
+        if (same(profile.getContactState(), target.getContactState())) {
+            aspects.add("지금 연락 상태");
+        }
+        if (sameBucket(profile.getMonthsSinceBreakup(), target.getMonthsSinceBreakup(), PERIOD_BUCKETS)) {
+            aspects.add("이별 후 경과");
+        }
+        if (sameBucket(profile.getDatingMonths(), target.getDatingMonths(), DATING_BUCKETS)) {
+            aspects.add("만난 기간");
+        }
+        return aspects.size() > 3 ? aspects.subList(0, 3) : aspects;
+    }
 }
