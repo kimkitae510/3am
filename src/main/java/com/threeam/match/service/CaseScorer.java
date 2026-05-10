@@ -177,6 +177,10 @@ public class CaseScorer {
         if (same(profile.getContactState(), target.getContactState())) {
             aspects.add("지금 연락 상태");
         }
+        if (Boolean.TRUE.equals(profile.getRepeatBreakup())
+                && Boolean.TRUE.equals(target.getRepeatBreakup())) {
+            aspects.add("반복된 이별과 재회 이력");
+        }
         if (sameBucket(profile.getMonthsSinceBreakup(), target.getMonthsSinceBreakup(), PERIOD_BUCKETS)) {
             aspects.add("이별 후 경과");
         }
