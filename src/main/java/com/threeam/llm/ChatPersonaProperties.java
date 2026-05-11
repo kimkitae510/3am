@@ -21,4 +21,8 @@ public class ChatPersonaProperties {
     // 진단 미니 라인의 지시문 꼬리. 코드에는 데이터(확률, 유형)만 있고 지시 문구는
     // 프롬프트 자산이라 로컬 yml로 주입한다 — 비면 데이터 한 줄만 실린다.
     private String assessmentMiniGuide = "";
+
+    // 첫 답변 턴에만 대화 뒤에 주입되는 점검(질문 원칙 재주입). 페르소나 중간의 질문 규칙이
+    // 비결정적으로 새는 실측(같은 사연에 질문 0개/3개) 대응 — 비면 미주입.
+    private String firstAnswerCheck = "";
 }
