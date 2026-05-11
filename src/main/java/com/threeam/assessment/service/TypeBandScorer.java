@@ -26,6 +26,8 @@ public class TypeBandScorer {
     // REPEAT_CYCLE 55~80: 같은 사유로 헤어지고도 매번 돌아온 관계 — 패턴이 입증됨(충동형급).
     private static final Map<JumpRule, Band> JUMP_BANDS = new EnumMap<>(Map.of(
             JumpRule.USER_DUMPED, new Band(60, 85),
+            JumpRule.USER_DUMPED_FAINT, new Band(40, 65),
+            JumpRule.USER_DUMPED_NONE, new Band(12, 30),
             JumpRule.PARTNER_HINT, new Band(60, 85),
             JumpRule.REPEAT_CYCLE, new Band(55, 80)));
 

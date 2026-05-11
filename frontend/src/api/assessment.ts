@@ -25,6 +25,7 @@ export interface AssessmentResponse {
   probability: number | null; // 잠금 판정이면 null
   breakupType: string | null; // 이별 유형 라벨("충동형"). 과거(v1) 데이터와 잠금 판정은 null
   typeEvidence: string | null;
+  jumpRule: string | null; // 점프 라벨("유저통보미련흔적" 등). 유저 통보 판이면 유형 대신 이게 대역을 정함
   relapseRisk: string | null; // 유지 전망 라벨("높음")
   relapseReason: string | null;
   reason: string;

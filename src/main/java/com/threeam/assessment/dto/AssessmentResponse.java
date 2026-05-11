@@ -14,7 +14,8 @@ public class AssessmentResponse {
     private final ReunionVerdict verdict;
     private final Integer probability;      // 잠금 판정이면 null. 상대 제안 유효 시 100
     private final String breakupType;       // 이별 유형 라벨("충동형"). v1 데이터와 잠금 판정은 null
-    private final String typeEvidence;      // 유형 판정 근거 한 줄
+    private final String typeEvidence;      // 유형(또는 미련 단계) 판정 근거 한 줄
+    private final String jumpRule;          // 점프 라벨("유저통보미련흔적" 등). 없으면 null
     private final String relapseRisk;       // 유지 전망 라벨("높음"). 없으면 null
     private final String relapseReason;
     private final String reason;
@@ -26,13 +27,15 @@ public class AssessmentResponse {
     private final Integer retryAfterSeconds;
 
     private AssessmentResponse(ReunionVerdict verdict, Integer probability, String breakupType,
-                               String typeEvidence, String relapseRisk, String relapseReason,
+                               String typeEvidence, String jumpRule, String relapseRisk,
+                               String relapseReason,
                                String reason, List<FactorView> factors, List<WatchView> watchFor,
                                LocalDateTime createdAt, Integer retryAfterSeconds) {
         this.verdict = verdict;
         this.probability = probability;
         this.breakupType = breakupType;
         this.typeEvidence = typeEvidence;
+        this.jumpRule = jumpRule;
         this.relapseRisk = relapseRisk;
         this.relapseReason = relapseReason;
         this.reason = reason;
@@ -43,7 +46,7 @@ public class AssessmentResponse {
     }
 
     public AssessmentResponse withRetryAfterSeconds(int seconds) {
-        return new AssessmentResponse(verdict, probability, breakupType, typeEvidence,
+        return new AssessmentResponse(verdict, probability, breakupType, typeEvidence, jumpRule,
                 relapseRisk, relapseReason, reason, factors, watchFor, createdAt, seconds);
     }
 
@@ -61,6 +64,8 @@ public class AssessmentResponse {
                 assessment.getProbability(),
                 assessment.getBreakupType() != null ? assessment.getBreakupType().label() : null,
                 assessment.getTypeEvidence(),
+                assessment.getJumpRule() != null && assessment.getJumpRule() != com.threeam.assessment.entity.JumpRule.NONE
+                        ? assessment.getJumpRule().label() : null,
                 assessment.getRelapseRisk() != null ? assessment.getRelapseRisk().label() : null,
                 assessment.getRelapseReason(),
                 assessment.getReason(),

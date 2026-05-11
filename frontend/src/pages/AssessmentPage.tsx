@@ -449,6 +449,14 @@ export function AssessmentPage() {
   // 사실 줄은 LLM이 쓴 유형 판정 근거(typeEvidence)를 그대로 싣고, 판독 줄만 유형별 고정
   // 문장(다른 카드와 같은 관찰문 결)으로 채운다 — 프론트가 지어낸 티가 나면 안 된다.
   const typeRaises = result.breakupType === '충동형' || result.breakupType === '상황형';
+  // 유저가 통보한 이별은 유형 대신 상대의 미련 단계(점프)가 구간을 정한다 — 카드도 그 문법으로.
+  const JUMP_CARD: Record<string, { level: '매우유리' | '유리' | '불리' | '매우불리'; reading: string }> = {
+    유저통보상대미련: { level: '매우유리', reading: '내가 통보했지만 상대에게 미련이 뚜렷해 기본 확률 구간이 높은 축에 속함.' },
+    유저통보미련흔적: { level: '유리', reading: '내가 통보했고 상대에게 미련의 흔적이 남아 기본 확률 구간이 중간 축에 속함.' },
+    유저통보미련없음: { level: '매우불리', reading: '내가 통보했고 상대가 수용을 끝내 기본 확률 구간이 낮은 축에 속함.' },
+    상대재회의사: { level: '매우유리', reading: '상대가 재회 의사를 내비치고 있어 기본 확률 구간이 높은 축에 속함.' },
+    반복재회패턴: { level: '매우유리', reading: '헤어질 때마다 다시 만나온 관계라 기본 확률 구간이 높은 축에 속함.' },
+  };
   // 유형은 판정이 아니라 대역이지만, 카드 칩은 대역 위치를 4단으로 번역해 보여준다
   // (신뢰붕괴형에 '불리'는 과소 표현이라는 실측 피드백 — 바닥 구간 유형은 '매우불리'로).
   const TYPE_CHIP: Record<string, '매우유리' | '유리' | '불리' | '매우불리'> = {
@@ -471,21 +479,31 @@ export function AssessmentPage() {
     환승형: '마음이 이미 다른 사람에게 옮겨간 이별이라 기본 확률 구간이 낮은 축에 속함.',
     신뢰붕괴형: '상대의 신뢰가 무너진 이별이라 기본 확률 구간이 가장 낮은 축에 속함.',
   };
-  const typeItem: FactorView | null = result.breakupType
+  const jumpCard = result.jumpRule ? JUMP_CARD[result.jumpRule] : undefined;
+  const typeItem: FactorView | null = jumpCard
     ? {
-        name: `이별 사유(${result.breakupType})`,
-        level: TYPE_CHIP[result.breakupType] ?? (typeRaises ? '유리' : '불리'),
+        name: '이별 구도',
+        level: jumpCard.level,
         evidence: result.typeEvidence ?? '',
-        rationale: TYPE_READING[result.breakupType] ?? null,
+        rationale: jumpCard.reading,
         stage: null,
       }
-    : null;
+    : result.breakupType
+      ? {
+          name: `이별 사유(${result.breakupType})`,
+          level: TYPE_CHIP[result.breakupType] ?? (typeRaises ? '유리' : '불리'),
+          evidence: result.typeEvidence ?? '',
+          rationale: TYPE_READING[result.breakupType] ?? null,
+          stage: null,
+        }
+      : null;
+  const typeItemRaises = typeItem != null && (typeItem.level === '유리' || typeItem.level === '매우유리');
   const unfavorable = [
-    ...(typeItem && !typeRaises ? [typeItem] : []),
+    ...(typeItem && !typeItemRaises ? [typeItem] : []),
     ...factors.filter((f) => f.level === '불리' || f.level === '매우불리'),
   ];
   const favorable = [
-    ...(typeItem && typeRaises ? [typeItem] : []),
+    ...(typeItem && typeItemRaises ? [typeItem] : []),
     ...factors.filter((f) => f.level === '유리' || f.level === '매우유리'),
   ];
   // 판단 근거가 없던 요인 — 카드 대신 "알려주면 정확해져요"로 뒤집어 다음 대화를 유도한다.

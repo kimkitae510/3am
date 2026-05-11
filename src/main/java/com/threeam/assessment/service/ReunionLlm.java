@@ -194,7 +194,8 @@ public class ReunionLlm {
                             "enum", BreakupType.labels())),
                     Map.entry("typeEvidence", Map.of("type", "STRING", "nullable", true)),
                     Map.entry("jumpRule", Map.of("type", "STRING",
-                            "enum", List.of("없음", "유저통보상대미련", "상대재회의사", "반복재회패턴"))),
+                            "enum", List.of("없음", "유저통보상대미련", "유저통보미련흔적",
+                                    "유저통보미련없음", "상대재회의사", "반복재회패턴"))),
                     Map.entry("factors", Map.of("type", "ARRAY", "items", factorItemSchema())),
                     Map.entry("relapseRisk", relapseRiskSchema()),
                     Map.entry("watchFor", Map.of("type", "ARRAY", "items", watchItemSchema())),
@@ -218,11 +219,14 @@ public class ReunionLlm {
             boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
 
             BreakupType breakupType = BreakupType.fromLabel(root.path("breakupType").asText(null));
+            JumpRule jumpRule = JumpRule.fromLabel(root.path("jumpRule").asText(null));
             List<FactorItem> factors = parseFactors(root);
 
             // 유형 없는 POSSIBLE은 확률을 계산할 대역이 없다 — 근거 없는 확률을 유저에게 보이지 않게
-            // INSUFFICIENT로 강등한다(활성 재회 제안이면 유형과 무관하게 100이므로 예외).
-            if (verdict == ReunionVerdict.POSSIBLE && !activeReunionOffer && breakupType == null) {
+            // INSUFFICIENT로 강등한다. 예외 둘: 활성 재회 제안(100 확정), 점프 판(대역을 점프가 정함 —
+            // 특히 유저가 통보한 이별은 설계상 유형을 비우는 게 정답이다).
+            if (verdict == ReunionVerdict.POSSIBLE && !activeReunionOffer && breakupType == null
+                    && jumpRule == JumpRule.NONE) {
                 log.warn("진단 유형 누락 — 근거 없는 확률 방지 위해 INSUFFICIENT로 강등");
                 verdict = ReunionVerdict.INSUFFICIENT;
             }
@@ -245,7 +249,7 @@ public class ReunionLlm {
 
             return new ReunionDiagnosis(verdict, activeReunionOffer, breakupType,
                     clip(root.path("typeEvidence").asText(""), TEXT_MAX),
-                    JumpRule.fromLabel(root.path("jumpRule").asText(null)),
+                    jumpRule,
                     factors, relapseRisk, relapseReason, parseWatch(root), matchProfile(root),
                     root.path("reason").asText(""), newFacts);
         } catch (Exception e) {
