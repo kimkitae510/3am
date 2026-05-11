@@ -134,12 +134,12 @@ public class MessageTxService {
         if (!needsAssessment(recent)) {
             latestAssessment.ifPresent(a -> prompt.add(ChatMessage.system(assessmentMiniLine(a))));
         }
-        // 첫 답변 턴 한정 점검(질문 원칙 재주입) — 페르소나 중간의 질문 규칙이 비결정적으로
-        // 새는 실측 대응. 첫 턴만 코드로 판별해 주입하므로 이후 턴에 억지 질문을 만들지 않는다.
-        String firstAnswerCheck = personaProperties.getFirstAnswerCheck();
-        if (firstAnswerCheck != null && !firstAnswerCheck.isBlank()
-                && recent.stream().noneMatch(m -> m.getRole() == MessageRole.ASSISTANT)) {
-            prompt.add(ChatMessage.system(firstAnswerCheck));
+        // 질문 원칙 리마인더 — 페르소나 중간의 질문 규칙이 비결정적으로 새는 실측 대응.
+        // 매 턴, 대화 뒤(안 묻히는 자리)에 원칙 블록을 그대로 다시 싣는다. 첫 답변/이후 답변
+        // 규칙이 블록 안에 있어 턴 구분은 모델이 대화를 보고 한다.
+        String questionReminder = personaProperties.getQuestionReminder();
+        if (questionReminder != null && !questionReminder.isBlank()) {
+            prompt.add(ChatMessage.system(questionReminder));
         }
         // 출력 직전 점검은 반드시 대화 뒤, 프롬프트의 맨 끝이다 — 앞에 두면 리마인더와 같은
         // 자리가 되어 같은 이유로 묻힌다. 여기가 마지막으로 읽히는 지시라는 게 이 블록의 전부다.

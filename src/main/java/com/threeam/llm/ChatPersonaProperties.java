@@ -22,7 +22,8 @@ public class ChatPersonaProperties {
     // 프롬프트 자산이라 로컬 yml로 주입한다 — 비면 데이터 한 줄만 실린다.
     private String assessmentMiniGuide = "";
 
-    // 첫 답변 턴에만 대화 뒤에 주입되는 점검(질문 원칙 재주입). 페르소나 중간의 질문 규칙이
-    // 비결정적으로 새는 실측(같은 사연에 질문 0개/3개) 대응 — 비면 미주입.
-    private String firstAnswerCheck = "";
+    // 매 턴 대화 뒤에 주입되는 질문 원칙 리마인더. 페르소나 중간의 질문 규칙이 비결정적으로
+    // 새는 실측(같은 사연에 질문 0개/3개) 대응 — 블록 안에 첫 답변/이후 답변 규칙이 다 있어
+    // 턴 구분은 모델이 대화를 보고 한다. 비면 미주입.
+    private String questionReminder = "";
 }
