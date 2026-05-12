@@ -251,7 +251,8 @@ public class ReunionLlm {
                     clip(root.path("typeEvidence").asText(""), TEXT_MAX),
                     jumpRule,
                     factors, relapseRisk, relapseReason, parseWatch(root), matchProfile(root),
-                    root.path("reason").asText(""), newFacts);
+                    // 총평은 채팅과 같은 입말이라 문장 끝 마침표를 코드로 걷어낸다(지시는 새는 게 실측).
+                    com.threeam.global.text.Periods.strip(root.path("reason").asText("")), newFacts);
         } catch (Exception e) {
             // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
             boolean truncated = json != null && !json.trim().endsWith("}");

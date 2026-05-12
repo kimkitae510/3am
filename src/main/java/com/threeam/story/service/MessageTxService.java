@@ -80,7 +80,9 @@ public class MessageTxService {
     public MessageResponse appendAssistantReply(Long storyId, String reply) {
         Story story = storyRepository.findById(storyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
-        Message answer = messageRepository.save(Message.assistant(story, reply));
+        // 문장 끝 마침표는 코드가 걷어낸다 — 프롬프트 지시로는 확률적으로 새는 문체 규칙.
+        Message answer = messageRepository.save(
+                Message.assistant(story, com.threeam.global.text.Periods.strip(reply)));
         story.touch();
         return MessageResponse.from(answer);
     }
