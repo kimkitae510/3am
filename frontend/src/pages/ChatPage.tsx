@@ -24,15 +24,22 @@ const POLL_TIMEOUT = 75000;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // 장문 답변을 말풍선으로 쪼갠다 — 사람이 나눠 보내는 것처럼.
-// 경계는 '빈 줄'만이다. 문장마다 들어오는 줄바꿈(\n)까지 가르면 문장 하나가 곧 말풍선
-// 하나가 돼서 채팅이 대여섯 개씩 쏟아진다(실측) — 줄바꿈은 풍선 안에 남겨 문장을 띄우고,
-// 풍선은 빈 줄에서만 나눈다. 저장은 한 덩어리라 재입장 시에도 똑같이 쪼개진다.
+// 1차 경계는 '빈 줄'이다(모델이 묶은 의도 존중). 단 모델이 빈 줄 없이 문장 줄바꿈만으로
+// 보내는 답이 잦아 한 덩어리 풍선이 되는 실측이 있어, 빈 줄이 아예 없으면 줄 단위로
+// 폴백해 카톡처럼 나눈다. 저장은 한 덩어리라 재입장 시에도 똑같이 쪼개진다.
 function splitParagraphs(text: string): string[] {
   const parts = text
     .split(/\n{2,}/)
     .map((s) => s.trim())
     .filter(Boolean);
-  return parts.length > 0 ? parts : [text];
+  if (parts.length > 1) {
+    return parts;
+  }
+  const lines = text
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return lines.length > 0 ? lines : [text];
 }
 
 export function ChatPage() {
