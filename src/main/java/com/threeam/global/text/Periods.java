@@ -13,7 +13,7 @@ public final class Periods {
         if (text == null || text.isBlank()) {
             return text;
         }
-        String stripped = text.replaceAll("(?<![.\d])\.(?![.\d])", "");
-        return stripped.replaceAll("[ \t]+(\n|$)", "$1");
+        String stripped = text.replaceAll("(?<![.\\d])\\.(?![.\\d])", "");
+        return stripped.replaceAll("[ \\t]+(\\n|$)", "$1");
     }
 }
