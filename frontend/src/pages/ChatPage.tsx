@@ -17,10 +17,13 @@ import styles from './ChatPage.module.css';
 const MAX_LENGTH = 2000; // 서버 검증(@Size)과 동일 값 — 긴 사연이 600자에서 끊겨 흐름이 깨졌다(실측)
 const UNIT_LENGTH = 300; // 대화 1회로 치는 길이 — 초과분은 회수로 환산(서버 CHAT_UNIT_CHARS와 동일 값)
 const POLL_INTERVAL = 1500;
-// 백엔드 LLM 타임아웃(50초) 안에는 답 또는 폴백 메시지가 반드시 저장되므로,
-// 그보다 여유 있게 잡아 "..." 표시가 답이 올 때까지 끊기지 않게 한다.
-// 백엔드 llm.*.timeout-seconds를 올리면 이 값도 같이 올려야 폴백이 화면에 닿는다.
-const POLL_TIMEOUT = 75000;
+// 이 시간을 넘기면 폴링 간격을 성기게 늦춘다(포기가 아니다). 백엔드 LLM 타임아웃(50초) 안에
+// 답 또는 폴백이 저장되는 게 정상이라, 이 뒤는 지연이 아니라 이상 상황 — 그래도 끝까지 기다린다.
+const POLL_SLOWDOWN_AFTER = 75000;
+const POLL_SLOW_INTERVAL = 5000;
+// 재입장 시 마지막 유저 메시지가 이보다 어리면 아직 답을 기다리는 판으로 본다.
+// 서버가 답이든 폴백이든 저장하고도 남는 시간 — 이보다 늙었으면 과거에 끝난(실패한) 방이다.
+const RESUME_WAIT_WINDOW = 180000;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // 장문 답변을 말풍선으로 쪼갠다 — 사람이 나눠 보내는 것처럼.
@@ -103,6 +106,18 @@ export function ChatPage() {
         setHasOlder(page.hasNext);
         setTitle(stories.find((s) => s.id === storyId)?.title ?? '대화');
         refreshUsage();
+        // 답을 기다리다 나갔다 온 판 — 마지막이 내 메시지면 아직 답이 안 붙은 것이라
+        // 대기 상태(입력 잠금 + 타이핑 표시)를 복원하고 이어서 기다린다. 오래된 판은 제외:
+        // 과거에 실패로 끝난 방을 열 때마다 영영 잠긴 입력창이 되면 안 된다.
+        const last = page.messages[page.messages.length - 1];
+        if (
+          last &&
+          last.role === 'USER' &&
+          Date.now() - new Date(last.createdAt).getTime() < RESUME_WAIT_WINDOW
+        ) {
+          setWaiting(true);
+          pollForReply(last.id);
+        }
       } catch (e) {
         if (aliveRef.current) setError(extractErrorMessage(e, '대화를 불러오지 못했어요.'));
       } finally {
@@ -112,6 +127,7 @@ export function ChatPage() {
     return () => {
       aliveRef.current = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storyId]);
 
   // 새 메시지, 타이핑 표시, 조각 공개 시 맨 아래로 — 단, 유저가 맨 아래를 보고 있을 때만.
@@ -173,9 +189,12 @@ export function ChatPage() {
   }
 
   async function pollForReply(afterId: number) {
-    const deadline = Date.now() + POLL_TIMEOUT;
-    while (Date.now() < deadline) {
-      await delay(POLL_INTERVAL);
+    // 시간 제한 없이 답이 붙을 때까지 기다린다 — 제한으로 먼저 포기하면 "..."가 사라진 뒤
+    // 답이 유령처럼 나타나고, 그 사이 유저가 또 보내 대화가 꼬인다. 페이지를 떠나면 멈추고,
+    // 재입장 복원이 이어받는다.
+    const started = Date.now();
+    for (;;) {
+      await delay(Date.now() - started > POLL_SLOWDOWN_AFTER ? POLL_SLOW_INTERVAL : POLL_INTERVAL);
       if (!aliveRef.current) return;
       try {
         const fresh = await getMessagesSince(storyId, afterId);
@@ -196,10 +215,6 @@ export function ChatPage() {
       } catch {
         // 일시적 오류는 무시하고 계속 폴링
       }
-    }
-    if (aliveRef.current) {
-      setWaiting(false);
-      setError('답이 좀 늦네, 미안 잠깐 뒤에 다시 보내줄래?');
     }
   }
 
