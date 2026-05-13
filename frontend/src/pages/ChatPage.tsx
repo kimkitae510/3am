@@ -188,18 +188,29 @@ export function ChatPage() {
     }
   }
 
+  // 진행 중인 폴링 루프의 세대 번호. 새 폴링이 시작되면 이전 루프는 다음 바퀴에서 멈춘다 —
+  // StrictMode(개발)가 마운트 효과를 두 번 돌려 재입장 복원 폴링이 두 루프로 뜨고, aliveRef는
+  // 공유 ref라 두 번째 마운트가 true로 되돌려 첫 루프도 살아남았다(같은 답이 두 벌 붙는 실측).
+  const pollSeqRef = useRef(0);
+
   async function pollForReply(afterId: number) {
     // 시간 제한 없이 답이 붙을 때까지 기다린다 — 제한으로 먼저 포기하면 "..."가 사라진 뒤
     // 답이 유령처럼 나타나고, 그 사이 유저가 또 보내 대화가 꼬인다. 페이지를 떠나면 멈추고,
     // 재입장 복원이 이어받는다.
+    const seq = ++pollSeqRef.current;
     const started = Date.now();
     for (;;) {
       await delay(Date.now() - started > POLL_SLOWDOWN_AFTER ? POLL_SLOW_INTERVAL : POLL_INTERVAL);
-      if (!aliveRef.current) return;
+      if (!aliveRef.current || seq !== pollSeqRef.current) return;
       try {
         const fresh = await getMessagesSince(storyId, afterId);
         if (fresh.length > 0) {
-          setMessages((prev) => [...prev, ...fresh]);
+          // 이미 화면에 있는 id는 거른다 — 어떤 경로로든 루프가 겹쳐도 중복 풍선은 안 생기게.
+          setMessages((prev) => {
+            const known = new Set(prev.map((m) => m.id));
+            const add = fresh.filter((f) => !known.has(f.id));
+            return add.length > 0 ? [...prev, ...add] : prev;
+          });
           setWaiting(false);
           refreshUsage(); // 답이 저장된 턴만 차감되므로(후차감) 이 시점에 갱신
           const lastReply = [...fresh].reverse().find((f) => f.role !== 'USER');
