@@ -99,6 +99,25 @@ function BackBar({ onBack, onHelp }: { onBack: () => void; onHelp?: () => void }
   );
 }
 
+// 진행 중인 진단 호출을 컴포넌트 밖(모듈)에 붙잡아 둔다 — 라우팅으로 나갔다 와도 컴포넌트만
+// 죽지 요청은 살아 있으므로, 재입장 시 같은 호출에 다시 붙어 스피너가 이어지고 결과도 받는다.
+// 중복 실행(쿼터 이중 차감)도 여기서 막힌다: 돌고 있으면 새 POST를 만들지 않는다.
+// 새로고침으로 모듈까지 날아간 판은 백엔드 인플라이트 잠금이 이중 실행을 거른다.
+let inflightRun: { storyId: number; promise: Promise<AssessmentResponse> } | null = null;
+
+function startOrJoinRun(storyId: number): Promise<AssessmentResponse> {
+  if (inflightRun && inflightRun.storyId === storyId) {
+    return inflightRun.promise;
+  }
+  const run = { storyId, promise: runAssessment(storyId) };
+  inflightRun = run;
+  const clear = () => {
+    if (inflightRun === run) inflightRun = null;
+  };
+  run.promise.then(clear, clear);
+  return run.promise;
+}
+
 export function AssessmentPage() {
   const { storyId: storyIdParam } = useParams();
   const storyId = Number(storyIdParam);
@@ -200,7 +219,7 @@ export function AssessmentPage() {
     setDiagnosing(true);
     setError('');
     try {
-      const res = await runAssessment(storyId);
+      const res = await startOrJoinRun(storyId);
       if (aliveRef.current) {
         // 이야기 부족(INSUFFICIENT)은 결과가 아니라 안내다 — 기존 결과는 그대로 두고
         // 사라지지 않는 안내 배너로 띄운다(저장도 안 되는 임시 응답이라 결과 자리를 차지하면 안 된다).
@@ -264,6 +283,11 @@ export function AssessmentPage() {
     aliveRef.current = true;
     refreshUsage();
     refreshSimilar();
+    // 나갔다 온 사이에도 진단이 돌고 있으면 그 호출에 다시 붙는다 — 새 POST 없이
+    // 진행 중 표시가 복원되고, 끝나는 순간 결과가 그대로 이 화면에 실린다.
+    if (inflightRun && inflightRun.storyId === storyId) {
+      diagnose();
+    }
     // 진입 시엔 저장된 최신 진단만 보여준다. LLM 호출 없음.
     getAssessments(storyId)
       .then((all) => {
