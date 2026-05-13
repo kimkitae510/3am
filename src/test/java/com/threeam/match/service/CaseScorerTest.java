@@ -87,6 +87,39 @@ class CaseScorerTest {
     }
 
     @Test
+    @DisplayName("떠밀린 통보는 진짜 자기가 찬 사례와 매칭되지 않는다(방향 게이트)")
+    void pushedDumperIsOpposedToGenuineSelfDumper() {
+        StoryMatchProfile mine = StoryMatchProfile.builder()
+                .storyId(1L).reason("애정식음").subReasons("마음변함").dumper("나떠밀림").build();
+        ReunionCase target = reunionCase("애정식음", "마음변함");
+        ReflectionTestUtils.setField(target, "dumper", "나");
+
+        // 태그가 아무리 겹쳐도 겪는 자리가 반대면 남의 이야기다.
+        assertThat(scorer.score(mine, target)).isZero();
+    }
+
+    @Test
+    @DisplayName("떠밀린 통보는 상대 통보 사례와 같은 쪽으로 가점된다(정확 일치보다는 낮게)")
+    void pushedDumperIsKindredToPartnerDumper() {
+        StoryMatchProfile mine = StoryMatchProfile.builder()
+                .storyId(1L).reason("애정식음").dumper("나떠밀림").build();
+
+        ReunionCase partner = reunionCase("애정식음", null);
+        ReflectionTestUtils.setField(partner, "dumper", "상대");
+        ReunionCase exact = reunionCase("애정식음", null);
+        ReflectionTestUtils.setField(exact, "dumper", "나떠밀림");
+        ReunionCase silent = reunionCase("애정식음", null);
+
+        int partnerScore = scorer.score(mine, partner);
+        int exactScore = scorer.score(mine, exact);
+        int silentScore = scorer.score(mine, silent);
+
+        assertThat(partnerScore).isGreaterThan(silentScore);
+        assertThat(exactScore).isGreaterThan(partnerScore);
+        assertThat(scorer.matchedAspects(mine, partner)).contains("이별을 원한 쪽");
+    }
+
+    @Test
     @DisplayName("이별 경과는 버킷으로 본다 - 한 달 안끼리는 같게, 한 달과 넉 달은 다르게")
     void periodComparedByBucket() {
         StoryMatchProfile mine = StoryMatchProfile.builder()

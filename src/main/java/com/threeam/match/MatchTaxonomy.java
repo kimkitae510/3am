@@ -54,7 +54,10 @@ public final class MatchTaxonomy {
         SUB_REASONS = Set.copyOf(all);
     }
 
-    public static final List<String> DUMPERS = List.of("나", "상대", "미상");
+    // 나떠밀림: 말은 유저가 꺼냈지만 상대가 밀어붙여 만든 이별("시간 갖자", 식은 티 뒤에
+    // 유저가 통보만 한 판). 겉 dumper는 나인데 구도는 상대 통보라, 값을 가르지 않으면
+    // 진짜 자기 마음이 식어서 찬 사례가 최상위로 매칭되는 오독이 난다(실측).
+    public static final List<String> DUMPERS = List.of("나", "상대", "나떠밀림", "미상");
     // 미상: 사례 데이터가 이미 쓰는 값("모름"은 "잘못 없음"과 다르다). 미상끼리 일치는
     // dumper처럼 가점하지 않는다 — 둘 다 모른다는 건 닮은 게 아니다(CaseScorer).
     public static final List<String> FAULTS = List.of("나", "상대", "양쪽", "없음", "미상");

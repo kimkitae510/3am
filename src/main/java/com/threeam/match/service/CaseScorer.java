@@ -23,6 +23,8 @@ public class CaseScorer {
     // T2 핵심 — 대분류와 이별의 구도(누가 통보했나, 누구 잘못인가)
     private static final int REASON = 30;
     private static final int DUMPER = 15;
+    // 나떠밀림과 상대는 값은 달라도 이별을 만든 쪽이 같다(상대). 정확 일치보다는 낮게.
+    private static final int DUMPER_KINDRED = 10;
     private static final int FAULT = 10;
 
     // T3 상황 — 지금 어떤 상태인가
@@ -53,10 +55,30 @@ public class CaseScorer {
                 + tierFour(profile, target);
     }
 
-    // '나'와 '상대'가 서로 맞부딪히는 경우만 반대다.
+    // 이별을 만든 쪽이 명시적으로 반대인 경우만 반대다. 나떠밀림(상대가 밀어붙여 유저가
+    // 말만 꺼낸 이별)은 상대 쪽으로 센다 — 진짜 자기가 식어서 찬 '나'와는 겪는 자리가
+    // 반대다. 합의, 미상, 양쪽, 없음은 어느 쪽도 아니라 게이트에 안 걸린다.
     private boolean opposed(String mine, String theirs) {
-        return ("나".equals(mine) && "상대".equals(theirs))
-                || ("상대".equals(mine) && "나".equals(theirs));
+        String a = drivingSide(mine);
+        String b = drivingSide(theirs);
+        return a != null && b != null && !a.equals(b);
+    }
+
+    private String drivingSide(String value) {
+        if ("나".equals(value)) {
+            return "나";
+        }
+        if ("상대".equals(value) || "나떠밀림".equals(value)) {
+            return "상대";
+        }
+        return null;
+    }
+
+    // 값은 달라도 이별을 만든 쪽이 같은 조합(나떠밀림 vs 상대).
+    private boolean kindred(String mine, String theirs) {
+        return !Objects.equals(mine, theirs)
+                && drivingSide(mine) != null
+                && Objects.equals(drivingSide(mine), drivingSide(theirs));
     }
 
     // 순서 있는 두 목록의 겹침을 위치까지 보고 점수화한다. 가장 센 겹침 하나만 인정하지 않고
@@ -90,6 +112,8 @@ public class CaseScorer {
         // 미상끼리 맞은 건 "둘 다 모른다"일 뿐 닮은 게 아니다.
         if (!"미상".equals(profile.getDumper()) && same(profile.getDumper(), target.getDumper())) {
             score += DUMPER;
+        } else if (kindred(profile.getDumper(), target.getDumper())) {
+            score += DUMPER_KINDRED;
         }
         // 미상끼리 맞은 건 dumper와 같은 이유로 가점하지 않는다.
         if (!"미상".equals(profile.getFault()) && same(profile.getFault(), target.getFault())) {
@@ -173,6 +197,8 @@ public class CaseScorer {
         }
         if (!"미상".equals(profile.getDumper()) && same(profile.getDumper(), target.getDumper())) {
             aspects.add("헤어지자고 한 쪽");
+        } else if (kindred(profile.getDumper(), target.getDumper())) {
+            aspects.add("이별을 원한 쪽");
         }
         if (same(profile.getContactState(), target.getContactState())) {
             aspects.add("지금 연락 상태");
