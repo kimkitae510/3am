@@ -654,25 +654,32 @@
 
 /* 결과는 이 사례에서 가장 먼저 읽히는 정보라 맨 위에 둔다 — 본문을 다 읽고서야
    실패였음을 아는 것보다, 알고 읽는 편이 덜 휘둘린다 */
+/* 색 채운 필은 형광 스티커처럼 떠 보여서(실측 지적) 점 인디케이터 + 무채색 텍스트로.
+   결과의 구분은 점 색 하나가 조용히 맡고, 글자는 기록 보관소 톤을 유지한다 */
 .caseOutcome {
-  padding: 3px 9px;
-  /* 필 안쪽 여백만큼 왼쪽으로 당겨 배지 '글자'가 본문 왼끝과 정렬되게 —
-     박스 기준 정렬이면 배지 글자가 본문보다 오른쪽에 떠 보인다(실측 지적) */
-  margin-left: -9px;
-  border-radius: 999px;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
   font-weight: 600;
   letter-spacing: -0.2px;
+  color: var(--text-sub);
 }
 
-.outcomeSuccess {
-  background: rgba(184, 157, 209, 0.18);
-  color: #c9b3dd;
+.caseOutcome::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.outcomeFail {
-  background: rgba(255, 255, 255, 0.07);
-  color: #b3b0bd;
+.outcomeSuccess::before {
+  background: #5fb583;
+}
+
+.outcomeFail::before {
+  background: var(--text-muted);
 }
 
 /* 기록 보관소 문법의 메타 줄 — 성별 / 나이 / 기간 / 경과. 미상 포함, 건조하게 */
@@ -690,9 +697,8 @@
   font-size: 11.5px;
 }
 
-.outcomeMixed {
-  background: rgba(201, 162, 122, 0.15);
-  color: #d4b58c;
+.outcomeMixed::before {
+  background: #c39a63;
 }
 
 .caseBadge {
