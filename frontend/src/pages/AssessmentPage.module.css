@@ -638,12 +638,20 @@
   margin: -2px 2px 8px;
 }
 
-.caseItem {
-  padding: 14px 16px;
+/* 사례 목록 — 신호 목록(dedList)처럼 한 상자에 줄로 이으면 사례끼리 이어져 읽힌다(실측).
+   한 건이 한 편의 기록이라 카드 하나씩 세워 경계를 준다 */
+.caseList {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.caseItem + .caseItem {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+.caseItem {
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
 }
 
 .caseTop {
@@ -683,18 +691,21 @@
 }
 
 /* 기록 보관소 문법의 메타 줄 — 성별 / 나이 / 기간 / 경과. 미상 포함, 건조하게 */
+/* 머리 블록(배지, 메타, 닮은 지점)은 작고 흐리게 한 단 내려 본문만 본색으로 띄운다 —
+   비슷한 크기의 회색 줄이 쌓여 위계 없이 덩어리로 읽히던 것(실측 지적) 정리 */
 .caseMeta {
-  margin-top: 8px;
+  margin-top: 7px;
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: 11px;
   letter-spacing: 0.1px;
 }
 
-/* 왜 이 사례가 나왔는지 — 분류명 없이 서술 라벨만 */
+/* 왜 이 사례가 나왔는지 — 분류명 없이 서술 라벨만. 근거 줄이라 보라 기는 남기되
+   본문과 색으로 경쟁하지 않게 낮춘다 */
 .caseMatched {
-  margin-top: 3px;
-  color: #b89dd1;
-  font-size: 11.5px;
+  margin-top: 2px;
+  color: rgba(184, 157, 209, 0.72);
+  font-size: 11px;
 }
 
 .outcomeMixed::before {
@@ -722,10 +733,11 @@
 }
 
 .caseStory {
-  color: #b3b0bc;
+  color: #c6c3cf;
   font-size: 12.5px;
   line-height: 1.62;
-  margin-top: 10px;
+  /* 머리 블록과 본문 사이를 벌려 두 덩어리로 읽히게 */
+  margin-top: 12px;
   white-space: pre-wrap;
 }
 
