@@ -11,6 +11,7 @@ import {
   type FactorView,
 } from '../api/assessment';
 import { getUsage } from '../api/usage';
+import { addStoryFact } from '../api/story';
 import { getSimilarCases, type SimilarCases } from '../api/match';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
@@ -141,6 +142,10 @@ export function AssessmentPage() {
   const [similar, setSimilar] = useState<SimilarCases | null>(null);
   // 본문이 길어 기본은 접어두고, 펼친 것만 전문을 보여준다.
   const [openCase, setOpenCase] = useState<number | null>(null);
+  // 사실 직접 입력 폼 — 채팅으로 말하기 애매한 사실을 원장에 바로 보태는 통로.
+  const [factInput, setFactInput] = useState('');
+  const [factSaving, setFactSaving] = useState(false);
+  const [factNotice, setFactNotice] = useState('');
   const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
   const [retracting, setRetracting] = useState(false); // 제안 번복 API 진행 중
   // 진단 생성이 실패했을 때 뜨는 재시도 패널. 스스로 사라지는 에러 배너와 달리, 유저가 누를
@@ -164,6 +169,25 @@ export function AssessmentPage() {
     const timer = window.setTimeout(() => aliveRef.current && setCooldown(cooldown - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
+
+  async function handleAddFact() {
+    const content = factInput.trim();
+    if (!content || factSaving) return;
+    setFactSaving(true);
+    try {
+      await addStoryFact(storyId, content);
+      if (aliveRef.current) {
+        setFactInput('');
+        setFactNotice('기록했어요. 다시 진단하면 반영돼요.');
+      }
+    } catch (e) {
+      if (aliveRef.current) {
+        setError(extractErrorMessage(e, '기록하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+      }
+    } finally {
+      if (aliveRef.current) setFactSaving(false);
+    }
+  }
 
   async function handleConfirmBreakup() {
     setConfirming(true);
@@ -218,6 +242,7 @@ export function AssessmentPage() {
   async function diagnose() {
     setDiagnosing(true);
     setError('');
+    setFactNotice(''); // 직접 입력분이 이번 진단에 들어가므로 "다시 진단하면"의 볼일이 끝났다
     try {
       const res = await startOrJoinRun(storyId);
       if (aliveRef.current) {
@@ -834,7 +859,36 @@ export function AssessmentPage() {
                     {FACTOR_ASK[f.name] ?? f.name}
                   </div>
                 ))}
-                <div className={styles.missingHint}>대화에서 알려주면 다음 진단에 반영돼요</div>
+                <div className={styles.missingHint}>대화에서 말하거나 아래에 직접 적어주면 다음 진단에 반영돼요</div>
+              </div>
+            </>
+          )}
+
+          {/* 사실 직접 입력 — 채팅으로 풀어 말하기 애매한 사실(예: 어제 연락 옴)을 원장에 바로
+              보탠다. 여기 적은 것만으로 재진단 가드가 열린다(대화 횟수 차감 없음) */}
+          {!locked && (
+            <>
+              <SectionHead title="사실 직접 알려주기" />
+              <div className={styles.factForm}>
+                <textarea
+                  className={styles.factInput}
+                  value={factInput}
+                  onChange={(e) => setFactInput(e.target.value)}
+                  placeholder="진단에 반영할 사실을 한 줄로 적어 주세요 (예: 어제 상대에게서 먼저 연락이 왔다)"
+                  rows={2}
+                  maxLength={200}
+                />
+                <div className={styles.factFormRow}>
+                  <span className={styles.factCount}>{factInput.length}/200</span>
+                  <button
+                    className={styles.factSubmit}
+                    disabled={!factInput.trim() || factSaving}
+                    onClick={handleAddFact}
+                  >
+                    {factSaving ? '남기는 중' : '남기기'}
+                  </button>
+                </div>
+                {factNotice && <div className={styles.factSaved}>{factNotice}</div>}
               </div>
             </>
           )}

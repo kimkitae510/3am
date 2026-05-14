@@ -204,6 +204,66 @@
   vertical-align: 2.5px;
 }
 
+/* 사실 직접 입력 — 본문 카드 문법(반지름 16, 안여백 14/16) 유지. 대화가 주 통로라
+   폼은 조용하게, 버튼도 본색 하나로 */
+.factForm {
+  margin: 0 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.factInput {
+  width: 100%;
+  border: 0;
+  background: none;
+  resize: none;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  font-family: inherit;
+  outline: none;
+}
+
+.factInput::placeholder {
+  color: var(--text-muted);
+}
+
+.factFormRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.factCount {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.factSubmit {
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(184, 157, 209, 0.16);
+  color: #c9b3dd;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.factSubmit:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.factSaved {
+  margin-top: 8px;
+  color: var(--text-sub);
+  font-size: 11.5px;
+}
+
 /* 확률 화면 총평 — 잠금 화면의 총평 카드(datingReason)와 같은 결.
    본문 카드는 전부 반지름 16, 안여백 14/16으로 통일한다(신호 목록, 유형 카드와 한 언어) */
 .reasonCard {

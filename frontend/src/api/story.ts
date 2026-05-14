@@ -56,6 +56,11 @@ export async function sendMessage(storyId: number, content: string): Promise<Mes
   return data;
 }
 
+// 진단 화면의 "사실 직접 알려주기" — 채팅 없이 사실 원장에 한 줄 쌓고 재진단 가드를 통과시킨다.
+export async function addStoryFact(storyId: number, content: string): Promise<void> {
+  await api.post(`/api/stories/${storyId}/facts`, { content });
+}
+
 // afterId 이후 새로 생긴 메시지(주로 어시스턴트 답)를 시간순으로.
 export async function getMessagesSince(storyId: number, afterId: number): Promise<MessageResponse[]> {
   const { data } = await api.get<MessageResponse[]>(`/api/stories/${storyId}/messages/since`, {
