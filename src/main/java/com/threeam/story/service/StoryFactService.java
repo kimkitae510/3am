@@ -1,5 +1,7 @@
 package com.threeam.story.service;
 
+import com.threeam.global.exception.ErrorCode;
+import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.StoryFactRepository;
 import com.threeam.story.repository.StoryRepository;
@@ -58,6 +60,16 @@ public class StoryFactService {
             log.warn("사실 원장 관측 기준({}) 초과: storyId={}, 현재 {}건 — 병합 정책 검토 신호",
                     WATCH_THRESHOLD, storyId, total);
         }
+    }
+
+    // 유저가 진단 화면에서 직접 적어준 사실. 중복 제거 없이 그대로 남긴다 — 같은 문장을 또 적는 건
+    // 유저의 선택이고(진단 재료는 temperature 0이라 같은 재료면 같은 결과, 어뷰징 이득이 없다),
+    // 추출기를 태우지 않아 LLM 비용도 없다.
+    @Transactional
+    public void appendUserFact(Long userId, Long storyId, String fact) {
+        storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        storyFactRepository.save(StoryFact.userProvided(storyId, fact.trim()));
     }
 
     // 번복(정정) 기록은 중복 제거 없이 매번 새 줄로 남긴다 — 같은 문장이라도 각각 별개의 사건이다.

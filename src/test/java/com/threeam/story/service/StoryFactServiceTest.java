@@ -1,17 +1,24 @@
 package com.threeam.story.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.threeam.global.exception.custom.BusinessException;
+import com.threeam.story.entity.FactSource;
+import com.threeam.story.entity.Story;
 import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.StoryFactRepository;
+import com.threeam.story.repository.StoryRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +34,9 @@ class StoryFactServiceTest {
 
     @Mock
     private StoryFactRepository storyFactRepository;
+
+    @Mock
+    private StoryRepository storyRepository;
 
     @InjectMocks
     private StoryFactService storyFactService;
@@ -100,6 +110,32 @@ class StoryFactServiceTest {
         assertThat(captor.getValue().getFact()).isEqualTo("유저가 직접 확인함: 사귀는 중이 아니라 헤어진 상태다");
         assertThat(captor.getValue().getSourceAssessmentId()).isNull();
         verify(storyFactRepository, never()).findByStoryIdOrderByIdAsc(any()); // 기존 원장과 비교하지 않는다
+    }
+
+    @Test
+    @DisplayName("직접 입력 사실 - 소유 확인 후 USER 출처로 다듬어 저장한다")
+    void appendUserFact_savesWithUserSource() {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, 1L))
+                .willReturn(Optional.of(mock(Story.class)));
+
+        storyFactService.appendUserFact(1L, STORY_ID, "  상대에게 어제 먼저 연락이 옴  ");
+
+        ArgumentCaptor<StoryFact> captor = ArgumentCaptor.forClass(StoryFact.class);
+        verify(storyFactRepository).save(captor.capture());
+        assertThat(captor.getValue().getFact()).isEqualTo("상대에게 어제 먼저 연락이 옴");
+        assertThat(captor.getValue().getSource()).isEqualTo(FactSource.USER);
+        assertThat(captor.getValue().getSourceAssessmentId()).isNull();
+    }
+
+    @Test
+    @DisplayName("직접 입력 사실 - 남의 사연이면 저장 없이 거부한다")
+    void appendUserFact_rejectsUnownedStory() {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, 1L))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> storyFactService.appendUserFact(1L, STORY_ID, "사실"))
+                .isInstanceOf(BusinessException.class);
+        verify(storyFactRepository, never()).save(any(StoryFact.class));
     }
 
     @Test

@@ -10,6 +10,7 @@ import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.ChatPersonaProperties;
 import com.threeam.story.dto.MessageResponse;
+import com.threeam.story.entity.FactSource;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
@@ -108,8 +109,12 @@ public class MessageTxService {
             StringBuilder block = new StringBuilder("기록된 사실(괄호는 기록일):");
             for (int i = recentFacts.size() - 1; i >= 0; i--) {
                 StoryFact fact = recentFacts.get(i);
-                block.append("\n- (").append(FACT_DATE.format(fact.getCreatedAt())).append(") ")
-                        .append(fact.getFact());
+                block.append("\n- (").append(FACT_DATE.format(fact.getCreatedAt())).append(")");
+                // 직접 입력분은 유저의 주장임을 표시한다(진단 프롬프트와 같은 라벨).
+                if (fact.getSource() == FactSource.USER) {
+                    block.append(" [유저 직접 입력]");
+                }
+                block.append(' ').append(fact.getFact());
             }
             prompt.add(ChatMessage.system(block.toString()));
         }

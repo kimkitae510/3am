@@ -2,6 +2,8 @@ package com.threeam.story.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -12,6 +14,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 // 사연의 "사실 원장". 롤링 요약(StoryMemory)이 통째로 교체되며 사실을 잃는 것과 달리,
 // 결정적 사실(바람, 이별 통보 주체, 연락 상태 변화 등)은 여기 한 줄씩 append-only로 쌓인다.
@@ -45,17 +49,28 @@ public class StoryFact {
     @Column
     private Long sourceAssessmentId;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 20)
+    private FactSource source;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    private StoryFact(Long storyId, String fact, Long sourceAssessmentId) {
+    private StoryFact(Long storyId, String fact, Long sourceAssessmentId, FactSource source) {
         this.storyId = storyId;
         this.fact = fact;
         this.sourceAssessmentId = sourceAssessmentId;
+        this.source = source;
     }
 
     public static StoryFact of(Long storyId, String fact, Long sourceAssessmentId) {
-        return new StoryFact(storyId, fact, sourceAssessmentId);
+        return new StoryFact(storyId, fact, sourceAssessmentId, FactSource.EXTRACTED);
+    }
+
+    // 유저가 진단 화면에서 직접 적어준 사실. 재진단 가드의 "새 재료"로 인정된다.
+    public static StoryFact userProvided(Long storyId, String fact) {
+        return new StoryFact(storyId, fact, null, FactSource.USER);
     }
 }

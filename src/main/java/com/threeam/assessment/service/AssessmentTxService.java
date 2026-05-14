@@ -12,6 +12,7 @@ import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
 import com.threeam.match.service.MatchProfileService;
+import com.threeam.story.entity.FactSource;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
@@ -159,7 +160,11 @@ public class AssessmentTxService {
                 .filter(Objects::nonNull)
                 .max(LocalDateTime::compareTo)
                 .ifPresent(since -> {
-                    if (!messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, since)) {
+                    // 유저가 화면에서 직접 적어준 사실도 새 대화와 동급의 새 재료다 —
+                    // 채팅 없이 사실만 보태고 재진단하는 동선(부족 정보 직접 입력)을 허용한다.
+                    if (!messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, since)
+                            && !storyFactRepository.existsByStoryIdAndSourceAndCreatedAtAfter(
+                                    storyId, FactSource.USER, since)) {
                         throw new BusinessException(ErrorCode.ASSESSMENT_NO_NEW_MESSAGES);
                     }
                 });
@@ -277,7 +282,9 @@ public class AssessmentTxService {
         List<String> lines = new ArrayList<>();
         for (int i = recent.size() - 1; i >= 0; i--) {
             StoryFact fact = recent.get(i);
-            lines.add("(" + FACT_DATE.format(fact.getCreatedAt()) + ") " + fact.getFact());
+            // 직접 입력분은 유저의 주장임을 표시한다 — 루브릭의 "유저 말보다 상대 행동 우선"이 걸리게.
+            String marker = fact.getSource() == FactSource.USER ? " [유저 직접 입력]" : "";
+            lines.add("(" + FACT_DATE.format(fact.getCreatedAt()) + ")" + marker + " " + fact.getFact());
         }
         return lines;
     }

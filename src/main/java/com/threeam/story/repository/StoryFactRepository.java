@@ -1,6 +1,8 @@
 package com.threeam.story.repository;
 
+import com.threeam.story.entity.FactSource;
 import com.threeam.story.entity.StoryFact;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -17,5 +19,9 @@ public interface StoryFactRepository extends JpaRepository<StoryFact, Long> {
 
     // 재진단 가드용: 특정 문장(번복 확인 기록)의 가장 최근 시각.
     Optional<StoryFact> findFirstByStoryIdAndFactOrderByIdDesc(Long storyId, String fact);
+
+    // 재진단 가드용: 마지막 진단 이후 유저가 직접 적어준 사실이 있는지 — 새 대화와 동급의 새 재료.
+    boolean existsByStoryIdAndSourceAndCreatedAtAfter(Long storyId, FactSource source,
+            LocalDateTime after);
 
 }

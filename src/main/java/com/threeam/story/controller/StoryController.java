@@ -4,7 +4,9 @@ import com.threeam.story.dto.MessagePageResponse;
 import com.threeam.story.dto.MessageResponse;
 import com.threeam.story.dto.MessageSendRequest;
 import com.threeam.story.dto.StoryCreateRequest;
+import com.threeam.story.dto.StoryFactRequest;
 import com.threeam.story.dto.StoryResponse;
+import com.threeam.story.service.StoryFactService;
 import com.threeam.story.service.StoryService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class StoryController {
 
     private final StoryService storyService;
+    private final StoryFactService storyFactService;
 
     @PostMapping
     public ResponseEntity<StoryResponse> create(@AuthenticationPrincipal Long userId,
@@ -65,6 +68,16 @@ public class StoryController {
             @PathVariable Long storyId,
             @RequestParam Long after) {
         return ResponseEntity.ok(storyService.getMessagesSince(userId, storyId, after));
+    }
+
+    // 진단 화면의 "사실 직접 알려주기" — 채팅 없이 원장에 사실을 보태고 재진단 가드를 통과시킨다.
+    @PostMapping("/{storyId}/facts")
+    public ResponseEntity<Void> addFact(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long storyId,
+            @Valid @RequestBody StoryFactRequest request) {
+        storyFactService.appendUserFact(userId, storyId, request.content());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @DeleteMapping("/{storyId}")

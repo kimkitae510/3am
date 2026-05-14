@@ -49,7 +49,7 @@ public enum ErrorCode {
     // 진단
     ASSESSMENT_NO_MESSAGES(HttpStatus.BAD_REQUEST, "AS001", "진단할 대화 내용이 없습니다."),
     ASSESSMENT_NO_NEW_MESSAGES(HttpStatus.CONFLICT, "AS002",
-            "마지막 진단 이후 새로운 대화가 없어요. 이야기를 나눈 뒤 다시 진단해 주세요."),
+            "마지막 진단 이후 새로운 이야기가 없어요. 대화를 나누거나 아래에서 사실을 직접 알려준 뒤 다시 진단해 주세요."),
     // AS003(새 사실 없음 거부)은 폐지 — temperature 0으로 출렁임이 해소됐고, 추출 누락 시
     // 진단의 자가 복구를 막는 부작용이 있었다. 코드 번호는 결번으로 남긴다.
     ASSESSMENT_NOT_DATING(HttpStatus.CONFLICT, "AS004", "지금은 만나는 중으로 진단된 상태가 아니에요."),

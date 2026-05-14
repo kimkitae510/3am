@@ -16,6 +16,7 @@ import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.match.service.MatchProfileService;
+import com.threeam.story.entity.FactSource;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.Story;
 import com.threeam.story.entity.StoryFact;
@@ -191,7 +192,23 @@ class AssessmentTxServiceTest {
     }
 
     @Test
-    @DisplayName("재진단 가드 - 새 대화가 있으면 통과하고 맥락을 정상 조립한다(원장 새 사실 여부는 보지 않음)")
+    @DisplayName("재진단 가드 - 새 대화가 없어도 유저가 직접 적어준 사실이 있으면 통과한다")
+    void loadContext_passesWithUserProvidedFact() {
+        givenOwnedStory();
+        Assessment last = lastAssessment();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(last));
+        given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, last.getCreatedAt()))
+                .willReturn(false);
+        given(storyFactRepository.existsByStoryIdAndSourceAndCreatedAtAfter(
+                STORY_ID, FactSource.USER, last.getCreatedAt())).willReturn(true);
+        givenConversation();
+
+        assertThatCode(() -> txService.loadContext(1L, STORY_ID)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("재진단 가드 - 새 대화가 있으면 통과하고 맥락을 정상 조립한다(추출 사실 여부는 보지 않음)")
     void loadContext_passesWithNewMessages() {
         givenOwnedStory();
         Assessment last = lastAssessment();
