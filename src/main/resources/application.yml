@@ -46,12 +46,6 @@ spring:
     show-sql: true
     open-in-view: false
 
-  # Redis 미사용 — 의존성과 함께 주석 처리(build.gradle 참고). 재도입 시 주석 해제.
-  # data:
-  #   redis:
-  #     host: ${REDIS_HOST:localhost}
-  #     port: ${REDIS_PORT:6379}
-
   # 가입 인증 메일 발송용 SMTP (Gmail). 실제 계정/앱 비밀번호는 환경변수로 주입.
   # mail.provider=mock이면 이 설정은 사용되지 않는다.
   mail:
