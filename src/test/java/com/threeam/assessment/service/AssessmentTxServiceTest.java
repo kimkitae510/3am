@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
@@ -189,6 +190,33 @@ class AssessmentTxServiceTest {
         assertThatThrownBy(() -> txService.loadContext(1L, STORY_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ASSESSMENT_NO_NEW_MESSAGES);
+    }
+
+    @Test
+    @DisplayName("직전 진단 앵커 - 유형 없는 점프 판(유저 통보)도 요지가 실린다")
+    void loadContext_buildsDigestForJumpOnlyAssessment() {
+        givenOwnedStory();
+        // 유저 통보 판은 설계상 breakupType이 null이고 jumpRule만 있다 — 이 판이야말로
+        // 뚜렷/흔적 경계가 흔들려서 앵커가 꼭 필요하다(질문 한 줄에 +10 실측).
+        Assessment last = Assessment.builder()
+                .storyId(STORY_ID)
+                .verdict(ReunionVerdict.POSSIBLE)
+                .probability(65)
+                .jumpRule(JumpRule.USER_DUMPED_FAINT)
+                .reason("총평")
+                .build();
+        ReflectionTestUtils.setField(last, "id", 77L);
+        ReflectionTestUtils.setField(last, "createdAt", LocalDateTime.of(2025, 11, 10, 12, 0));
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(last));
+        given(messageRepository.existsByStoryIdAndCreatedAtAfter(STORY_ID, last.getCreatedAt()))
+                .willReturn(true);
+        givenConversation();
+
+        var context = txService.loadContext(1L, STORY_ID);
+
+        assertThat(context.previousDigest()).contains("점프 규칙");
+        assertThat(context.previousDigest()).contains("확률=65");
     }
 
     @Test

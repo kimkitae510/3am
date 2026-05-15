@@ -196,27 +196,37 @@ public class AssessmentTxService {
 
     // 직전 진단 요지 — 새 사실 없이 유형이 진단마다 흔들리는 것을 막는 앵커.
     // 판정값만 싣는다(근거, 총평 제외) — 지난 판단의 서사까지 주면 반향실이 된다.
-    // v1 데이터(유형 없음)나 잠금 판정이면 null.
+    // 유형이 없어도 점프 판이면 싣는다 — 유저 통보 판은 설계상 유형이 비는데, 유형 없음만으로
+    // 앵커를 버리면 제일 흔들리는 판(미련 뚜렷/흔적 경계)이 매번 백지 재판정된다
+    // (질문 한 줄 보태고 재진단했더니 +10 실측). v1 데이터(둘 다 없음)나 잠금 판정이면 null.
     private String previousDigest(Assessment last) {
-        if (last == null || last.getBreakupType() == null) {
+        if (last == null) {
             return null;
         }
-        StringBuilder digest = new StringBuilder("직전 진단 요지(참고 — 루브릭의 직전 진단 규칙 적용): 유형=")
-                .append(last.getBreakupType().label());
-        if (last.getProbability() != null) {
-            digest.append(", 확률=").append(last.getProbability());
+        boolean hasType = last.getBreakupType() != null;
+        boolean hasJump = last.getJumpRule() != null && last.getJumpRule() != JumpRule.NONE;
+        if (!hasType && !hasJump) {
+            return null;
         }
-        if (last.getJumpRule() != null && last.getJumpRule() != JumpRule.NONE) {
-            digest.append(", 점프 규칙: ").append(last.getJumpRule().label());
+        List<String> parts = new ArrayList<>();
+        if (hasType) {
+            parts.add("유형=" + last.getBreakupType().label());
+        }
+        if (last.getProbability() != null) {
+            parts.add("확률=" + last.getProbability());
+        }
+        if (hasJump) {
+            parts.add("점프 규칙: " + last.getJumpRule().label());
         }
         if (!last.getFactors().isEmpty()) {
-            digest.append(", 요인:");
+            StringBuilder factors = new StringBuilder("요인:");
             for (AssessmentFactor factor : last.getFactors()) {
-                digest.append(" ").append(factor.getName().label())
+                factors.append(" ").append(factor.getName().label())
                         .append("=").append(factor.getLevel().label());
             }
+            parts.add(factors.toString());
         }
-        return digest.toString();
+        return "직전 진단 요지(참고 — 루브릭의 직전 진단 규칙 적용): " + String.join(", ", parts);
     }
 
     // tx2: 진단 결과 저장 + 새 사실 원장 append + 매칭 프로필 갱신.
