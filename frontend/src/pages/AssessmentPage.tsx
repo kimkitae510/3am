@@ -850,45 +850,44 @@ export function AssessmentPage() {
               채팅에서 말하면 다음 진단에 반영된다. 맨 아래 배치 — 판독(요인, 사례)이 먼저,
               다음 진단을 위한 요청은 마지막이 자연스러운 독서 순서다 */
           }
-          {!locked && prob < 100 && missing.length > 0 && (
+          {/* 부족 정보 목록과 직접 입력 폼을 한 카드로 — 따로 두면 "뭘 모르는지"와 "어디에
+              적는지"가 딴 살림으로 읽힌다(실측 지적). 빈칸 목록 바로 밑이 채우는 자리다.
+              폼에 적으면 원장에 쌓이고 그것만으로 재진단 가드가 열린다(대화 횟수 차감 없음) */}
+          {!locked && (
             <>
               <SectionHead title="알려주면 더 정확해져요" />
               <div className={styles.missingCard}>
-                {missing.map((f) => (
-                  <div className={styles.missingItem} key={f.name}>
-                    {FACTOR_ASK[f.name] ?? f.name}
+                {prob < 100 && missing.length > 0 && (
+                  <>
+                    {missing.map((f) => (
+                      <div className={styles.missingItem} key={f.name}>
+                        {FACTOR_ASK[f.name] ?? f.name}
+                      </div>
+                    ))}
+                    <div className={styles.missingHint}>대화에서 말하거나 아래에 직접 적어주면 다음 진단에 반영돼요</div>
+                  </>
+                )}
+                <div className={styles.factForm}>
+                  <textarea
+                    className={styles.factInput}
+                    value={factInput}
+                    onChange={(e) => setFactInput(e.target.value)}
+                    placeholder="진단에 반영할 사실을 한 줄로 적어 주세요 (예: 어제 상대에게서 먼저 연락이 왔다)"
+                    rows={2}
+                    maxLength={200}
+                  />
+                  <div className={styles.factFormRow}>
+                    <span className={styles.factCount}>{factInput.length}/200</span>
+                    <button
+                      className={styles.factSubmit}
+                      disabled={!factInput.trim() || factSaving}
+                      onClick={handleAddFact}
+                    >
+                      {factSaving ? '남기는 중' : '남기기'}
+                    </button>
                   </div>
-                ))}
-                <div className={styles.missingHint}>대화에서 말하거나 아래에 직접 적어주면 다음 진단에 반영돼요</div>
-              </div>
-            </>
-          )}
-
-          {/* 사실 직접 입력 — 채팅으로 풀어 말하기 애매한 사실(예: 어제 연락 옴)을 원장에 바로
-              보탠다. 여기 적은 것만으로 재진단 가드가 열린다(대화 횟수 차감 없음) */}
-          {!locked && (
-            <>
-              <SectionHead title="사실 직접 알려주기" />
-              <div className={styles.factForm}>
-                <textarea
-                  className={styles.factInput}
-                  value={factInput}
-                  onChange={(e) => setFactInput(e.target.value)}
-                  placeholder="진단에 반영할 사실을 한 줄로 적어 주세요 (예: 어제 상대에게서 먼저 연락이 왔다)"
-                  rows={2}
-                  maxLength={200}
-                />
-                <div className={styles.factFormRow}>
-                  <span className={styles.factCount}>{factInput.length}/200</span>
-                  <button
-                    className={styles.factSubmit}
-                    disabled={!factInput.trim() || factSaving}
-                    onClick={handleAddFact}
-                  >
-                    {factSaving ? '남기는 중' : '남기기'}
-                  </button>
+                  {factNotice && <div className={styles.factSaved}>{factNotice}</div>}
                 </div>
-                {factNotice && <div className={styles.factSaved}>{factNotice}</div>}
               </div>
             </>
           )}

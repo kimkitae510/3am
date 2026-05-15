@@ -204,14 +204,18 @@
   vertical-align: 2.5px;
 }
 
-/* 사실 직접 입력 — 본문 카드 문법(반지름 16, 안여백 14/16) 유지. 대화가 주 통로라
-   폼은 조용하게, 버튼도 본색 하나로 */
+/* 사실 직접 입력 — 부족 정보 카드(missingCard) 안의 하단 블록. 목록이 있으면 얇은 줄로
+   구획하고, 목록이 없으면(부족 항목 0) 폼이 카드의 전부라 구획선 없이 붙는다 */
 .factForm {
-  margin: 0 4px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.factForm:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .factInput {
