@@ -96,6 +96,29 @@ class TypeBandScorerTest {
     }
 
     @Test
+    @DisplayName("상대접촉재개 — 낮은 유형 대역을 벗어나 30~50에서 계산된다")
+    void apply_partnerRecontactBand() {
+        int base = scorer.apply(BreakupType.TRUST_BROKEN, JumpRule.PARTNER_RECONTACT, List.of());
+        int favorable = scorer.apply(BreakupType.TRUST_BROKEN, JumpRule.PARTNER_RECONTACT, List.of(
+                factor(FactorName.PARTNER_SIGNAL, FactorLevel.FAVORABLE),        // +5
+                factor(FactorName.USER_CONDUCT, FactorLevel.STRONG_FAVORABLE))); // +8
+        assertThat(base).isEqualTo(40);      // (30+50)/2 — 신뢰붕괴(5~15)여도 문이 다시 열린 판
+        assertThat(favorable).isEqualTo(50); // 40 + 13 = 53 → 상한 50 클램프(내용은 아직 안부)
+    }
+
+    @Test
+    @DisplayName("유저통보미련흔적 — 상한 75까지 열린다(흔적 신호 + 먼저 온 연락이 65에 눌리지 않게)")
+    void apply_faintCeiling() {
+        int score = scorer.apply(null, JumpRule.USER_DUMPED_FAINT, List.of(
+                factor(FactorName.PARTNER_SIGNAL, FactorLevel.FAVORABLE),       // +5
+                factor(FactorName.NOTICE_TONE, FactorLevel.STRONG_FAVORABLE),   // +6
+                factor(FactorName.RELATIONSHIP_ASSET, FactorLevel.STRONG_FAVORABLE), // +4
+                factor(FactorName.USER_CONDUCT, FactorLevel.STRONG_FAVORABLE))); // +8
+        // (40+75)/2=57, +23 = 80 → 상한 75 클램프 — 뚜렷(85)과의 낙차가 10으로 줄었다
+        assertThat(score).isEqualTo(75);
+    }
+
+    @Test
     @DisplayName("절대 상한 95 — 점프 대역 + 상한 돌파가 겹쳐도 96~100(제안 확정 몫)에 닿지 않는다")
     void apply_absoluteCeiling() {
         int score = scorer.apply(BreakupType.IMPULSIVE, JumpRule.PARTNER_HINT, List.of(

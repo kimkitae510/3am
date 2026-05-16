@@ -24,10 +24,14 @@ public class TypeBandScorer {
     // 점프 대역 — 유형 대역을 통째로 교체한다.
     // USER_DUMPED, PARTNER_HINT 60~85: 상대의 마음이 열려 있음이 확인된 판.
     // REPEAT_CYCLE 55~80: 같은 사유로 헤어지고도 매번 돌아온 관계 — 패턴이 입증됨(충동형급).
+    // USER_DUMPED_FAINT 상한 75: 흔적 신호들 위에 상대가 먼저 알려오기까지 한 판이 65에
+    // 눌리던 것 완화 — 뚜렷(85)과의 낙차도 줄어 경계 오판의 비용이 작아진다.
+    // PARTNER_RECONTACT 30~50: 문은 다시 열렸지만 내용은 안부뿐 — 반반(50)을 못 넘는 게 정직하다.
     private static final Map<JumpRule, Band> JUMP_BANDS = new EnumMap<>(Map.of(
             JumpRule.USER_DUMPED, new Band(60, 85),
-            JumpRule.USER_DUMPED_FAINT, new Band(40, 65),
+            JumpRule.USER_DUMPED_FAINT, new Band(40, 75),
             JumpRule.USER_DUMPED_NONE, new Band(12, 30),
+            JumpRule.PARTNER_RECONTACT, new Band(30, 50),
             JumpRule.PARTNER_HINT, new Band(60, 85),
             JumpRule.REPEAT_CYCLE, new Band(55, 80)));
 
