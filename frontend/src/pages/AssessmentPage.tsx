@@ -780,7 +780,7 @@ export function AssessmentPage() {
           {similar && similar.cases.length > 0 && (
             <>
               <SectionHead title="비슷한 사례" />
-              <div className={styles.caseNote}>실제 사례들을 참고해 요약한 글입니다.</div>
+              <div className={styles.caseNote}>실제 사례들을 요약한 글입니다.</div>
               <div className={styles.caseList}>
                 {similar.cases.map((c) => {
                   const open = openCase === c.id;
