@@ -21,32 +21,35 @@ public class TypeBandScorer {
     private static final int ABS_MIN = 3;
     private static final int ABS_MAX = 95; // 96~100은 상대의 유효한 재회 제안(확정 100) 몫
 
+    // 대역은 앵커지 칸막이가 아니다 — 폭을 10~16으로 줄였다(구 20~35). 넓은 대역은 유형
+    // 구분을 무디게 하고 경계 오판 한 번의 낙차를 키웠다. 0~100을 꽉 채울 이유도 없다:
+    // 극단은 관통 규칙(±10)과 절대 3~95가 맡고, 대역 안 변별은 요인이 한다.
     // 점프 대역 — 유형 대역을 통째로 교체한다.
-    // USER_DUMPED, PARTNER_HINT 60~85: 상대의 마음이 열려 있음이 확인된 판.
-    // REPEAT_CYCLE 55~80: 같은 사유로 헤어지고도 매번 돌아온 관계 — 패턴이 입증됨(충동형급).
-    // USER_DUMPED_FAINT 상한 75: 흔적 신호들 위에 상대가 먼저 알려오기까지 한 판이 65에
-    // 눌리던 것 완화 — 뚜렷(85)과의 낙차도 줄어 경계 오판의 비용이 작아진다.
-    // PARTNER_RECONTACT 30~50: 문은 다시 열렸지만 내용은 안부뿐 — 반반(50)을 못 넘는 게 정직하다.
+    // USER_DUMPED, PARTNER_HINT 65~80: 상대의 마음이 열려 있음이 확인된 판.
+    // REPEAT_CYCLE 58~72: 같은 사유로 헤어지고도 매번 돌아온 관계 — 패턴이 입증됨(충동형급).
+    // USER_DUMPED_FAINT 50~70: 흔적 위에 먼저 온 정리 선언까지 겹친 판이 눌리지 않게
+    // 상단을 열어둠 — 뚜렷(80)과의 낙차 10. 매우유리 관통이면 80까지.
+    // PARTNER_RECONTACT 30~45: 문은 다시 열렸지만 내용은 안부뿐 — 반반을 못 넘는 게 정직하다.
     // PARTNER_CLOSED, PARTNER_MARRIED: 유일한 하향 점프 — 정리 요구+차단 유지는 유리한 유형
     // 대역(충동형 하한 등)을 이기고, 결혼/약혼은 정착(-12)보다 위의 종결 신호라 바닥 근처로.
     private static final Map<JumpRule, Band> JUMP_BANDS = new EnumMap<>(Map.of(
-            JumpRule.USER_DUMPED, new Band(60, 85),
-            JumpRule.USER_DUMPED_FAINT, new Band(40, 75),
-            JumpRule.USER_DUMPED_NONE, new Band(12, 30),
-            JumpRule.PARTNER_RECONTACT, new Band(30, 50),
-            JumpRule.PARTNER_HINT, new Band(60, 85),
-            JumpRule.REPEAT_CYCLE, new Band(55, 80),
+            JumpRule.USER_DUMPED, new Band(65, 80),
+            JumpRule.USER_DUMPED_FAINT, new Band(50, 70),
+            JumpRule.USER_DUMPED_NONE, new Band(12, 24),
+            JumpRule.PARTNER_RECONTACT, new Band(30, 45),
+            JumpRule.PARTNER_HINT, new Band(65, 80),
+            JumpRule.REPEAT_CYCLE, new Band(58, 72),
             JumpRule.PARTNER_CLOSED, new Band(8, 18),
             JumpRule.PARTNER_MARRIED, new Band(3, 8)));
 
     private static final Map<BreakupType, Band> BANDS = new EnumMap<>(Map.of(
-            BreakupType.IMPULSIVE, new Band(55, 80),
-            BreakupType.SITUATIONAL, new Band(50, 75),
-            BreakupType.EXTERNAL, new Band(30, 50),
-            BreakupType.FADED, new Band(20, 40),
-            BreakupType.BURNOUT, new Band(15, 35),
-            BreakupType.RESOLVED, new Band(10, 25),
-            BreakupType.TRANSFER, new Band(10, 30),
+            BreakupType.IMPULSIVE, new Band(60, 75),
+            BreakupType.SITUATIONAL, new Band(52, 68),
+            BreakupType.EXTERNAL, new Band(35, 48),
+            BreakupType.FADED, new Band(22, 35),
+            BreakupType.BURNOUT, new Band(18, 30),
+            BreakupType.RESOLVED, new Band(10, 22),
+            BreakupType.TRANSFER, new Band(12, 24),
             BreakupType.TRUST_BROKEN, new Band(5, 15)));
 
     // 요인별 조정 폭(매우X = 전체 폭, X = 절반). 선언 순서가 무게 순서와 일치한다.
