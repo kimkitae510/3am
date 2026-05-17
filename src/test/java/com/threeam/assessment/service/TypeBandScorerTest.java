@@ -119,6 +119,16 @@ class TypeBandScorerTest {
     }
 
     @Test
+    @DisplayName("하향 점프 — 문닫힘과 결혼약혼은 유리한 유형 대역을 이기고 바닥 근처로 내린다")
+    void apply_downwardJumps() {
+        // 충동형(유리한 유형)이어도 상대가 정리를 요구하고 문을 닫았으면 그 사실이 대역을 이긴다.
+        int closed = scorer.apply(BreakupType.IMPULSIVE, JumpRule.PARTNER_CLOSED, List.of());
+        int married = scorer.apply(BreakupType.IMPULSIVE, JumpRule.PARTNER_MARRIED, List.of());
+        assertThat(closed).isEqualTo(13); // (8+18)/2
+        assertThat(married).isEqualTo(5); // (3+8)/2
+    }
+
+    @Test
     @DisplayName("절대 상한 95 — 점프 대역 + 상한 돌파가 겹쳐도 96~100(제안 확정 몫)에 닿지 않는다")
     void apply_absoluteCeiling() {
         int score = scorer.apply(BreakupType.IMPULSIVE, JumpRule.PARTNER_HINT, List.of(

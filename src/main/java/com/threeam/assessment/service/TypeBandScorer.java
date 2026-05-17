@@ -27,13 +27,17 @@ public class TypeBandScorer {
     // USER_DUMPED_FAINT 상한 75: 흔적 신호들 위에 상대가 먼저 알려오기까지 한 판이 65에
     // 눌리던 것 완화 — 뚜렷(85)과의 낙차도 줄어 경계 오판의 비용이 작아진다.
     // PARTNER_RECONTACT 30~50: 문은 다시 열렸지만 내용은 안부뿐 — 반반(50)을 못 넘는 게 정직하다.
+    // PARTNER_CLOSED, PARTNER_MARRIED: 유일한 하향 점프 — 정리 요구+차단 유지는 유리한 유형
+    // 대역(충동형 하한 등)을 이기고, 결혼/약혼은 정착(-12)보다 위의 종결 신호라 바닥 근처로.
     private static final Map<JumpRule, Band> JUMP_BANDS = new EnumMap<>(Map.of(
             JumpRule.USER_DUMPED, new Band(60, 85),
             JumpRule.USER_DUMPED_FAINT, new Band(40, 75),
             JumpRule.USER_DUMPED_NONE, new Band(12, 30),
             JumpRule.PARTNER_RECONTACT, new Band(30, 50),
             JumpRule.PARTNER_HINT, new Band(60, 85),
-            JumpRule.REPEAT_CYCLE, new Band(55, 80)));
+            JumpRule.REPEAT_CYCLE, new Band(55, 80),
+            JumpRule.PARTNER_CLOSED, new Band(8, 18),
+            JumpRule.PARTNER_MARRIED, new Band(3, 8)));
 
     private static final Map<BreakupType, Band> BANDS = new EnumMap<>(Map.of(
             BreakupType.IMPULSIVE, new Band(55, 80),
