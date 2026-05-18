@@ -120,6 +120,45 @@ class CaseScorerTest {
     }
 
     @Test
+    @DisplayName("소재가 같은 사례가 이긴다 — 범용 태그(거짓말신뢰)만 겹치는 사례를 대분류 교차가 넘는다")
+    void concreteTopicOutranksGenericTagMatch() {
+        // 실측: 랜챗 은닉으로 차인 사연에 코인 은닉 파혼 사례가 최상위로 왔다.
+        // 유저는 본인과실로 잡혔고 소개팅앱 태그를 함께 실었는데, 대분류가 갈려 30점을 잃고
+        // 범용 태그 주-주 일치 50점이 코인 사례를 밀어 올렸다.
+        StoryMatchProfile mine = StoryMatchProfile.builder()
+                .storyId(1L).reason("본인과실").subReasons("거짓말신뢰,소개팅앱,감정쓰레기통")
+                .dumper("상대").fault("나").contactState("차단").build();
+
+        ReunionCase money = reunionCase("본인과실", "거짓말신뢰,돈문제");
+        ReflectionTestUtils.setField(money, "dumper", "상대");
+        ReflectionTestUtils.setField(money, "fault", "나");
+        ReflectionTestUtils.setField(money, "contactState", "연락중");
+
+        ReunionCase dating = reunionCase("외도", "소개팅앱,거짓말신뢰");
+        ReflectionTestUtils.setField(dating, "dumper", "상대");
+        ReflectionTestUtils.setField(dating, "fault", "나");
+        ReflectionTestUtils.setField(dating, "contactState", "차단");
+
+        // 대분류가 갈렸어도 소개팅앱이 외도를 가리켜 교차 점수를 받고, 범용 태그로 이긴 사례를 넘는다.
+        assertThat(scorer.score(mine, dating)).isGreaterThan(scorer.score(mine, money));
+        // 라벨은 정확 일치에만 붙인다(최대 3개라 자리도 없다) — 교차는 점수로만 반영된다.
+        assertThat(scorer.matchedAspects(mine, dating))
+                .contains("이별의 결정적 계기", "헤어지자고 한 쪽", "지금 연락 상태")
+                .doesNotContain("이별 사유");
+    }
+
+    @Test
+    @DisplayName("범용 태그의 방아쇠 일치는 구체 태그의 방아쇠 일치보다 낮다")
+    void genericPrimaryScoresLower() {
+        int generic = scorer.score(profile("본인과실", "거짓말신뢰"),
+                reunionCase("본인과실", "거짓말신뢰"));
+        int concrete = scorer.score(profile("본인과실", "도박빚"),
+                reunionCase("본인과실", "도박빚"));
+
+        assertThat(concrete).isGreaterThan(generic);
+    }
+
+    @Test
     @DisplayName("이별 경과는 버킷으로 본다 - 한 달 안끼리는 같게, 한 달과 넉 달은 다르게")
     void periodComparedByBucket() {
         StoryMatchProfile mine = StoryMatchProfile.builder()

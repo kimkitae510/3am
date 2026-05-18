@@ -1,7 +1,9 @@
 package com.threeam.match;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 // 사례와 유저 프로필이 함께 쓰는 분류 사전(분류체계.md). 이 클래스가 유일한 출처다 —
@@ -24,34 +26,67 @@ public final class MatchTaxonomy {
             "가스라이팅", "폭력", "여사친남사친", "감정쓰레기통", "전애인비교", "과거집착",
             "폰중독", "자격지심", "게임중독", "도박빚", "돈문제");
 
-    private static final List<String> OTHERS = List.of(
-            // 외도, 환승이별
-            "내가바람", "상대가바람", "감정적바람", "소개팅앱", "직장동료",
-            "상대환승", "지인친구와환승", "환승의심",
-            // 권태기, 애정식음
-            "장기연애권태", "매너리즘반복일상", "마음변함", "설렘없음", "이유없이식음",
-            // 성격차이
-            "계획즉흥", "감정처리", "데이트성향", "표현방식", "스킨십속도", "갈등회피",
-            "연락빈도차이", "개인시간", "소개안함비공개", "미신의존", "관계정의",
-            // 가치관차이
-            "결혼타이밍", "돈소비경제관", "종교", "일커리어", "자녀계획", "거주지역",
-            "가족관계", "결혼준비파혼",
-            // 장거리
-            "거리지침", "유학워홀", "발령이직", "교환학생", "시차", "만남횟수부족",
-            // 외부상황
-            "취업취준", "부모반대", "사내연애소문", "우울증건강", "군대", "시험", "사업",
-            "경제적어려움", "가족문제",
-            // 잦은싸움
-            "싸움방식", "상처주는말", "사소한반복", "감정누적",
-            // 미상
-            "이유안알려줌", "잠수이별연락두절", "자연소멸");
+    // 대상 없이 '태도'만 가리키는 태그. 대부분의 사연에 붙어서 겹쳐도 사연을 특정하지 못한다 —
+    // 거짓말신뢰는 코인 은닉과 랜챗 은닉을 같은 방아쇠로 만든다(실측: 랜챗 사연에 코인 사례가
+    // 최상위). 그래서 이 태그들의 주-주 일치는 구체 태그보다 낮게 센다(CaseScorer).
+    // 실측으로 자라는 목록이다 — 어느 사연에나 붙는 태그가 또 발견되면 추가한다.
+    public static final Set<String> GENERIC_SUB_REASONS = Set.of(
+            "거짓말신뢰", "무심소홀", "연락문제", "우선순위낮음", "표현부족");
+
+    // 대분류에 속한 태그들. 주석 그룹으로만 있던 갈래를 코드로 올린 것 — 이게 없으면
+    // 대분류가 갈린 순간 30점을 통째로 잃어서, 루브릭이 "경계 케이스는 양쪽 프레임 태그를
+    // 함께 실어라"고 시킨 보람이 사라진다(실측: 소개팅앱을 실었는데도 외도 사례가 밀렸다).
+    private static final Map<String, List<String>> TAGS_BY_REASON = new LinkedHashMap<>();
+
+    static {
+        TAGS_BY_REASON.put("외도", List.of(
+                "내가바람", "상대가바람", "감정적바람", "소개팅앱", "직장동료"));
+        TAGS_BY_REASON.put("환승이별", List.of(
+                "상대환승", "지인친구와환승", "환승의심"));
+        TAGS_BY_REASON.put("권태기", List.of(
+                "장기연애권태", "매너리즘반복일상"));
+        TAGS_BY_REASON.put("애정식음", List.of(
+                "마음변함", "설렘없음", "이유없이식음"));
+        TAGS_BY_REASON.put("성격차이", List.of(
+                "계획즉흥", "감정처리", "데이트성향", "표현방식", "스킨십속도", "갈등회피",
+                "연락빈도차이", "개인시간", "소개안함비공개", "미신의존", "관계정의"));
+        TAGS_BY_REASON.put("가치관차이", List.of(
+                "결혼타이밍", "돈소비경제관", "종교", "일커리어", "자녀계획", "거주지역",
+                "가족관계", "결혼준비파혼"));
+        TAGS_BY_REASON.put("장거리", List.of(
+                "거리지침", "유학워홀", "발령이직", "교환학생", "시차", "만남횟수부족"));
+        TAGS_BY_REASON.put("외부상황", List.of(
+                "취업취준", "부모반대", "사내연애소문", "우울증건강", "군대", "시험", "사업",
+                "경제적어려움", "가족문제"));
+        TAGS_BY_REASON.put("잦은싸움", List.of(
+                "싸움방식", "상처주는말", "사소한반복", "감정누적"));
+        TAGS_BY_REASON.put("미상", List.of(
+                "이유안알려줌", "잠수이별연락두절", "자연소멸"));
+    }
 
     public static final Set<String> SUB_REASONS;
 
+    // 태그 → 그 태그가 가리키는 대분류들. 사전이 한 곳이라 어긋날 일이 없다.
+    private static final Map<String, Set<String>> REASONS_BY_TAG;
+
     static {
         Set<String> all = new LinkedHashSet<>(FAULT_BEHAVIORS);
-        all.addAll(OTHERS);
+        Map<String, Set<String>> byTag = new LinkedHashMap<>();
+        TAGS_BY_REASON.forEach((reason, tags) -> tags.forEach(tag -> {
+            all.add(tag);
+            byTag.computeIfAbsent(tag, key -> new LinkedHashSet<>()).add(reason);
+        }));
         SUB_REASONS = Set.copyOf(all);
+        REASONS_BY_TAG = Map.copyOf(byTag);
+    }
+
+    // 이 태그가 가리키는 대분류들(없으면 빈 집합 — 행동 풀 태그는 갈래를 가리지 못한다).
+    public static Set<String> reasonsOfTag(String tag) {
+        return REASONS_BY_TAG.getOrDefault(tag, Set.of());
+    }
+
+    public static boolean isGeneric(String tag) {
+        return GENERIC_SUB_REASONS.contains(tag);
     }
 
     // 나떠밀림: 말은 유저가 꺼냈지만 상대가 밀어붙여 만든 이별("시간 갖자", 식은 티 뒤에

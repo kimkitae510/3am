@@ -1,5 +1,6 @@
 package com.threeam.match.service;
 
+import com.threeam.match.MatchTaxonomy;
 import com.threeam.match.entity.ReunionCase;
 import com.threeam.match.entity.StoryMatchProfile;
 import java.util.List;
@@ -15,6 +16,10 @@ public class CaseScorer {
     // T1 서브태그 겹침 — 순서가 뜻을 가진다. 주(0번)는 이별을 실제로 당긴 방아쇠이고
     // 부는 밑에 깔린 요인이라, 주끼리 맞는 것과 부끼리 스치는 것은 같은 사건이 아니다.
     private static final int PRIMARY_BOTH = 50;      // 방아쇠가 같음
+    // 대상 없는 범용 태그(거짓말신뢰 등)의 방아쇠 일치는 낮게 센다 — 무엇을 숨겼는지가
+    // 태그에 없어서, 코인 은닉과 랜챗 은닉이 같은 방아쇠로 잡혔다(실측). 소재를 특정하는
+    // 구체 태그가 승부를 가르게 하는 게 목적이다.
+    private static final int PRIMARY_BOTH_GENERIC = 30;
     // 절반(25)으로 두면 엇갈린 겹침 두 개가 방아쇠 일치 하나와 동점이 된다 — 겹친 태그 수가
     // 방아쇠 일치를 이기는 순간 티어를 나눈 뜻이 사라지므로, 두 번 엇갈려도 못 넘게 20으로 둔다.
     private static final int PRIMARY_CROSS = 20;     // 한쪽의 방아쇠가 다른 쪽 밑바닥에 깔림
@@ -22,6 +27,10 @@ public class CaseScorer {
 
     // T2 핵심 — 대분류와 이별의 구도(누가 통보했나, 누구 잘못인가)
     private static final int REASON = 30;
+    // 대분류는 갈렸지만 한쪽의 서브태그가 다른 쪽 대분류를 가리키는 경우(예: 유저는 본인과실인데
+    // 소개팅앱 태그를 달았고 사례는 외도). 루브릭이 경계 케이스에 양쪽 프레임 태그를 실으라고
+    // 시키므로, 점수도 그 겹침을 인정해야 지시와 어긋나지 않는다. 정확 일치의 절반.
+    private static final int REASON_CROSS = 15;
     private static final int DUMPER = 15;
     // 나떠밀림과 상대는 값은 달라도 이별을 만든 쪽이 같다(상대). 정확 일치보다는 낮게.
     private static final int DUMPER_KINDRED = 10;
@@ -74,6 +83,20 @@ public class CaseScorer {
         return null;
     }
 
+    // 한쪽의 서브태그가 다른 쪽 대분류를 가리키는가. 같은 소재를 서로 다른 프레임으로
+    // 기록한 두 판(랜챗 은닉을 본인과실로 잡았는데 사례는 외도로 기록된 경우)을 잇는다.
+    private boolean crossReason(StoryMatchProfile profile, ReunionCase target) {
+        return pointsTo(profile.subReasonList(), target.getReason())
+                || pointsTo(target.subReasonList(), profile.getReason());
+    }
+
+    private boolean pointsTo(List<String> tags, String reason) {
+        if (reason == null || reason.isBlank()) {
+            return false;
+        }
+        return tags.stream().anyMatch(tag -> MatchTaxonomy.reasonsOfTag(tag).contains(reason));
+    }
+
     // 값은 달라도 이별을 만든 쪽이 같은 조합(나떠밀림 vs 상대).
     private boolean kindred(String mine, String theirs) {
         return !Objects.equals(mine, theirs)
@@ -96,7 +119,7 @@ public class CaseScorer {
             boolean minePrimary = i == 0;
             boolean theirsPrimary = j == 0;
             if (minePrimary && theirsPrimary) {
-                score += PRIMARY_BOTH;
+                score += MatchTaxonomy.isGeneric(mine.get(i)) ? PRIMARY_BOTH_GENERIC : PRIMARY_BOTH;
             } else if (minePrimary || theirsPrimary) {
                 score += PRIMARY_CROSS;
             } else {
@@ -108,7 +131,11 @@ public class CaseScorer {
 
     private int tierTwo(StoryMatchProfile profile, ReunionCase target) {
         int score = 0;
-        score += same(profile.getReason(), target.getReason()) ? REASON : 0;
+        if (same(profile.getReason(), target.getReason())) {
+            score += REASON;
+        } else if (crossReason(profile, target)) {
+            score += REASON_CROSS;
+        }
         // 미상끼리 맞은 건 "둘 다 모른다"일 뿐 닮은 게 아니다.
         if (!"미상".equals(profile.getDumper()) && same(profile.getDumper(), target.getDumper())) {
             score += DUMPER;
