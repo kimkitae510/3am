@@ -141,12 +141,15 @@ public class MessageTxService {
         if (!needsAssessment(recent)) {
             latestAssessment.ifPresent(a -> prompt.add(ChatMessage.system(assessmentMiniLine(a))));
         }
-        // 질문 원칙 리마인더 — 페르소나 중간의 질문 규칙이 비결정적으로 새는 실측 대응.
-        // 매 턴, 대화 뒤(안 묻히는 자리)에 원칙 블록을 그대로 다시 싣는다. 첫 답변/이후 답변
-        // 규칙이 블록 안에 있어 턴 구분은 모델이 대화를 보고 한다.
-        String questionReminder = personaProperties.getQuestionReminder();
-        if (questionReminder != null && !questionReminder.isBlank()) {
-            prompt.add(ChatMessage.system(questionReminder));
+        // 질문 원칙 리마인더 — 페르소나 중간의 질문 규칙이 비결정적으로 새는 실측 대응이라
+        // 대화 뒤(안 묻히는 자리)에 싣는다. 단 첫 답변 턴에만이다: 매 턴 실었더니 "질문은 꼭
+        // 해라"는 압박이 매 턴 재점화돼, 물을 게 없는 턴에도 차단 여부나 다짐 확인 같은 질문을
+        // 짜냈다(실측). 이후 턴의 질문 규칙은 페르소나 본문이 맡는다.
+        if (isFirstAnswer(recent)) {
+            String questionReminder = personaProperties.getQuestionReminder();
+            if (questionReminder != null && !questionReminder.isBlank()) {
+                prompt.add(ChatMessage.system(questionReminder));
+            }
         }
         // 출력 직전 점검은 반드시 대화 뒤, 프롬프트의 맨 끝이다 — 앞에 두면 리마인더와 같은
         // 자리가 되어 같은 이유로 묻힌다. 여기가 마지막으로 읽히는 지시라는 게 이 블록의 전부다.
@@ -157,6 +160,13 @@ public class MessageTxService {
         return prompt;
     }
 
+
+    // 이 턴이 이 사연의 첫 답변인지. 어시스턴트 메시지가 아직 없으면 첫 답변이다.
+    // (recent는 방금 저장한 유저 메시지를 포함한 최신 N개다. 창 밖으로 밀려날 만큼 대화가
+    // 길면 당연히 첫 답변이 아니므로 창 안만 봐도 충분하다.)
+    private boolean isFirstAnswer(List<Message> recent) {
+        return recent.stream().noneMatch(message -> message.getRole() != MessageRole.USER);
+    }
 
     // 진단 데이터를 실어야 하는 턴인지. 유저가 진단을 화제로 꺼냈을 때만 필요하다.
     // 넉넉하게 잡는다 — 안 실어서 "왜 이 확률이야?"에 답을 못 하는 쪽이, 몇 번 더 싣는 것보다 나쁘다.

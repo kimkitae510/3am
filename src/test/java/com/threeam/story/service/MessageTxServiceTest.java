@@ -53,10 +53,12 @@ class MessageTxServiceTest {
     private ChatPersonaProperties personaProperties = personaProperties();
 
     private static final String FINAL_CHECK = "출력 직전 점검 자리표시자";
+    private static final String QUESTION_REMINDER = "질문 원칙 자리표시자";
 
     private static ChatPersonaProperties personaProperties() {
         ChatPersonaProperties properties = new ChatPersonaProperties();
         properties.setFinalCheck(FINAL_CHECK);
+        properties.setQuestionReminder(QUESTION_REMINDER);
         properties.setAssessmentMiniGuide("이 판정과 어긋나게 말하지 마라");
         return properties;
     }
@@ -110,6 +112,37 @@ class MessageTxServiceTest {
     }
 
     @Test
+    @DisplayName("프롬프트 조립 - 질문 원칙 리마인더는 첫 답변 턴에만 싣는다")
+    void buildPrompt_questionReminderOnlyOnFirstAnswer() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        // 유저 메시지만 있는 대화 = 첫 답변 턴
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "사연이야")),
+                        PageRequest.of(0, 20), false));
+
+        List<ChatMessage> first = messageTxService
+                .appendUserMessageAndBuildPrompt(1L, 10L, "사연이야").prompt();
+
+        assertThat(first).extracting(ChatMessage::content).contains(QUESTION_REMINDER);
+
+        // 어시스턴트 답이 이미 있는 대화 = 이후 턴. 매 턴 실으면 "질문은 꼭 해라" 압박이
+        // 재점화돼 물을 게 없는 턴에도 질문을 짜낸다(실측) — 이후 턴 규칙은 본문이 맡는다.
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(
+                        message(MessageRole.USER, "그리고 이것도 있어"),
+                        message(MessageRole.ASSISTANT, "지난 답변"),
+                        message(MessageRole.USER, "사연이야")), PageRequest.of(0, 20), false));
+
+        List<ChatMessage> later = messageTxService
+                .appendUserMessageAndBuildPrompt(1L, 10L, "그리고 이것도 있어").prompt();
+
+        assertThat(later).extracting(ChatMessage::content).doesNotContain(QUESTION_REMINDER);
+        assertThat(later).extracting(ChatMessage::content).contains(FINAL_CHECK); // 점검은 매 턴 유지
+    }
+
+    @Test
     @DisplayName("프롬프트 조립 - 출력 직전 점검은 대화보다 뒤, 프롬프트의 맨 끝에 붙는다")
     void buildPrompt_finalCheckGoesLast() {
         Story story = story(10L);
@@ -140,9 +173,9 @@ class MessageTxServiceTest {
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 힘들어").prompt();
 
         assertThat(prompt.get(0).role()).isEqualTo(LlmRole.SYSTEM); // 맨 앞은 페르소나
-        // 페르소나 + 유저 + 출력 직전 점검(맨 끝). 리마인더 블록은 페르소나로 흡수돼 사라졌다.
+        // 페르소나 + 유저 + 질문 원칙(첫 답변 턴) + 출력 직전 점검(맨 끝).
         assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
+                .containsExactly(LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM, LlmRole.SYSTEM);
         verify(messageRepository).save(any(Message.class)); // 유저 메시지 저장됨
     }
 
@@ -195,9 +228,10 @@ class MessageTxServiceTest {
 
         List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "왜 이 진단이야?").prompt();
 
-        // 시스템(페르소나) + 시스템(진단 데이터) + 유저 + 시스템(출력 직전 점검)
+        // 시스템(페르소나) + 시스템(진단 데이터) + 유저 + 시스템(질문 원칙, 첫 답변 턴) + 시스템(출력 직전 점검)
         assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM);
+                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER,
+                        LlmRole.SYSTEM, LlmRole.SYSTEM);
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
                 .anyMatch(c -> c.contains("20%") && c.contains("소진형")
