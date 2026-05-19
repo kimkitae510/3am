@@ -57,6 +57,12 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     abstract String thinkingLevel();
 
+    // 채팅 temperature. 명시하지 않으면 API 기본값(1.0)으로 도는데, 그 온도에서는 금지 규칙
+    // 이탈이 매 토큰마다 조금씩 붙어 답변이 길수록 누적된다(실측: 규칙이 있는데도 노컨택
+    // 템플릿과 판정 반복이 재발). 진단은 0(같은 사실에 같은 점수)이고, 채팅은 말투가 굳지
+    // 않을 만큼만 낮춘다. 0으로 내리면 관용구 재사용이 늘어 매 대화가 같은 문장으로 시작한다.
+    abstract double temperature();
+
     // 진단(deep) 전용 thinking 세기 — 채팅(low)과 분리. 2.5 계열은 예산 숫자(-1=동적), 3.x는 단계.
     abstract int assessmentThinkingBudget();
 
@@ -180,12 +186,15 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                 generationConfig.put("thinkingConfig",
                         Map.of("thinkingLevel", assessmentThinkingLevel()));
             }
-        } else if (endpoint().contains("gemini-2.5")) {
-            // 답을 짓는 것과 그 초안을 출력 직전 점검으로 되짚는 것을 한 예산 안에서 해야 한다 —
-            // 점검이 실제로 돌 여지가 없으면 규칙을 맨 끝으로 옮긴 의미가 없다(실측: 512에선 그냥 통과했다).
-            generationConfig.put("thinkingConfig", Map.of("thinkingBudget", thinkingBudget()));
         } else {
-            generationConfig.put("thinkingConfig", Map.of("thinkingLevel", thinkingLevel()));
+            generationConfig.put("temperature", temperature());
+            if (endpoint().contains("gemini-2.5")) {
+                // 답을 짓는 것과 그 초안을 출력 직전 점검으로 되짚는 것을 한 예산 안에서 해야 한다 —
+                // 점검이 실제로 돌 여지가 없으면 규칙을 맨 끝으로 옮긴 의미가 없다(실측: 512에선 그냥 통과했다).
+                generationConfig.put("thinkingConfig", Map.of("thinkingBudget", thinkingBudget()));
+            } else {
+                generationConfig.put("thinkingConfig", Map.of("thinkingLevel", thinkingLevel()));
+            }
         }
         body.put("generationConfig", generationConfig);
 

@@ -61,6 +61,11 @@ public class GeminiLlmClient extends GoogleGenerateContentClient {
     }
 
     @Override
+    double temperature() {
+        return properties.getTemperature();
+    }
+
+    @Override
     int assessmentThinkingBudget() {
         return properties.getAssessmentThinkingBudget();
     }

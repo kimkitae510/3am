@@ -42,6 +42,11 @@ class GoogleGenerateContentClientTest {
                 }
 
                 @Override
+                double temperature() {
+                    return 0.7;
+                }
+
+                @Override
                 int assessmentThinkingBudget() {
                     return -1;
                 }

@@ -34,6 +34,10 @@ public class GeminiProperties {
     private int thinkingBudget = 2048;
     private String thinkingLevel = "low";
 
+    // 채팅 temperature. 명시하지 않으면 API 기본(1.0)이라 금지 규칙 이탈이 답변 길이에 비례해
+    // 누적됐다(실측). 진단은 0으로 못 박혀 있고, 채팅은 말투가 굳지 않을 만큼만 낮춘다.
+    private double temperature = 0.7;
+
     // 진단(deep) 전용 thinking. 진단은 유형 게이트 → 요인 5슬롯 → 교차 점검의 다단 절차라
     // 채팅보다 추론량이 크다. 2.5 계열은 -1이 동적(모델 재량), 3.x는 high 고정.
     private int assessmentThinkingBudget = -1;

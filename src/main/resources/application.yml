@@ -91,7 +91,10 @@ llm:
     # 그리고 같은 low라도 모델마다 실제 추론량이 다르다(실측: 3.5-flash는 thoughts 0,
     # 3.1-pro-preview는 low에서도 1,600대). 추론은 출력 단가로 과금되니 여기가 곧 비용이다.
     thinking-budget: ${LLM_THINKING_BUDGET:2048}
-    thinking-level: ${LLM_THINKING_LEVEL:low}
+    thinking-level: ${LLM_THINKING_LEVEL:medium}
+    # 채팅 temperature. 미설정이면 API 기본 1.0으로 돌아 금지 규칙 이탈이 답변 길이에 비례해
+    # 누적된다(실측). 진단은 코드에서 0으로 고정. 0에 가깝게 내리면 관용구가 반복돼 말투가 굳는다.
+    temperature: ${LLM_TEMPERATURE:0.7}
     # 진단(deep) 전용 thinking. 채팅과 세기를 분리한다 — 진단은 다단 절차(유형, 요인, 점검)라
     # 추론이 더 필요하고, 하루 1회 쿼터라 비용 여파는 채팅보다 작다.
     # budget은 2.5 계열용(-1=동적, 모델 재량), level은 3.x용(low|medium|high).
@@ -115,6 +118,9 @@ llm:
     assessment-timeout-seconds: 90
     thinking-budget: ${LLM_THINKING_BUDGET:2048}
     thinking-level: ${LLM_THINKING_LEVEL:low}
+    # 채팅 temperature. 미설정이면 API 기본 1.0으로 돌아 금지 규칙 이탈이 답변 길이에 비례해
+    # 누적된다(실측). 진단은 코드에서 0으로 고정. 0에 가깝게 내리면 관용구가 반복돼 말투가 굳는다.
+    temperature: ${LLM_TEMPERATURE:0.7}
     # 진단(deep) 전용 thinking. 채팅과 세기를 분리한다 — 진단은 다단 절차(유형, 요인, 점검)라
     # 추론이 더 필요하고, 하루 1회 쿼터라 비용 여파는 채팅보다 작다.
     # budget은 2.5 계열용(-1=동적, 모델 재량), level은 3.x용(low|medium|high).
