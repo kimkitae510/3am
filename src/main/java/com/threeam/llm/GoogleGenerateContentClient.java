@@ -197,6 +197,10 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             }
         }
         body.put("generationConfig", generationConfig);
+        // 무엇이 실제로 실려 나가는지 남긴다 — thinking 제어 필드는 문법이 안 맞으면 조용히
+        // 무시돼서, 설정을 올렸는데 추론량이 안 변하는 일이 반복됐다(실측). 프롬프트와 키는
+        // 안 찍고 generationConfig만 찍는다(개인정보 없음, 몇 십 바이트).
+        log.info("{} {} 생성 설정: {}", providerName(), deep ? "진단" : "채팅", generationConfig);
 
         try {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
