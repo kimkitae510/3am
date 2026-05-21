@@ -2,29 +2,20 @@ package com.threeam.usage;
 
 import lombok.Getter;
 
-// "오늘 몇 회 남았는지" 화면 표시용. 한도도 함께 내려 "2/3" 형태로 그릴 수 있게 한다.
-// 이용권 잔여는 일일 한도와 별개 축이라 따로 내린다(무료 소진 후에 차감되는 이월 자산).
+// "몇 회 남았는지" 화면 표시용. 일일 무료를 폐지하면서 잔여가 이용권 하나로 합쳐졌다 —
+// 예전에는 무료 잔여와 이용권 잔여를 따로 내려 화면이 "오늘 3회 + 이용권 5회"처럼
+// 두 숫자를 붙여 보여줬는데, 유저가 계산해야 했고 어느 쪽이 먼저 닳는지도 설명해야 했다.
 @Getter
 public class UsageStatusResponse {
 
     private final int chatRemaining;
-    private final int chatDailyLimit;
-    private final int chatPaidRemaining;
     private final int assessmentRemaining;
-    private final int assessmentDailyLimit;
-    private final int assessmentPaidRemaining;
-    // 게스트면 화면이 잔여 대신 '계정 연결' 동선을 보여주도록 표시(진단/결제는 게스트 차단).
+    // 게스트면 화면이 충전 대신 '계정 연결' 동선을 보여준다(진단, 결제는 게스트 차단).
     private final boolean guest;
 
-    public UsageStatusResponse(int chatRemaining, int chatDailyLimit, int chatPaidRemaining,
-                               int assessmentRemaining, int assessmentDailyLimit,
-                               int assessmentPaidRemaining, boolean guest) {
+    public UsageStatusResponse(int chatRemaining, int assessmentRemaining, boolean guest) {
         this.chatRemaining = chatRemaining;
-        this.chatDailyLimit = chatDailyLimit;
-        this.chatPaidRemaining = chatPaidRemaining;
         this.assessmentRemaining = assessmentRemaining;
-        this.assessmentDailyLimit = assessmentDailyLimit;
-        this.assessmentPaidRemaining = assessmentPaidRemaining;
         this.guest = guest;
     }
 }

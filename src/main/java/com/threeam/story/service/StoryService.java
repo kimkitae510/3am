@@ -97,7 +97,7 @@ public class StoryService {
             // 후차감: 여기서는 한도 검사만 하고, 기록은 답변 저장이 성공한 뒤에 한다.
             // 유저가 폴링을 끊어도(중지) 서버는 끝까지 저장하므로 "기록 시점"은 반드시 도달한다.
             int units = chatUnits(request.getContent());
-            usageLimiter.checkDaily(UsageKind.CHAT, userId, units);
+            usageLimiter.check(UsageKind.CHAT, userId, units);
 
             MessageTxService.PreparedSend prepared =
                     messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
@@ -130,10 +130,11 @@ public class StoryService {
         }
     }
 
-    // 대화 1회로 치는 길이. 초과분은 회수로 환산해 긴 메시지가 무료/이용권을 비례해 쓴다(예: 400자=3회).
-    // 대화 1회로 치는 길이. 150자는 사연을 쓰다 끊겨 흐름이 깨졌다(실측) — 300자로 올린다.
+    // 대화 1회로 치는 길이. 초과분은 회수로 환산해 긴 메시지가 이용권을 비례해 쓴다(예: 1,200자=3회).
+    // 150자는 사연을 쓰다 끊겨 흐름이 깨졌고, 300자도 실제 사연이 대개 800~1,500자라
+    // 첫 메시지 하나에 3~5회가 날아갔다 — 500자로 올린다.
     // 참고: 실제 원가는 길이가 아니라 호출 수가 정한다(호출당 입력 1.1만 토큰, 유저 메시지는 3~10%).
-    private static final int CHAT_UNIT_CHARS = 300;
+    private static final int CHAT_UNIT_CHARS = 500;
 
     private static int chatUnits(String content) {
         return Math.max(1, (content.length() + CHAT_UNIT_CHARS - 1) / CHAT_UNIT_CHARS);
@@ -165,7 +166,7 @@ public class StoryService {
     // 쿼터 기록 실패가 이미 저장된 답변을 실패 처리(폴백 중복 저장)로 오염시키지 않게 격리한다.
     private void recordUsageQuietly(Long userId, int units) {
         try {
-            usageLimiter.recordDaily(UsageKind.CHAT, userId, units);
+            usageLimiter.record(UsageKind.CHAT, userId, units);
         } catch (RuntimeException e) {
             log.error("대화 쿼터 기록 실패 userId={} units={}", userId, units, e);
         }

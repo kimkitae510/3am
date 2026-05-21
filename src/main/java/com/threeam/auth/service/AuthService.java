@@ -63,8 +63,10 @@ public class AuthService {
     }
 
     // 로그인 없이 시작하는 게스트 — 계정을 그 자리에서 만들어 토큰을 준다(사연이 서버에 쌓여야
-    // 나중에 계정 연결로 이어갈 수 있다). 동의와 가입 선물은 없고(연결 시점에 처리), 계정 생성이므로
-    // 가입과 같은 IP 상한을 공유한다(게스트 재발급으로 무료 대화를 무한 리셋하는 어뷰징 완화).
+    // 나중에 계정 연결로 이어갈 수 있다). 동의와 가입 선물은 연결 시점에 처리하고, 여기서는
+    // 체험분(대화 몇 회)만 이용권으로 준다. 진단은 주지 않는다 — 계정 연결 유도 지점이다.
+    // 계정 생성이므로 가입과 같은 IP 상한을 공유한다(게스트 재발급으로 체험분을 무한히 새로
+    // 받는 어뷰징 완화).
     @Transactional
     public TokenResponse guestStart(String clientIp) {
         signupRateLimiter.check(clientIp);
@@ -73,6 +75,7 @@ public class AuthService {
                 .provider(AuthProvider.GUEST)
                 .providerId(UUID.randomUUID().toString())
                 .build());
+        welcomeGiftService.grantGuestTrial(saved.getId());
         return issueTokens(saved);
     }
 
@@ -138,7 +141,7 @@ public class AuthService {
                 .build());
         consentService.recordSignupConsents(saved.getId());
         // 이메일 가입과 동일한 가입 선물 — 첫 로그인이 곧 가입인 소셜 경로도 빠뜨리지 않는다.
-        welcomeGiftService.grant(saved.getId());
+        welcomeGiftService.grantSignupGift(saved.getId());
         return saved;
     }
 
@@ -149,7 +152,7 @@ public class AuthService {
         assertSocialEmailAvailable(profile);
         guest.linkSocial(profile.provider(), profile.providerId(), profile.email());
         consentService.recordSignupConsents(guest.getId());
-        welcomeGiftService.grant(guest.getId());
+        welcomeGiftService.grantSignupGift(guest.getId());
         return guest;
     }
 

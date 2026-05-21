@@ -3,10 +3,10 @@ package com.threeam.usage;
 // LLM 호출 어뷰징 방지. 두 겹으로 막는다:
 // 1) 생성 락 — 유저+종류당 동시에 1건만 생성. 연타, 중복요청, 여러 사연 동시 발사를 접수 단계에서 거부한다.
 //    DB 분산 락(GenerationLock)이라 재시작, 멀티인스턴스에서도 유효하다. 유저 단위라
-//    "검사 통과 → 기록" 사이에 다른 요청이 끼어들 수 없어 후차감 한도 초과(TOCTOU)도 함께 막힌다.
-// 2) 일일 쿼터 — 유저, 종류별 하루 호출 횟수 제한. 후차감: 접수 시점엔 검사만 하고,
-//    LLM이 정상 답을 만들어 저장까지 성공했을 때만 1회 기록한다.
-//    LLM 장애(폴백)에 유저 쿼터가 깎이지 않게 하기 위한 결정 — 실패는 유저 잘못이 아니다.
+//    "검사 통과 → 기록" 사이에 다른 요청이 끼어들 수 없어 후차감 초과(TOCTOU)도 함께 막힌다.
+// 2) 이용권 잔여 — 유저, 종류별 남은 회수. 후차감: 접수 시점엔 검사만 하고,
+//    LLM이 정상 답을 만들어 저장까지 성공했을 때만 차감한다.
+//    LLM 장애(폴백)에 유저 회수가 깎이지 않게 하기 위한 결정 — 실패는 유저 잘못이 아니다.
 public interface UsageLimiter {
 
     // 잠금 획득 실패(이미 생성 중) 시 GENERATION_IN_PROGRESS(429)를 던진다. 유저+종류 단위.
@@ -14,20 +14,13 @@ public interface UsageLimiter {
 
     void releaseInFlight(UsageKind kind, Long userId);
 
-    // 접수 관문: 무료 잔여 + 이용권 잔여가 units에 못 미치면 QUOTA_EXCEEDED(429)를 던진다. 차감하지 않는다.
-    // units는 이 요청이 소모할 회수 — 긴 메시지는 길이에 비례해 여러 회로 계산된다(호출부가 환산).
-    void checkDaily(UsageKind kind, Long userId, int units);
+    // 접수 관문: 이용권 잔여가 units에 못 미치면 던진다(회원 QUOTA_EXCEEDED, 게스트 GUEST_LINK_REQUIRED).
+    // 차감하지 않는다. units는 이 요청이 소모할 회수 — 긴 메시지는 길이에 비례해 여러 회다(호출부가 환산).
+    void check(UsageKind kind, Long userId, int units);
 
-    // 성공 시 호출: 오늘 사용량 units회 기록. 자정이 지나 있었다면 다시 센다.
-    // 무료 한도를 먼저 소진하고 모자란 만큼 결제로 산 이용권에서 차감한다(무료 우선 소진).
-    void recordDaily(UsageKind kind, Long userId, int units);
+    // 성공 시 호출: 이용권에서 units회 차감한다. 오래된 이용권부터 쓴다.
+    void record(UsageKind kind, Long userId, int units);
 
-    // 오늘 남은 무료 횟수(0 이상). 화면에 "오늘 N회 남음"을 보여주기 위한 조회 전용.
-    int remainingDaily(UsageKind kind, Long userId);
-
-    // 오늘 적용되는 무료 한도. 유저별로 다를 수 있다(예: 대화는 가입 당일만 상향).
-    int dailyLimit(UsageKind kind, Long userId);
-
-    // 결제로 산 이용권의 잔여 횟수 합(환불된 것 제외). 무료 한도와 별개로 표시된다.
-    int paidRemaining(UsageKind kind, Long userId);
+    // 남은 회수(0 이상). 화면 표시용 조회.
+    int remaining(UsageKind kind, Long userId);
 }

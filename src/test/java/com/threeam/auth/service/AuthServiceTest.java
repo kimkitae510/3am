@@ -70,7 +70,7 @@ class AuthServiceTest {
     private AuthService authService;
 
     @Test
-    @DisplayName("게스트 시작 - 계정을 만들어 토큰을 발급하고, 동의와 가입 선물은 없다(연결 시점 처리)")
+    @DisplayName("게스트 시작 - 계정을 만들어 토큰을 발급하고, 체험 이용권만 준다(동의와 가입 선물은 연결 시점)")
     void guestStart_createsGuestAndIssuesTokens() {
         given(userRepository.save(any(User.class))).willAnswer(inv -> {
             User saved = inv.getArgument(0);
@@ -87,7 +87,10 @@ class AuthServiceTest {
         verify(userRepository).save(captor.capture());
         assertThat(captor.getValue().isGuest()).isTrue();
         assertThat(captor.getValue().getProviderId()).isNotBlank(); // (provider, providerId) 유니크 충족
-        org.mockito.Mockito.verifyNoInteractions(consentService, welcomeGiftService);
+        org.mockito.Mockito.verifyNoInteractions(consentService);
+        verify(welcomeGiftService).grantGuestTrial(org.mockito.ArgumentMatchers.any()); // 체험 대화만, 진단은 없다
+        org.mockito.Mockito.verify(welcomeGiftService, org.mockito.Mockito.never())
+                .grantSignupGift(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -109,7 +112,7 @@ class AuthServiceTest {
         assertThat(guest.getProvider()).isEqualTo(com.threeam.user.entity.AuthProvider.KAKAO);
         assertThat(guest.getProviderId()).isEqualTo("kakao-1");
         verify(consentService).recordSignupConsents(9L); // 승격이 실질적 가입 — 동의 이력
-        verify(welcomeGiftService).grant(9L);            // 가입 선물도 이때
+        verify(welcomeGiftService).grantSignupGift(9L);            // 가입 선물도 이때
     }
 
     @Test
@@ -197,7 +200,7 @@ class AuthServiceTest {
         assertThat(captor.getValue().getProviderId()).isEqualTo("kakao-1");
         assertThat(captor.getValue().hasPassword()).isFalse(); // 소셜 계정은 비밀번호 없음
         verify(consentService).recordSignupConsents(7L); // 소셜 첫 로그인도 동의 이력을 남긴다
-        verify(welcomeGiftService).grant(7L); // 소셜 첫 로그인도 가입 선물을 받는다
+        verify(welcomeGiftService).grantSignupGift(7L); // 소셜 첫 로그인도 가입 선물을 받는다
     }
 
     @Test

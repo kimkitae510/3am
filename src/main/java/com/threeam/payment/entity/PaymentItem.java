@@ -15,9 +15,14 @@ import lombok.Getter;
 @Getter
 public enum PaymentItem {
 
-    BUNDLE_STANDARD("대화 10회 + 진단 2회", 1200, List.of(
-            new Grant(UsageKind.CHAT, 10),
-            new Grant(UsageKind.ASSESSMENT, 2)));
+    // 단일 상품으로 시작한다 — 등급을 여럿 두면 유저는 고민하고 우리는 무엇이 팔릴지 모른다.
+    // 소진 속도와 재구매율을 보고 늘린다. 구성 근거(2026-05 실비): 채팅 1턴 48.7원,
+    // 진단 1회 82~122원(사연 복잡도에 따라 추론량이 3배까지 뛴다). 원가 약 850원, 마진 70%대.
+    // 재진단 가드가 새 대화나 새 사실을 요구해서 진단을 여러 번 보려면 채팅이 먼저 필요하다 —
+    // 그래서 진단보다 채팅을 넉넉히 준다.
+    BUNDLE_STANDARD("대화 15회 + 진단 1회", 2900, List.of(
+            new Grant(UsageKind.CHAT, 15),
+            new Grant(UsageKind.ASSESSMENT, 1)));
 
     private final String displayName;
     private final int amount;

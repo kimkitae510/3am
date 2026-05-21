@@ -134,8 +134,7 @@ export function AssessmentPage() {
   // "이야기가 부족해요" 안내 — 에러 배너와 달리 스스로 사라지지 않는다.
   // 무엇을 더 말해야 하는지가 담겨 있어서, 유저가 읽고 뒤로가기로 나갈 때까지 떠 있어야 한다.
   const [notice, setNotice] = useState('');
-  const [remaining, setRemaining] = useState<number | null>(null); // 오늘 남은 진단 횟수
-  const [paidRemaining, setPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
+  const [remaining, setRemaining] = useState<number | null>(null); // 남은 진단 횟수(이용권)
   const [isGuest, setIsGuest] = useState(false); // 게스트는 진단 잠금 — 계정 연결 유도
   const [showHelp, setShowHelp] = useState(false);
   // 비슷한 사례. 진단이 뽑아둔 분류로 찾으므로 LLM 호출도 차감도 없다 — 실패해도 조용히 접는다.
@@ -232,7 +231,6 @@ export function AssessmentPage() {
       .then((u) => {
         if (!aliveRef.current) return;
         setRemaining(u.assessmentRemaining);
-        setPaidRemaining(u.assessmentPaidRemaining);
         setIsGuest(u.guest);
       })
       .catch(() => {});
@@ -336,12 +334,7 @@ export function AssessmentPage() {
   const remainingHint =
     remaining != null ? (
       <div className={styles.stateHint}>
-        오늘 남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
-        {paidRemaining > 0 && (
-          <>
-            {' '}+ 이용권 <span className={styles.hintCountNum}>{paidRemaining}회</span>
-          </>
-        )}
+        남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
         <button className={styles.topupLink} onClick={() => navigate('/payment')}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 4.5v15M4.5 12h15" stroke="#B89DD1" strokeWidth="2.2" strokeLinecap="round" />
@@ -903,15 +896,10 @@ export function AssessmentPage() {
             {/* 무료/이용권 각각 보여주되 숫자만 밝게(채팅 잔여 줄과 같은 문법) */}
             {remaining != null ? (
               <>
-                오늘 남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
-                {paidRemaining > 0 && (
-                  <>
-                    {' '}+ 이용권 <span className={styles.hintCountNum}>{paidRemaining}회</span>
-                  </>
-                )}
+                남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
               </>
             ) : (
-              '하루 1회'
+              '이용권 없음'
             )}
           </div>
           {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅의 충전하기와 같은 동선 */}
@@ -957,7 +945,7 @@ export function AssessmentPage() {
               },
               {
                 heading: '진단 횟수',
-                text: '진단은 하루 1회입니다. 이야기가 부족하다는 안내만 받은 경우에는 차감되지 않습니다.',
+                text: '진단은 이용권에서 1회씩 차감됩니다. 이야기가 부족하다는 안내만 받은 경우에는 차감되지 않습니다.',
               },
             ]}
           />

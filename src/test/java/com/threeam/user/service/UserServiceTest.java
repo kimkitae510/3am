@@ -76,7 +76,7 @@ class UserServiceTest {
         assertThat(captor.getValue().getRole()).isEqualTo(Role.USER);
         verify(emailVerificationService).verifyAndConsume("a@a.com", "123456"); // 인증 코드 검증을 거친다
         verify(consentService).recordSignupConsents(1L); // 동의 이력을 남긴다
-        verify(welcomeGiftService).grant(1L); // 가입 선물 이용권 지급
+        verify(welcomeGiftService).grantSignupGift(1L); // 가입 선물 이용권 지급
     }
 
     @Test
@@ -233,7 +233,7 @@ class UserServiceTest {
         assertThat(guest.getProviderId()).isNull();
         verify(emailVerificationService).verifyAndConsume("a@a.com", "123456"); // 가입과 같은 관문
         verify(consentService).recordSignupConsents(9L);
-        verify(welcomeGiftService).grant(9L); // 승격이 실질적 가입 — 선물은 이때
+        verify(welcomeGiftService).grantSignupGift(9L); // 승격이 실질적 가입 — 선물은 이때
     }
 
     @Test
@@ -245,7 +245,7 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.linkGuestEmail(1L, signupRequest("a@a.com", "password123")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        verify(welcomeGiftService, org.mockito.Mockito.never()).grant(any());
+        verify(welcomeGiftService, org.mockito.Mockito.never()).grantSignupGift(any());
     }
 
     private User userWithId(Long id, String password) {

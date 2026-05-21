@@ -20,14 +20,9 @@ public class UsageController {
     @GetMapping
     public ResponseEntity<UsageStatusResponse> getMyUsage(@AuthenticationPrincipal Long userId) {
         boolean guest = userRepository.findById(userId).map(User::isGuest).orElse(false);
-        // 한도는 유저별로 다를 수 있어(게스트 총량, 회원 일일) 고정 설정이 아니라 리미터에게 묻는다.
         return ResponseEntity.ok(new UsageStatusResponse(
-                usageLimiter.remainingDaily(UsageKind.CHAT, userId),
-                usageLimiter.dailyLimit(UsageKind.CHAT, userId),
-                usageLimiter.paidRemaining(UsageKind.CHAT, userId),
-                usageLimiter.remainingDaily(UsageKind.ASSESSMENT, userId),
-                usageLimiter.dailyLimit(UsageKind.ASSESSMENT, userId),
-                usageLimiter.paidRemaining(UsageKind.ASSESSMENT, userId),
+                usageLimiter.remaining(UsageKind.CHAT, userId),
+                usageLimiter.remaining(UsageKind.ASSESSMENT, userId),
                 guest));
     }
 }

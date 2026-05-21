@@ -168,7 +168,7 @@ class AssessmentServiceTest {
         assertThat(response.getBreakupType()).isNull();   // 유형/요인 폐기
         assertThat(response.getFactors()).isEmpty();
         verify(scorer, never()).apply(any(), any(), anyList());
-        verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L, 1); // 정식 결과라 차감
+        verify(usageLimiter).record(UsageKind.ASSESSMENT, 1L, 1); // 정식 결과라 차감
     }
 
     @Test
@@ -187,7 +187,7 @@ class AssessmentServiceTest {
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.REUNITED);
         assertThat(response.getProbability()).isNull(); // 목표 달성 상태 — 확률 산출 없음
         verify(scorer, never()).apply(any(), any(), anyList());
-        verify(usageLimiter).recordDaily(UsageKind.ASSESSMENT, 1L, 1);
+        verify(usageLimiter).record(UsageKind.ASSESSMENT, 1L, 1);
     }
 
     @Test
@@ -204,7 +204,7 @@ class AssessmentServiceTest {
         assertThat(response.getReason()).isEqualTo("조금 더 들려줄래요?");
         verify(txService, never()).save(any(), any(), anyList(), any()); // 히스토리에 저장 안 함
         // 진단을 제공하지 못했으니 쿼터를 깎지 않는다 (재시도 남발은 INSUFFICIENT 가드가 막는다)
-        verify(usageLimiter, never()).recordDaily(UsageKind.ASSESSMENT, 1L, 1);
+        verify(usageLimiter, never()).record(UsageKind.ASSESSMENT, 1L, 1);
     }
 
     @Test
@@ -222,7 +222,7 @@ class AssessmentServiceTest {
         assertThat(retry.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
         verify(reunionLlm, org.mockito.Mockito.times(1))
                 .diagnose(anyList(), anyList(), any(), any()); // 2차는 미호출
-        verify(usageLimiter, never()).recordDaily(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(usageLimiter, never()).record(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -268,7 +268,7 @@ class AssessmentServiceTest {
 
         verify(txService).markAssessFailed(10L); // 연속 실패 카운트 재료
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
-        verify(usageLimiter, never()).recordDaily(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(usageLimiter, never()).record(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -294,7 +294,7 @@ class AssessmentServiceTest {
         // 발화 없음 안내(사전 가드)는 근거 부족 안내(LLM 판정)와 문구가 다르다
         assertThat(response.getReason()).contains("이야기가 없어요");
         verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any()); // LLM 비용 없음
-        verify(usageLimiter, never()).recordDaily(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(usageLimiter, never()).record(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
     }
 
@@ -310,7 +310,7 @@ class AssessmentServiceTest {
 
         verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any());
         // 후차감이라 성공 전에 실패하면 기록할 것이 없다. 잠금만 해제.
-        verify(usageLimiter, never()).recordDaily(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(usageLimiter, never()).record(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
     }
 
@@ -324,7 +324,7 @@ class AssessmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENERATION_IN_PROGRESS);
 
-        verify(usageLimiter, never()).checkDaily(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(usageLimiter, never()).check(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any());
     }
 
@@ -332,7 +332,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - 일일 한도를 넘으면 QUOTA_EXCEEDED, 잠금을 해제하고 LLM을 호출하지 않는다")
     void assess_quotaExceeded() {
         org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.QUOTA_EXCEEDED))
-                .given(usageLimiter).checkDaily(UsageKind.ASSESSMENT, 1L, 1);
+                .given(usageLimiter).check(UsageKind.ASSESSMENT, 1L, 1);
 
         assertThatThrownBy(() -> assessmentService.assess(1L, 10L))
                 .isInstanceOf(BusinessException.class)
@@ -351,10 +351,10 @@ class AssessmentServiceTest {
 
         assessmentService.assess(1L, 10L).join();
 
-        verify(usageLimiter).checkDaily(UsageKind.ASSESSMENT, 1L, 1);
+        verify(usageLimiter).check(UsageKind.ASSESSMENT, 1L, 1);
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
         // INSUFFICIENT는 진단을 제공하지 못했으니 차감하지 않는다
-        verify(usageLimiter, never()).recordDaily(UsageKind.ASSESSMENT, 1L, 1);
+        verify(usageLimiter, never()).record(UsageKind.ASSESSMENT, 1L, 1);
     }
 
     @Test

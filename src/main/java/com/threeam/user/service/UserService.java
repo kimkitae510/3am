@@ -57,7 +57,7 @@ public class UserService {
 
         User saved = userRepository.save(user);
         consentService.recordSignupConsents(saved.getId());
-        welcomeGiftService.grant(saved.getId());
+        welcomeGiftService.grantSignupGift(saved.getId());
         return SignupResponse.from(saved);
     }
 
@@ -80,7 +80,7 @@ public class UserService {
         user.linkEmail(request.getEmail(), passwordEncoder.encode(request.getPassword()));
         // 여기가 게스트의 실질적 가입 시점 — 동의 이력과 가입 선물을 이때 처리한다.
         consentService.recordSignupConsents(user.getId());
-        welcomeGiftService.grant(user.getId());
+        welcomeGiftService.grantSignupGift(user.getId());
     }
 
     public UserMeResponse me(Long userId) {

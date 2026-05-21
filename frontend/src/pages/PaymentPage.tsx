@@ -217,23 +217,13 @@ export function PaymentPage() {
               <div className={styles.balanceCard}>
                 <div className={styles.balanceRow}>
                   <span className={styles.balanceKey}>대화</span>
-                  <span className={styles.balanceValue}>
-                    오늘 무료 {usage.chatRemaining}/{usage.chatDailyLimit}회
-                    {usage.chatPaidRemaining > 0 && (
-                      <span className={styles.paidBadge}>+ 이용권 {usage.chatPaidRemaining}회</span>
-                    )}
-                  </span>
+                  <span className={styles.balanceValue}>{usage.chatRemaining}회 남음</span>
                 </div>
                 <div className={styles.balanceRow}>
                   <span className={styles.balanceKey}>진단</span>
-                  <span className={styles.balanceValue}>
-                    오늘 무료 {usage.assessmentRemaining}/{usage.assessmentDailyLimit}회
-                    {usage.assessmentPaidRemaining > 0 && (
-                      <span className={styles.paidBadge}>+ 이용권 {usage.assessmentPaidRemaining}회</span>
-                    )}
-                  </span>
+                  <span className={styles.balanceValue}>{usage.assessmentRemaining}회 남음</span>
                 </div>
-                <div className={styles.balanceHint}>무료 횟수를 먼저 쓰고, 다 쓰면 이용권에서 차감돼요.</div>
+                <div className={styles.balanceHint}>충전한 횟수는 기간 제한 없이 남아 있어요.</div>
               </div>
             )}
 

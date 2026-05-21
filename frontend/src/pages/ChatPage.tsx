@@ -15,7 +15,7 @@ import { formatClock, formatDateDivider, isSameCalendarDate } from '../utils/dat
 import styles from './ChatPage.module.css';
 
 const MAX_LENGTH = 2000; // 서버 검증(@Size)과 동일 값 — 긴 사연이 600자에서 끊겨 흐름이 깨졌다(실측)
-const UNIT_LENGTH = 300; // 대화 1회로 치는 길이 — 초과분은 회수로 환산(서버 CHAT_UNIT_CHARS와 동일 값)
+const UNIT_LENGTH = 500; // 대화 1회로 치는 길이 — 초과분은 회수로 환산(서버 CHAT_UNIT_CHARS와 동일 값)
 const POLL_INTERVAL = 1500;
 // 이 시간을 넘기면 폴링 간격을 성기게 늦춘다(포기가 아니다). 백엔드 LLM 타임아웃(50초) 안에
 // 답 또는 폴백이 저장되는 게 정상이라, 이 뒤는 지연이 아니라 이상 상황 — 그래도 끝까지 기다린다.
@@ -61,8 +61,7 @@ export function ChatPage() {
   const [waiting, setWaiting] = useState(false); // 어시스턴트 답 대기(타이핑)
   // 방금 도착한 답만 조각을 순차 공개한다. null이면 전부 표시(과거 메시지 포함).
   const [reveal, setReveal] = useState<{ id: number; shown: number } | null>(null);
-  const [chatRemaining, setChatRemaining] = useState<number | null>(null); // 오늘 남은 대화 횟수
-  const [chatPaidRemaining, setChatPaidRemaining] = useState(0); // 결제 이용권 잔여(무료 소진 후 차감)
+  const [chatRemaining, setChatRemaining] = useState<number | null>(null); // 남은 대화 횟수(이용권)
   const [quotaOver, setQuotaOver] = useState(false); // 무료+이용권 모두 소진(Q001) → 구매 유도
   const [isGuest, setIsGuest] = useState(false); // 게스트면 충전 대신 '계정 연결' 동선
   const [guestBlocked, setGuestBlocked] = useState(false); // 게스트 대화 소진(U010) → 계정 연결 유도
@@ -73,7 +72,6 @@ export function ChatPage() {
       .then((u) => {
         if (!aliveRef.current) return;
         setChatRemaining(u.chatRemaining);
-        setChatPaidRemaining(u.chatPaidRemaining);
         setIsGuest(u.guest);
       })
       .catch(() => {}); // 표시용 정보라 실패는 조용히 무시
@@ -389,14 +387,9 @@ export function ChatPage() {
               </>
             ) : (
               <>
-                {/* 무료/이용권은 각각 보여주되 숫자만 밝게 — 나열 자체가 아니라
-                    숫자가 안 읽히는 게 문제였다(합산 시도는 기각, 실측) */}
-                오늘 남은 대화 <span className={styles.usageCount}>{chatRemaining}회</span>
-                {chatPaidRemaining > 0 && (
-                  <>
-                    {' '}+ 이용권 <span className={styles.usageCount}>{chatPaidRemaining}회</span>
-                  </>
-                )}
+                {/* 잔여가 이용권 하나로 합쳐져 숫자도 하나다 — 예전엔 무료와 이용권을
+                    나란히 보여줘서 유저가 더해 읽어야 했다 */}
+                남은 대화 <span className={styles.usageCount}>{chatRemaining}회</span>
                 {/* 남은 횟수를 보는 그 자리에서 바로 살 수 있게 — 소진 배너가 뜨기 전의 진입점 */}
                 <button className={styles.usageTopup} onClick={() => navigate('/payment')}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -422,7 +415,7 @@ export function ChatPage() {
           </div>
         )}
         {/* 소진 상태(잔여 0 또는 Q001 거절) — 안내만. 구매 버튼은 위 충전하기가 담당(중복 제거) */}
-        {!isGuest && (quotaOver || (chatRemaining === 0 && chatPaidRemaining === 0)) && (
+        {!isGuest && (quotaOver || chatRemaining === 0) && (
           <div className={styles.quotaBanner}>
             <svg className={styles.quotaIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle cx="12" cy="12" r="9" stroke="#D88B9F" strokeWidth="1.6" />

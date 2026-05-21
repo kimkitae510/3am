@@ -155,9 +155,11 @@ oauth:
 # 사용량 제한 — LLM 비용 어뷰징 방지. 한도는 실제 비용 추이를 보고 조정한다.
 # (일반 API의 공통 빈도 제한은 앱이 아니라 인프라 층(nginx 등)에서 건다 — 운영 전환 시.)
 usage:
-  chat-daily-limit: 5          # 일일 무료 대화 한도(가입 선물 이용권은 별도 — WelcomeGiftService)
-  assessment-daily-limit: 1
-  guest-chat-total-limit: 3    # 게스트 대화 총량(리셋 없음). 진단은 게스트 0회 고정(코드에서 차단)
+  # 잔여 회수는 전부 이용권(entitlements)이다. 일일 무료 쿼터는 폐지됐다 —
+  # 유저당 월 원가가 1만원을 넘어 지속 불가(2026-05 실비: 채팅 1턴 48.7원, 진단 1회 81.6원).
+  signup-gift-chat: 5          # 가입 선물(이월됨)
+  signup-gift-assessment: 1
+  guest-trial-chat: 3          # 게스트 체험. 진단은 0회 — 계정 연결 유도 지점이라 안 준다
   in-flight-ttl-seconds: 120   # 생성 중 잠금이 해제 유실돼도 이 시간 뒤 자동으로 풀린다
                                # (진단 응답 상한 90초보다 길어야 한다 — 짧으면 진행 중에 풀려 중복 생성이 된다)
 
