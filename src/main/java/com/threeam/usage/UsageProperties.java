@@ -17,7 +17,7 @@ public class UsageProperties {
     private int signupGiftAssessment = 1;
 
     // 게스트 체험. 진단은 0회 — 계정 연결을 유도하는 지점이라 아예 주지 않는다.
-    private int guestTrialChat = 3;
+    private int guestTrialChat = 5;
 
     // 생성 락의 자동 만료(TTL). LLM 호출이 실패로 락을 못 풀어도 이 시간이 지나면 풀린 것으로 본다.
     // 종류별로 다르게 둔다 — TTL이 LLM 타임아웃보다 짧으면, 아직 진행 중인 생성 위로 두 번째
