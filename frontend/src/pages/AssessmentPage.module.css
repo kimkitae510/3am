@@ -260,10 +260,12 @@
 .factInput {
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
+  padding: 11px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  /* 카드보다 밝게 — 0.04는 카드 배경과 거의 같은 명도라 상자가 안 보였다.
+     칠 자리는 주변보다 밝아야 "여기 쓰는 곳"으로 읽힌다 */
+  background: rgba(255, 255, 255, 0.11);
   resize: none;
   color: var(--text);
   font-size: 13px;
@@ -273,11 +275,12 @@
 }
 
 .factInput:focus {
-  border-color: rgba(184, 157, 209, 0.55);
+  border-color: rgba(184, 157, 209, 0.7);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .factInput::placeholder {
-  color: var(--text-muted);
+  color: #8f8a9c;
 }
 
 .factFormRow {
@@ -680,6 +683,161 @@
 .btnPrimary:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+/* 게스트 잠금 화면 — 흐린 결과 미리보기 위에 잠금 패널 */
+.lockWrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 숫자가 읽히면 안 된다 — 진단하지도 않은 확률을 본 것으로 기억한다.
+   형태만 남을 만큼 흐리게(8px) 두고 값 텍스트는 아예 그리지 않는다 */
+.lockPreview {
+  position: absolute;
+  inset: 0;
+  padding: 6px 22px 0;
+  filter: blur(8px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.lockGhostCards {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lockGhostCard {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lockGhostHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lockGhostChip {
+  width: 46px;
+  height: 20px;
+  border-radius: 7px;
+  background: rgba(184, 157, 209, 0.3);
+}
+
+.lockGhostTitle {
+  width: 96px;
+  height: 13px;
+  border-radius: 4px;
+  background: rgba(236, 234, 240, 0.24);
+}
+
+.lockGhostLine {
+  height: 10px;
+  border-radius: 4px;
+  background: rgba(236, 234, 240, 0.13);
+}
+
+.lockGhostLineShort {
+  width: 62%;
+}
+
+/* 미리보기가 패널 뒤에서 배경으로 잠기게 — 경계선이 보이면 잘라 붙인 티가 난다 */
+.lockScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(23, 21, 27, 0.35) 0%,
+    rgba(23, 21, 27, 0.82) 34%,
+    var(--surface) 58%
+  );
+  pointer-events: none;
+}
+
+.lockPanel {
+  position: relative;
+  margin-top: auto;
+  padding: 0 24px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.lockBadge {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(184, 157, 209, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lockTitle {
+  margin-top: 14px;
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+.lockSub {
+  margin-top: 7px;
+  color: var(--text-sub);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* 무엇이 열리는지를 문장이 아니라 목록으로 — 잠금 화면에서 유저가 읽는 건 이 세 줄뿐이다 */
+.lockPerks {
+  margin-top: 18px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.lockPerk {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.lockFooter {
+  flex-shrink: 0;
+  padding: 16px 22px 22px;
+}
+
+.lockFooter .btnPrimary {
+  flex: none;
+  width: 100%;
+}
+
+.lockFoot {
+  margin-top: 10px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11.5px;
 }
 
 
