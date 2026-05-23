@@ -182,10 +182,45 @@
   border: 1px solid var(--border);
 }
 
+/* 한 카드 안의 두 묶음(모르는 것 / 지켜볼 것) — 라벨 없이 나열하면 성격이 다른 줄들이
+   한 목록으로 뭉개져 읽힌다. 묶음 사이는 얇은 줄로만 끊는다 */
+.missingGroup + .missingGroup {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.missingLabel {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .missingItem {
   color: var(--text-sub);
   font-size: 13px;
   line-height: 1.7;
+}
+
+/* 지켜볼 신호는 "무엇이" + "그러면 어떻게 되는지" 두 줄짜리라 점 목록으로 못 눕힌다 */
+.watchItem + .watchItem {
+  margin-top: 10px;
+}
+
+.watchPoint {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.watchEffect {
+  margin-top: 3px;
+  color: var(--text-sub);
+  font-size: 12.5px;
+  line-height: 1.55;
 }
 
 /* 안내 카드 꼬리 — 이 목록이 '입력 폼'이 아니라 대화로 채우는 것임을 말해준다 */

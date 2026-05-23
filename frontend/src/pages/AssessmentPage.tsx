@@ -42,7 +42,7 @@ const FACTOR_ASK: Record<string, string> = {
   대체자: '상대에게 새로 만나는 사람이 있는지',
   유저대처: '이별 후 내가 어떻게 했는지',
   통보온도: '헤어지자던 순간 상대의 태도',
-  상대패턴: '상대의 과거 연애 패턴(재회 이력, 성향)',
+  상대패턴: '예전에도 헤어졌다 다시 만난 적이 있는지',
   관계자산: '얼마나 만났고 얼마나 깊었는지(공개 연애, 미래 얘기)',
   접점: '다시 만날 접점이 있는지(약속, 같은 소속, 공통 지인)',
 };
@@ -753,22 +753,6 @@ export function AssessmentPage() {
             </>
           )}
 
-          {/* 관찰 포인트 — "이게 확인되면 판이 바뀐다". 행동 지시가 아니라 판독의 연장이고,
-              유저가 다음 진단을 돌릴 이유가 되는 자리다 */}
-          {!locked && prob < 100 && (result.watchFor?.length ?? 0) > 0 && (
-            <>
-              <SectionHead title="지켜볼 신호" />
-              <div className={styles.dedList}>
-                {result.watchFor.map((w, i) => (
-                  <div className={styles.dedItem} key={i}>
-                    <div className={styles.dedSignal}>{w.point}</div>
-                    <div className={styles.dedRationale}>{w.effect}</div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
           {/* 비슷한 사례 — 진단이 뽑은 분류로 찾은 참조 사례. 유사도 순 그대로 보여준다:
               성공담을 골라 끼우면 헛된 희망을 파는 것이라, 확률에서 지켜온 원칙과 어긋난다.
               그래서 "너도 이렇게 된다"가 아니라 "비슷한 상황이 이랬다"로 읽히게 문구를 잡는다 */}
@@ -846,22 +830,35 @@ export function AssessmentPage() {
               채팅에서 말하면 다음 진단에 반영된다. 맨 아래 배치 — 판독(요인, 사례)이 먼저,
               다음 진단을 위한 요청은 마지막이 자연스러운 독서 순서다 */
           }
-          {/* 부족 정보 목록과 직접 입력 폼을 한 카드로 — 따로 두면 "뭘 모르는지"와 "어디에
-              적는지"가 딴 살림으로 읽힌다(실측 지적). 빈칸 목록 바로 밑이 채우는 자리다.
+          {/* 확률을 움직일 정보를 한 카드로 모은다 — 비어 있는 것(과거)과 지켜볼 것(앞으로)은
+              둘 다 "다음 진단을 바꿀 재료"라 같은 자리에 있어야 읽힌다. 따로 두면 섹션이 하나씩
+              둥둥 뜨고 어디에 적는지도 딴 살림으로 읽힌다(실측 지적).
               폼에 적으면 원장에 쌓이고 그것만으로 재진단 가드가 열린다(대화 횟수 차감 없음) */}
           {!locked && (
             <>
-              <SectionHead title="알려주면 더 정확해져요" />
+              <SectionHead title="확률을 바꿀 것들" />
               <div className={styles.missingCard}>
                 {prob < 100 && missing.length > 0 && (
-                  <>
+                  <div className={styles.missingGroup}>
+                    <div className={styles.missingLabel}>아직 모르는 것</div>
                     {missing.map((f) => (
                       <div className={styles.missingItem} key={f.name}>
                         {FACTOR_ASK[f.name] ?? f.name}
                       </div>
                     ))}
                     <div className={styles.missingHint}>대화에서 말하거나 아래에 직접 적어주면 다음 진단에 반영돼요</div>
-                  </>
+                  </div>
+                )}
+                {prob < 100 && (result.watchFor?.length ?? 0) > 0 && (
+                  <div className={styles.missingGroup}>
+                    <div className={styles.missingLabel}>앞으로 지켜볼 것</div>
+                    {result.watchFor.map((w, i) => (
+                      <div className={styles.watchItem} key={i}>
+                        <div className={styles.watchPoint}>{w.point}</div>
+                        <div className={styles.watchEffect}>{w.effect}</div>
+                      </div>
+                    ))}
+                  </div>
                 )}
                 <div className={styles.factForm}>
                   <textarea
@@ -929,7 +926,11 @@ export function AssessmentPage() {
             sections={[
               {
                 heading: '재회 가능성',
-                text: '대화와 기록된 사실을 근거로 "상대가 돌아올 가능성"을 봅니다.',
+                text: '대화와 기록된 사실을 근거로 "상대가 돌아올 가능성"을 봅니다. 어떤 이유로 헤어졌는지가 먼저 큰 틀을 정하고, 그 안에서 이별 후 벌어진 일들이 숫자를 올리거나 내립니다. 대화가 쌓이거나 새로운 일이 생긴 뒤 다시 진단하면 숫자도 다시 계산됩니다.',
+              },
+              {
+                heading: '숫자를 믿어도 되나요',
+                text: '들려주신 이야기 안에서의 판단입니다. 말하지 않은 사실은 반영되지 않고, 같은 상황에서도 사람마다 결말은 달라집니다. 확정된 예언이 아니라 지금 어디쯤 서 있는지를 보는 눈금으로 봐 주세요.',
               },
               {
                 heading: '100%가 뜨는 경우',
@@ -937,7 +938,11 @@ export function AssessmentPage() {
               },
               {
                 heading: '가능성을 움직인 신호',
-                text: '가능성을 올린 요인과 낮춘 요인을 근거와 함께 보여드려요. 각 요인은 매우유리에서 매우불리까지로 판정되고, 무겁게 본 것부터 위에 옵니다. 근거가 없어 판단하지 못한 항목은 맨 아래 "알려주면 더 정확해져요"에 모아 둡니다.',
+                text: '가능성을 올린 요인과 낮춘 요인을 근거와 함께 보여드려요. 각 요인은 매우유리에서 매우불리까지로 판정되고, 무겁게 본 것부터 위에 옵니다. 근거가 없어 판단하지 못한 항목은 맨 아래 "확률을 바꿀 것들"에 모아 둡니다.',
+              },
+              {
+                heading: '확률을 바꿀 것들',
+                text: '맨 아래 카드입니다. "아직 모르는 것"은 알려주시면 다음 진단에서 판정이 채워지는 항목이고, "앞으로 지켜볼 것"은 그런 일이 실제로 벌어지면 확률이 크게 움직이는 신호입니다. 대화에서 말해도 되고, 그 카드에 한 줄로 적어두셔도 다음 진단에 반영됩니다.',
               },
               {
                 heading: '비슷한 사례',
