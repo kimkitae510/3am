@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 // 같은 IP에서 하루에 만들 수 있는 계정 수를 제한한다. 계정 무한 생성으로 무료 쿼터를 우회하는 어뷰징 완화.
@@ -23,6 +24,12 @@ public class SignupRateLimiter {
     private final ConcurrentHashMap<String, Counter> byIp = new ConcurrentHashMap<>();
 
     public void check(String ip) {
+        check(ip, ErrorCode.SIGNUP_RATE_LIMITED);
+    }
+
+    // 호출한 쪽의 맥락에 맞는 문구로 거절한다 — 둘러보기 시작도 계정 생성이라 같은 카운터를
+    // 쓰지만, 가입한 적 없는 사람에게 "가입 요청이 많다"고 말하면 뜻이 통하지 않는다.
+    public void check(String ip, ErrorCode errorCode) {
         LocalDate today = LocalDate.now(KST);
         Counter updated = byIp.compute(ip, (k, prev) -> {
             if (prev == null || !prev.date().equals(today)) {
@@ -32,7 +39,17 @@ public class SignupRateLimiter {
         });
         if (updated.count() > MAX_PER_DAY) {
             log.warn("가입 IP 한도 초과 ip={} count={}", ip, updated.count());
-            throw new BusinessException(ErrorCode.SIGNUP_RATE_LIMITED);
+            throw new BusinessException(errorCode);
         }
+    }
+
+    // 지난 날짜 항목은 다시 접근될 때만 리셋되므로, 한 번 오고 안 오는 IP는 영영 남는다.
+    // 방문자 수만큼 맵이 단조 증가해 사실상 누수라 하루 한 번 쓸어낸다.
+    @Scheduled(cron = "0 10 4 * * *", zone = "Asia/Seoul")
+    public void evictStale() {
+        LocalDate today = LocalDate.now(KST);
+        int before = byIp.size();
+        byIp.values().removeIf(c -> !c.date().equals(today));
+        log.info("가입 IP 카운터 정리 {} -> {}", before, byIp.size());
     }
 }

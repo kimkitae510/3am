@@ -16,7 +16,8 @@ public enum ErrorCode {
     // 회원
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "U001", "이미 사용 중인 이메일입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U002", "사용자를 찾을 수 없습니다."),
-    SIGNUP_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "U003", "가입 요청이 너무 많아요. 내일 다시 시도해 주세요."),
+    SIGNUP_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "U003",
+            "같은 네트워크에서 오늘 만들 수 있는 계정 수를 넘었어요. 이미 계정이 있다면 로그인해 주세요."),
     // 코드 불일치와 "코드 발급 이력 없음"을 한 코드로 합친다 — 응답이 갈리면 발급 여부 추측에 쓰인다.
     VERIFICATION_CODE_INVALID(HttpStatus.BAD_REQUEST, "U004", "인증 코드가 올바르지 않아요. 다시 확인해 주세요."),
     VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "U005", "인증 코드가 만료됐어요. 코드를 다시 요청해 주세요."),
@@ -28,6 +29,10 @@ public enum ErrorCode {
     // 게스트 차단(진단, 결제)과 게스트 대화 소진이 공용으로 쓴다 — 프론트는 이 코드로 계정 연결을 유도한다
     GUEST_LINK_REQUIRED(HttpStatus.FORBIDDEN, "U010",
             "게스트로 이용할 수 있는 범위를 넘었어요. 계정을 연결하면 지금까지의 대화를 그대로 이어갈 수 있어요."),
+    // 둘러보기도 계정 생성이라 가입과 같은 IP 상한에 걸린다. 가입 문구를 그대로 쓰면 가입한 적도
+    // 없는 사람에게 "가입 요청이 많다"고 말하게 돼 뜻이 통하지 않는다.
+    GUEST_START_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "U011",
+            "같은 네트워크에서 둘러보기를 여러 번 시작했어요. 로그인하거나 계정을 만들면 바로 이어서 볼 수 있어요."),
 
     // 인증
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "A001", "비밀번호가 올바르지 않습니다."),

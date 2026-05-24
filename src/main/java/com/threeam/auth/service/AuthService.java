@@ -69,7 +69,7 @@ public class AuthService {
     // 받는 어뷰징 완화).
     @Transactional
     public TokenResponse guestStart(String clientIp) {
-        signupRateLimiter.check(clientIp);
+        signupRateLimiter.check(clientIp, ErrorCode.GUEST_START_LIMITED);
         User saved = userRepository.save(User.builder()
                 .role(Role.USER)
                 .provider(AuthProvider.GUEST)
