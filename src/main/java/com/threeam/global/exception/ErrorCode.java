@@ -17,7 +17,7 @@ public enum ErrorCode {
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "U001", "이미 사용 중인 이메일입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U002", "사용자를 찾을 수 없습니다."),
     SIGNUP_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "U003",
-            "같은 네트워크에서 오늘 만들 수 있는 계정 수를 넘었어요. 이미 계정이 있다면 로그인해 주세요."),
+            "오늘 이 인터넷 회선에서 만든 계정이 많아요. 이미 계정이 있다면 로그인해 주세요."),
     // 코드 불일치와 "코드 발급 이력 없음"을 한 코드로 합친다 — 응답이 갈리면 발급 여부 추측에 쓰인다.
     VERIFICATION_CODE_INVALID(HttpStatus.BAD_REQUEST, "U004", "인증 코드가 올바르지 않아요. 다시 확인해 주세요."),
     VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "U005", "인증 코드가 만료됐어요. 코드를 다시 요청해 주세요."),
@@ -31,8 +31,10 @@ public enum ErrorCode {
             "게스트로 이용할 수 있는 범위를 넘었어요. 계정을 연결하면 지금까지의 대화를 그대로 이어갈 수 있어요."),
     // 둘러보기도 계정 생성이라 가입과 같은 IP 상한에 걸린다. 가입 문구를 그대로 쓰면 가입한 적도
     // 없는 사람에게 "가입 요청이 많다"고 말하게 돼 뜻이 통하지 않는다.
+    // "이어서 볼 수 있다"고도 쓰지 않는다 — 시작 자체가 막힌 자리라 이어질 대화가 없다.
+    // 소셜 경로는 이 상한을 타지 않으므로 카카오/네이버 안내는 실제로 통하는 길이다.
     GUEST_START_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "U011",
-            "같은 네트워크에서 둘러보기를 여러 번 시작했어요. 로그인하거나 계정을 만들면 바로 이어서 볼 수 있어요."),
+            "오늘 이 인터넷 회선에서 로그인 없이 시작한 횟수가 많아요. 카카오나 네이버로 시작하면 바로 이용할 수 있어요."),
 
     // 인증
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "A001", "비밀번호가 올바르지 않습니다."),
@@ -70,6 +72,10 @@ public enum ErrorCode {
     QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Q001",
             "오늘의 무료 횟수와 이용권을 모두 썼어요. 이용권을 채우거나 내일 다시 만나요."),
     GENERATION_IN_PROGRESS(HttpStatus.TOO_MANY_REQUESTS, "Q002", "아직 이전 답변을 만드는 중이에요. 잠시만 기다려 주세요."),
+    // 남은 시간은 문구에 박지 않는다 — retryAfterSeconds로 내려가 화면이 카운트다운으로 보여준다.
+    // 문구에 "1분 뒤"처럼 적어두면 쿨다운을 조정할 때마다 여기까지 같이 고쳐야 한다.
+    CHAT_RETRY_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "Q003",
+            "연이어 실패해서 잠시 쉬어가요. 실패한 대화는 횟수가 차감되지 않았어요."),
 
     // 결제
     PAYMENT_ITEM_NOT_FOUND(HttpStatus.BAD_REQUEST, "P001", "존재하지 않는 상품입니다."),
