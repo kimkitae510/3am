@@ -83,7 +83,7 @@ llm:
     timeout-seconds: 50
     # 진단(deep) 응답 대기 상한. 채팅 값의 배수가 아니라 독립값이다 — 배수로 묶여 있던 동안
     # 채팅 타임아웃을 올릴 때마다 진단이 따라 올라 아래 두 상한을 넘길 뻔했다.
-    # usage.in-flight-ttl-seconds와 spring request-timeout보다 작아야 한다.
+    # usage.assessment-lock-ttl-seconds와 spring request-timeout보다 작아야 한다.
     assessment-timeout-seconds: 90
     # thinking 세기. 2.5 계열은 budget(토큰), 3.x는 level을 쓴다 — 세대마다 필드가 다르다.
     # level 유효값은 low|medium|high다. minimal은 gemini-3.1-pro-preview에서 거부당한다(실측 오류) —
@@ -162,8 +162,11 @@ usage:
   guest-trial-chat: 5          # 게스트 체험. 사연 붙여넣기에만 500자 환산 3회가 나가서, 3회면
                                # 첫 답변의 질문에 답할 회수가 안 남는다(대화가 시작도 못 하고 끊김).
                                # 진단은 0회 — 계정 연결 유도 지점이라 안 준다
-  in-flight-ttl-seconds: 120   # 생성 중 잠금이 해제 유실돼도 이 시간 뒤 자동으로 풀린다
-                               # (진단 응답 상한 90초보다 길어야 한다 — 짧으면 진행 중에 풀려 중복 생성이 된다)
+  # 생성 중 잠금(유저+종류 단위)의 자동 만료. 해당 종류의 LLM 응답 상한보다 반드시 길어야 한다 —
+  # 짧으면 아직 생성 중인데 락이 만료돼 두 번째 요청이 뺏어가고, 같은 유저의 LLM 호출이 겹친다.
+  # 예전 키(in-flight-ttl-seconds)는 UsageProperties에 대응 필드가 없어 값이 무시되고 있었다.
+  chat-lock-ttl-seconds: 60          # 채팅 LLM 상한 50초
+  assessment-lock-ttl-seconds: 100   # 진단 LLM 상한 90초
 
 # 결제 — 기본은 mock(키 불필요, 무조건 승인). 실연동 시 PAYMENT_PROVIDER=toss + 키 2종 주입.
 # client-key는 프론트 위젯용(공개 가능), secret-key는 서버 승인/취소용(절대 비공개).

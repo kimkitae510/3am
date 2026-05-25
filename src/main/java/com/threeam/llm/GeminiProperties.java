@@ -24,7 +24,7 @@ public class GeminiProperties {
     private long timeoutSeconds = 50;
 
     // 진단(deep) 전용 응답 상한. 채팅과 분리해 둔다 — 전에는 채팅 값의 3배로 계산했는데,
-    // 채팅 타임아웃을 만질 때마다 진단이 조용히 따라 움직여 usage.in-flight-ttl-seconds와
+    // 채팅 타임아웃을 만질 때마다 진단이 조용히 따라 움직여 usage.assessment-lock-ttl-seconds와
     // spring request-timeout을 넘길 뻔했다(실측). 두 값은 각자의 이유로 정해져야 한다.
     private long assessmentTimeoutSeconds = 90;
 

@@ -209,7 +209,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                     // 타임아웃 없이는 LLM이 매달릴 때 future가 영원히 미완 → 답도 폴백도 저장되지 않는다.
                     // 진단(deep)은 긴 루브릭 + 추론이라 채팅보다 길지만, 채팅 값의 배수가 아니라
                     // 자기 설정값을 쓴다 — 배수로 묶어두면 채팅을 만질 때 진단이 따라 움직여
-                    // usage.in-flight-ttl-seconds와 spring request-timeout을 말없이 넘어간다.
+                    // usage.assessment-lock-ttl-seconds와 spring request-timeout을 말없이 넘어간다.
                     .timeout(Duration.ofSeconds(deep ? assessmentTimeoutSeconds() : timeoutSeconds()))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8));
             authorize(builder);
