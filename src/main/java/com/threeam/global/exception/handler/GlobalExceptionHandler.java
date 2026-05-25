@@ -2,6 +2,7 @@ package com.threeam.global.exception.handler;
 
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
+import com.threeam.global.exception.custom.RetryAfterException;
 import com.threeam.global.exception.dto.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,15 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = e.getErrorCode();
         log.warn("BusinessException: {} - {}", errorCode.getCode(), errorCode.getMessage());
         return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+    }
+
+    // 쿨다운 거절은 남은 초를 함께 내린다. BusinessException 핸들러보다 구체 타입이라 이쪽이 먼저 잡는다.
+    @ExceptionHandler(RetryAfterException.class)
+    public ResponseEntity<ErrorResponse> handleRetryAfterException(RetryAfterException e) {
+        ErrorCode errorCode = e.getErrorCode();
+        log.warn("쿨다운 거절: {} - {}초 남음", errorCode.getCode(), e.getRetryAfterSeconds());
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(ErrorResponse.of(errorCode, e.getRetryAfterSeconds()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

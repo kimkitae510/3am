@@ -75,6 +75,10 @@ public enum ErrorCode {
     // 남은 시간은 문구에 박지 않는다 — retryAfterSeconds로 내려가 화면이 카운트다운으로 보여준다.
     // 문구에 "1분 뒤"처럼 적어두면 쿨다운을 조정할 때마다 여기까지 같이 고쳐야 한다.
     CHAT_RETRY_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "Q003",
+            "답변을 만들지 못하는 상태가 이어지고 있습니다. 이번 대화는 차감되지 않았습니다."),
+    // 남은 시간은 문구에 박지 않는다 — retryAfterSeconds로 내려가 화면이 카운트다운으로 보여준다.
+    // 문구에 "1분 뒤"처럼 적어두면 쿨다운을 조정할 때마다 여기까지 같이 고쳐야 한다.
+    CHAT_RETRY_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "Q003",
             "연이어 실패해서 잠시 쉬어가요. 실패한 대화는 횟수가 차감되지 않았어요."),
 
     // 결제

@@ -27,6 +27,11 @@ public class UsageProperties {
     private long chatLockTtlSeconds = 60;
     private long assessmentLockTtlSeconds = 100;
 
+    // 채팅 연속 실패 가드. 진단(2회/3분)보다 느슨하다 — 채팅은 턴이 짧고 잦아 2회면 일시 장애에
+    // 걸리고, 대화 리듬이라 3분은 이탈로 이어진다. 1분이면 분당 1회로 캡돼 비용 방어엔 충분하다.
+    private int chatFailStreakLimit = 3;
+    private long chatFailCooldownSeconds = 60;
+
     public long lockTtlSeconds(UsageKind kind) {
         return kind == UsageKind.CHAT ? chatLockTtlSeconds : assessmentLockTtlSeconds;
     }

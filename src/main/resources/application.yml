@@ -168,6 +168,12 @@ usage:
   chat-lock-ttl-seconds: 60          # 채팅 LLM 상한 50초
   assessment-lock-ttl-seconds: 100   # 진단 LLM 상한 90초
 
+  # 연속 실패 가드. 실패는 후차감(미차감)이라 막지 않으면 무한 무료 LLM 호출이 된다.
+  # 채팅은 진단(2회/3분)보다 느슨하게 — 턴이 짧고 잦아 2회는 일시 장애에 쉽게 걸리고,
+  # 대화 리듬이라 3분을 세우면 그대로 이탈한다. 1분이면 분당 1회로 캡돼 비용 방어엔 충분하다.
+  chat-fail-streak-limit: 3
+  chat-fail-cooldown-seconds: 60
+
 # 결제 — 기본은 mock(키 불필요, 무조건 승인). 실연동 시 PAYMENT_PROVIDER=toss + 키 2종 주입.
 # client-key는 프론트 위젯용(공개 가능), secret-key는 서버 승인/취소용(절대 비공개).
 payment:
