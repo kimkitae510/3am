@@ -16,6 +16,7 @@ public class UsageController {
 
     private final UsageLimiter usageLimiter;
     private final UserRepository userRepository;
+    private final ChatRetryGuard chatRetryGuard;
 
     @GetMapping
     public ResponseEntity<UsageStatusResponse> getMyUsage(@AuthenticationPrincipal Long userId) {
@@ -23,6 +24,7 @@ public class UsageController {
         return ResponseEntity.ok(new UsageStatusResponse(
                 usageLimiter.remaining(UsageKind.CHAT, userId),
                 usageLimiter.remaining(UsageKind.ASSESSMENT, userId),
-                guest));
+                guest,
+                chatRetryGuard.blockedSeconds(userId)));
     }
 }

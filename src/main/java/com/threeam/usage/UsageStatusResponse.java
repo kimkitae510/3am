@@ -12,10 +12,15 @@ public class UsageStatusResponse {
     private final int assessmentRemaining;
     // 게스트면 화면이 충전 대신 '계정 연결' 동선을 보여준다(진단, 결제는 게스트 차단).
     private final boolean guest;
+    // 연속 실패 쿨다운의 남은 초(0이면 없음). 여기에 실어야 방을 나갔다 들어와도 잠금이 복원된다 —
+    // 없으면 화면은 멀쩡해 보이는데 보내는 순간에야 거절당한다.
+    private final int chatCooldownSeconds;
 
-    public UsageStatusResponse(int chatRemaining, int assessmentRemaining, boolean guest) {
+    public UsageStatusResponse(int chatRemaining, int assessmentRemaining, boolean guest,
+                               int chatCooldownSeconds) {
         this.chatRemaining = chatRemaining;
         this.assessmentRemaining = assessmentRemaining;
         this.guest = guest;
+        this.chatCooldownSeconds = chatCooldownSeconds;
     }
 }

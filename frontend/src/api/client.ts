@@ -71,6 +71,15 @@ export function extractErrorMessage(err: unknown, fallback = '요청 처리 중 
   return fallback;
 }
 
+// 쿨다운 거절(Q003 등)이 실어 보낸 남은 초. 화면이 카운트다운으로 보여준다.
+export function extractRetryAfterSeconds(err: unknown): number | null {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { retryAfterSeconds?: number | null } | undefined;
+    return data?.retryAfterSeconds ?? null;
+  }
+  return null;
+}
+
 // 백엔드 에러 코드(Q001, P007 등). 코드별 분기(쿼터 소진 → 구매 유도 등)에 쓴다.
 export function extractErrorCode(err: unknown): string | null {
   if (axios.isAxiosError(err)) {
