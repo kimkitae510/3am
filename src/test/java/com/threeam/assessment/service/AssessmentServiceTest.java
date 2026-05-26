@@ -249,7 +249,7 @@ class AssessmentServiceTest {
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
-        assertThat(response.getReason()).contains("실패");
+        assertThat(response.getReason()).contains("차감되지 않았습니다");
         // 화면이 카운트다운을 띄우려면 남은 초가 응답에 실려야 한다.
         assertThat(response.getRetryAfterSeconds()).isEqualTo(167);
         verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any()); // 무료 LLM 호출 루프 차단
@@ -292,7 +292,7 @@ class AssessmentServiceTest {
 
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
         // 발화 없음 안내(사전 가드)는 근거 부족 안내(LLM 판정)와 문구가 다르다
-        assertThat(response.getReason()).contains("이야기가 없어요");
+        assertThat(response.getReason()).contains("이야기가 없습니다");
         verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any()); // LLM 비용 없음
         verify(usageLimiter, never()).record(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);

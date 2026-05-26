@@ -12,6 +12,6 @@ public class MessageSendRequest {
     // 500자를 넘는 메시지는 500자마다 대화 1회로 환산 차감된다(StoryService.CHAT_UNIT_CHARS).
     // 상한 2000자: 긴 사연을 600자에서 끊어 흐름이 깨지던 실측 대응(그 이상은 히스토리 누적 방어).
     // 프론트 카운터(MAX_LENGTH)와 동일 값 유지.
-    @Size(max = 2000, message = "메시지는 2000자까지 보낼 수 있어요.")
+    @Size(max = 3000, message = "메시지는 3000자까지 보낼 수 있습니다.")
     private String content;
 }
