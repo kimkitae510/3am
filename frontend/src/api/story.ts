@@ -30,6 +30,9 @@ export interface MessageResponse {
   role: MessageRole;
   content: string;
   createdAt: string;
+  // 답을 못 받아 폴백이 저장된 턴. 화면은 이 값으로 재시도 버튼을 띄운다
+  // (폴백 문구를 프론트가 복사해 비교하면 문구를 고칠 때마다 두 곳이 어긋난다)
+  failed: boolean;
 }
 
 export interface MessagePageResponse {
@@ -53,6 +56,15 @@ export async function getMessages(
 // 폴링 방식: 유저 메시지만 저장하고 즉시 반환(202). 어시스턴트 답은 이후 since로 받아온다.
 export async function sendMessage(storyId: number, content: string): Promise<MessageResponse> {
   const { data } = await api.post<MessageResponse>(`/api/stories/${storyId}/messages`, { content });
+  return data;
+}
+
+// 답을 못 받은 턴의 재시도. 보낸 말은 그대로 두고 답만 다시 만들므로 본문을 싣지 않는다.
+// 서버가 폴백 말풍선을 지우므로 폴링 기준 id를 새로 받아온다(들고 있던 id는 이미 없는 행이다).
+export async function retryLastReply(storyId: number): Promise<{ pollAfterId: number }> {
+  const { data } = await api.post<{ pollAfterId: number }>(
+    `/api/stories/${storyId}/messages/retry`,
+  );
   return data;
 }
 

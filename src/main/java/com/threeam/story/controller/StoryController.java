@@ -2,6 +2,7 @@ package com.threeam.story.controller;
 
 import com.threeam.story.dto.MessagePageResponse;
 import com.threeam.story.dto.MessageResponse;
+import com.threeam.story.dto.MessageRetryResponse;
 import com.threeam.story.dto.MessageSendRequest;
 import com.threeam.story.dto.StoryCreateRequest;
 import com.threeam.story.dto.StoryFactRequest;
@@ -51,6 +52,16 @@ public class StoryController {
             @Valid @RequestBody MessageSendRequest request) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(storyService.sendMessage(userId, storyId, request));
+    }
+
+    // 답을 못 받은 턴(폴백 말풍선)의 재시도. 유저 메시지는 그대로 두고 답만 다시 만든다 —
+    // 같은 말을 다시 치게 하지 않으려는 것이라 새 메시지를 받지 않는다(본문 없음).
+    @PostMapping("/{storyId}/messages/retry")
+    public ResponseEntity<MessageRetryResponse> retryLastReply(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long storyId) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(storyService.retryLastReply(userId, storyId));
     }
 
     @GetMapping("/{storyId}/messages")

@@ -64,4 +64,21 @@ public class Message {
     public static Message assistant(Story story, String content) {
         return Message.builder().story(story).role(MessageRole.ASSISTANT).content(content).build();
     }
+
+    // LLM 호출이 실패했을 때 답 대신 저장하는 말풍선. 폴링이 이걸 받고 정상 종료한다.
+    // 페르소나가 하는 말이라 페르소나 문법을 따른다 — 반말, 마침표 없이.
+    // 여기 두는 이유: 화면의 재시도 버튼과 서버의 재시도 검사가 "이게 실패한 턴인가"를
+    // 같은 기준으로 판정해야 한다. 문구가 두 군데로 갈리면 버튼만 뜨고 요청은 거절된다.
+    public static final String FALLBACK_CONTENT =
+            "미안, 지금 답을 정리하기가 어렵네\n조금 있다가 다시 보내줄 수 있어?";
+
+    public static Message fallback(Story story) {
+        return assistant(story, FALLBACK_CONTENT);
+    }
+
+    // 이 말풍선이 '답을 못 받은 턴'인지. 문구를 바꾸면 그 전에 저장된 폴백은 재시도 대상에서
+    // 빠지지만, 지난 대화의 버튼이 사라질 뿐이라 문제되지 않는다(컬럼을 새로 파지 않는 값).
+    public boolean isFallback() {
+        return role == MessageRole.ASSISTANT && FALLBACK_CONTENT.equals(content);
+    }
 }

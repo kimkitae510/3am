@@ -52,6 +52,8 @@ public enum ErrorCode {
 
     // 사연
     STORY_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "사연을 찾을 수 없습니다."),
+    // 재시도 버튼을 두 번 눌렀거나, 그새 답이 붙은 경우. 화면을 새로 그리면 해소된다.
+    CHAT_RETRY_NOT_APPLICABLE(HttpStatus.CONFLICT, "S002", "다시 시도할 답변이 없습니다."),
 
     // 진단
     ASSESSMENT_NO_MESSAGES(HttpStatus.BAD_REQUEST, "AS001", "진단할 대화 내용이 없습니다."),

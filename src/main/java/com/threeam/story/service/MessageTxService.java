@@ -76,6 +76,44 @@ public class MessageTxService {
     // 즉시 반환할 유저 메시지 + 백그라운드 LLM 호출에 쓸 프롬프트.
     public record PreparedSend(MessageResponse userMessage, List<ChatMessage> prompt) {}
 
+    // tx1'(재시도): 폴백 말풍선을 걷어내고 같은 유저 메시지로 프롬프트를 다시 조립한다.
+    // 유저에게 다시 타이핑을 시키지 않으려는 것이므로 유저 메시지는 새로 저장하지 않는다 —
+    // 새로 저장하면 같은 말이 두 벌 남고, 사실 추출도 그 중복을 훑는다.
+    // 폴백은 지운다: 유저 발화가 아니라 우리가 대신 낸 안내라 대화 기록으로 남길 값이 없고,
+    // 남겨두면 재시도가 성공해도 실패 말풍선이 답 위에 그대로 붙어 있다.
+    // 지우는 것은 잔여, 쿨다운 검사를 통과한 뒤다 — 먼저 지우면 거절당한 유저가 폴백 말풍선과
+    // 재시도 버튼까지 잃고 같은 말을 다시 타이핑해야 한다.
+    @Transactional
+    public PreparedRetry prepareRetry(Long userId, Long storyId) {
+        // 검사와 삭제 사이에 답이 붙거나 다른 요청이 먼저 지웠을 수 있어 여기서 한 번 더 본다.
+        RetriableTurn turn = retriableTurn(userId, storyId);
+        messageRepository.delete(turn.fallback());
+        // 프롬프트 조립이 방금 지운 폴백을 다시 읽지 않게 먼저 밀어낸다.
+        messageRepository.flush();
+        Message userMessage = turn.userMessage();
+        return new PreparedRetry(userMessage.getId(), userMessage.getContent(), buildPrompt(storyId));
+    }
+
+    // 마지막이 폴백이고 그 앞이 유저 메시지일 때만 재시도할 것이 있다.
+    // (재시도를 두 번 눌렀거나 그새 정상 답이 붙었으면 여기서 걸린다)
+    private RetriableTurn retriableTurn(Long userId, Long storyId) {
+        storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        List<Message> recent = messageRepository
+                .findByStoryIdOrderByIdDesc(storyId, PageRequest.of(0, 2))
+                .getContent();
+        if (recent.size() < 2 || !recent.get(0).isFallback()
+                || recent.get(1).getRole() != MessageRole.USER) {
+            throw new BusinessException(ErrorCode.CHAT_RETRY_NOT_APPLICABLE);
+        }
+        return new RetriableTurn(recent.get(1), recent.get(0));
+    }
+
+    private record RetriableTurn(Message userMessage, Message fallback) {}
+
+    // 폴링 기준 id(되살릴 답이 붙을 자리)와, 회수 환산에 쓸 원문, 그리고 프롬프트.
+    public record PreparedRetry(Long pollAfterId, String userContent, List<ChatMessage> prompt) {}
+
     // tx2: LLM 응답을 어시스턴트 메시지로 저장 + 사연 활동시각 갱신.
     @Transactional
     public MessageResponse appendAssistantReply(Long storyId, String reply) {

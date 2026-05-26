@@ -82,6 +82,45 @@ class MessageTxServiceTest {
     private MessageTxService messageTxService;
 
     @Test
+    @DisplayName("재시도 준비 - 폴백을 지우고 같은 유저 메시지로 프롬프트를 다시 만든다(새로 저장하지 않는다)")
+    void prepareRetry_deletesFallbackAndReusesUserMessage() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        Message userMessage = message(MessageRole.USER, "오늘 너무 힘들어");
+        ReflectionTestUtils.setField(userMessage, "id", 7L);
+        Message fallback = Message.fallback(story);
+        ReflectionTestUtils.setField(fallback, "id", 8L);
+        // 최신순 조회라 폴백이 먼저, 그 앞이 유저 메시지다
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(fallback, userMessage), PageRequest.of(0, 2), false));
+
+        MessageTxService.PreparedRetry prepared = messageTxService.prepareRetry(1L, 10L);
+
+        assertThat(prepared.pollAfterId()).isEqualTo(7L);
+        assertThat(prepared.userContent()).isEqualTo("오늘 너무 힘들어");
+        verify(messageRepository).delete(fallback);
+        verify(messageRepository, never()).save(any(Message.class));
+    }
+
+    @Test
+    @DisplayName("재시도 준비 - 마지막이 폴백이 아니면 거부한다(연타, 그새 답이 붙은 경우)")
+    void prepareRetry_rejectedWhenNothingFailed() {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L))
+                .willReturn(Optional.of(story(10L)));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(
+                        List.of(message(MessageRole.ASSISTANT, "들었어"),
+                                message(MessageRole.USER, "오늘 너무 힘들어")),
+                        PageRequest.of(0, 2), false));
+
+        assertThatThrownBy(() -> messageTxService.prepareRetry(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHAT_RETRY_NOT_APPLICABLE);
+
+        verify(messageRepository, never()).delete(any(Message.class));
+    }
+
+    @Test
     @DisplayName("프롬프트 조립 - 진단을 화제로 꺼내지 않은 턴에는 상세 블록 대신 미니 라인만 싣는다")
     void buildPrompt_miniLineWhenNotAsked() {
         Story story = story(10L);
