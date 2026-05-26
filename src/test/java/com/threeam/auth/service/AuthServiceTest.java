@@ -82,7 +82,8 @@ class AuthServiceTest {
         TokenResponse response = authService.guestStart("1.1.1.1");
 
         assertThat(response.getAccessToken()).isEqualTo("access");
-        verify(signupRateLimiter).check("1.1.1.1"); // 게스트 재발급 어뷰징도 가입 IP 상한을 공유
+        // 게스트 재발급 어뷰징도 가입 IP 상한을 공유하되, 거절 문구는 둘러보기용(U011)으로 갈린다
+        verify(signupRateLimiter).check("1.1.1.1", ErrorCode.GUEST_START_LIMITED);
         org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
         assertThat(captor.getValue().isGuest()).isTrue();
