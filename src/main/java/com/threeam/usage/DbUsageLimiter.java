@@ -46,6 +46,13 @@ public class DbUsageLimiter implements UsageLimiter {
         generationLockRepository.release(lockKey(kind, userId));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isGenerating(UsageKind kind, Long userId) {
+        return generationLockRepository.existsByLockKeyAndLockedUntilAfter(
+                lockKey(kind, userId), LocalDateTime.now(KST));
+    }
+
     private String lockKey(UsageKind kind, Long userId) {
         return kind.name() + ":" + userId;
     }

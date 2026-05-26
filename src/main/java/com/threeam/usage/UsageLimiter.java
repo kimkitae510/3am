@@ -14,6 +14,10 @@ public interface UsageLimiter {
 
     void releaseInFlight(UsageKind kind, Long userId);
 
+    // 지금 이 유저의 생성이 실제로 돌고 있는지. 콜백은 성공이든 실패든 저장을 마친 뒤에 락을 풀므로,
+    // 락이 없는데 답도 없다면 그 턴은 서버가 죽어 사라진 것이다(화면의 "..."를 끝낼 근거).
+    boolean isGenerating(UsageKind kind, Long userId);
+
     // 접수 관문: 이용권 잔여가 units에 못 미치면 던진다(회원 QUOTA_EXCEEDED, 게스트 GUEST_LINK_REQUIRED).
     // 차감하지 않는다. units는 이 요청이 소모할 회수 — 긴 메시지는 길이에 비례해 여러 회다(호출부가 환산).
     void check(UsageKind kind, Long userId, int units);

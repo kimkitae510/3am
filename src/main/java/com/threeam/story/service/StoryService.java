@@ -2,17 +2,21 @@ package com.threeam.story.service;
 
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
+import com.threeam.global.exception.custom.RetryAfterException;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
 import com.threeam.story.dto.MessagePageResponse;
 import com.threeam.story.dto.MessageResponse;
+import com.threeam.story.dto.MessageRetryResponse;
 import com.threeam.story.dto.MessageSendRequest;
 import com.threeam.story.dto.StoryCreateRequest;
 import com.threeam.story.dto.StoryResponse;
 import com.threeam.story.entity.Message;
+import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryRepository;
+import com.threeam.usage.ChatRetryGuard;
 import com.threeam.usage.UsageKind;
 import com.threeam.usage.UsageLimiter;
 import java.util.ArrayList;
@@ -37,11 +41,6 @@ public class StoryService {
     // 조회 한 번에 내려줄 메시지 수 상한. 클라가 큰 size를 넘겨도 여기서 자른다.
     private static final int MAX_PAGE_SIZE = 100;
 
-    // LLM 호출 실패 시 답을 빈 채로 두지 않고 대화체로 저장한다. 폴링이 이 메시지를 받고 정상 종료한다.
-    // 이건 페르소나가 말풍선으로 하는 말이라 페르소나 문법을 따른다 — 반말, 마침표 없이.
-    private static final String LLM_FALLBACK =
-            "미안, 지금 답을 정리하기가 어렵네\n조금 있다가 다시 보내줄 수 있어?";
-
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
     private final MessageTxService messageTxService;
@@ -50,6 +49,7 @@ public class StoryService {
     private final ReplyLinter replyLinter;
     private final LlmClient llmClient;
     private final UsageLimiter usageLimiter;
+    private final ChatRetryGuard chatRetryGuard;
     // 답변 저장, 원장 적재를 HttpClient 스레드가 아니라 우리 풀에서 돌린다(LlmCallbackConfig 참고).
     private final Executor llmCallbackExecutor;
 
@@ -96,31 +96,20 @@ public class StoryService {
         try {
             // 후차감: 여기서는 한도 검사만 하고, 기록은 답변 저장이 성공한 뒤에 한다.
             // 유저가 폴링을 끊어도(중지) 서버는 끝까지 저장하므로 "기록 시점"은 반드시 도달한다.
-            int units = chatUnits(request.getContent());
-            usageLimiter.check(UsageKind.CHAT, userId, units);
+            usageLimiter.check(UsageKind.CHAT, userId, CHAT_UNITS);
+
+            // 연속 실패 가드. 실패는 후차감(미차감)이라 막지 않으면 무한 무료 LLM 호출이 된다.
+            // 잔여 검사 뒤에 둔다 — 둘 다 걸리면 "이용권을 다 썼다"가 유저가 할 일이 있는 안내다.
+            int retryAfterSeconds = chatRetryGuard.blockedSeconds(userId);
+            if (retryAfterSeconds > 0) {
+                // 유저 메시지도 저장하지 않는다 — 답이 붙지 않을 말풍선만 남기고 폴링이 헛돈다.
+                throw new RetryAfterException(ErrorCode.CHAT_RETRY_COOLDOWN, retryAfterSeconds);
+            }
 
             MessageTxService.PreparedSend prepared =
                     messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
 
-            // fire-and-forget: 응답을 기다리지 않는다. 완료되면 어시스턴트 메시지로 저장, 실패하면 폴백 저장.
-            // handle로 LLM 단계 예외와 저장 단계 예외를 분리한다(저장 실패를 'LLM 실패'로 오인 기록하지 않게).
-            llmClient.generate(prepared.prompt())
-                    .handleAsync((reply, ex) -> {
-                        if (ex != null) {
-                            log.error("LLM 응답 생성 실패 storyId={} userId={}", storyId, userId, ex);
-                            persistFallbackQuietly(storyId);
-                        } else {
-                            persistReplyQuietly(userId, storyId, reply, units);
-                        }
-                        return null;
-                    }, llmCallbackExecutor)
-                    .whenComplete((ignored, ex) -> {
-                        // handle에서 예외를 삼키므로 여기 ex는 보통 null이지만, 만일을 대비해 흔적을 남긴다(무로그 방지).
-                        if (ex != null) {
-                            log.error("메시지 처리 파이프라인 예상외 실패 storyId={} userId={}", storyId, userId, ex);
-                        }
-                        usageLimiter.releaseInFlight(UsageKind.CHAT, userId);
-                    });
+            generateInBackground(userId, storyId, prepared.prompt());
 
             return prepared.userMessage();
         } catch (RuntimeException e) {
@@ -130,52 +119,143 @@ public class StoryService {
         }
     }
 
-    // 대화 1회로 치는 길이. 초과분은 회수로 환산해 긴 메시지가 이용권을 비례해 쓴다(예: 1,200자=3회).
-    // 150자는 사연을 쓰다 끊겨 흐름이 깨졌고, 300자도 실제 사연이 대개 800~1,500자라
-    // 첫 메시지 하나에 3~5회가 날아갔다 — 500자로 올린다.
-    // 참고: 실제 원가는 길이가 아니라 호출 수가 정한다(호출당 입력 1.1만 토큰, 유저 메시지는 3~10%).
-    private static final int CHAT_UNIT_CHARS = 500;
+    // 답을 못 받은 턴(폴백 말풍선)을 유저가 다시 시도한다. 같은 말을 다시 타이핑시키지 않으려는 것이라
+    // 유저 메시지는 그대로 두고 답만 새로 만든다. 잔여 검사, 생성 락, 연속 실패 가드는 전송과 똑같이 태운다 —
+    // 재시도도 실제 호출 비용이라 여기가 빠지면 가드를 우회하는 문이 된다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public MessageRetryResponse retryLastReply(Long userId, Long storyId) {
+        usageLimiter.acquireInFlight(UsageKind.CHAT, userId);
+        try {
+            // 재시도도 한 턴이라 전송과 같은 1회를 본다 — 깎아주지도, 더 받지도 않는다.
+            usageLimiter.check(UsageKind.CHAT, userId, CHAT_UNITS);
 
-    private static int chatUnits(String content) {
-        return Math.max(1, (content.length() + CHAT_UNIT_CHARS - 1) / CHAT_UNIT_CHARS);
+            int retryAfterSeconds = chatRetryGuard.blockedSeconds(userId);
+            if (retryAfterSeconds > 0) {
+                throw new RetryAfterException(ErrorCode.CHAT_RETRY_COOLDOWN, retryAfterSeconds);
+            }
+
+            // 폴백 삭제는 검사를 다 통과한 뒤다 — 거절당한 유저에게서 재시도 버튼을 뺏지 않는다.
+            MessageTxService.PreparedRetry prepared = messageTxService.prepareRetry(userId, storyId);
+
+            generateInBackground(userId, storyId, prepared.prompt());
+
+            return new MessageRetryResponse(prepared.pollAfterId());
+        } catch (RuntimeException e) {
+            usageLimiter.releaseInFlight(UsageKind.CHAT, userId);
+            throw e;
+        }
     }
 
+    // fire-and-forget: 응답을 기다리지 않는다. 완료되면 어시스턴트 메시지로 저장, 실패하면 폴백 저장.
+    // handle로 LLM 단계 예외와 저장 단계 예외를 분리한다(저장 실패를 'LLM 실패'로 오인 기록하지 않게).
+    private void generateInBackground(Long userId, Long storyId, List<ChatMessage> prompt) {
+        llmClient.generate(prompt)
+                .handleAsync((reply, ex) -> {
+                    if (ex != null) {
+                        log.error("LLM 응답 생성 실패 storyId={} userId={}", storyId, userId, ex);
+                        persistFallbackQuietly(storyId);
+                        markChatFailedQuietly(userId);
+                    } else {
+                        persistReplyQuietly(userId, storyId, reply);
+                    }
+                    return null;
+                }, llmCallbackExecutor)
+                .whenComplete((ignored, ex) -> {
+                    // handle에서 예외를 삼키므로 여기 ex는 보통 null이지만, 만일을 대비해 흔적을 남긴다(무로그 방지).
+                    if (ex != null) {
+                        log.error("메시지 처리 파이프라인 예상외 실패 storyId={} userId={}", storyId, userId, ex);
+                    }
+                    usageLimiter.releaseInFlight(UsageKind.CHAT, userId);
+                });
+    }
+
+    // 길이와 무관하게 한 턴은 1회다. 길이로 환산하던 때가 있었지만 원가와 맞지 않았다 —
+    // 한 턴 48.7원 중 유저 메시지 몫은 3~10%고(고정 프롬프트 1.1만 토큰 + 추론 + 출력이 나머지),
+    // 2,000자를 더 붙여도 5원이 안 된다. 비용을 정하는 건 호출 수다.
+    private static final int CHAT_UNITS = 1;
+
     // LLM 성공 후: 답변 저장 → 차감 → 사실 추출. 저장 단계 실패는 'LLM 실패'와 구분해 명확히 남긴다.
-    private void persistReplyQuietly(Long userId, Long storyId, String reply, int units) {
+    private void persistReplyQuietly(Long userId, Long storyId, String reply) {
         try {
             messageTxService.appendAssistantReply(storyId, reply);
         } catch (RuntimeException e) {
             // LLM은 성공했으나 답을 못 남긴 상태 — 폴링이 끝나지 않는 CS 원인이 되므로 반드시 추적 가능해야 한다.
             log.error("LLM 응답은 받았으나 답변 저장 실패 storyId={} userId={}", storyId, userId, e);
+            // 유저에게 닿은 게 없으니 가드에는 실패로 센다 — 호출 비용은 이미 나갔다.
+            markChatFailedQuietly(userId);
             return;
         }
-        recordUsageQuietly(userId, units);   // 성공 시만 차감. 폴백(LLM 장애)은 유저 잘못이 아니라 미차감.
+        clearChatFailedQuietly(userId);      // 답이 붙었으니 연속이 끊겼다.
+        recordUsageQuietly(userId);          // 성공 시만 차감. 폴백(LLM 장애)은 유저 잘못이 아니라 미차감.
         replyLinter.inspect(storyId, reply); // 규칙 위반 계측. 답변은 그대로 나간다.
         factExtractor.extractAsync(storyId); // 원장 갱신. 실패해도 채팅에 영향 없음(내부에서 삼킴).
     }
 
     // LLM 실패 시 폴백 저장. 이마저 실패하면 답도 폴백도 없이 조용히 사라지므로 반드시 로그를 남긴다.
+    // 문구는 Message가 들고 있다 — 화면의 재시도 버튼과 서버의 재시도 검사가 같은 기준을 봐야 한다.
     private void persistFallbackQuietly(Long storyId) {
         try {
-            messageTxService.appendAssistantReply(storyId, LLM_FALLBACK);
+            messageTxService.appendAssistantReply(storyId, Message.FALLBACK_CONTENT);
         } catch (RuntimeException e) {
             log.error("폴백 메시지 저장까지 실패 storyId={} — 유저 폴링이 종료되지 않는다", storyId, e);
         }
     }
 
-    // 쿼터 기록 실패가 이미 저장된 답변을 실패 처리(폴백 중복 저장)로 오염시키지 않게 격리한다.
-    private void recordUsageQuietly(Long userId, int units) {
+    // 가드 기록 실패가 답변 저장이나 락 해제를 막지 않게 격리한다 — 가드는 비용 방어 장치라,
+    // 한 번 못 세는 것보다 채팅 흐름이 끊기는 쪽이 나쁘다.
+    private void markChatFailedQuietly(Long userId) {
         try {
-            usageLimiter.record(UsageKind.CHAT, userId, units);
+            chatRetryGuard.markFailed(userId);
         } catch (RuntimeException e) {
-            log.error("대화 쿼터 기록 실패 userId={} units={}", userId, units, e);
+            log.error("채팅 실패 카운트 기록 실패 userId={}", userId, e);
         }
+    }
+
+    private void clearChatFailedQuietly(Long userId) {
+        try {
+            chatRetryGuard.clear(userId);
+        } catch (RuntimeException e) {
+            log.error("채팅 실패 카운트 해제 실패 userId={}", userId, e);
+        }
+    }
+
+    // 쿼터 기록 실패가 이미 저장된 답변을 실패 처리(폴백 중복 저장)로 오염시키지 않게 격리한다.
+    private void recordUsageQuietly(Long userId) {
+        try {
+            usageLimiter.record(UsageKind.CHAT, userId, CHAT_UNITS);
+        } catch (RuntimeException e) {
+            log.error("대화 쿼터 기록 실패 userId={}", userId, e);
+        }
+    }
+
+    // 답도 폴백도 없이 유저 메시지만 남은 턴을 폴백으로 닫는다.
+    // 서버가 재시작되면 진행 중이던 LLM 호출은 흔적 없이 사라지는데(fire-and-forget이라 되살릴
+    // 것도 없다), 그 자리는 화면에서 영영 끝나지 않는 "..."로 남는다. 여기서 닫아야 폴링이 끝나고
+    // 재시도 버튼이 나온다. 판정 근거는 생성 락이다 — 콜백은 성공이든 실패든 저장을 마친 뒤에
+    // 락을 풀므로, 락이 없는데 답이 없으면 그 턴은 되살아날 길이 없다.
+    // 연속 실패로는 세지 않는다: 우리 재시작이지 LLM이 반복해서 실패한 게 아니다.
+    private void healDanglingTurn(Long userId, Long storyId) {
+        if (usageLimiter.isGenerating(UsageKind.CHAT, userId)) {
+            return;
+        }
+        List<Message> last = messageRepository
+                .findByStoryIdOrderByIdDesc(storyId, PageRequest.of(0, 1)).getContent();
+        if (last.isEmpty() || last.get(0).getRole() != MessageRole.USER) {
+            return;
+        }
+        log.warn("답 없이 끊긴 턴을 폴백으로 닫음 storyId={} userId={} messageId={}",
+                storyId, userId, last.get(0).getId());
+        messageTxService.appendAssistantReply(storyId, Message.FALLBACK_CONTENT);
     }
 
     // 폴링: 방금 보낸 메시지(afterId) 이후 새로 생긴 메시지(주로 어시스턴트 답)를 시간순으로 반환.
     @Transactional
     public List<MessageResponse> getMessagesSince(Long userId, Long storyId, Long afterId) {
         Story story = findOwned(storyId, userId);
+        // 아직 아무것도 안 붙었으면, 만드는 중인지 끊긴 턴인지 가른다(끊겼으면 폴백을 채워 폴링을 끝낸다).
+        if (!messageRepository.existsByStoryIdAndIdGreaterThan(storyId, afterId)) {
+            healDanglingTurn(userId, storyId);
+        }
         List<MessageResponse> fresh = messageRepository
                 .findByStoryIdAndIdGreaterThanOrderByIdAsc(storyId, afterId).stream()
                 .map(MessageResponse::from)
@@ -193,6 +273,8 @@ public class StoryService {
         // 방에 들어와 최신 페이지를 본 시점(cursor 없음)이 곧 읽음이다. 과거 페이징은 해당 없음.
         if (cursor == null) {
             story.markRead();
+            // 조회 전에 닫는다 — 이 페이지에 폴백이 실려야 화면이 "..." 대신 재시도 버튼을 그린다.
+            healDanglingTurn(userId, storyId);
         }
 
         int limit = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);

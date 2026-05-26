@@ -11,9 +11,11 @@ import static org.mockito.Mockito.verify;
 
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
+import com.threeam.global.exception.custom.RetryAfterException;
 import com.threeam.llm.LlmClient;
 import com.threeam.story.dto.MessagePageResponse;
 import com.threeam.story.dto.MessageResponse;
+import com.threeam.story.dto.MessageRetryResponse;
 import com.threeam.story.dto.MessageSendRequest;
 import com.threeam.story.dto.StoryCreateRequest;
 import com.threeam.story.dto.StoryResponse;
@@ -22,6 +24,7 @@ import com.threeam.story.entity.MessageRole;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryRepository;
+import com.threeam.usage.ChatRetryGuard;
 import com.threeam.usage.UsageKind;
 import com.threeam.usage.UsageLimiter;
 import java.util.List;
@@ -63,6 +66,10 @@ class StoryServiceTest {
 
     @Mock
     private UsageLimiter usageLimiter;
+
+    // 기본 스텁은 0(차단 아님)이라 나머지 테스트는 이 가드를 신경 쓰지 않는다.
+    @Mock
+    private ChatRetryGuard chatRetryGuard;
 
     // 콜백 전용 풀 자리. 테스트에선 인라인 실행이라 비동기 대기 없이 검증한다(운영에선 LlmCallbackConfig의 풀).
     @Spy
@@ -157,9 +164,9 @@ class StoryServiceTest {
     }
 
     @Test
-    @DisplayName("메시지 전송 - 500자를 넘는 메시지는 길이에 비례한 회수로 검사, 차감한다(1,200자 = 3회)")
-    void sendMessage_longMessageCostsMultipleUnits() {
-        String longContent = "가".repeat(1200);
+    @DisplayName("메시지 전송 - 길이와 무관하게 한 턴은 1회다(비용을 정하는 건 호출 수라서)")
+    void sendMessage_lengthDoesNotChangeUnits() {
+        String longContent = "가".repeat(2800);
         MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, longContent));
         given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, longContent))
                 .willReturn(new MessageTxService.PreparedSend(userMessage, List.of()));
@@ -170,8 +177,8 @@ class StoryServiceTest {
 
         storyService.sendMessage(1L, 10L, sendRequest(longContent));
 
-        verify(usageLimiter).check(UsageKind.CHAT, 1L, 3);
-        verify(usageLimiter).record(UsageKind.CHAT, 1L, 3);
+        verify(usageLimiter).check(UsageKind.CHAT, 1L, 1);
+        verify(usageLimiter).record(UsageKind.CHAT, 1L, 1);
     }
 
     @Test
@@ -239,6 +246,141 @@ class StoryServiceTest {
         verify(usageLimiter, never()).record(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         // 답이 없는 턴은 추출할 것도 없다
         verify(factExtractor, never()).extractAsync(any());
+        // 미차감이라 무한 무료 호출이 가능한 자리 — 연속 실패로 세어 둔다
+        verify(chatRetryGuard).markFailed(1L);
+    }
+
+    @Test
+    @DisplayName("메시지 전송 - 답이 저장되면 연속 실패 카운트를 지운다")
+    void sendMessage_successClearsFailStreak() {
+        MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, "hi"));
+        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi"))
+                .willReturn(new MessageTxService.PreparedSend(userMessage, List.of()));
+        given(llmClient.generate(anyList())).willReturn(CompletableFuture.completedFuture("들었어"));
+        given(messageTxService.appendAssistantReply(10L, "들었어"))
+                .willReturn(MessageResponse.from(message(2L, MessageRole.ASSISTANT, "들었어")));
+
+        storyService.sendMessage(1L, 10L, sendRequest("hi"));
+
+        verify(chatRetryGuard).clear(1L);
+        verify(chatRetryGuard, never()).markFailed(any());
+    }
+
+    @Test
+    @DisplayName("메시지 전송 - 연속 실패 쿨다운 중이면 남은 초와 함께 거부하고 LLM을 부르지 않는다")
+    void sendMessage_failCooldownRejected() {
+        given(chatRetryGuard.blockedSeconds(1L)).willReturn(42);
+
+        assertThatThrownBy(() -> storyService.sendMessage(1L, 10L, sendRequest("hi")))
+                .isInstanceOf(RetryAfterException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHAT_RETRY_COOLDOWN)
+                .hasFieldOrPropertyWithValue("retryAfterSeconds", 42);
+
+        // 유저 메시지도 저장하지 않는다 — 답이 붙지 않을 말풍선만 남으면 폴링이 헛돈다
+        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any());
+        verify(llmClient, never()).generate(anyList());
+        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
+    }
+
+    @Test
+    @DisplayName("메시지 전송 - 잔여가 없으면 쿨다운 검사까지 가지 않는다(할 일이 있는 안내가 우선)")
+    void sendMessage_quotaBeforeCooldown() {
+        org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.QUOTA_EXCEEDED))
+                .given(usageLimiter).check(UsageKind.CHAT, 1L, 1);
+
+        assertThatThrownBy(() -> storyService.sendMessage(1L, 10L, sendRequest("hi")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
+
+        verify(chatRetryGuard, never()).blockedSeconds(any());
+    }
+
+    @Test
+    @DisplayName("답변 재시도 - 유저 메시지를 새로 저장하지 않고 답만 다시 만든다")
+    void retryLastReply_success() {
+        given(messageTxService.prepareRetry(1L, 10L))
+                .willReturn(new MessageTxService.PreparedRetry(7L, "오늘 너무 힘들어", List.of()));
+        given(llmClient.generate(anyList())).willReturn(CompletableFuture.completedFuture("들었어"));
+        given(messageTxService.appendAssistantReply(10L, "들었어"))
+                .willReturn(MessageResponse.from(message(9L, MessageRole.ASSISTANT, "들었어")));
+
+        MessageRetryResponse response = storyService.retryLastReply(1L, 10L);
+
+        // 폴백을 지웠으니 클라가 들고 있던 id는 없는 행이다 — 폴링 기준을 새로 준다
+        assertThat(response.getPollAfterId()).isEqualTo(7L);
+        // 같은 말을 다시 저장하지 않는다(중복 말풍선, 중복 사실 추출 방지)
+        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any());
+        verify(messageTxService).appendAssistantReply(10L, "들었어");
+        // 재시도라고 회수를 더 받지도, 깎아주지도 않는다
+        verify(usageLimiter).record(UsageKind.CHAT, 1L, 1);
+        verify(chatRetryGuard).clear(1L);
+        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
+    }
+
+    @Test
+    @DisplayName("답변 재시도 - 잔여가 없으면 폴백을 지우지 않는다(재시도 버튼이 사라지면 안 된다)")
+    void retryLastReply_quotaExceededKeepsFallback() {
+        org.mockito.BDDMockito.willThrow(new BusinessException(ErrorCode.QUOTA_EXCEEDED))
+                .given(usageLimiter).check(UsageKind.CHAT, 1L, 1);
+
+        assertThatThrownBy(() -> storyService.retryLastReply(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
+
+        verify(messageTxService, never()).prepareRetry(any(), any());
+        verify(llmClient, never()).generate(anyList());
+        verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
+    }
+
+    @Test
+    @DisplayName("답변 재시도 - 연속 실패 쿨다운 중이면 거부한다(가드를 우회하는 문이 되면 안 된다)")
+    void retryLastReply_blockedByCooldown() {
+        given(chatRetryGuard.blockedSeconds(1L)).willReturn(30);
+
+        assertThatThrownBy(() -> storyService.retryLastReply(1L, 10L))
+                .isInstanceOf(RetryAfterException.class)
+                .hasFieldOrPropertyWithValue("retryAfterSeconds", 30);
+
+        verify(messageTxService, never()).prepareRetry(any(), any());
+        verify(llmClient, never()).generate(anyList());
+    }
+
+    @Test
+    @DisplayName("폴링 - 생성이 돌고 있지 않은데 답이 없으면 끊긴 턴이다. 폴백으로 닫아 폴링을 끝낸다")
+    void getMessagesSince_healsDanglingTurn() {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L))
+                .willReturn(Optional.of(story(1L, "사연")));
+        given(messageRepository.existsByStoryIdAndIdGreaterThan(10L, 5L)).willReturn(false);
+        given(usageLimiter.isGenerating(UsageKind.CHAT, 1L)).willReturn(false);
+        // 마지막이 유저 메시지 — 서버가 재시작돼 답도 폴백도 못 남긴 자리
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message(5L, MessageRole.USER, "hi")),
+                        PageRequest.of(0, 1), false));
+        given(messageRepository.findByStoryIdAndIdGreaterThanOrderByIdAsc(10L, 5L))
+                .willReturn(List.of(message(6L, MessageRole.ASSISTANT, Message.FALLBACK_CONTENT)));
+
+        List<MessageResponse> fresh = storyService.getMessagesSince(1L, 10L, 5L);
+
+        verify(messageTxService).appendAssistantReply(10L, Message.FALLBACK_CONTENT);
+        // 폴백이 폴링에 잡혀야 화면의 "..."가 끝나고 재시도 버튼이 뜬다
+        assertThat(fresh).hasSize(1);
+        assertThat(fresh.get(0).isFailed()).isTrue();
+        // 우리 재시작이지 LLM이 반복 실패한 게 아니다 — 연속 실패로 세지 않는다
+        verify(chatRetryGuard, never()).markFailed(any());
+    }
+
+    @Test
+    @DisplayName("폴링 - 아직 생성 중이면 손대지 않는다(정상 대기를 실패로 닫으면 안 된다)")
+    void getMessagesSince_keepsWaitingWhileGenerating() {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L))
+                .willReturn(Optional.of(story(1L, "사연")));
+        given(messageRepository.existsByStoryIdAndIdGreaterThan(10L, 5L)).willReturn(false);
+        given(usageLimiter.isGenerating(UsageKind.CHAT, 1L)).willReturn(true);
+        given(messageRepository.findByStoryIdAndIdGreaterThanOrderByIdAsc(10L, 5L)).willReturn(List.of());
+
+        assertThat(storyService.getMessagesSince(1L, 10L, 5L)).isEmpty();
+
+        verify(messageTxService, never()).appendAssistantReply(any(), any());
     }
 
     @Test

@@ -24,6 +24,10 @@ public interface GenerationLockRepository extends JpaRepository<GenerationLock, 
     int acquire(@Param("key") String key, @Param("now") LocalDateTime now,
                 @Param("until") LocalDateTime until);
 
+    // 지금 이 유저의 생성이 실제로 돌고 있는지. 만료된 락은 없는 것으로 본다.
+    // "답이 아직 안 붙었다"가 생성 중이어서인지, 재시작으로 사라진 턴이어서인지를 이 값이 가른다.
+    boolean existsByLockKeyAndLockedUntilAfter(String lockKey, LocalDateTime now);
+
     // 정상 종료 시 즉시 반납. 실패로 못 부르면 locked_until 만료로 자동 해제된다(좀비 락 방지).
     @Modifying
     @Query(value = "DELETE FROM generation_lock WHERE lock_key = :key", nativeQuery = true)
