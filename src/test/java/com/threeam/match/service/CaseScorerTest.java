@@ -171,4 +171,18 @@ class CaseScorerTest {
 
         assertThat(scorer.score(mine, near)).isGreaterThan(scorer.score(mine, far));
     }
+
+    // 무다툼 200일 사연에 상습 온오프 사례가 붙은 실측(매칭오판 5). 감정누적이 잦은싸움 갈래에
+    // 있던 탓에, 싸운 적 없는 사연이 그 태그 하나로 싸움 이별 계열이 됐다.
+    @Test
+    @DisplayName("감정누적은 범용이라 잦은싸움 사례를 끌어올리지 못한다")
+    void accumulatedFeelingIsGeneric() {
+        StoryMatchProfile mine = profile("가치관차이", "감정누적,갈등회피");
+
+        int fightCase = scorer.score(mine, reunionCase("잦은싸움", "감정누적,사소한반복"));
+        int avoidCase = scorer.score(mine, reunionCase("성격차이", "갈등회피,감정처리"));
+
+        // 갈등회피가 겹치는 쪽이 감정누적만 겹치는 싸움 사례보다 닮았다.
+        assertThat(avoidCase).isGreaterThan(fightCase);
+    }
 }
