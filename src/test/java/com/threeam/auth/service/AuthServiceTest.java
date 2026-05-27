@@ -113,7 +113,7 @@ class AuthServiceTest {
         assertThat(guest.getProvider()).isEqualTo(com.threeam.user.entity.AuthProvider.KAKAO);
         assertThat(guest.getProviderId()).isEqualTo("kakao-1");
         verify(consentService).recordSignupConsents(9L); // 승격이 실질적 가입 — 동의 이력
-        verify(welcomeGiftService).grantSignupGift(9L);            // 가입 선물도 이때
+        verify(welcomeGiftService).grantGuestUpgradeGift(9L);      // 선물은 이때 — 체험분이 있어 승격분
     }
 
     @Test

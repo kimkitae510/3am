@@ -233,7 +233,7 @@ class UserServiceTest {
         assertThat(guest.getProviderId()).isNull();
         verify(emailVerificationService).verifyAndConsume("a@a.com", "123456"); // 가입과 같은 관문
         verify(consentService).recordSignupConsents(9L);
-        verify(welcomeGiftService).grantSignupGift(9L); // 승격이 실질적 가입 — 선물은 이때
+        verify(welcomeGiftService).grantGuestUpgradeGift(9L); // 승격이 실질적 가입 — 선물은 이때(승격분)
     }
 
     @Test
@@ -245,7 +245,7 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.linkGuestEmail(1L, signupRequest("a@a.com", "password123")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        verify(welcomeGiftService, org.mockito.Mockito.never()).grantSignupGift(any());
+        verify(welcomeGiftService, org.mockito.Mockito.never()).grantGuestUpgradeGift(any());
     }
 
     private User userWithId(Long id, String password) {

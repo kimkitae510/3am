@@ -152,7 +152,7 @@ public class AuthService {
         assertSocialEmailAvailable(profile);
         guest.linkSocial(profile.provider(), profile.providerId(), profile.email());
         consentService.recordSignupConsents(guest.getId());
-        welcomeGiftService.grantSignupGift(guest.getId());
+        welcomeGiftService.grantGuestUpgradeGift(guest.getId());
         return guest;
     }
 

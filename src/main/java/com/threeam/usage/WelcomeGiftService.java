@@ -14,11 +14,19 @@ public class WelcomeGiftService {
     private final UsageProperties properties;
     private final EntitlementRepository entitlementRepository;
 
-    // 가입 직후(이메일, 소셜 공통) 한 번. 게스트가 승격되는 경우에도 여기로 온다 —
-    // 게스트 체험분이 남아 있으면 합산된다(같은 계정이라 어뷰징이 아니다).
+    // 게스트를 거치지 않고 바로 가입한 경우.
     @Transactional
     public void grantSignupGift(Long userId) {
         grant(userId, UsageKind.CHAT, properties.getSignupGiftChat());
+        grant(userId, UsageKind.ASSESSMENT, properties.getSignupGiftAssessment());
+    }
+
+    // 게스트가 계정을 연결한 경우. 대화분이 가입 선물보다 적은 건 체험분을 이미 받았기 때문이다 —
+    // 같은 값을 주면 게스트를 거친 사람이 바로 가입한 사람보다 총량에서 앞선다.
+    // 진단은 체험에 없었으므로 가입과 같은 수를 준다.
+    @Transactional
+    public void grantGuestUpgradeGift(Long userId) {
+        grant(userId, UsageKind.CHAT, properties.getGuestUpgradeGiftChat());
         grant(userId, UsageKind.ASSESSMENT, properties.getSignupGiftAssessment());
     }
 
