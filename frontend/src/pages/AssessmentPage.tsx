@@ -84,15 +84,15 @@ function BackBar({ onBack, onHelp }: { onBack: () => void; onHelp?: () => void }
     <div className={styles.topbar}>
       <button className={styles.backButton} onClick={onBack} aria-label="뒤로">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M15 5l-7 7 7 7" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M15 5l-7 7 7 7" stroke="#ebebee" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
       <div className={styles.topTitle}>진단</div>
       {onHelp && (
         <button className={styles.helpButton} onClick={onHelp} aria-label="도움말">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />
-            <path d="M9.6 9.2a2.4 2.4 0 114.1 1.7c-.7.7-1.7 1.1-1.7 2.2M12 16.4h.01" stroke="#9B98A3" strokeWidth="1.7" strokeLinecap="round" />
+            <circle cx="12" cy="12" r="9" stroke="#98989f" strokeWidth="1.6" />
+            <path d="M9.6 9.2a2.4 2.4 0 114.1 1.7c-.7.7-1.7 1.1-1.7 2.2M12 16.4h.01" stroke="#98989f" strokeWidth="1.7" strokeLinecap="round" />
           </svg>
         </button>
       )}
@@ -117,6 +117,15 @@ function startOrJoinRun(storyId: number): Promise<AssessmentResponse> {
   };
   run.promise.then(clear, clear);
   return run.promise;
+}
+
+// 쿨다운 3분은 초로만 적으면 "170초 후"처럼 읽어야 계산이 되는 숫자가 된다 — 분이 있으면 분으로.
+function formatCooldown(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}초`;
+  }
+  const rest = seconds % 60;
+  return rest === 0 ? `${seconds / 60}분` : `${Math.floor(seconds / 60)}분 ${rest}초`;
 }
 
 export function AssessmentPage() {
@@ -177,11 +186,11 @@ export function AssessmentPage() {
       await addStoryFact(storyId, content);
       if (aliveRef.current) {
         setFactInput('');
-        setFactNotice('기록했어요. 다시 진단하면 반영돼요.');
+        setFactNotice('기록했습니다. 다시 진단하면 반영됩니다.');
       }
     } catch (e) {
       if (aliveRef.current) {
-        setError(extractErrorMessage(e, '기록하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+        setError(extractErrorMessage(e, '기록하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
       }
     } finally {
       if (aliveRef.current) setFactSaving(false);
@@ -199,12 +208,12 @@ export function AssessmentPage() {
         // 직전 확률 진단이 없으면(첫 진단부터 잠금) 빈 화면이 되는데, 맨 안내("기록이 없어요")로
         // 두면 번복이 무시된 것처럼 읽힌다 — 확인이 반영됐고 다음이 뭔지 말해준다.
         if (!res) {
-          setNotice('헤어진 상태로 확인했어요. 아래 진단 받기를 누르면 재회 가능성을 진단해요.');
+          setNotice('헤어진 상태로 변경했습니다. 아래 진단 받기를 누르면 재회 가능성을 진단합니다.');
         }
         refreshUsage();
       }
     } catch (e) {
-      if (aliveRef.current) setError(extractErrorMessage(e, '처리하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+      if (aliveRef.current) setError(extractErrorMessage(e, '처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
     } finally {
       if (aliveRef.current) setConfirming(false);
     }
@@ -220,7 +229,7 @@ export function AssessmentPage() {
         setPrevProb(null);
       }
     } catch (e) {
-      if (aliveRef.current) setError(extractErrorMessage(e, '처리하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+      if (aliveRef.current) setError(extractErrorMessage(e, '처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
     } finally {
       if (aliveRef.current) setRetracting(false);
     }
@@ -284,8 +293,8 @@ export function AssessmentPage() {
         } else {
           setError(
             code === 'Q001'
-              ? '오늘 진단 횟수를 다 썼어요. 아래 충전하기로 이어갈 수 있어요.'
-              : extractErrorMessage(e, '진단에 실패했어요. 잠시 후 다시 시도해 주세요.'),
+              ? '진단 횟수를 모두 사용했습니다. 아래 충전하기로 이어갈 수 있습니다.'
+              : extractErrorMessage(e, '진단에 실패했습니다. 잠시 후 다시 시도해 주세요.'),
           );
         }
       }
@@ -319,7 +328,7 @@ export function AssessmentPage() {
         // 비교 기준은 "직전의 확률 있는 진단" — 사이에 낀 잠금 판정(DATING 등)은 건너뛴다.
         setPrevProb(all.slice(1).find((a) => a.probability != null)?.probability ?? null);
       })
-      .catch((e) => aliveRef.current && setError(extractErrorMessage(e, '진단 기록을 불러오지 못했어요.')))
+      .catch((e) => aliveRef.current && setError(extractErrorMessage(e, '진단 기록을 불러오지 못했습니다.')))
       .finally(() => aliveRef.current && setLoading(false));
     return () => {
       aliveRef.current = false;
@@ -346,21 +355,47 @@ export function AssessmentPage() {
 
   // 진단 생성 실패와 연속 실패 쿨다운의 공용 조각. 결과가 있을 때(배너 자리)와 없을 때(빈 화면)
   // 양쪽에서 같은 모양으로 쓰인다 — 실패 화면이 두 벌로 갈라지지 않게.
+  // 채팅의 실패 처리와 같은 문법으로 맞춘다 — 큰 패널 + 채운 버튼은 실패를 사건처럼 키웠다.
+  // 어두운 토스트에 아이콘 + 한 줄 사유, 행동은 작은 회색 칩. 두 화면의 실패가 같은 말로 읽힌다.
   const retryPanel = retryable ? (
     <div className={styles.retryPanel}>
-      <div className={styles.retryTitle}>
-        {cooldown > 0 ? '연이어 실패해서 잠시 쉬어가요' : '진단을 만들지 못했어요'}
-      </div>
-      <div className={styles.retryBody}>실패한 진단은 횟수가 차감되지 않았어요</div>
-      {cooldown > 0 && (
-        // 남은 시간은 숫자 하나로만. 초 단위로 줄어드는 게 보여야 "그냥 기다리라"는 말과 달라진다.
-        <div className={styles.retryClock} aria-live="off">
-          {Math.floor(cooldown / 60)}:{String(cooldown % 60).padStart(2, '0')}
+      <svg className={styles.retryIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        {cooldown > 0 ? (
+          <>
+            <circle cx="12" cy="12" r="9" stroke="#B89DD1" strokeWidth="1.6" />
+            <path d="M12 7.2V12l3 1.8" stroke="#B89DD1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ) : (
+          <>
+            <circle cx="12" cy="12" r="9" stroke="#B89DD1" strokeWidth="1.6" />
+            <path d="M12 8v5M12 15.8h.01" stroke="#B89DD1" strokeWidth="1.8" strokeLinecap="round" />
+          </>
+        )}
+      </svg>
+      <div className={styles.retryText}>
+        <div className={styles.retryTitle}>
+          {cooldown > 0
+            ? `${formatCooldown(cooldown)} 후 다시 시도할 수 있습니다`
+            : '진단을 만들지 못했습니다'}
         </div>
-      )}
-      <button className={styles.retryBtn} onClick={diagnose} disabled={cooldown > 0}>
-        다시 시도
-      </button>
+        <div className={styles.retryBody}>
+          {cooldown > 0
+            ? '진단을 만들지 못하는 상태가 이어지고 있습니다. 이번 진단은 차감되지 않았습니다'
+            : '이번 진단은 차감되지 않았습니다'}
+        </div>
+        <button className={styles.retryBtn} onClick={diagnose} disabled={cooldown > 0}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"
+              stroke="#B89DD1"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          다시 시도
+        </button>
+      </div>
     </div>
   ) : null;
 
@@ -372,13 +407,13 @@ export function AssessmentPage() {
           <div className={styles.state}>
             {diagnosing ? (
               <>
-                <div className={styles.stateTitle}>이야기를 읽고 있어요</div>
+                <div className={styles.stateTitle}>이야기를 읽고 있습니다</div>
                 <Dots />
                 {/* 진단 LLM이 느릴 때 이탈해도 손해가 아니라는 안내 — 결과는 저장돼 재진입 시 보인다 */}
                 <div className={styles.stateBody}>
-                  지금까지의 대화에서 신호를 찾는 중이에요
+                  지금까지의 대화에서 신호를 찾고 있습니다
                   <br />
-                  시간이 좀 걸릴 수 있어요, 화면을 나가도 결과는 저장돼요
+                  시간이 걸릴 수 있으며, 화면을 나가도 결과는 저장됩니다
                 </div>
               </>
             ) : (
@@ -414,23 +449,75 @@ export function AssessmentPage() {
   }
 
   // 게스트는 진단이 잠겨 있다 — 계정 연결로 유도한다(진단 버튼 대신).
+  // 문장 두 줄만 있던 빈 화면은 무엇이 열리는지가 안 보였다. 실제 결과 화면을 읽을 수
+  // 없을 만큼 흐리게 깔아 형태만 보여주고, 그 위에서 여는 값을 말한다.
   if (isGuest) {
+    // 체크 목록은 무엇을 받는지가 라벨 하나로 뭉개진다 — 이름과 그게 뭔지를 두 줄로 나눈다
+    const perk = (title: string, sub: string) => (
+      <div className={styles.lockPerk}>
+        <div className={styles.lockPerkTitle}>{title}</div>
+        <div className={styles.lockPerkSub}>{sub}</div>
+      </div>
+    );
     return (
       <PhoneFrame>
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
-          <div className={styles.state}>
-            <div className={styles.stateTitle}>계정을 연결하면 진단이 열려요</div>
-            <div className={styles.stateBody}>
-              연결하면 지금까지의 대화가 그대로 이어지고,
-              <br />
-              대화 5회와 진단 1회도 선물로 드려요
+          <div className={styles.lockWrap}>
+            <div className={styles.lockPreview} aria-hidden="true">
+              <div className={styles.gaugeWrap}>
+                <svg width="280" height="150" viewBox="0 0 280 150">
+                  <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2a2a2e" strokeWidth="11" strokeLinecap="round" />
+                  <path
+                    d="M20,138 A120,120 0 0 1 260,138"
+                    fill="none"
+                    stroke="#B89DD1"
+                    strokeWidth="11"
+                    strokeLinecap="round"
+                    strokeDasharray={`${ARC_LEN * 0.55} ${ARC_LEN + 40}`}
+                  />
+                </svg>
+              </div>
+              <div className={styles.lockGhostCards}>
+                {[0, 1, 2].map((i) => (
+                  <div className={styles.lockGhostCard} key={i}>
+                    <div className={styles.lockGhostHead}>
+                      <span className={styles.lockGhostChip} />
+                      <span className={styles.lockGhostTitle} />
+                    </div>
+                    <span className={styles.lockGhostLine} />
+                    <span className={`${styles.lockGhostLine} ${styles.lockGhostLineShort}`} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className={styles.lockScrim} aria-hidden="true" />
+            <div className={styles.lockPanel}>
+              <div className={styles.lockBadge} aria-hidden="true">
+                {/* 몸통이 넓고 고리가 짧으면 자물쇠가 아니라 가방으로 읽힌다 —
+                    몸통을 좁히고 고리를 세운 뒤 열쇠구멍을 찍어 못 알아볼 여지를 없앤다 */}
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+                  <rect x="5.6" y="10.8" width="12.8" height="9.4" rx="2.4" stroke="#B89DD1" strokeWidth="1.8" />
+                  <path d="M8.7 10.8V8.1a3.3 3.3 0 016.6 0v2.7" stroke="#B89DD1" strokeWidth="1.8" strokeLinecap="round" />
+                  <circle cx="12" cy="15.5" r="1.15" fill="#B89DD1" />
+                </svg>
+              </div>
+              <div className={styles.lockTitle}>계정을 연결하면 진단이 열려요</div>
+              <div className={styles.lockSub}>
+                대화는 그대로 이어지고, 진단 1회와 대화 5회 증정
+              </div>
+              <div className={styles.lockPerks}>
+                {perk('재회 확률', '지금까지 나눈 대화를 읽고 재회 확률을 계산합니다')}
+                {perk('유리하게, 불리하게 작용한 요인', '무엇이 재회 확률을 올리고 내렸는지 근거와 함께 짚습니다')}
+                {perk('비슷한 실제 사례', '같은 구도의 사례가 재회에 성공했는지 실패했는지 보여줘요')}
+              </div>
             </div>
           </div>
-          <div className={styles.footer}>
+          <div className={styles.lockFooter}>
             <button className={styles.btnPrimary} onClick={() => navigate('/guest-link')}>
-              계정 연결하고 진단받기
+              진단 1회 받고 시작하기
             </button>
+            <div className={styles.lockFoot}>카카오, 네이버로 바로 연결할 수 있습니다</div>
           </div>
         </div>
       </PhoneFrame>
@@ -450,9 +537,9 @@ export function AssessmentPage() {
                 <div className={styles.stateBody}>{notice}</div>
               ) : (
                 <>
-                  <div className={styles.stateTitle}>아직 진단 기록이 없어요</div>
+                  <div className={styles.stateTitle}>아직 진단 기록이 없습니다</div>
                   <div className={styles.stateBody}>
-                    지금까지의 대화를 읽고 재회 가능성을 진단해요
+                    지금까지의 대화를 읽고 재회 가능성을 진단합니다
                     <br />
                     대화를 충분히 나눌수록 정확해져요
                   </div>
@@ -584,16 +671,16 @@ export function AssessmentPage() {
               게이지에 반투명 덮개를 씌우던 잠금은 미완성 화면처럼 읽혔다(실측) */}
           {reunited ? (
             <div className={styles.reunitedHero}>
-              <div className={styles.reunitedTitle}>다시 만나게 됐어요</div>
+              <div className={styles.reunitedTitle}>다시 만나게 되었습니다</div>
               <div className={styles.reunitedSub}>
-                재회에 성공해서 확률 진단은 여기까지예요.
+                재회에 성공해 확률 진단은 여기까지입니다.
                 <br />
-                이제 관계를 이어가는 대화로 함께해요.
+                이제 관계를 이어가는 대화로 함께합니다.
               </div>
             </div>
           ) : dating ? (
             <div className={styles.reunitedHero}>
-              <div className={styles.reunitedTitle}>지금은 만나는 중이에요</div>
+              <div className={styles.reunitedTitle}>지금은 만나는 중입니다</div>
               <div className={styles.reunitedSub}>
                 재회 확률은 이별을 전제로 한 진단이라
                 <br />
@@ -605,7 +692,7 @@ export function AssessmentPage() {
               <div className={styles.gaugeWrap}>
                 {/* 선을 가늘게(14→11) — 두꺼운 아크는 계기판 티가 난다. 수치는 숫자가 말하고 아크는 거든다 */}
                 <svg width="280" height="150" viewBox="0 0 280 150">
-                  <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2A2833" strokeWidth="11" strokeLinecap="round" />
+                  <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2a2a2e" strokeWidth="11" strokeLinecap="round" />
                   <path
                     d="M20,138 A120,120 0 0 1 260,138"
                     fill="none"
@@ -631,7 +718,7 @@ export function AssessmentPage() {
                   }`}
                 >
                   {prob === prevProb
-                    ? '지난 진단과 같아요'
+                    ? '지난 진단과 같습니다'
                     : `지난 진단보다 ${prob > prevProb ? '+' : ''}${prob - prevProb}%`}
                 </div>
               )}
@@ -645,14 +732,14 @@ export function AssessmentPage() {
                 <div className={styles.lockTitle}>혹시 다시 헤어지게 됐다면</div>
                 <div className={styles.lockAskRow}>
                   <span className={styles.lockAskText}>
-                    다시 헤어졌거나 제가 오해한 거라면 알려주세요. 확률 진단을 바로 다시 열게요.
+                    다시 헤어졌거나 진단이 잘못 판단한 경우 알려 주세요. 확률 진단을 다시 엽니다.
                   </span>
                   <button
                     className={styles.lockConfirmBtn}
                     onClick={handleConfirmBreakup}
                     disabled={confirming}
                   >
-                    {confirming ? '반영 중…' : '헤어진 게 맞아요'}
+                    {confirming ? '반영 중…' : '헤어진 것이 맞습니다'}
                   </button>
                 </div>
               </div>
@@ -663,14 +750,14 @@ export function AssessmentPage() {
               <div className={styles.lockCard}>
                 <div className={styles.lockAskRowSolo}>
                   <span className={styles.lockAskText}>
-                    혹시 제가 오해한 거라면 알려주세요. 확률 진단을 바로 다시 열게요.
+                    진단이 잘못 판단한 경우 알려 주세요. 확률 진단을 다시 엽니다.
                   </span>
                   <button
                     className={styles.lockConfirmBtn}
                     onClick={handleConfirmBreakup}
                     disabled={confirming}
                   >
-                    {confirming ? '반영 중…' : '헤어진 게 맞아요'}
+                    {confirming ? '반영 중…' : '헤어진 것이 맞습니다'}
                   </button>
                 </div>
               </div>
@@ -680,21 +767,21 @@ export function AssessmentPage() {
             /* 100은 합산 결과가 아니라 "상대의 유효한 재회 제안" 확정값 — 사유 설명과 번복 창구를
                커플 잠금과 같은 카드 문법으로 제공한다. 번복하면 아래 신호들의 합산으로 즉시 되돌아간다 */
             <div className={styles.lockCard}>
-              <div className={styles.lockTitle}>상대의 재회 제안이 유효한 상태예요</div>
+              <div className={styles.lockTitle}>상대의 재회 제안이 유효한 상태입니다</div>
               <div className={styles.lockDesc}>
                 남은 것은 확률이 아니라 내 선택이라 100%로 보여드려요. 제안이 없던 일이 되면
                 저장해 둔 신호 기준으로 바로 다시 계산해 드려요.
               </div>
               <div className={styles.lockAskRow}>
                 <span className={styles.lockAskText}>
-                  제안이 없던 일이 됐거나 제가 잘못 알았다면 알려주세요.
+                  제안이 무산되었거나 진단이 잘못 판단한 경우 알려 주세요.
                 </span>
                 <button
                   className={styles.lockConfirmBtn}
                   onClick={handleRetractOffer}
                   disabled={retracting}
                 >
-                  {retracting ? '반영 중…' : '유효하지 않아요'}
+                  {retracting ? '반영 중…' : '유효하지 않습니다'}
                 </button>
               </div>
             </div>
@@ -765,24 +852,17 @@ export function AssessmentPage() {
                   const open = openCase === c.id;
                   return (
                     <div className={styles.caseItem} key={c.id}>
-                      <div className={styles.caseTop}>
-                        <span
-                          className={`${styles.caseOutcome} ${
-                            c.outcome === '성공'
-                              ? styles.outcomeSuccess
-                              : c.outcome === '성공후재이별'
-                                ? styles.outcomeMixed
-                                : styles.outcomeFail
-                          }`}
-                        >
-                          {c.outcome === '성공'
-                            ? '재회 성공'
-                            : c.outcome === '실패'
-                              ? '재회 실패'
-                              : c.outcome === '성공후재이별'
-                                ? '재회 후 재이별'
-                                : '진행 중'}
-                        </span>
+                      {/* 결과에 색을 입히지 않는다 — 초록은 좋음, 회색은 나쁨으로 읽혀
+                          남의 결말에 등급이 붙고, 유저는 초록만 훑게 된다. 성공담을 골라
+                          보여주지 않는다는 이 섹션의 원칙과 정면으로 어긋난다 */}
+                      <div className={styles.caseOutcome}>
+                        {c.outcome === '성공'
+                          ? '재회 성공'
+                          : c.outcome === '실패'
+                            ? '재회 실패'
+                            : c.outcome === '성공후재이별'
+                              ? '재회 후 재이별'
+                              : '진행 중'}
                       </div>
                       {/* 기록 보관소 문법의 메타 줄 — 서비스가 붙인 건조한 필드가 요약 프레임의
                           신빙성을 받친다. 미상도 표기(기록엔 빈칸이 있는 게 정상).
@@ -821,7 +901,7 @@ export function AssessmentPage() {
               <div className={styles.caseEmpty}>
                 {similar?.emptyReason === 'NO_PROFILE'
                   ? '어쩌다 헤어졌는지 대화에서 더 들려주면 비슷한 사례를 찾아드려요.'
-                  : '아직 닮은 사례를 찾지 못했어요.'}
+                  : '아직 닮은 사례를 찾지 못했습니다.'}
               </div>
             </>
           )}
@@ -836,51 +916,58 @@ export function AssessmentPage() {
               폼에 적으면 원장에 쌓이고 그것만으로 재진단 가드가 열린다(대화 횟수 차감 없음) */}
           {!locked && (
             <>
-              <SectionHead title="확률을 바꿀 것들" />
-              <div className={styles.missingCard}>
-                {prob < 100 && missing.length > 0 && (
-                  <div className={styles.missingGroup}>
-                    <div className={styles.missingLabel}>아직 모르는 것</div>
-                    {missing.map((f) => (
-                      <div className={styles.missingItem} key={f.name}>
-                        {FACTOR_ASK[f.name] ?? f.name}
-                      </div>
-                    ))}
-                    <div className={styles.missingHint}>대화에서 말하거나 아래에 직접 적어주면 다음 진단에 반영돼요</div>
-                  </div>
-                )}
-                {prob < 100 && (result.watchFor?.length ?? 0) > 0 && (
-                  <div className={styles.missingGroup}>
-                    <div className={styles.missingLabel}>앞으로 지켜볼 것</div>
-                    {result.watchFor.map((w, i) => (
-                      <div className={styles.watchItem} key={i}>
-                        <div className={styles.watchPoint}>{w.point}</div>
-                        <div className={styles.watchEffect}>{w.effect}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className={styles.factForm}>
-                  <textarea
-                    className={styles.factInput}
-                    value={factInput}
-                    onChange={(e) => setFactInput(e.target.value)}
-                    placeholder="진단에 반영할 사실을 한 줄로 적어 주세요 (예: 어제 상대에게서 먼저 연락이 왔다)"
-                    rows={2}
-                    maxLength={200}
-                  />
-                  <div className={styles.factFormRow}>
-                    <span className={styles.factCount}>{factInput.length}/200</span>
-                    <button
-                      className={styles.factSubmit}
-                      disabled={!factInput.trim() || factSaving}
-                      onClick={handleAddFact}
-                    >
-                      {factSaving ? '남기는 중' : '남기기'}
-                    </button>
-                  </div>
-                  {factNotice && <div className={styles.factSaved}>{factNotice}</div>}
+              <SectionHead title="확률을 바꿀 수 있는 요인" />
+              {prob < 100 && (missing.length > 0 || (result.watchFor?.length ?? 0) > 0) && (
+                <div className={styles.changeCard}>
+                  {missing.length > 0 && (
+                    <div className={styles.changeGroup}>
+                      <div className={styles.changeLabel}>아직 모르는 것</div>
+                      {missing.map((f) => (
+                        <div className={styles.changeRow} key={f.name}>
+                          <div className={styles.changeAsk}>{FACTOR_ASK[f.name] ?? f.name}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {(result.watchFor?.length ?? 0) > 0 && (
+                    <div className={styles.changeGroup}>
+                      <div className={styles.changeLabel}>앞으로 지켜볼 것</div>
+                      {result.watchFor.map((w, i) => (
+                        <div className={styles.changeRow} key={i}>
+                          <div className={styles.changeWatchPoint}>{w.point}</div>
+                          <div className={styles.changeWatchEffect}>{w.effect}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              )}
+              {/* 읽는 것(위 목록)과 쓰는 것을 한 상자에 담으면 어디까지가 목록이고
+                  어디부터 적는 칸인지 안 읽힌다 — 카드를 갈라 각자 제목을 갖게 한다 */}
+              <div className={styles.factCard}>
+                <div className={styles.factTitle}>새로 생긴 사실 적기</div>
+                <div className={styles.factDesc}>
+                  대화에서 말하지 않은 사실도 여기 적으면 다음 진단에 반영됩니다. 대화 횟수는 차감되지 않습니다.
+                </div>
+                <textarea
+                  className={styles.factInput}
+                  value={factInput}
+                  onChange={(e) => setFactInput(e.target.value)}
+                  placeholder="예: 어제 상대에게서 먼저 연락이 왔다"
+                  rows={2}
+                  maxLength={200}
+                />
+                <div className={styles.factFormRow}>
+                  <span className={styles.factCount}>{factInput.length}/200</span>
+                  <button
+                    className={styles.factSubmit}
+                    disabled={!factInput.trim() || factSaving}
+                    onClick={handleAddFact}
+                  >
+                    {factSaving ? '남기는 중' : '남기기'}
+                  </button>
+                </div>
+                {factNotice && <div className={styles.factSaved}>{factNotice}</div>}
               </div>
             </>
           )}
@@ -938,15 +1025,15 @@ export function AssessmentPage() {
               },
               {
                 heading: '가능성을 움직인 신호',
-                text: '가능성을 올린 요인과 낮춘 요인을 근거와 함께 보여드려요. 각 요인은 매우유리에서 매우불리까지로 판정되고, 무겁게 본 것부터 위에 옵니다. 근거가 없어 판단하지 못한 항목은 맨 아래 "확률을 바꿀 것들"에 모아 둡니다.',
+                text: '가능성을 올린 요인과 낮춘 요인을 근거와 함께 보여드려요. 각 요인은 매우유리에서 매우불리까지로 판정되고, 무겁게 본 것부터 위에 옵니다. 근거가 없어 판단하지 못한 항목은 맨 아래 "확률을 바꿀 수 있는 요인"에 모아 둡니다.',
               },
               {
-                heading: '확률을 바꿀 것들',
+                heading: '확률을 바꿀 수 있는 요인',
                 text: '맨 아래 카드입니다. "아직 모르는 것"은 알려주시면 다음 진단에서 판정이 채워지는 항목이고, "앞으로 지켜볼 것"은 그런 일이 실제로 벌어지면 확률이 크게 움직이는 신호입니다. 대화에서 말해도 되고, 그 카드에 한 줄로 적어두셔도 다음 진단에 반영됩니다.',
               },
               {
                 heading: '비슷한 사례',
-                text: '이별 사유와 상황이 닮은 사례를 찾아 보여드려요. 이별을 부른 계기가 얼마나 겹치는지를 가장 크게 보고, 통보한 쪽과 지금 연락 상태, 이별 후 지난 기간을 함께 견줍니다. 결과가 좋은 사례를 골라 보여드리지는 않아요. 남의 결말이 내 결말을 예고하지 않기 때문입니다. 사례 보기는 횟수가 차감되지 않습니다.',
+                text: '이별 사유와 상황이 닮은 사례를 찾아 보여 드립니다. 이별을 부른 계기가 얼마나 겹치는지를 가장 크게 보고, 통보한 쪽과 지금 연락 상태, 이별 후 지난 기간을 함께 견줍니다. 결과가 좋은 사례를 골라 보여 드리지는 않습니다. 남의 결말이 내 결말을 예고하지 않기 때문입니다. 사례 보기는 횟수가 차감되지 않습니다.',
               },
               {
                 heading: '진단 횟수',
