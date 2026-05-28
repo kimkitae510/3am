@@ -120,8 +120,12 @@ public class MessageTxService {
         Story story = storyRepository.findById(storyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
         // 문장 끝 마침표는 코드가 걷어낸다 — 프롬프트 지시로는 확률적으로 새는 문체 규칙.
+        // 채팅이 스스로 말한 가능성은 본문에서 떼어 기록으로만 남긴다(유저에게 안 보인다).
+        var tagged = com.threeam.global.text.ProbabilityTag.strip(reply);
         Message answer = messageRepository.save(
-                Message.assistant(story, com.threeam.global.text.Periods.strip(reply)));
+                Message.assistant(story,
+                        com.threeam.global.text.Periods.strip(tagged.text()),
+                        tagged.probability()));
         story.touch();
         return MessageResponse.from(answer);
     }
