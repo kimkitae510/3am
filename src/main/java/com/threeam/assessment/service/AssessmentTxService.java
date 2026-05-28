@@ -278,7 +278,7 @@ public class AssessmentTxService {
                 .filter(a -> a.getVerdict() == ReunionVerdict.POSSIBLE
                         && Integer.valueOf(100).equals(a.getProbability()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.ASSESSMENT_NOT_OFFER));
-        last.retractOffer(scorer.apply(last.getBreakupType(),
+        last.retractOffer(scorer.apply(last.getBreakupType(), last.getBreakupTypeSecondary(),
                 last.getJumpRule(), last.getFactors()));
         storyFactService.appendCorrection(storyId, OFFER_RETRACTED_FACT);
         return AssessmentResponse.from(last);

@@ -38,6 +38,9 @@ public class TypeBandScorer {
             JumpRule.USER_DUMPED_NONE, new Band(12, 24),
             JumpRule.PARTNER_RECONTACT, new Band(30, 45),
             JumpRule.PARTNER_HINT, new Band(65, 80),
+            // 접촉재개(30~45)와 재회의사(65~80) 사이. 장벽이 사라진 것은 문이 열린 것보다
+            // 무겁고, 상대가 돌아오겠다고 말한 것보다는 가볍다.
+            JumpRule.BARRIER_CLEARED, new Band(42, 58),
             JumpRule.REPEAT_CYCLE, new Band(58, 72),
             JumpRule.PARTNER_CLOSED, new Band(8, 18),
             JumpRule.PARTNER_MARRIED, new Band(3, 8)));
@@ -72,8 +75,17 @@ public class TypeBandScorer {
     private static final int STRONG_SIGNAL_CEILING_BREACH = 10;
 
     public int apply(BreakupType type, JumpRule jumpRule, List<AssessmentFactor> factors) {
+        return apply(type, null, jumpRule, factors);
+    }
+
+    // secondary는 두 유형 사이에서 결정적 근거가 없을 때만 온다. 하나를 강제로 고르게 하면
+    // 충동형(60~75)과 소진형(18~30)처럼 45점이 갈리는 자리에서 경계 오판의 낙차가 그대로
+    // 유저에게 간다. 두 대역의 중간을 잡아 "모르겠으면 가운데"를 값으로 표현한다.
+    // 점프가 걸린 판은 점프가 대역을 통째로 정하므로 경계 유형을 보지 않는다.
+    public int apply(BreakupType type, BreakupType secondary, JumpRule jumpRule,
+                     List<AssessmentFactor> factors) {
         Band band = JUMP_BANDS.getOrDefault(jumpRule == null ? JumpRule.NONE : jumpRule,
-                BANDS.get(type));
+                blend(type, secondary));
         int score = (band.lo() + band.hi()) / 2;
         boolean settled = false;
         boolean strongSignal = false;
@@ -89,6 +101,15 @@ public class TypeBandScorer {
         int hi = strongSignal ? band.hi() + STRONG_SIGNAL_CEILING_BREACH : band.hi();
         score = Math.max(lo, Math.min(hi, score));
         return Math.max(ABS_MIN, Math.min(ABS_MAX, score));
+    }
+
+    private Band blend(BreakupType type, BreakupType secondary) {
+        Band primary = BANDS.get(type);
+        Band other = secondary == null ? null : BANDS.get(secondary);
+        if (primary == null || other == null) {
+            return primary;
+        }
+        return new Band((primary.lo() + other.lo()) / 2, (primary.hi() + other.hi()) / 2);
     }
 
     private int delta(AssessmentFactor factor) {

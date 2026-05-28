@@ -143,4 +143,55 @@ class TypeBandScorerTest {
         // 72 + 41 = 113 → 상한 80+10=90. 절대 상한 95는 그 위의 최후 방어선으로 남는다
         assertThat(score).isEqualTo(90);
     }
+
+    // 충동형(60~75)과 소진형(18~30)은 45점이 갈리는 자리다. 하나를 강제로 고르게 하면
+    // 경계 오판 한 번의 낙차가 그대로 유저에게 간다.
+    @Test
+    @DisplayName("경계 유형 - 두 유형을 함께 내면 두 대역의 중간에서 시작한다")
+    void secondaryTypeBlendsBands() {
+        List<AssessmentFactor> neutral = List.of();
+
+        int impulsive = scorer.apply(BreakupType.IMPULSIVE, JumpRule.NONE, neutral);
+        int burnout = scorer.apply(BreakupType.BURNOUT, JumpRule.NONE, neutral);
+        int blended = scorer.apply(BreakupType.IMPULSIVE, BreakupType.BURNOUT,
+                JumpRule.NONE, neutral);
+
+        assertThat(blended).isBetween(burnout, impulsive);
+        assertThat(blended).isEqualTo((impulsive + burnout) / 2);
+    }
+
+    @Test
+    @DisplayName("경계 유형 - 같은 유형을 두 번 주면 대역이 그대로다")
+    void sameTypeTwiceKeepsBand() {
+        int single = scorer.apply(BreakupType.BURNOUT, JumpRule.NONE, List.of());
+        int doubled = scorer.apply(BreakupType.BURNOUT, BreakupType.BURNOUT,
+                JumpRule.NONE, List.of());
+
+        assertThat(doubled).isEqualTo(single);
+    }
+
+    // 점프는 대역을 통째로 교체하므로 경계 유형이 끼어들면 안 된다.
+    @Test
+    @DisplayName("경계 유형 - 점프가 걸린 판에서는 무시된다")
+    void jumpIgnoresSecondaryType() {
+        int withSecondary = scorer.apply(BreakupType.IMPULSIVE, BreakupType.TRUST_BROKEN,
+                JumpRule.PARTNER_CLOSED, List.of());
+        int without = scorer.apply(BreakupType.IMPULSIVE, JumpRule.PARTNER_CLOSED, List.of());
+
+        assertThat(withSecondary).isEqualTo(without);
+    }
+
+    // 재회를 막던 조건이 사라진 판. 요인으로는 못 담는다 — 대체자 폭이 4점이라
+    // 소진형에서 새 연인이 정리돼도 상한 40에 막혔다.
+    @Test
+    @DisplayName("장벽해소 점프 - 소진형 상한(40)을 넘어 대역이 통째로 올라간다")
+    void barrierClearedLiftsBand() {
+        int burnoutCeiling = scorer.apply(BreakupType.BURNOUT, JumpRule.NONE,
+                List.of(factor(FactorName.PARTNER_SIGNAL, FactorLevel.STRONG_FAVORABLE),
+                        factor(FactorName.USER_CONDUCT, FactorLevel.STRONG_FAVORABLE)));
+        int cleared = scorer.apply(BreakupType.BURNOUT, JumpRule.BARRIER_CLEARED, List.of());
+
+        assertThat(burnoutCeiling).isLessThanOrEqualTo(40);
+        assertThat(cleared).isGreaterThan(burnoutCeiling);
+    }
 }

@@ -112,6 +112,10 @@ public class ReunionLlm {
             사연이 두 프레임의 경계에 걸쳐 있으면(예: 바람 미수를 숨기다 들킴) subReasons에
             양쪽 프레임의 태그를 함께 실어라(감정적바람과 거짓말신뢰처럼) — 한 프레임만 실으면
             다른 프레임으로 기록된 닮은 사례를 통째로 놓친다.
+            스킨십, 성 문제의 분류 경계: 원하는 속도가 서로 다른 것은(한쪽은 천천히, 한쪽은 빨리)
+            스킨십속도다. 거절 의사를 무시하거나 압박, 서운함, 죄책감으로 되돌려 거절할 수 없게
+            만들었으면 스킨십강요이고, 사람이 아니라 몸으로만 대하는 취급이면(만나면 그것만 하려 함,
+            성적인 소재로 삼음) 성적대상화다. 셋은 유저가 겪은 자리가 다르니 뭉뚱그리지 마라.
             monthsSinceBreakup과 datingMonths는 개월 수 정수다. 반복 이별(온오프)을 겪었으면
             repeatBreakup을 true로 둔다.""";
 
@@ -195,6 +199,8 @@ public class ReunionLlm {
                     Map.entry("activeReunionOffer", Map.of("type", "BOOLEAN")),
                     Map.entry("breakupType", Map.of("type", "STRING", "nullable", true,
                             "enum", BreakupType.labels())),
+                    Map.entry("breakupTypeSecondary", Map.of("type", "STRING", "nullable", true,
+                            "enum", BreakupType.labels())),
                     Map.entry("typeEvidence", Map.of("type", "STRING", "nullable", true)),
                     Map.entry("jumpRule", Map.of("type", "STRING",
                             "enum", List.of("없음", "유저통보상대미련", "유저통보미련흔적",
@@ -211,7 +217,7 @@ public class ReunionLlm {
             Map.entry("required", List.of("verdict", "activeReunionOffer",
                     "jumpRule", "matchProfile", "reason")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
-                    "typeEvidence", "jumpRule", "factors", "relapseRisk",
+                    "breakupTypeSecondary", "typeEvidence", "jumpRule", "factors", "relapseRisk",
                     "watchFor", "matchProfile", "reason", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
@@ -223,6 +229,12 @@ public class ReunionLlm {
             boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
 
             BreakupType breakupType = BreakupType.fromLabel(root.path("breakupType").asText(null));
+            BreakupType secondary = BreakupType.fromLabel(
+                    root.path("breakupTypeSecondary").asText(null));
+            // 같은 유형을 두 번 적으면 경계가 아니다 — 무시해야 대역이 그대로 유지된다.
+            if (secondary == breakupType) {
+                secondary = null;
+            }
             JumpRule jumpRule = JumpRule.fromLabel(root.path("jumpRule").asText(null));
             List<FactorItem> factors = parseFactors(root);
 
@@ -251,7 +263,7 @@ public class ReunionLlm {
                         : fact);
             }
 
-            return new ReunionDiagnosis(verdict, activeReunionOffer, breakupType,
+            return new ReunionDiagnosis(verdict, activeReunionOffer, breakupType, secondary,
                     clip(root.path("typeEvidence").asText(""), TEXT_MAX),
                     jumpRule,
                     factors, relapseRisk, relapseReason, parseWatch(root), matchProfile(root),

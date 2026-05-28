@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -92,14 +93,14 @@ class AssessmentServiceTest {
             new FactorItem(FactorName.PARTNER_PATTERN, FactorLevel.NEUTRAL, "근거 없음", null, null));
 
     private static ReunionDiagnosis possible(boolean offer) {
-        return new ReunionDiagnosis(ReunionVerdict.POSSIBLE, offer, BreakupType.BURNOUT,
+        return new ReunionDiagnosis(ReunionVerdict.POSSIBLE, offer, BreakupType.BURNOUT, null,
                 "반복 다툼 끝에 지쳐 통보", JumpRule.NONE, FACTORS, RelapseRisk.HIGH, "교정 미확인",
                 List.of(new WatchItem("상대의 선연락 여부", "오면 상대신호가 유리로 바뀜")),
                 null, "총평", List.of("상대가 먼저 통보함"));
     }
 
     private static ReunionDiagnosis locked(ReunionVerdict verdict, String reason, List<String> newFacts) {
-        return new ReunionDiagnosis(verdict, false, null, null, JumpRule.NONE, List.of(),
+        return new ReunionDiagnosis(verdict, false, null, null, null, JumpRule.NONE, List.of(),
                 null, null, List.of(), null, reason, newFacts);
     }
 
@@ -113,7 +114,7 @@ class AssessmentServiceTest {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(possible(false)));
-        given(scorer.apply(eq(BreakupType.BURNOUT), eq(JumpRule.NONE), anyList())).willReturn(20);
+        given(scorer.apply(eq(BreakupType.BURNOUT), isNull(), eq(JumpRule.NONE), anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
                 .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
 
@@ -154,7 +155,7 @@ class AssessmentServiceTest {
         // LLM이 실수로 offer=true와 유형을 보냈어도 전부 무시돼야 한다(구조적 잠금)
         given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(new ReunionDiagnosis(
-                        ReunionVerdict.DATING, true, BreakupType.FADED, "실수 판정", JumpRule.NONE,
+                        ReunionVerdict.DATING, true, BreakupType.FADED, null, "실수 판정", JumpRule.NONE,
                         FACTORS, RelapseRisk.LOW, null, List.of(), null,
                         "아직 만나는 중이면 재회 확률은 의미가 없어",
                         List.of("유저와 상대는 아직 사귀는 중"))));
