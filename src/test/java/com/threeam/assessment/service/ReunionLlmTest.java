@@ -202,4 +202,26 @@ class ReunionLlmTest {
         // 자동 재시도 금지 — 실패마다 진단 1회분이 2배 과금된다. 재시도는 유저 버튼 몫.
         org.mockito.Mockito.verify(llmClient, org.mockito.Mockito.times(1)).generateJsonDeep(anyList(), any());
     }
+
+    // 구조화 출력의 enum이 모델이 낼 수 있는 값을 강제한다. 여기 빠진 점프는 루브릭이 아무리
+    // 시켜도 못 나오고 목록에 있는 엉뚱한 값으로 밀려난다(실측: 장벽해소 판이 상대결혼약혼으로
+    // 찍혀 8%가 나왔다). JumpRule에 값을 더할 때 스키마가 자동으로 따라오는지 지킨다.
+    @org.junit.jupiter.api.Test
+    @DisplayName("스키마의 점프 후보는 JumpRule 전부를 담는다")
+    void jumpEnumCoversAllRules() {
+        Object schema = org.springframework.test.util.ReflectionTestUtils
+                .getField(ReunionLlm.class, "RESPONSE_SCHEMA");
+        @SuppressWarnings("unchecked")
+        var properties = (java.util.Map<String, Object>)
+                ((java.util.Map<String, Object>) schema).get("properties");
+        @SuppressWarnings("unchecked")
+        var jump = (java.util.Map<String, Object>) properties.get("jumpRule");
+        @SuppressWarnings("unchecked")
+        var labels = (java.util.List<String>) jump.get("enum");
+
+        assertThat(labels).containsExactlyInAnyOrderElementsOf(
+                java.util.Arrays.stream(com.threeam.assessment.entity.JumpRule.values())
+                        .map(com.threeam.assessment.entity.JumpRule::label).toList());
+        assertThat(labels).contains("장벽해소");
+    }
 }

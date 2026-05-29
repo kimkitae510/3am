@@ -202,10 +202,13 @@ public class ReunionLlm {
                     Map.entry("breakupTypeSecondary", Map.of("type", "STRING", "nullable", true,
                             "enum", BreakupType.labels())),
                     Map.entry("typeEvidence", Map.of("type", "STRING", "nullable", true)),
+                    // 구조화 출력의 enum은 모델이 낼 수 있는 값을 강제한다 — 여기 빠진 점프는
+                    // 루브릭이 아무리 시켜도 못 나오고, 모델은 목록에 있는 엉뚱한 값으로 밀려난다
+                    // (실측: 장벽해소를 의도한 판이 상대결혼약혼으로 찍혀 8%가 나왔다).
+                    // JumpRule을 추가할 때 이 목록을 같이 고치는 걸 잊지 마라.
                     Map.entry("jumpRule", Map.of("type", "STRING",
-                            "enum", List.of("없음", "유저통보상대미련", "유저통보미련흔적",
-                                    "유저통보미련없음", "상대접촉재개", "상대재회의사", "반복재회패턴",
-                                    "상대문닫힘", "상대결혼약혼"))),
+                            "enum", java.util.Arrays.stream(JumpRule.values())
+                                    .map(JumpRule::label).toList())),
                     Map.entry("factors", Map.of("type", "ARRAY", "items", factorItemSchema())),
                     Map.entry("relapseRisk", relapseRiskSchema()),
                     Map.entry("watchFor", Map.of("type", "ARRAY", "items", watchItemSchema())),
