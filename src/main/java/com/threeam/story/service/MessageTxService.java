@@ -1,10 +1,5 @@
 package com.threeam.story.service;
 
-import com.threeam.assessment.entity.Assessment;
-import com.threeam.assessment.entity.AssessmentFactor;
-import com.threeam.assessment.entity.FactorLevel;
-import com.threeam.assessment.entity.ReunionVerdict;
-import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
@@ -43,8 +38,6 @@ public class MessageTxService {
 
     private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
 
-    // 진단 설명용: 유저가 "계속 대화하면 진단도 갱신된다"고 오해하기 쉬워, 이 결과가 언제 것인지 말하게 한다.
-    private static final DateTimeFormatter ASSESSED_AT = DateTimeFormatter.ofPattern("M월 d일 HH:mm");
 
     // 페르소나 실문구는 저장소 밖(persona.yml, gitignore)에서 주입된다. 코드에는 자리표시 기본값만 있다.
     private final ChatPersonaProperties personaProperties;
@@ -52,7 +45,6 @@ public class MessageTxService {
     private final MessageRepository messageRepository;
     private final StoryMemoryRepository storyMemoryRepository;
     private final StoryFactRepository storyFactRepository;
-    private final AssessmentRepository assessmentRepository;
 
     // tx1: 소유권 확인 + 유저 메시지 저장 + LLM에 보낼 프롬프트 조립. 짧게 끝난다.
     // 폴링 전환 후: 저장한 유저 메시지(즉시 응답용)와 프롬프트(백그라운드 LLM용)를 함께 돌려준다.
@@ -165,24 +157,24 @@ public class MessageTxService {
                 .map(StoryMemory::getSummary)
                 .filter(summary -> !summary.isBlank())
                 .ifPresent(summary -> prompt.add(ChatMessage.system("지금까지 요약: " + summary)));
-        // 최신 진단: 상세 블록(요인, 판독 이유)은 유저가 진단을 화제로 꺼낸 턴에만 싣는다(비용).
-        java.util.Optional<Assessment> latestAssessment =
-                assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId);
-        if (needsAssessment(recent)) {
-            latestAssessment.ifPresent(a -> prompt.add(ChatMessage.system(describeAssessment(a))));
-        }
+        // 진단 데이터는 채팅 프롬프트에 싣지 않는다. 확률과 유형을 실어주면 채팅이 상담자가 아니라
+        // 진단 해설자가 됐다 — 유형 이름이 대화로 새고("소진형 상태거든"), 새 사실이 나와도 낡은
+        // 판정에 묶이고, 그걸 막으려 붙인 예외 문구가 규칙을 계속 불렸다(전부 실측).
+        // 두 판정이 어긋나는 건 이제 답변 꼬리표(messages.chat_probability)로 기록되므로
+        // 프롬프트로 맞추는 대신 실측으로 잡는다. 숫자는 진단 화면이 근거와 함께 보여준다.
         for (int i = recent.size() - 1; i >= 0; i--) {
             Message message = recent.get(i);
             prompt.add(message.getRole() == MessageRole.USER
                     ? ChatMessage.user(message.getContent())
                     : ChatMessage.assistant(message.getContent()));
         }
-        // 확률+유형 한 줄짜리 미니 라인은 매 턴, 그리고 '대화 뒤'에 싣는다 — 큐워드에 안 걸리는
-        // 표현에서 페르소나가 진단과 다른 방향을 말한 사고 대응인데, 대화 앞에 실었더니
-        // 페르소나 본문에 묻혀 그대로 재발했다(리마인더가 묻히던 것과 같은 자리 문제).
-        if (!needsAssessment(recent)) {
-            latestAssessment.ifPresent(a -> prompt.add(ChatMessage.system(assessmentMiniLine(a))));
-        }
+        // 매 턴 싣던 확률+유형 한 줄(미니 라인)은 걷어냈다. 큐워드에 안 걸린 턴의 방향 어긋남을
+        // 막으려던 장치인데, 그 좁은 틈을 메우려고 매 턴 숫자를 던지다 대가가 더 컸다 —
+        // 유형 이름이 대화로 새고("소진형 상태거든"), 새 사실이 나와도 낡은 확률에 묶이고,
+        // 채팅이 상담자가 아니라 진단 해설자가 됐다(전부 실측).
+        // 확률이 화제인 턴에는 어차피 상세 블록이 실리고 거기엔 사용 규칙이 붙어 있다.
+        // 남는 틈의 어긋남은 이제 답변 꼬리표(messages.chat_probability)로 기록되므로
+        // 문구로 막는 대신 실측으로 잡는다.
         // 질문 원칙 리마인더 — 페르소나 중간의 질문 규칙이 비결정적으로 새는 실측 대응이라
         // 대화 뒤(안 묻히는 자리)에 싣는다. 단 첫 답변 턴에만이다: 매 턴 실었더니 "질문은 꼭
         // 해라"는 압박이 매 턴 재점화돼, 물을 게 없는 턴에도 차단 여부나 다짐 확인 같은 질문을
@@ -210,90 +202,5 @@ public class MessageTxService {
         return recent.stream().noneMatch(message -> message.getRole() != MessageRole.USER);
     }
 
-    // 진단 데이터를 실어야 하는 턴인지. 유저가 진단을 화제로 꺼냈을 때만 필요하다.
-    // 넉넉하게 잡는다 — 안 실어서 "왜 이 확률이야?"에 답을 못 하는 쪽이, 몇 번 더 싣는 것보다 나쁘다.
-    private static final List<String> ASSESSMENT_CUES = List.of(
-            "진단", "확률", "퍼센트", "%", "가능성", "점수", "감점", "가점",
-            // v2 개편으로 유저 어휘가 바뀌는 것 + "우리 다시 될까" 같은 확률 질문의 흔한 형태 보강.
-            // 안 실어서 페르소나가 진단과 다른 방향을 말하는 쪽이, 몇 번 더 싣는 것보다 나쁘다.
-            "될까", "승산", "유리", "불리", "요인", "유형");
-
-    private boolean needsAssessment(List<Message> recent) {
-        if (recent.isEmpty()) {
-            return false;
-        }
-        String latest = recent.get(0).getContent();
-        return latest != null && ASSESSMENT_CUES.stream().anyMatch(latest::contains);
-    }
-
-    // 매 턴 실리는 한 줄 요지. 코드는 데이터(확률, 유형)만 만들고 지시 문구는 프롬프트 자산이라
-    // 로컬 yml(assessment-mini-guide)에서 주입한다 — 상세 재료는 큐워드 턴의 상세 블록이 답한다.
-    private String assessmentMiniLine(Assessment assessment) {
-        // 라벨을 상세 블록과 같은 접두어로 — 페르소나의 정렬 규칙("최근 재회 진단 결과 데이터가
-        // 실려 있으면 맞춰라")이 문자열로 이 블록을 가리키므로, 라벨이 다르면 규칙이 안 물린다(실측:
-        // 요지 라벨을 못 알아보고 큐워드 턴에만 정렬돼 턴마다 방향이 뒤집힘).
-        StringBuilder line = new StringBuilder("최근 재회 진단 결과 데이터(요지): ");
-        if (assessment.getProbability() != null) {
-            line.append("확률 ").append(assessment.getProbability()).append('%');
-        } else {
-            line.append("판정 ").append(assessment.getVerdict());
-        }
-        if (assessment.getBreakupType() != null) {
-            line.append(", 유형 ").append(assessment.getBreakupType().label());
-        }
-        String guide = personaProperties.getAssessmentMiniGuide();
-        if (guide != null && !guide.isBlank()) {
-            line.append(" — ").append(guide.trim());
-        }
-        return line.toString();
-    }
-
-    // 진단 결과를 설명용 데이터 블록으로 만든다. 재계산, 창작, 그리고 "묻지 않은 확률 들이대기"를 막는 지시를 함께 싣는다.
-    private String describeAssessment(Assessment assessment) {
-        StringBuilder block = new StringBuilder(
-                "최근 재회 진단 결과 데이터(사용 규칙: 유저가 이 진단의 이유나 확률을 직접 물을 때만 "
-                        + "이 데이터를 근거로 설명하라. 묻지 않은 확률을 먼저 꺼내지 마라. 진단은 대화로 "
-                        + "자동 갱신되지 않는다 — 필요할 때만 '지난번 진단 기준'처럼 자연스럽게 짚어라. "
-                        + "여기 없는 내용을 지어내거나 확률을 다시 계산하지 마라):\n");
-        block.append("- 진단 일시: ").append(ASSESSED_AT.format(assessment.getCreatedAt())).append('\n');
-        if (assessment.getVerdict() == ReunionVerdict.DATING) {
-            block.append("- 판정: 아직 사귀는 중 — 재회 확률은 이별 전제라 산출하지 않음. "
-                    + "확률을 물으면 이 이유를 설명하라(숫자를 지어내지 마라)\n");
-        }
-        if (assessment.getVerdict() == ReunionVerdict.REUNITED) {
-            block.append("- 판정: 재회 성공, 다시 만나는 중 — 확률 산출 없음. "
-                    + "이제 관계를 잘 이어가는 쪽을 도와라(숫자를 지어내지 마라)\n");
-        }
-        if (assessment.getProbability() != null) {
-            block.append("- 재회 가능성: ").append(assessment.getProbability()).append("%\n");
-        }
-        if (assessment.getBreakupType() != null) {
-            block.append("- 이별 유형: ").append(assessment.getBreakupType().label()).append('\n');
-        }
-        // 요인은 판정과 판독 이유만 싣는다. 근거(evidence)는 원장과 겹치고, 총평은 요약과 화면에
-        // 이미 있다. 판독 이유는 이 블록에만 있는 정보라 유지 — 없으면 "왜 이 판정이야?"에
-        // 페르소나가 이유를 지어내 화면 카드와 다른 말을 하게 된다. 중립(근거 없음)은 정보가
-        // 아니라 잡음이라 뺀다.
-        for (AssessmentFactor factor : assessment.getFactors()) {
-            if (factor.getLevel() == FactorLevel.NEUTRAL) {
-                continue;
-            }
-            block.append(factor.getLevel().favorableSide() ? "- 유리 요인(" : "- 불리 요인(")
-                    .append(factor.getName().label()).append(", ")
-                    .append(factor.getLevel().label()).append(")");
-            if (factor.getRationale() != null && !factor.getRationale().isBlank()) {
-                block.append(": ").append(factor.getRationale());
-            }
-            block.append('\n');
-        }
-        if (assessment.getRelapseRisk() != null) {
-            block.append("- 재회 후 같은 문제 반복 위험: ").append(assessment.getRelapseRisk().label());
-            if (assessment.getRelapseReason() != null && !assessment.getRelapseReason().isBlank()) {
-                block.append(" — ").append(assessment.getRelapseReason());
-            }
-            block.append('\n');
-        }
-        return block.toString().trim();
-    }
 
 }

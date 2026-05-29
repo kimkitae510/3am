@@ -59,7 +59,6 @@ class MessageTxServiceTest {
         ChatPersonaProperties properties = new ChatPersonaProperties();
         properties.setFinalCheck(FINAL_CHECK);
         properties.setQuestionReminder(QUESTION_REMINDER);
-        properties.setAssessmentMiniGuide("이 판정과 어긋나게 말하지 마라");
         return properties;
     }
 
@@ -120,34 +119,28 @@ class MessageTxServiceTest {
         verify(messageRepository, never()).delete(any(Message.class));
     }
 
+    // 확률과 유형을 실어주면 채팅이 상담자가 아니라 진단 해설자가 됐다 — 유형 이름이 대화로
+    // 새고, 새 사실이 나와도 낡은 판정에 묶였다(실측). 두 판정의 어긋남은 이제 답변 꼬리표로
+    // 기록해 실측으로 잡는다.
     @Test
-    @DisplayName("프롬프트 조립 - 진단을 화제로 꺼내지 않은 턴에는 상세 블록 대신 미니 라인만 싣는다")
-    void buildPrompt_miniLineWhenNotAsked() {
+    @DisplayName("프롬프트 조립 - 진단 결과는 어떤 턴에도 싣지 않는다")
+    void buildPrompt_neverCarriesAssessment() {
         Story story = story(10L);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 잠이 안 와")),
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "왜 이 진단이야? 확률이 궁금해")),
                         PageRequest.of(0, 20), false));
-        Assessment assessment = Assessment.builder()
-                .storyId(10L)
-                .verdict(ReunionVerdict.POSSIBLE)
-                .probability(19)
-                .breakupType(BreakupType.BURNOUT)
-                .reason("총평")
-                .build();
-        ReflectionTestUtils.setField(assessment, "createdAt", java.time.LocalDateTime.now());
-        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
-                .willReturn(Optional.of(assessment));
 
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 잠이 안 와").prompt();
+        List<ChatMessage> prompt = messageTxService
+                .appendUserMessageAndBuildPrompt(1L, 10L, "왜 이 진단이야? 확률이 궁금해").prompt();
 
-        // 미니 라인(확률+유형 요지)은 실리되, 상세 블록(요인, 판독 이유)은 아니다 —
-        // 큐워드 없는 턴에 페르소나가 진단과 다른 방향을 말하는 사고 방지.
+        // 진단을 정면으로 물은 턴에도 확률, 유형, 요인이 프롬프트에 없어야 한다.
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
-                .anyMatch(c -> c.contains("19%") && c.contains("소진형") && c.contains("어긋나게 말하지 마라"))
-                .noneMatch(c -> c.contains("낮춘 신호") || c.contains("유리 요인") || c.contains("판정 근거"));
+                .noneMatch(c -> c.contains("재회 진단 결과 데이터")
+                        || c.contains("소진형")
+                        || c.contains("재회 가능성: "));
     }
 
     @Test
@@ -241,45 +234,6 @@ class MessageTxServiceTest {
                 .anyMatch(c -> c.contains("기록된 사실") && c.contains("(11/10) 상대가 먼저 이별을 통보함"));
     }
 
-    @Test
-    @DisplayName("프롬프트 조립 - 최신 진단이 있으면 설명용 데이터 블록(확률, 유형, 요인)을 시스템 메시지로 싣는다")
-    void buildPrompt_includesLatestAssessment() {
-        Story story = story(10L);
-        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
-        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
-        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "왜 이 진단이야?")),
-                        PageRequest.of(0, 20), false)); // '진단'이 들어가야 블록이 실린다
-        Assessment assessment = Assessment.builder()
-                .storyId(10L)
-                .verdict(ReunionVerdict.POSSIBLE)
-                .probability(20)
-                .reason("솔직히 쉽지 않아.")
-                .breakupType(BreakupType.BURNOUT)
-                .factor(AssessmentFactor.of(FactorName.PARTNER_SIGNAL, FactorLevel.UNFAVORABLE,
-                        "메시지를 계속 안 읽는다고 함", "연락 통로가 닫히는 방향의 신호", null))
-                .factor(AssessmentFactor.of(FactorName.REPLACEMENT, FactorLevel.NEUTRAL,
-                        "근거 없음", null, null))
-                .build();
-        ReflectionTestUtils.setField(assessment, "createdAt", java.time.LocalDateTime.now());
-        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
-                .willReturn(Optional.of(assessment));
-
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "왜 이 진단이야?").prompt();
-
-        // 시스템(페르소나) + 시스템(진단 데이터) + 유저 + 시스템(질문 원칙, 첫 답변 턴) + 시스템(출력 직전 점검)
-        assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.USER,
-                        LlmRole.SYSTEM, LlmRole.SYSTEM);
-        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
-                .extracting(ChatMessage::content)
-                .anyMatch(c -> c.contains("20%") && c.contains("소진형")
-                        && c.contains("불리 요인(상대신호, 불리)") && c.contains("연락 통로가 닫히는 방향의 신호"));
-        // 근거(evidence)는 원장과 겹치고, 중립(근거 없음) 슬롯은 잡음이라 싣지 않는다
-        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
-                .extracting(ChatMessage::content)
-                .noneMatch(c -> c.contains("메시지를 계속 안 읽는다고 함") || c.contains("대체자"));
-    }
 
     @Test
     @DisplayName("유저 메시지 저장 - 제목이 기본값이면 첫 메시지 내용으로 제목을 바꾼다")
