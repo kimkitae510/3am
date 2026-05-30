@@ -1,5 +1,9 @@
 package com.threeam.story.service;
 
+import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.AssessmentFactor;
+import com.threeam.assessment.entity.FactorLevel;
+import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
@@ -41,6 +45,7 @@ public class MessageTxService {
 
     // 페르소나 실문구는 저장소 밖(persona.yml, gitignore)에서 주입된다. 코드에는 자리표시 기본값만 있다.
     private final ChatPersonaProperties personaProperties;
+    private final AssessmentRepository assessmentRepository;
     private final StoryRepository storyRepository;
     private final MessageRepository messageRepository;
     private final StoryMemoryRepository storyMemoryRepository;
@@ -157,24 +162,20 @@ public class MessageTxService {
                 .map(StoryMemory::getSummary)
                 .filter(summary -> !summary.isBlank())
                 .ifPresent(summary -> prompt.add(ChatMessage.system("지금까지 요약: " + summary)));
-        // 진단 데이터는 채팅 프롬프트에 싣지 않는다. 확률과 유형을 실어주면 채팅이 상담자가 아니라
-        // 진단 해설자가 됐다 — 유형 이름이 대화로 새고("소진형 상태거든"), 새 사실이 나와도 낡은
-        // 판정에 묶이고, 그걸 막으려 붙인 예외 문구가 규칙을 계속 불렸다(전부 실측).
-        // 두 판정이 어긋나는 건 이제 답변 꼬리표(messages.chat_probability)로 기록되므로
-        // 프롬프트로 맞추는 대신 실측으로 잡는다. 숫자는 진단 화면이 근거와 함께 보여준다.
+        // 최근 진단을 매 턴 싣는다. 단 결과 라벨이 아니라 재료다 — 확률(강도의 기준점)과
+        // 무겁게 본 사실들만 넣고, 유형 이름과 요인 이름과 점프 이름은 전부 뺀다.
+        // 라벨을 실었을 때 그 단어가 그대로 대화에 새어나왔고("소진형 상태거든"), 결과만
+        // 실었을 땐 새 사실이 나와도 낡은 값에 묶였다(둘 다 실측). 재료가 함께 있으면
+        // 채팅이 그 위에서 다시 읽을 수 있어 새 신호를 스스로 반영한다.
+        assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .filter(a -> a.getProbability() != null)
+                .ifPresent(a -> prompt.add(ChatMessage.system(describeAssessment(a))));
         for (int i = recent.size() - 1; i >= 0; i--) {
             Message message = recent.get(i);
             prompt.add(message.getRole() == MessageRole.USER
                     ? ChatMessage.user(message.getContent())
                     : ChatMessage.assistant(message.getContent()));
         }
-        // 매 턴 싣던 확률+유형 한 줄(미니 라인)은 걷어냈다. 큐워드에 안 걸린 턴의 방향 어긋남을
-        // 막으려던 장치인데, 그 좁은 틈을 메우려고 매 턴 숫자를 던지다 대가가 더 컸다 —
-        // 유형 이름이 대화로 새고("소진형 상태거든"), 새 사실이 나와도 낡은 확률에 묶이고,
-        // 채팅이 상담자가 아니라 진단 해설자가 됐다(전부 실측).
-        // 확률이 화제인 턴에는 어차피 상세 블록이 실리고 거기엔 사용 규칙이 붙어 있다.
-        // 남는 틈의 어긋남은 이제 답변 꼬리표(messages.chat_probability)로 기록되므로
-        // 문구로 막는 대신 실측으로 잡는다.
         // 질문 원칙 리마인더 — 페르소나 중간의 질문 규칙이 비결정적으로 새는 실측 대응이라
         // 대화 뒤(안 묻히는 자리)에 싣는다. 단 첫 답변 턴에만이다: 매 턴 실었더니 "질문은 꼭
         // 해라"는 압박이 매 턴 재점화돼, 물을 게 없는 턴에도 차단 여부나 다짐 확인 같은 질문을
@@ -198,6 +199,41 @@ public class MessageTxService {
     // 이 턴이 이 사연의 첫 답변인지. 어시스턴트 메시지가 아직 없으면 첫 답변이다.
     // (recent는 방금 저장한 유저 메시지를 포함한 최신 N개다. 창 밖으로 밀려날 만큼 대화가
     // 길면 당연히 첫 답변이 아니므로 창 안만 봐도 충분하다.)
+    // 진단을 재료로 옮긴 블록. 확률은 강도의 기준점으로만 주고, 나머지는 판정 라벨이 아니라
+    // 관찰된 사실과 그 방향으로 적는다 — 유형, 점프, 요인 이름은 유저의 언어가 아니라 내부
+    // 어휘라 프롬프트에 없으면 새어나갈 수도 없다. 중립(근거 없음) 슬롯은 판을 안 움직여 뺀다.
+    private String describeAssessment(Assessment assessment) {
+        StringBuilder block = new StringBuilder("최근 진단: 재회 가능성 ")
+                .append(assessment.getProbability()).append("%\n");
+        List<AssessmentFactor> weighted = assessment.getFactors().stream()
+                .filter(f -> f.getLevel() != FactorLevel.NEUTRAL)
+                .filter(f -> f.getEvidence() != null && !f.getEvidence().isBlank())
+                .toList();
+        if (!weighted.isEmpty()) {
+            block.append("진단이 무겁게 본 것:\n");
+            for (AssessmentFactor factor : weighted) {
+                block.append("- ").append(factor.getEvidence().trim())
+                        .append(" (").append(direction(factor.getLevel())).append(")\n");
+            }
+        }
+        block.append("사용 규칙: 이 숫자는 네 기준점이지 유저에게 할 말이 아니다 — 유저가 먼저 "
+                + "숫자를 꺼내지 않으면 입 밖에 내지 마라. 방향을 말할 때 이 값과 어긋나지 않게 하고, "
+                + "대화에서 새 사실이 나오면 그것이 위 목록을 어떻게 바꾸는지까지 얹어 말해라. "
+                + "진단은 대화로 갱신되지 않으니 숫자가 정확히 궁금하다면 다시 진단해 보라고 해라. "
+                + "여기 없는 내용을 지어내지 마라.");
+        return block.toString();
+    }
+
+    private String direction(FactorLevel level) {
+        return switch (level) {
+            case STRONG_FAVORABLE -> "크게 올림";
+            case FAVORABLE -> "올림";
+            case UNFAVORABLE -> "낮춤";
+            case STRONG_UNFAVORABLE -> "크게 낮춤";
+            default -> "";
+        };
+    }
+
     private boolean isFirstAnswer(List<Message> recent) {
         return recent.stream().noneMatch(message -> message.getRole() != MessageRole.USER);
     }

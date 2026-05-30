@@ -119,28 +119,42 @@ class MessageTxServiceTest {
         verify(messageRepository, never()).delete(any(Message.class));
     }
 
-    // 확률과 유형을 실어주면 채팅이 상담자가 아니라 진단 해설자가 됐다 — 유형 이름이 대화로
-    // 새고, 새 사실이 나와도 낡은 판정에 묶였다(실측). 두 판정의 어긋남은 이제 답변 꼬리표로
-    // 기록해 실측으로 잡는다.
+    // 결과 라벨(유형, 요인 이름)을 실었더니 그 단어가 그대로 대화에 새어나왔고("소진형 상태거든"),
+    // 확률만 실었더니 새 사실이 나와도 낡은 값에 묶였다(둘 다 실측). 재료로 싣되 내부 어휘는 뺀다.
     @Test
-    @DisplayName("프롬프트 조립 - 진단 결과는 어떤 턴에도 싣지 않는다")
-    void buildPrompt_neverCarriesAssessment() {
+    @DisplayName("프롬프트 조립 - 진단은 확률과 사실로만 실리고 내부 라벨은 안 실린다")
+    void buildPrompt_carriesAssessmentAsMaterial() {
         Story story = story(10L);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "왜 이 진단이야? 확률이 궁금해")),
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 잠이 안 와")),
                         PageRequest.of(0, 20), false));
+        Assessment assessment = Assessment.builder()
+                .storyId(10L)
+                .verdict(ReunionVerdict.POSSIBLE)
+                .probability(19)
+                .breakupType(BreakupType.BURNOUT)
+                .factor(AssessmentFactor.of(FactorName.REPLACEMENT, FactorLevel.STRONG_UNFAVORABLE,
+                        "상대에게 새 연인이 정착함", null, null))
+                .factor(AssessmentFactor.of(FactorName.PARTNER_SIGNAL, FactorLevel.NEUTRAL,
+                        "근거 없음", null, null))
+                .reason("총평")
+                .build();
+        ReflectionTestUtils.setField(assessment, "createdAt", java.time.LocalDateTime.now());
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
+                .willReturn(Optional.of(assessment));
 
-        List<ChatMessage> prompt = messageTxService
-                .appendUserMessageAndBuildPrompt(1L, 10L, "왜 이 진단이야? 확률이 궁금해").prompt();
+        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 잠이 안 와").prompt();
 
-        // 진단을 정면으로 물은 턴에도 확률, 유형, 요인이 프롬프트에 없어야 한다.
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
-                .noneMatch(c -> c.contains("재회 진단 결과 데이터")
-                        || c.contains("소진형")
-                        || c.contains("재회 가능성: "));
+                // 확률(강도 기준점)과 사실은 실린다
+                .anyMatch(c -> c.contains("19%") && c.contains("상대에게 새 연인이 정착함")
+                        && c.contains("크게 낮춤"))
+                // 유형, 요인 이름 같은 내부 어휘와 중립 슬롯은 안 실린다
+                .noneMatch(c -> c.contains("소진형") || c.contains("대체자")
+                        || c.contains("상대신호") || c.contains("근거 없음"));
     }
 
     @Test
