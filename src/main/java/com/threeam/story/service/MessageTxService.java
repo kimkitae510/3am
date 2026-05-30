@@ -216,11 +216,12 @@ public class MessageTxService {
                         .append(" (").append(direction(factor.getLevel())).append(")\n");
             }
         }
-        block.append("사용 규칙: 이 숫자는 네 기준점이지 유저에게 할 말이 아니다 — 유저가 먼저 "
-                + "숫자를 꺼내지 않으면 입 밖에 내지 마라. 방향을 말할 때 이 값과 어긋나지 않게 하고, "
-                + "대화에서 새 사실이 나오면 그것이 위 목록을 어떻게 바꾸는지까지 얹어 말해라. "
-                + "진단은 대화로 갱신되지 않으니 숫자가 정확히 궁금하다면 다시 진단해 보라고 해라. "
-                + "여기 없는 내용을 지어내지 마라.");
+        // 지시 문구는 프롬프트 자산이라 코드에 두지 않는다 — 코드는 데이터(확률, 사실, 방향)만
+        // 만들고 사용 규칙은 로컬 yml(assessment-guide)에서 주입한다. 비면 데이터만 실린다.
+        String guide = personaProperties.getAssessmentGuide();
+        if (guide != null && !guide.isBlank()) {
+            block.append(guide.trim());
+        }
         return block.toString();
     }
 
