@@ -39,6 +39,9 @@ public class CaseScorer {
     // T3 상황 — 지금 어떤 상태인가
     private static final int CONTACT_STATE = 12;
     private static final int REPEAT_BREAKUP = 8;
+    // 상대에게 새 사람이 있는 판은 없는 판과 게임이 다르다 — 사유가 같아도 넘어야 할
+    // 장벽이 하나 더 있다. 연락 상태(12)에 준하는 무게로 본다.
+    private static final int PARTNER_HAS_NEW = 12;
 
     // T4 부수 — 배경. 이것만 맞아선 "비슷한 사례"가 되지 않게 낮게 둔다.
     private static final int PERIOD_BUCKET = 6;
@@ -156,6 +159,11 @@ public class CaseScorer {
         if (Boolean.TRUE.equals(profile.getRepeatBreakup())
                 && Boolean.TRUE.equals(target.getRepeatBreakup())) {
             score += REPEAT_BREAKUP;
+        }
+        // 온오프와 같은 문법 — 둘 다 해당할 때만 인정한다. 둘 다 아닌 건 대다수라 변별력이 없다.
+        if (Boolean.TRUE.equals(profile.getPartnerHasNew())
+                && Boolean.TRUE.equals(target.getPartnerHasNew())) {
+            score += PARTNER_HAS_NEW;
         }
         return score;
     }

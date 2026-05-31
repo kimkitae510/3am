@@ -36,6 +36,7 @@ public class MatchProfileService {
                 .ageGroup(item.ageGroup())
                 .gender(item.gender())
                 .repeatBreakup(item.repeatBreakup())
+                .partnerHasNew(item.partnerHasNew())
                 .build();
 
         // 이번 진단이 못 뽑은 항목은 직전 스냅샷에서 이어받아 저장한다.

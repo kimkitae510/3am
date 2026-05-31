@@ -185,4 +185,35 @@ class CaseScorerTest {
         // 갈등회피가 겹치는 쪽이 감정누적만 겹치는 싸움 사례보다 닮았다.
         assertThat(avoidCase).isGreaterThan(fightCase);
     }
+
+    // 상대에게 새 연인이 있는 판에 그 장벽이 없던 사례가 올라왔다(실측). 사유가 같아도
+    // 넘어야 할 조건이 하나 더 있는 판이라 같은 처지의 사례가 먼저 와야 한다.
+    @Test
+    @DisplayName("상대에게 새 사람이 있으면 같은 처지의 사례가 위로 온다")
+    void partnerHasNewLiftsSameSituation() {
+        StoryMatchProfile mine = StoryMatchProfile.builder()
+                .storyId(1L).reason("본인과실").subReasons("술버릇")
+                .partnerHasNew(true).build();
+
+        ReunionCase withNew = reunionCase("본인과실", "술버릇");
+        ReflectionTestUtils.setField(withNew, "partnerHasNew", true);
+        ReunionCase withoutNew = reunionCase("본인과실", "술버릇");
+
+        assertThat(scorer.score(mine, withNew)).isGreaterThan(scorer.score(mine, withoutNew));
+    }
+
+    // 둘 다 아닌 경우가 대다수라 변별력이 없다 — 온오프와 같은 문법으로 한쪽만이면 가점 없음.
+    @Test
+    @DisplayName("사연에만 새 사람이 있으면 가점이 없다")
+    void partnerHasNewNeedsBothSides() {
+        StoryMatchProfile mine = StoryMatchProfile.builder()
+                .storyId(1L).reason("본인과실").subReasons("술버릇")
+                .partnerHasNew(true).build();
+        StoryMatchProfile plain = StoryMatchProfile.builder()
+                .storyId(1L).reason("본인과실").subReasons("술버릇").build();
+
+        ReunionCase target = reunionCase("본인과실", "술버릇");
+
+        assertThat(scorer.score(mine, target)).isEqualTo(scorer.score(plain, target));
+    }
 }

@@ -46,6 +46,6 @@ public record ReunionDiagnosis(
     public record MatchProfileItem(String reason, List<String> subReasons, String dumper,
                                    String fault, String contactState, Integer monthsSinceBreakup,
                                    Integer datingMonths, String ageGroup, String gender,
-                                   Boolean repeatBreakup) {
+                                   Boolean repeatBreakup, Boolean partnerHasNew) {
     }
 }

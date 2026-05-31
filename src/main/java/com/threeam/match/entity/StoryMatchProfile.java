@@ -58,6 +58,9 @@ public class StoryMatchProfile {
 
     private Boolean repeatBreakup;
 
+    // 상대에게 새 사람이 있는가. 재회를 막는 가장 무거운 조건이라 사례를 고를 때도 봐야 한다.
+    private Boolean partnerHasNew;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -66,7 +69,7 @@ public class StoryMatchProfile {
     private StoryMatchProfile(Long storyId, String reason, String subReasons, String dumper,
                               String fault, String contactState, Integer monthsSinceBreakup,
                               Integer datingMonths, String ageGroup, String gender,
-                              Boolean repeatBreakup) {
+                              Boolean repeatBreakup, Boolean partnerHasNew) {
         this.storyId = storyId;
         this.reason = reason;
         this.subReasons = subReasons;
@@ -78,6 +81,7 @@ public class StoryMatchProfile {
         this.ageGroup = ageGroup;
         this.gender = gender;
         this.repeatBreakup = repeatBreakup;
+        this.partnerHasNew = partnerHasNew;
     }
 
     // 이번 진단이 못 뽑은 항목을 직전 스냅샷에서 이어받는다. null은 "이번엔 안 드러남"이지
@@ -94,6 +98,7 @@ public class StoryMatchProfile {
         this.ageGroup = this.ageGroup != null ? this.ageGroup : previous.ageGroup;
         this.gender = this.gender != null ? this.gender : previous.gender;
         this.repeatBreakup = this.repeatBreakup != null ? this.repeatBreakup : previous.repeatBreakup;
+        this.partnerHasNew = this.partnerHasNew != null ? this.partnerHasNew : previous.partnerHasNew;
     }
 
     // 매칭을 시작할 최소 조건. 이별 사유 축이 하나도 없으면 유사도가 나이, 기간 같은

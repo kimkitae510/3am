@@ -60,7 +60,8 @@ public class MockLlmClient implements LlmClient {
                     "datingMonths": 18,
                     "ageGroup": null,
                     "gender": null,
-                    "repeatBreakup": null
+                    "repeatBreakup": null,
+                    "partnerHasNew": null
                   },
                   "reason": "개발용 임시 진단 — 실제 LLM 연동 전 고정 응답입니다.",
                   "newFacts": ["상대가 먼저 이별을 통보함 (개발용 임시 사실)"]

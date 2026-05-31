@@ -117,7 +117,9 @@ public class ReunionLlm {
             만들었으면 스킨십강요이고, 사람이 아니라 몸으로만 대하는 취급이면(만나면 그것만 하려 함,
             성적인 소재로 삼음) 성적대상화다. 셋은 유저가 겪은 자리가 다르니 뭉뚱그리지 마라.
             monthsSinceBreakup과 datingMonths는 개월 수 정수다. 반복 이별(온오프)을 겪었으면
-            repeatBreakup을 true로 둔다.""";
+            repeatBreakup을 true로 둔다.
+            상대에게 새 사람이 있(었)으면 partnerHasNew를 true로 둔다 — 이별 전부터든 이별 뒤든,
+            정황이든 정착이든 상관없다. 유저 쪽의 새 사람은 여기가 아니다. 확인이 안 되면 비워라.""";
 
     // 요인 판정 항목의 스키마. name과 level을 enum으로 못 박는 게 핵심 — 슬롯 밖 요인이나
     // 3단계 밖 판정은 생성 단계에서 나올 수 없다. stage는 대체자 불리의 세분(정황/정착).
@@ -182,10 +184,11 @@ public class ReunionLlm {
                         Map.entry("datingMonths", Map.of("type", "INTEGER", "nullable", true)),
                         Map.entry("ageGroup", Map.of("type", "STRING", "nullable", true)),
                         Map.entry("gender", Map.of("type", "STRING", "nullable", true)),
-                        Map.entry("repeatBreakup", Map.of("type", "BOOLEAN", "nullable", true)))),
+                        Map.entry("repeatBreakup", Map.of("type", "BOOLEAN", "nullable", true)),
+                        Map.entry("partnerHasNew", Map.of("type", "BOOLEAN", "nullable", true)))),
                 Map.entry("propertyOrdering", List.of("reason", "subReasons", "dumper", "fault",
                         "contactState", "monthsSinceBreakup", "datingMonths", "ageGroup",
-                        "gender", "repeatBreakup")));
+                        "gender", "repeatBreakup", "partnerHasNew")));
     }
 
     // 진단 응답의 문법을 생성 단계에서 강제하는 스키마. 프롬프트(rubric.yml)의 JSON 지시와 짝이며,
@@ -386,17 +389,20 @@ public class ReunionLlm {
         String gender = text(node, "gender", GENDER_MAX);
         Boolean repeatBreakup = node.path("repeatBreakup").isBoolean()
                 ? node.path("repeatBreakup").asBoolean() : null;
+        Boolean partnerHasNew = node.path("partnerHasNew").isBoolean()
+                ? node.path("partnerHasNew").asBoolean() : null;
 
         boolean empty = reason == null && subReasons.isEmpty() && dumper == null && fault == null
                 && contactState == null && monthsSinceBreakup == null && datingMonths == null
-                && ageGroup == null && gender == null && repeatBreakup == null;
+                && ageGroup == null && gender == null && repeatBreakup == null
+                && partnerHasNew == null;
         if (empty) {
             // 정상 진단에서 반복되면 스키마/지시가 또 뚫린 것 — 매칭이 조용히 죽는 걸 관측 가능하게.
             log.warn("매칭 분류 미추출 — matchProfile이 비어 있음");
         }
         return empty ? null : new ReunionDiagnosis.MatchProfileItem(reason, subReasons, dumper,
                 fault, contactState, monthsSinceBreakup, datingMonths, ageGroup, gender,
-                repeatBreakup);
+                repeatBreakup, partnerHasNew);
     }
 
     // 프로필 문자열 컬럼 길이 — 넘치면 저장이 실패하므로 입구에서 자른다.
