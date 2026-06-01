@@ -21,6 +21,9 @@ public class AssessmentResponse {
     private final String reason;
     private final List<FactorView> factors;
     private final List<WatchView> watchFor;
+    // 상담자가 물었는데 답이 안 온 질문. 화면의 "아직 모르는 것"이 요인 슬롯의 고정 문구
+    // 대신 이걸 쓴다 — 그 사연을 읽고 만든 질문이라 훨씬 구체적이다.
+    private final List<String> unansweredQuestions;
     private final LocalDateTime createdAt;
     // 재시도까지 남은 초. 실패 쿨다운으로 막힌 응답에만 채워진다(그 외 null).
     // 시각이 아니라 남은 초를 주는 이유: 클라이언트 시계가 틀어져 있어도 카운트다운이 어긋나지 않는다.
@@ -30,6 +33,7 @@ public class AssessmentResponse {
                                String typeEvidence, String jumpRule, String relapseRisk,
                                String relapseReason,
                                String reason, List<FactorView> factors, List<WatchView> watchFor,
+                               List<String> unansweredQuestions,
                                LocalDateTime createdAt, Integer retryAfterSeconds) {
         this.verdict = verdict;
         this.probability = probability;
@@ -41,13 +45,15 @@ public class AssessmentResponse {
         this.reason = reason;
         this.factors = factors;
         this.watchFor = watchFor;
+        this.unansweredQuestions = unansweredQuestions;
         this.createdAt = createdAt;
         this.retryAfterSeconds = retryAfterSeconds;
     }
 
     public AssessmentResponse withRetryAfterSeconds(int seconds) {
         return new AssessmentResponse(verdict, probability, breakupType, typeEvidence, jumpRule,
-                relapseRisk, relapseReason, reason, factors, watchFor, createdAt, seconds);
+                relapseRisk, relapseReason, reason, factors, watchFor, unansweredQuestions,
+                createdAt, seconds);
     }
 
     public static AssessmentResponse from(Assessment assessment) {
@@ -71,6 +77,7 @@ public class AssessmentResponse {
                 assessment.getReason(),
                 factors,
                 watchFor,
+                List.copyOf(assessment.getUnansweredQuestions()),
                 assessment.getCreatedAt(),
                 null);
     }

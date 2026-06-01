@@ -96,12 +96,12 @@ class AssessmentServiceTest {
         return new ReunionDiagnosis(ReunionVerdict.POSSIBLE, offer, BreakupType.BURNOUT, null,
                 "반복 다툼 끝에 지쳐 통보", JumpRule.NONE, FACTORS, RelapseRisk.HIGH, "교정 미확인",
                 List.of(new WatchItem("상대의 선연락 여부", "오면 상대신호가 유리로 바뀜")),
-                null, "총평", List.of("상대가 먼저 통보함"));
+                List.of(), null, "총평", List.of("상대가 먼저 통보함"));
     }
 
     private static ReunionDiagnosis locked(ReunionVerdict verdict, String reason, List<String> newFacts) {
         return new ReunionDiagnosis(verdict, false, null, null, null, JumpRule.NONE, List.of(),
-                null, null, List.of(), null, reason, newFacts);
+                null, null, List.of(), List.of(), null, reason, newFacts);
     }
 
     private static ReunionDiagnosis insufficient() {
@@ -156,7 +156,7 @@ class AssessmentServiceTest {
         given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(new ReunionDiagnosis(
                         ReunionVerdict.DATING, true, BreakupType.FADED, null, "실수 판정", JumpRule.NONE,
-                        FACTORS, RelapseRisk.LOW, null, List.of(), null,
+                        FACTORS, RelapseRisk.LOW, null, List.of(), List.of(), null,
                         "아직 만나는 중이면 재회 확률은 의미가 없어",
                         List.of("유저와 상대는 아직 사귀는 중"))));
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))

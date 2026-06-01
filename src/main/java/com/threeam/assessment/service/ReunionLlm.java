@@ -215,6 +215,8 @@ public class ReunionLlm {
                     Map.entry("factors", Map.of("type", "ARRAY", "items", factorItemSchema())),
                     Map.entry("relapseRisk", relapseRiskSchema()),
                     Map.entry("watchFor", Map.of("type", "ARRAY", "items", watchItemSchema())),
+                    Map.entry("unansweredQuestions", Map.of("type", "ARRAY",
+                            "items", Map.of("type", "STRING"))),
                     Map.entry("matchProfile", matchProfileSchema()),
                     Map.entry("reason", Map.of("type", "STRING")),
                     Map.entry("newFacts", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))))),
@@ -224,7 +226,7 @@ public class ReunionLlm {
                     "jumpRule", "matchProfile", "reason")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
                     "breakupTypeSecondary", "typeEvidence", "jumpRule", "factors", "relapseRisk",
-                    "watchFor", "matchProfile", "reason", "newFacts")));
+                    "watchFor", "unansweredQuestions", "matchProfile", "reason", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
         try {
@@ -272,7 +274,8 @@ public class ReunionLlm {
             return new ReunionDiagnosis(verdict, activeReunionOffer, breakupType, secondary,
                     clip(root.path("typeEvidence").asText(""), TEXT_MAX),
                     jumpRule,
-                    factors, relapseRisk, relapseReason, parseWatch(root), matchProfile(root),
+                    factors, relapseRisk, relapseReason, parseWatch(root),
+                    parseUnanswered(root), matchProfile(root),
                     // 총평은 채팅과 같은 입말이라 문장 끝 마침표를 코드로 걷어낸다(지시는 새는 게 실측).
                     com.threeam.global.text.Periods.strip(root.path("reason").asText("")), newFacts);
         } catch (Exception e) {
@@ -322,6 +325,21 @@ public class ReunionLlm {
 
     // 근거 없는 슬롯의 표준 문구. 화면의 "이걸 알려주면 정확해져요" 안내가 이 값으로 갈린다.
     public static final String NO_EVIDENCE = "근거 없음";
+
+    // 상담자가 물었는데 답이 안 온 질문. 화면이 그대로 보여주므로 개수와 길이를 여기서 막는다.
+    private static final int UNANSWERED_MAX = 3;
+
+    private List<String> parseUnanswered(JsonNode root) {
+        List<String> out = new ArrayList<>();
+        for (JsonNode node : root.path("unansweredQuestions")) {
+            String q = node.asText("").trim();
+            if (q.isBlank() || out.size() >= UNANSWERED_MAX) {
+                continue;
+            }
+            out.add(clip(q, TEXT_MAX));
+        }
+        return out;
+    }
 
     private List<WatchItem> parseWatch(JsonNode root) {
         List<WatchItem> items = new ArrayList<>();

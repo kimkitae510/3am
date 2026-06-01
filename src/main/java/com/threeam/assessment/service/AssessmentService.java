@@ -250,6 +250,7 @@ public class AssessmentService {
                 .reason(diagnosis.reason())
                 .factors(factors);
         diagnosis.watchFor().forEach(w -> builder.watchPoint(WatchPoint.of(w.point(), w.effect())));
+        diagnosis.unansweredQuestions().forEach(builder::unansweredQuestion);
 
         return txService.save(storyId, builder.build(), diagnosis.newFacts(),
                 diagnosis.matchProfile());

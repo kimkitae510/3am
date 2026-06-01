@@ -145,6 +145,9 @@ export function AssessmentPage() {
   const [notice, setNotice] = useState('');
   const [remaining, setRemaining] = useState<number | null>(null); // 남은 진단 횟수(이용권)
   const [isGuest, setIsGuest] = useState(false); // 게스트는 진단 잠금 — 계정 연결 유도
+  // 대화가 한 줄도 없는 방에서 진단을 누른 경우(AS001). 실패가 아니라 순서가 뒤바뀐 것이라
+  // 에러 배너 대신 "먼저 대화하기" 안내 화면으로 갈아탄다.
+  const [noMessages, setNoMessages] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   // 비슷한 사례. 진단이 뽑아둔 분류로 찾으므로 LLM 호출도 차감도 없다 — 실패해도 조용히 접는다.
   const [similar, setSimilar] = useState<SimilarCases | null>(null);
@@ -249,6 +252,7 @@ export function AssessmentPage() {
   async function diagnose() {
     setDiagnosing(true);
     setError('');
+    setNoMessages(false); // 대화를 나누고 돌아왔을 수 있다 — 매 시도마다 다시 판단한다
     setFactNotice(''); // 직접 입력분이 이번 진단에 들어가므로 "다시 진단하면"의 볼일이 끝났다
     try {
       const res = await startOrJoinRun(storyId);
@@ -290,6 +294,9 @@ export function AssessmentPage() {
         if (code === 'L001') {
           setRetryable(true);
           setCooldown(0);
+        } else if (code === 'AS001') {
+          // 진단할 대화가 없음 — 유저가 뭘 잘못한 게 아니라 아직 할 차례가 아닌 것이다
+          setNoMessages(true);
         } else {
           setError(
             code === 'Q001'
@@ -532,8 +539,19 @@ export function AssessmentPage() {
         <div className={styles.wrap}>
           <BackBar onBack={toChat} />
           <div className={styles.state}>
-            {retryPanel ?? (
-              notice ? (
+            {retryPanel ??
+              (noMessages ? (
+                // 대화가 한 줄도 없는데 진단을 누른 판. 서버 문구("진단할 대화 내용이 없습니다")를
+                // 그대로 띄우면 처음 온 사람에겐 거절로만 읽힌다 — 무엇을 먼저 해야 하는지 말한다
+                <>
+                  <div className={styles.stateTitle}>먼저 이야기를 들려주세요</div>
+                  <div className={styles.stateBody}>
+                    진단은 나눈 대화를 읽고 계산합니다.
+                    <br />
+                    그 사람과 어떻게 헤어졌는지부터 들려주세요.
+                  </div>
+                </>
+              ) : notice ? (
                 <div className={styles.stateBody}>{notice}</div>
               ) : (
                 <>
@@ -544,17 +562,23 @@ export function AssessmentPage() {
                     대화를 충분히 나눌수록 정확해져요
                   </div>
                 </>
-              )
-            )}
+              ))}
           </div>
-          {remainingHint}
+          {!noMessages && remainingHint}
           {/* 재시도 패널이 떠 있으면 그 안의 버튼이 유일한 동선이다 — 같은 일을 하는 버튼을
               하단에 또 두면 쿨다운 중 비활성 버튼과 활성 버튼이 나란히 보인다 */}
           {!retryPanel && (
             <div className={styles.footer}>
-              <button className={styles.btnPrimary} onClick={diagnose}>
-                진단 받기
-              </button>
+              {/* 대화가 없으면 진단 버튼은 누를 때마다 같은 거절만 받는다 — 할 수 있는 일로 바꾼다 */}
+              {noMessages ? (
+                <button className={styles.btnPrimary} onClick={toChat}>
+                  대화하러 가기
+                </button>
+              ) : (
+                <button className={styles.btnPrimary} onClick={diagnose}>
+                  진단 받기
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -640,6 +664,12 @@ export function AssessmentPage() {
   ];
   // 판단 근거가 없던 요인 — 카드 대신 "알려주면 정확해져요"로 뒤집어 다음 대화를 유도한다.
   const missing = factors.filter((f) => f.level === '중립' && f.evidence === NO_EVIDENCE);
+  // 진단이 대화를 읽고 만든 질문을 우선 쓴다 — 요인 슬롯의 고정 문구("상대에게 새로 만나는
+  // 사람이 있는지")는 그 사연의 맥락이 하나도 안 담겨 빈칸 채우기로 읽힌다.
+  // 진단이 못 뽑았을 때만 고정 문구로 내려간다.
+  const asks: string[] = (result.unansweredQuestions?.length ?? 0) > 0
+    ? result.unansweredQuestions!
+    : missing.map((f) => FACTOR_ASK[f.name] ?? f.name);
 
   return (
     <PhoneFrame>
@@ -917,14 +947,14 @@ export function AssessmentPage() {
           {!locked && (
             <>
               <SectionHead title="확률을 바꿀 수 있는 요인" />
-              {prob < 100 && (missing.length > 0 || (result.watchFor?.length ?? 0) > 0) && (
+              {prob < 100 && (asks.length > 0 || (result.watchFor?.length ?? 0) > 0) && (
                 <div className={styles.changeCard}>
-                  {missing.length > 0 && (
+                  {asks.length > 0 && (
                     <div className={styles.changeGroup}>
                       <div className={styles.changeLabel}>아직 모르는 것</div>
-                      {missing.map((f) => (
-                        <div className={styles.changeRow} key={f.name}>
-                          <div className={styles.changeAsk}>{FACTOR_ASK[f.name] ?? f.name}</div>
+                      {asks.map((ask, i) => (
+                        <div className={styles.changeRow} key={i}>
+                          <div className={styles.changeAsk}>{ask}</div>
                         </div>
                       ))}
                     </div>

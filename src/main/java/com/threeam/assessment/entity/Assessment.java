@@ -98,6 +98,15 @@ public class Assessment {
     @BatchSize(size = 100)
     private List<WatchPoint> watchPoints = new ArrayList<>();
 
+    // 상담자가 물었는데 유저가 답하지 않은 것. 화면의 "아직 모르는 것"이 요인 슬롯의 고정 문구
+    // 대신 이걸 쓴다 — 그 사연을 읽고 만든 질문이라 훨씬 구체적이다.
+    @ElementCollection
+    @CollectionTable(name = "assessment_unanswered",
+            joinColumns = @JoinColumn(name = "assessment_id"))
+    @Column(name = "question", nullable = false, length = 300)
+    @BatchSize(size = 100)
+    private List<String> unansweredQuestions = new ArrayList<>();
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -108,7 +117,8 @@ public class Assessment {
                        String typeEvidence, JumpRule jumpRule,
                        RelapseRisk relapseRisk, String relapseReason, String reason,
                        @Singular List<AssessmentFactor> factors,
-                       @Singular List<WatchPoint> watchPoints) {
+                       @Singular List<WatchPoint> watchPoints,
+                       @Singular("unansweredQuestion") List<String> unansweredQuestions) {
         this.storyId = storyId;
         this.verdict = verdict;
         this.probability = probability;
@@ -121,6 +131,8 @@ public class Assessment {
         this.reason = reason;
         this.factors = factors != null ? new ArrayList<>(factors) : new ArrayList<>();
         this.watchPoints = watchPoints != null ? new ArrayList<>(watchPoints) : new ArrayList<>();
+        this.unansweredQuestions = unansweredQuestions != null
+                ? new ArrayList<>(unansweredQuestions) : new ArrayList<>();
     }
 
     // 상대 제안 확정(100)을 유저가 번복할 때 — 저장된 유형과 요인의 재계산 값으로 되돌린다(원장 정정과 세트).

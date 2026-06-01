@@ -31,6 +31,8 @@ export interface AssessmentResponse {
   reason: string;
   factors: FactorView[];
   watchFor: WatchView[];
+  // 상담자가 물었는데 답이 안 온 질문. 비어 있으면 요인 슬롯의 고정 문구로 폴백한다.
+  unansweredQuestions?: string[];
   createdAt: string | null; // INSUFFICIENT는 저장 안 돼서 null
   // 연속 실패 쿨다운으로 막힌 응답에만 채워진다. 남은 초(시각이 아니라)라서
   // 기기 시계가 틀어져 있어도 카운트다운이 어긋나지 않는다.
