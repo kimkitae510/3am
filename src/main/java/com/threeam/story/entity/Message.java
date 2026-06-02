@@ -46,22 +46,15 @@ public class Message {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    // 채팅이 이 답변에서 스스로 말한 재회 가능성. 유저에게 노출되지 않는 기록용 값이고,
-    // 같은 사연의 진단 확률과 나란히 놓고 어긋나는 판을 찾는 데만 쓴다.
-    // 방향을 말하지 않은 턴에는 null이다 — 그것도 데이터다(언제 말하고 언제 안 하는지).
-    @Column(name = "chat_probability")
-    private Integer chatProbability;
-
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
-    private Message(Story story, MessageRole role, String content, Integer chatProbability) {
+    private Message(Story story, MessageRole role, String content) {
         this.story = story;
         this.role = role;
         this.content = content;
-        this.chatProbability = chatProbability;
     }
 
     public static Message user(Story story, String content) {
@@ -69,12 +62,7 @@ public class Message {
     }
 
     public static Message assistant(Story story, String content) {
-        return assistant(story, content, null);
-    }
-
-    public static Message assistant(Story story, String content, Integer chatProbability) {
-        return Message.builder().story(story).role(MessageRole.ASSISTANT)
-                .content(content).chatProbability(chatProbability).build();
+        return Message.builder().story(story).role(MessageRole.ASSISTANT).content(content).build();
     }
 
     // LLM 호출이 실패했을 때 답 대신 저장하는 말풍선. 폴링이 이걸 받고 정상 종료한다.

@@ -1,6 +1,7 @@
 package com.threeam.assessment.dto;
 
 import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.ChatDirection;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.JumpRule;
@@ -30,6 +31,9 @@ public record ReunionDiagnosis(
         // 상담자가 물었는데 유저가 답하지 않은 것. 진단은 대화를 통째로 보므로 추가 호출
         // 없이 뽑을 수 있다. 화면의 "아직 모르는 것"이 고정 문구 대신 이걸 쓴다.
         List<String> unansweredQuestions,
+        // 이 대화에서 상담자가 재회 가능성을 어느 쪽으로 말했는지(관측). 진단 확률과
+        // 대조해 두 판정이 어긋난 사연을 찾는 데만 쓴다.
+        ChatDirection chatDirection,
         MatchProfileItem matchProfile,      // 사례 매칭용 분류(분류체계 어휘). 못 뽑으면 null
         String reason,
         List<String> newFacts) {            // 새로 드러난 사실 → StoryFact 원장에 append

@@ -7,6 +7,7 @@ import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.FactorItem;
 import com.threeam.assessment.dto.ReunionDiagnosis.WatchItem;
 import com.threeam.assessment.entity.BreakupType;
+import com.threeam.assessment.entity.ChatDirection;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.JumpRule;
@@ -217,6 +218,8 @@ public class ReunionLlm {
                     Map.entry("watchFor", Map.of("type", "ARRAY", "items", watchItemSchema())),
                     Map.entry("unansweredQuestions", Map.of("type", "ARRAY",
                             "items", Map.of("type", "STRING"))),
+                    Map.entry("chatDirection", Map.of("type", "STRING",
+                            "enum", ChatDirection.labels())),
                     Map.entry("matchProfile", matchProfileSchema()),
                     Map.entry("reason", Map.of("type", "STRING")),
                     Map.entry("newFacts", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))))),
@@ -226,7 +229,8 @@ public class ReunionLlm {
                     "jumpRule", "matchProfile", "reason")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
                     "breakupTypeSecondary", "typeEvidence", "jumpRule", "factors", "relapseRisk",
-                    "watchFor", "unansweredQuestions", "matchProfile", "reason", "newFacts")));
+                    "watchFor", "unansweredQuestions", "chatDirection", "matchProfile", "reason",
+                    "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
         try {
@@ -275,7 +279,9 @@ public class ReunionLlm {
                     clip(root.path("typeEvidence").asText(""), TEXT_MAX),
                     jumpRule,
                     factors, relapseRisk, relapseReason, parseWatch(root),
-                    parseUnanswered(root), matchProfile(root),
+                    parseUnanswered(root),
+                    ChatDirection.fromLabel(root.path("chatDirection").asText(null)),
+                    matchProfile(root),
                     // 총평은 채팅과 같은 입말이라 문장 끝 마침표를 코드로 걷어낸다(지시는 새는 게 실측).
                     com.threeam.global.text.Periods.strip(root.path("reason").asText("")), newFacts);
         } catch (Exception e) {

@@ -74,6 +74,13 @@ public class Assessment {
     @Column(length = 30)
     private JumpRule jumpRule;
 
+    // 이 대화에서 상담자가 재회 가능성을 어느 쪽으로 말했는지. 화면에는 안 나가고,
+    // 진단 확률과 대조해 두 판정이 어긋난 사연을 찾는 데만 쓴다.
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 10)
+    private ChatDirection chatDirection;
+
     // 유지 전망 — 성사 확률과 별개 축.
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
@@ -115,6 +122,7 @@ public class Assessment {
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
                        BreakupType breakupType, BreakupType breakupTypeSecondary,
                        String typeEvidence, JumpRule jumpRule,
+                       ChatDirection chatDirection,
                        RelapseRisk relapseRisk, String relapseReason, String reason,
                        @Singular List<AssessmentFactor> factors,
                        @Singular List<WatchPoint> watchPoints,
@@ -126,6 +134,7 @@ public class Assessment {
         this.breakupTypeSecondary = breakupTypeSecondary;
         this.typeEvidence = typeEvidence;
         this.jumpRule = jumpRule;
+        this.chatDirection = chatDirection;
         this.relapseRisk = relapseRisk;
         this.relapseReason = relapseReason;
         this.reason = reason;
