@@ -1,0 +1,37 @@
+/* 초기화면 표시 의무를 지키되 히어로를 해치지 않게 — 평소엔 한 줄만 두고 펼쳐서 본다 */
+.wrap {
+  padding: 0 24px 26px;
+  text-align: center;
+}
+
+/* 문서 링크(12px)와 같은 무게로 앉힌다 — 한 줄에 나란히 선 것처럼 보이게 */
+.toggle {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.caret {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.panel {
+  margin-top: 10px;
+}
+
+.line {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.link {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
