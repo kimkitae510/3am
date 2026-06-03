@@ -1,0 +1,88 @@
+/* 카톡 프로필 문법 — 시트가 아니라 전체 화면. 캐릭터가 하나뿐인 서비스라 사진에 무대를 준다.
+   150px 카드에 담았을 때 가슴까지 든 원본에서 얼굴이 40px밖에 안 남던 문제도 여기서 풀린다 */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  animation: fade 0.18s ease-out;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.stage {
+  position: relative;
+  height: 56%;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+/* 원본이 무대보다 세로로 길어 아래가 조금 잘린다 — 세로값이 얼굴 위치 손잡이다.
+   확대는 걸지 않는다. 화면 절반을 쓰는 그림이라 당기는 만큼 그대로 흐려진다 */
+.portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  display: block;
+}
+
+/* 사진이 아래에서 딱 끊기면 잘라 붙인 것처럼 보인다 — 배경색으로 녹여 화면에 앉힌다 */
+.fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  background: linear-gradient(to bottom, rgba(15, 15, 17, 0), var(--bg));
+}
+
+.close {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(10, 10, 12, 0.45);
+  color: #ebebee;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 26px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.name {
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.intro {
+  color: var(--text-sub);
+  font-size: 13.5px;
+  line-height: 1.7;
+  text-align: center;
+  white-space: pre-line;
+}
+
