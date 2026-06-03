@@ -1,19 +1,42 @@
-.wrap {
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.6);
+  z-index: 15;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.panel {
+  width: 88%;
+  max-width: 340px;
   height: 100%;
   display: flex;
   flex-direction: column;
   position: relative;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(16px);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 /* 삭제 확인 모달 */
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(10, 9, 13, 0.7);
+  background: rgba(10, 10, 12, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 26px;
+  padding: 0 20px;
   z-index: 20;
 }
 
@@ -75,13 +98,8 @@
   cursor: default;
 }
 
-/* 길게 눌러 삭제 대상이 된 아이템 강조 */
-.itemActive {
-  background: #1e1c23;
-}
-
 .header {
-  padding: 14px 24px 12px;
+  padding: 14px 18px 12px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -89,7 +107,7 @@
 }
 
 .title {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.3px;
@@ -98,8 +116,8 @@
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding-top: 4px;
+  gap: 12px;
+  padding-top: 2px;
 }
 
 .iconButton {
@@ -111,17 +129,17 @@
   align-items: center;
 }
 
-/* 헤더의 이용권 진입점 — 채팅 헤더 진단 버튼과 같은 문법(토스 결: 회색 칩 + 흰 글자, 색은 아이콘만) */
+/* 채팅 헤더 진단 버튼과 같은 문법 — 중립 회색 칩 + 흰 글자, 색은 아이콘에만 */
 .payButton {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 12px;
+  padding: 6px 10px;
   border: none;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.07);
   color: var(--text);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.2px;
   cursor: pointer;
@@ -131,12 +149,12 @@
 .list {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 14px;
+  padding: 4px 10px;
   display: flex;
   flex-direction: column;
 }
 
-/* 읽지 않은 새 답이 있는 방 — NEW 필 배지 */
+/* 읽지 않은 새 답이 있는 방 */
 .unreadBadge {
   padding: 2px 7px;
   border-radius: 999px;
@@ -168,17 +186,17 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.15s ease; /* 평상시 opacity 0(잔상 방지) → 밀 때 부드럽게 등장 */
+  transition: opacity 0.15s ease;
 }
 
 .item {
   position: relative;
   display: flex;
-  gap: 14px;
-  padding: 16px 12px;
+  gap: 12px;
+  padding: 14px 10px;
   border-radius: 16px;
   border: none;
-  background: var(--surface); /* 뒤 삭제 버튼을 덮어야 밀 때만 보인다 */
+  background: var(--bg); /* 뒤 삭제 버튼을 덮어야 밀 때만 보인다 */
   cursor: pointer;
   text-align: left;
   width: 100%;
@@ -189,19 +207,24 @@
 }
 
 .item:hover {
-  background: #1e1c23;
+  background: #1e1e22;
+}
+
+/* 지금 보고 있는 방은 맨 위로 올라온다 — 배지나 강조선을 덧대는 대신 자리로 알린다 */
+.itemCurrent {
+  background: var(--surface);
 }
 
 .avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 24px;
-  background: var(--frame-border);
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.075);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text);
-  font-size: 18px;
+  color: var(--text-sub);
+  font-size: 17px;
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -209,7 +232,6 @@
 .itemBody {
   flex: 1;
   min-width: 0;
-  /* 미리보기 줄이 없는 방(첫 대화 전)은 한 줄만 남으므로 아바타 옆에 세로 중앙 정렬 */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -224,7 +246,7 @@
 
 .itemName {
   color: var(--text);
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -233,11 +255,10 @@
 
 .itemTime {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11.5px;
   flex-shrink: 0;
 }
 
-/* 카톡식 둘째 줄: 마지막 메시지 미리보기 + NEW 배지 */
 .itemBottom {
   display: flex;
   align-items: center;
@@ -250,7 +271,7 @@
   flex: 1;
   min-width: 0;
   color: var(--text-sub);
-  font-size: 13.5px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -264,46 +285,35 @@
   color: var(--text-muted);
   font-size: 14px;
   text-align: center;
-  padding: 0 40px;
+  padding: 0 30px;
   line-height: 1.6;
 }
 
-.newButton {
-  margin: 0 24px 12px;
-  height: 52px;
-  border: none;
-  border-radius: 16px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 15.5px;
-  font-weight: 700;
-  cursor: pointer;
+.footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 10px;
+  margin: 16px 18px 24px;
 }
 
-.newButton:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-/* 하단 상시 문의 링크 — 도움말 모달 안 문의 줄과 같은 창구(오픈채팅) */
-.contactLink {
-  flex-shrink: 0;
-  text-align: center;
-  margin: 0 24px 26px;
+.footLink {
+  border: none;
+  background: transparent;
+  padding: 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 12.5px;
   text-decoration: none;
+  cursor: pointer;
 }
 
-/* 행동 지점("1:1 문의")만 보라로 — 안내문 전체가 링크처럼 보이던 것을 정리 */
-.contactAccent {
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.footDot {
+  color: var(--border);
+  font-size: 11px;
+}
+
+.bizWrap {
+  flex-shrink: 0;
+  padding: 0 18px 20px;
 }

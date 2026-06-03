@@ -1,25 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PhoneFrame } from '../components/PhoneFrame';
-import { HelpModal, CONTACT_OPENCHAT_URL } from '../components/HelpModal';
-import { listStories, createStory, deleteStory, type StoryResponse } from '../api/story';
+import { HelpModal, CONTACT_OPENCHAT_URL } from './HelpModal';
+import { BusinessInfo } from './BusinessInfo';
+import { listStories, deleteStory, type StoryResponse } from '../api/story';
 import { getUsage, type UsageStatusResponse } from '../api/usage';
 import { logout } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
-import styles from './StoryListPage.module.css';
+import styles from './StoryDrawer.module.css';
 
 const LONG_PRESS_MS = 450;
 const SWIPE_WIDTH = 84; // 드러나는 삭제 버튼 폭
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
-export function StoryListPage() {
+// 목록은 화면이 아니라 서랍이다 — 사연이 보통 하나라 화면 하나를 잡을 무게가 아니고,
+// 앱을 열면 목록을 거치지 않고 대화로 바로 들어가야 한다.
+export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: number; onClose: () => void }) {
   const navigate = useNavigate();
   const [stories, setStories] = useState<StoryResponse[]>([]);
   const [usage, setUsage] = useState<UsageStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<StoryResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -41,7 +42,7 @@ export function StoryListPage() {
         const data = await listStories();
         if (alive) setStories(data);
       } catch (e) {
-        if (alive) setError(extractErrorMessage(e, '대화 목록을 불러오지 못했어요.'));
+        if (alive) setError(extractErrorMessage(e, '대화 목록을 불러오지 못했습니다.'));
       } finally {
         if (alive) setLoading(false);
       }
@@ -52,18 +53,6 @@ export function StoryListPage() {
       alive = false;
     };
   }, []);
-
-  async function handleNew() {
-    if (creating) return;
-    setCreating(true);
-    try {
-      const story = await createStory();
-      navigate(`/stories/${story.id}`);
-    } catch (e) {
-      setError(extractErrorMessage(e, '새 대화를 시작하지 못했어요.'));
-      setCreating(false);
-    }
-  }
 
   async function handleLogout() {
     await logout();
@@ -124,7 +113,12 @@ export function StoryListPage() {
       setOpenId(null); // 열린 행을 탭하면 닫기
       return;
     }
+    if (s.id === currentStoryId) {
+      onClose(); // 보고 있던 방을 다시 고른 것 — 이동 없이 서랍만 닫는다
+      return;
+    }
     navigate(`/stories/${s.id}`);
+    onClose();
   }
 
   async function confirmDelete() {
@@ -133,13 +127,21 @@ export function StoryListPage() {
     try {
       await deleteStory(deleteTarget.id);
       setStories((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      // 보고 있던 방을 지웠으면 남을 화면이 없다 — 목록 진입점으로 되돌려 다음 방을 잡게 한다
+      const wasCurrent = deleteTarget.id === currentStoryId;
       setDeleteTarget(null);
+      if (wasCurrent) navigate('/stories', { replace: true });
     } catch (e) {
-      setError(extractErrorMessage(e, '삭제하지 못했어요.'));
+      setError(extractErrorMessage(e, '삭제하지 못했습니다.'));
     } finally {
       setDeleting(false);
     }
   }
+
+  // 보고 있는 방을 맨 위로 — 어디에 있는지를 배지가 아니라 자리로 알린다
+  const ordered = stories
+    .slice()
+    .sort((a, b) => Number(b.id === currentStoryId) - Number(a.id === currentStoryId));
 
   function offsetFor(id: number): number {
     if (dragId === id) return dragX;
@@ -147,64 +149,45 @@ export function StoryListPage() {
   }
 
   return (
-    <PhoneFrame>
-      <div className={styles.wrap}>
+    <div className={styles.scrim} onClick={onClose}>
+      <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <div className={styles.title}>대화</div>
+          <div className={styles.title}>서랍</div>
           <div className={styles.headerActions}>
-            {/* 이용권 진입점 — 잔여 줄이 사라지면서 헤더로 승격. 게스트는 결제가 막혀 있어 계정 연결로 */}
-            {usage &&
-              (usage.guest ? (
-                <button className={styles.payButton} onClick={() => navigate('/guest-link')}>
-                  계정 연결
-                </button>
-              ) : (
-                <button className={styles.payButton} onClick={() => navigate('/payment')}>
-                  {/* 티켓(점선 절취선)은 장식이 많아 만든 티가 났다(실측) — 획 두 개짜리 미니 카드로 */}
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="3.5" y="6" width="17" height="12.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.7" />
-                    <path d="M3.5 10.2h17" stroke="#B89DD1" strokeWidth="1.7" />
-                  </svg>
-                  이용권
-                </button>
-              ))}
+            {/* 게스트의 계정 연결은 서랍이 아니라 채팅 화면 입력창 위가 맡는다 — 서랍은 열어야
+                보이는 자리라 정작 연결이 필요한 사람에게 안 보인다 */}
+            {usage && !usage.guest && (
+              <button className={styles.payButton} onClick={() => navigate('/payment')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="3.5" y="6" width="17" height="12.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.7" />
+                  <path d="M3.5 10.2h17" stroke="#B89DD1" strokeWidth="1.7" />
+                </svg>
+                이용권
+              </button>
+            )}
             <button className={styles.iconButton} onClick={() => setShowHelp(true)} aria-label="도움말">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="#9B98A3" strokeWidth="1.6" />
-                <path d="M9.6 9.2a2.4 2.4 0 114.1 1.7c-.7.7-1.7 1.1-1.7 2.2M12 16.4h.01" stroke="#9B98A3" strokeWidth="1.7" strokeLinecap="round" />
-              </svg>
-            </button>
-            <button className={styles.iconButton} onClick={handleLogout} aria-label="로그아웃">
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#98989f" strokeWidth="1.6" />
                 <path
-                  d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l5-5-5-5M15 12H3"
-                  stroke="#9B98A3"
+                  d="M9.6 9.2a2.4 2.4 0 114.1 1.7c-.7.7-1.7 1.1-1.7 2.2M12 16.4h.01"
+                  stroke="#98989f"
                   strokeWidth="1.7"
                   strokeLinecap="round"
-                  strokeLinejoin="round"
                 />
               </svg>
             </button>
           </div>
         </div>
 
-        {/* 잔여 숫자 나열("오늘 남은 대화 N회, 진단 N회")은 뺐다 — 숫자는 이용권 화면이
-            담당하고, 목록은 헤더의 이용권 진입점 하나로 정리(잔여가 급한 순간의 안내는
-            채팅/진단 화면의 소진 배너가 맡는다) */}
-
         {loading ? (
           <div className={styles.state}>불러오는 중…</div>
         ) : error ? (
           <div className={styles.state}>{error}</div>
         ) : stories.length === 0 ? (
-          <div className={styles.state}>
-            아직 이야기가 없어요.
-            <br />
-            아래 버튼으로 그 사람 얘기를 시작해요.
-          </div>
+          <div className={styles.state}>아직 시작한 이야기가 없습니다.</div>
         ) : (
           <div className={styles.list}>
-            {stories.map((s) => (
+            {ordered.map((s) => (
               <div className={styles.swipeRow} key={s.id}>
                 {/* 평상시엔 완전히 감춘다 — 모서리로 빨간 배경이 비치는 잔상 방지 */}
                 <button
@@ -215,7 +198,7 @@ export function StoryListPage() {
                   삭제
                 </button>
                 <button
-                  className={styles.item}
+                  className={`${styles.item} ${s.id === currentStoryId ? styles.itemCurrent : ''}`}
                   style={{
                     transform: `translateX(${offsetFor(s.id)}px)`,
                     transition: dragId === s.id ? 'none' : undefined,
@@ -232,8 +215,6 @@ export function StoryListPage() {
                       <span className={styles.itemName}>{s.title || '제목 없음'}</span>
                       <span className={styles.itemTime}>{formatListTime(s.updatedAt)}</span>
                     </div>
-                    {/* 카톡식 2줄: 아래 줄은 마지막 메시지 미리보기 + NEW 배지.
-                        아직 대화가 없는 방은 안내 문구 대신 줄 자체를 접는다(목록이 깔끔해지게). */}
                     {(s.lastMessage || s.unread) && (
                       <div className={styles.itemBottom}>
                         <span className={styles.itemSub}>{s.lastMessage}</span>
@@ -247,17 +228,22 @@ export function StoryListPage() {
           </div>
         )}
 
-        <button className={styles.newButton} onClick={handleNew} disabled={creating}>
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="#1B1720" strokeWidth="2.2" strokeLinecap="round" />
-          </svg>
-          {creating ? '시작하는 중…' : '새 이야기'}
-        </button>
+        {/* 랜딩을 없애면 재방문 회원이 로그인 입구를 못 찾는다 — 다른 기기에서 온 사람에게는
+            자기 대화가 통째로 사라진 것처럼 보인다. 그래서 서랍 하단에 상시로 둔다 */}
+        <div className={styles.footer}>
+          <button className={styles.footLink} onClick={handleLogout}>
+            {usage?.guest ? '로그인' : '로그아웃'}
+          </button>
+          <span className={styles.footDot}>|</span>
+          <a className={styles.footLink} href={CONTACT_OPENCHAT_URL} target="_blank" rel="noreferrer">
+            1:1 문의
+          </a>
+        </div>
 
-        {/* 문의 창구는 도움말 모달 안에만 있으면 못 찾는다 — 첫 화면 하단에 상시 노출 */}
-        <a className={styles.contactLink} href={CONTACT_OPENCHAT_URL} target="_blank" rel="noreferrer">
-          불편사항이나 오류가 있다면 알려주세요. <span className={styles.contactAccent}>1:1 문의</span>
-        </a>
+        {/* 로그인한 유저는 초기화면을 다시 볼 일이 없다 — 서랍이 이 앱의 푸터다 */}
+        <div className={styles.bizWrap}>
+          <BusinessInfo />
+        </div>
 
         {showHelp && (
           <HelpModal
@@ -265,8 +251,8 @@ export function StoryListPage() {
             onClose={() => setShowHelp(false)}
             sections={[
               {
-                heading: '방 하나 = 한 사람 이야기',
-                text: '방 하나에 한 사람과의 이별 이야기를 담습니다. 진단과 기억은 방마다 따로 쌓입니다.',
+                heading: '사람마다 방을 따로 만듭니다',
+                text: '한 방에는 한 사람과의 이별 이야기만 담아 주세요. 대화로 쌓은 기억과 진단 결과가 방마다 따로 관리되기 때문에, 여러 사람 이야기를 한 방에서 하면 진단이 섞여 부정확해집니다.',
               },
               {
                 heading: '목록 다루기',
@@ -274,7 +260,7 @@ export function StoryListPage() {
               },
               {
                 heading: '이용권',
-                text: '대화와 진단은 이용권에서 1회씩 차감됩니다. 남은 횟수는 기한 없이 유지되며, 위 이용권 버튼에서 잔여 확인과 충전을 할 수 있습니다.',
+                text: '대화와 진단은 이용권에서 1회씩 차감됩니다. 대화는 길이와 무관하게 한 번 주고받을 때마다 1회입니다. 남은 횟수는 기한 없이 유지되며, 위 이용권 버튼에서 잔여 확인과 충전을 할 수 있습니다.',
               },
             ]}
           />
@@ -289,7 +275,7 @@ export function StoryListPage() {
                 <br />
                 모두 지워져요. 새 방을 만들어도 이 이야기는
                 <br />
-                기억하지 못해요. 되돌릴 수 없어요.
+                기억하지 못합니다. 되돌릴 수 없습니다.
               </div>
               <div className={styles.dialogButtons}>
                 <button className={styles.cancelBtn} onClick={() => setDeleteTarget(null)} disabled={deleting}>
@@ -303,6 +289,6 @@ export function StoryListPage() {
           </div>
         )}
       </div>
-    </PhoneFrame>
+    </div>
   );
 }
