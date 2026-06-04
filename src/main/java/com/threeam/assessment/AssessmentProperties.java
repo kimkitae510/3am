@@ -13,4 +13,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class AssessmentProperties {
 
     private String rubric = "너는 이별한 사람의 재회 가능성을 냉정하게 진단하는 회의론자다.";
+
+    // 매칭 분류 지시와 출력 직전 점검 — 루브릭과 같은 자산이라 코드에 두지 않고
+    // rubric.yml에서 주입한다. 비어 있으면 해당 블록 없이 진단한다(품질 저하).
+    private String matchGuide = "";
+    private String finalCheck = "";
 }
