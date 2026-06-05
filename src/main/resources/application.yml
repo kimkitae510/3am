@@ -177,12 +177,23 @@ usage:
 # 결제 — 기본은 mock(키 불필요, 무조건 승인). 실연동 시 PAYMENT_PROVIDER=toss + 키 2종 주입.
 # client-key는 프론트 위젯용(공개 가능), secret-key는 서버 승인/취소용(절대 비공개).
 payment:
-  provider: ${PAYMENT_PROVIDER:mock}   # mock | toss
+  provider: ${PAYMENT_PROVIDER:mock}   # mock | toss | paddle | disabled
   toss:
     client-key: ${TOSS_CLIENT_KEY:}
     secret-key: ${TOSS_SECRET_KEY:}
     base-url: https://api.tosspayments.com/v1
     timeout-seconds: 30
+  paddle:
+    client-token: ${PADDLE_CLIENT_TOKEN:}
+    api-key: ${PADDLE_API_KEY:}
+    webhook-secret: ${PADDLE_WEBHOOK_SECRET:}
+    base-url: ${PADDLE_BASE_URL:https://sandbox-api.paddle.com}
+    # 운영 프로파일에서 샌드박스 검증을 허용한다. 오픈 전에 반드시 false로 되돌린다.
+    allow-sandbox-in-prod: ${PADDLE_ALLOW_SANDBOX_IN_PROD:false}
+    timeout-seconds: 30
+    # 상품 코드 → 패들 가격 ID. 샌드박스와 운영의 ID가 달라 환경변수로 주입한다.
+    price-ids:
+      BUNDLE_STANDARD: ${PADDLE_PRICE_BUNDLE_STANDARD:}
   order-expire-minutes: 30        # READY로 방치된 주문의 만료 기준
   sync-after-minutes: 2           # 승인/취소 응답 불명 상태를 재동기화하기까지의 대기
   max-pending-orders-per-user: 5  # 유저당 미결(READY) 주문 상한(주문 생성 도배 방어)

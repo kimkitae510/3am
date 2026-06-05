@@ -34,10 +34,13 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.config());
     }
 
+    // PG 쪽 거래 생성이 끼는 PG(패들)가 있어 논블로킹으로 받는다.
     @PostMapping("/orders")
-    public ResponseEntity<OrderCreateResponse> createOrder(@AuthenticationPrincipal Long userId,
-                                                           @Valid @RequestBody OrderCreateRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(paymentService.createOrder(userId, request));
+    public CompletableFuture<ResponseEntity<OrderCreateResponse>> createOrder(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody OrderCreateRequest request) {
+        return paymentService.createOrder(userId, request)
+                .thenApply(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
     }
 
     // 위젯 successUrl에서 넘어온 결제를 서버가 최종 승인한다. PG 호출이 끼므로 논블로킹.

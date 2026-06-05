@@ -92,7 +92,15 @@ public enum ErrorCode {
     REFUND_NOT_ALLOWED(HttpStatus.CONFLICT, "P009", "이미 사용을 시작한 이용권은 환불할 수 없습니다."),
     REFUND_ACCOUNT_REQUIRED(HttpStatus.BAD_REQUEST, "P010", "가상계좌 결제는 환불받을 계좌 정보가 필요합니다."),
     TOO_MANY_PENDING_ORDERS(HttpStatus.TOO_MANY_REQUESTS, "P011",
-            "결제되지 않은 주문이 너무 많습니다. 진행 중인 결제를 마치거나 잠시 후 다시 시도해 주세요.");
+            "결제되지 않은 주문이 너무 많습니다. 진행 중인 결제를 마치거나 잠시 후 다시 시도해 주세요."),
+    // PG 심사 전이라 실결제를 열 수 없는 기간에 쓴다. mock은 무단 승인이라 운영에 못 올리고,
+    // toss는 키가 없어 위젯이 깨진다 — 결제만 명시적으로 닫아두는 상태가 따로 필요했다.
+    PAYMENT_DISABLED(HttpStatus.SERVICE_UNAVAILABLE, "P012",
+            "결제 준비 중입니다. 조금만 기다려 주세요."),
+    // 상품은 있는데 그에 대응하는 PG 쪽 가격 설정이 비어 있는 경우(설정 누락). 유저 잘못이
+    // 아니므로 5xx로 알리고, 서버 로그에서 어떤 상품이 빠졌는지 찾을 수 있게 한다.
+    PAYMENT_PRICE_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "P013",
+            "결제 준비 중입니다. 조금만 기다려 주세요.");
 
     private final HttpStatus status;
     private final String code;

@@ -88,8 +88,51 @@ class PaymentTxServiceTest {
         assertThat(captor.getAllValues())
                 .extracting(Entitlement::getKind, Entitlement::getTotalCount, Entitlement::getPaymentId)
                 .containsExactlyInAnyOrder(
-                        org.assertj.core.groups.Tuple.tuple(UsageKind.CHAT, 15, 100L),
+                        org.assertj.core.groups.Tuple.tuple(UsageKind.CHAT, 5, 100L),
                         org.assertj.core.groups.Tuple.tuple(UsageKind.ASSESSMENT, 1, 100L));
+    }
+
+    @Test
+    @DisplayName("반영 - 만료 처리한 주문도 PG가 결제됐다고 하면 되살려 지급한다(돈만 받고 지급 누락 방지)")
+    void apply_revivesExpiredWhenActuallyPaid() {
+        // 패들 결제창은 우리 만료 시각과 무관하게 살아 있다 — 만료 뒤 결제가 성사될 수 있다.
+        Payment expired = payment(PaymentStatus.EXPIRED);
+        given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(expired));
+        given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of());
+
+        PgPaymentResult done = new PgPaymentResult("txn-1", "order-1", PgStatus.DONE,
+                "카드", LocalDateTime.now(), null, 0, null);
+        service.applyPgResult("order-1", done);
+
+        assertThat(expired.getStatus()).isEqualTo(PaymentStatus.DONE);
+        verify(entitlementRepository, times(2)).save(any());
+    }
+
+    @Test
+    @DisplayName("반영 - 만료 주문이라도 결제되지 않았다면 그대로 둔다")
+    void apply_keepsExpiredWhenNotPaid() {
+        Payment expired = payment(PaymentStatus.EXPIRED);
+        given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(expired));
+
+        service.applyPgResult("order-1", PgPaymentResult.of("txn-1", "order-1", PgStatus.NOT_FOUND));
+
+        assertThat(expired.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
+        verify(entitlementRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("반영 - 환불 완료된 결제는 DONE 신호가 와도 되살리지 않는다(PG가 확인해 준 종결)")
+    void apply_keepsCanceledTerminal() {
+        Payment canceled = payment(PaymentStatus.CANCELED);
+        given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(canceled));
+        given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of());
+
+        PgPaymentResult done = new PgPaymentResult("txn-1", "order-1", PgStatus.DONE,
+                "카드", LocalDateTime.now(), null, 0, null);
+        service.applyPgResult("order-1", done);
+
+        assertThat(canceled.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+        verify(entitlementRepository, never()).save(any());
     }
 
     @Test

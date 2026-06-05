@@ -41,11 +41,26 @@ public class PaymentService {
     private final UserRepository userRepository;
 
     public PaymentConfigResponse config() {
-        return new PaymentConfigResponse(properties.getProvider(), properties.getToss().getClientKey());
+        // 프론트가 결제창을 띄우는 데 쓰는 공개 키. PG마다 이름만 다르고 역할은 같아
+        // 한 필드로 내려준다(비어 있으면 프론트가 모의 승인 흐름을 탄다).
+        String clientKey = "paddle".equalsIgnoreCase(properties.getProvider())
+                ? properties.getPaddle().getClientToken()
+                : properties.getToss().getClientKey();
+        return new PaymentConfigResponse(properties.getProvider(), clientKey);
     }
 
-    // 금액은 여기서(서버 상품 정의로) 확정된다. 프론트는 orderId와 금액을 받아 위젯만 띄운다.
-    public OrderCreateResponse createOrder(Long userId, OrderCreateRequest request) {
+    // 금액은 여기서(서버 상품 정의로) 확정된다. 프론트는 orderId와 금액을 받아 결제창만 띄운다.
+    //
+    // NOT_SUPPORTED라 이 메서드 자체는 트랜잭션도 커넥션도 쥐지 않는다. DB 작업은
+    // txService의 짧은 트랜잭션 두 번(주문 저장, 식별자 부착)으로 끊어 놓고, 그 사이의
+    // 느린 PG 호출은 커넥션을 반납한 상태에서 논블로킹으로 기다린다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public CompletableFuture<OrderCreateResponse> createOrder(Long userId, OrderCreateRequest request) {
+        // PG 심사 전이라 결제를 닫아둔 기간에는 주문 자체를 만들지 않는다 —
+        // READY 주문만 쌓여 만료 스케줄러 일감이 되고, 유저에겐 실패 시점만 뒤로 밀린다.
+        if ("disabled".equalsIgnoreCase(properties.getProvider())) {
+            throw new BusinessException(ErrorCode.PAYMENT_DISABLED);
+        }
         // 게스트 결제 차단 — 토큰이 날아가면 계정 복구 수단이 없어 결제 자산이 유실된다.
         // 계정 연결 후에만 판다.
         if (userRepository.findById(userId).map(User::isGuest).orElse(false)) {
@@ -59,7 +74,17 @@ public class PaymentService {
         Payment payment = txService.createOrder(userId, item, properties.getMaxPendingOrdersPerUser());
         // 주문과 동의를 묶어 증빙으로 남긴다. 여기 도달했다는 것 자체가 동의 후이므로 순서는 안전.
         consentService.recordPurchaseConsent(userId, payment.getOrderId());
-        return OrderCreateResponse.from(payment);
+
+        // PG 쪽 거래를 미리 만들어 식별자를 붙여둔다(패들). 실패하면 주문은 READY로 남아
+        // 만료 스케줄러가 걷어간다 — 돈이 걸리기 전 단계라 그대로 실패시키는 편이 안전하다.
+        return paymentGateway.prepare(payment.getOrderId(), item, payment.getAmount())
+                .thenApply(pgRef -> {
+                    if (pgRef != null && !pgRef.isBlank()) {
+                        txService.attachPaymentKey(payment.getOrderId(), pgRef);
+                    }
+                    return OrderCreateResponse.from(payment, pgRef);
+                })
+                .exceptionally(this::rethrowOrderFailure);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -141,18 +166,26 @@ public class PaymentService {
 
     // 웹훅과 재동기화의 공용 경로. 페이로드, 추측이 아니라 PG 조회 API가 준 실상태만 반영한다.
     public CompletableFuture<Void> syncByOrderId(String orderId) {
-        var status = txService.statusOf(orderId);
-        if (status.isEmpty()) {
+        var target = txService.syncTargetOf(orderId);
+        if (target.isEmpty()) {
             // 우리 주문이 아니다(다른 환경의 웹훅 등). 재시도를 부르지 않게 조용히 넘긴다.
             log.warn("알 수 없는 주문 동기화 요청 무시 orderId={}", orderId);
             return CompletableFuture.completedFuture(null);
         }
-        if (status.get().isTerminal()) {
-            // 이미 종결(실패, 만료, 취소)된 주문은 어떤 이벤트로도 안 바뀐다 — PG를 다시 조회할 필요가 없다.
+        // PG가 확인해 준 종결(실패, 취소)은 어떤 이벤트로도 안 바뀐다 — 다시 조회할 필요가 없다.
+        // 만료(EXPIRED)는 우리 추측이라 여기서 제외한다. 결제창이 만료 시각보다 오래 살아 있는
+        // PG에서는 만료 뒤 결제가 성사될 수 있어, 웹훅이 오면 한 번 더 물어봐야 지급을 복구한다.
+        PaymentStatus status = target.get().status();
+        if (status == PaymentStatus.FAILED || status == PaymentStatus.CANCELED) {
             return CompletableFuture.completedFuture(null);
         }
-        return paymentGateway.findByOrderId(orderId)
+        return paymentGateway.findByOrderId(orderId, target.get().paymentKey())
                 .thenAccept(result -> txService.applyPgResult(orderId, result));
+    }
+
+    // 조정(환불) 웹훅에는 우리 orderId가 없다 — PG 거래 식별자로 역으로 찾는 통로.
+    public java.util.Optional<String> orderIdByPaymentKey(String paymentKey) {
+        return txService.orderIdByPaymentKey(paymentKey);
     }
 
     public List<PaymentResponse> myPayments(Long userId) {
@@ -197,6 +230,16 @@ public class PaymentService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    // 주문 준비 실패. 아직 돈이 안 걸린 단계라 불명 처리할 것이 없다 — 그대로 실패로 알린다.
+    private OrderCreateResponse rethrowOrderFailure(Throwable ex) {
+        Throwable cause = ex instanceof CompletionException && ex.getCause() != null ? ex.getCause() : ex;
+        if (cause instanceof BusinessException business) {
+            throw business;
+        }
+        log.error("주문 준비 실패 — PG 거래 생성 단계", cause);
+        throw new BusinessException(ErrorCode.PAYMENT_RESULT_PENDING);
     }
 
     // 불명(게이트웨이 예외)과 확정 실패(BusinessException)를 여기서 가른다.

@@ -3,6 +3,7 @@ package com.threeam.payment.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.threeam.payment.entity.PaymentItem;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -43,6 +44,12 @@ public class TossPaymentsClient implements PaymentGateway {
     }
 
     @Override
+    public CompletableFuture<String> prepare(String orderId, PaymentItem item, int amount) {
+        // 토스는 위젯이 인증을 마친 뒤에야 paymentKey가 생긴다 — 미리 만들어 둘 주문이 없다.
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
     public CompletableFuture<PgPaymentResult> confirm(String paymentKey, String orderId, int amount) {
         ObjectNode body = objectMapper.createObjectNode()
                 .put("paymentKey", paymentKey)
@@ -76,7 +83,7 @@ public class TossPaymentsClient implements PaymentGateway {
     }
 
     @Override
-    public CompletableFuture<PgPaymentResult> findByOrderId(String orderId) {
+    public CompletableFuture<PgPaymentResult> findByOrderId(String orderId, String paymentKey) {
         HttpRequest request = baseRequest("/payments/orders/" + orderId)
                 .GET()
                 .build();

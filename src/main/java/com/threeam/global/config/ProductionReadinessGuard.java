@@ -41,7 +41,7 @@ public class ProductionReadinessGuard {
 
         // 2) 프로바이더 mock — 운영에서 mock은 인증/결제를 무조건 통과시킨다.
         if (isMock(environment.getProperty("payment.provider"))) {
-            violations.add("결제 프로바이더가 mock입니다(모든 결제가 무단 승인됨). PAYMENT_PROVIDER=toss + 키 주입 필요");
+            violations.add("결제 프로바이더가 mock입니다(모든 결제가 무단 승인됨). PAYMENT_PROVIDER=toss|paddle + 키 주입 필요");
         }
         if (isMock(environment.getProperty("oauth.provider"))) {
             violations.add("소셜 로그인 프로바이더가 mock입니다(임의 code로 계정 탈취 가능). OAUTH_PROVIDER=real 필요");
@@ -61,6 +61,35 @@ public class ProductionReadinessGuard {
             if (isBlank(paymentProperties.getToss().getClientKey())) {
                 violations.add("결제 프로바이더가 toss인데 TOSS_CLIENT_KEY가 비어 있습니다");
             }
+        }
+        if ("paddle".equalsIgnoreCase(paymentProperties.getProvider())) {
+            var paddle = paymentProperties.getPaddle();
+            if (isBlank(paddle.getApiKey())) {
+                violations.add("결제 프로바이더가 paddle인데 PADDLE_API_KEY가 비어 있습니다");
+            }
+            if (isBlank(paddle.getClientToken())) {
+                violations.add("결제 프로바이더가 paddle인데 PADDLE_CLIENT_TOKEN이 비어 있습니다");
+            }
+            // 시크릿이 없으면 웹훅을 전부 거부한다 — 패들 경로에서 웹훅은 지급의 주 경로다.
+            if (isBlank(paddle.getWebhookSecret())) {
+                violations.add("결제 프로바이더가 paddle인데 PADDLE_WEBHOOK_SECRET이 비어 있습니다(웹훅이 전부 거부됨)");
+            }
+            // 심사와 실키 발급 전에는 운영 서버에서 샌드박스로 검증할 수밖에 없다(웹훅이 공개
+            // 주소로만 오므로 로컬에서는 전 구간을 못 돈다). 그래서 무조건 막지 않고,
+            // "알고 켰다"는 표시를 명시적으로 요구한다 — 실수로 이 상태가 남으면 부팅이 선다.
+            if (paddle.getBaseUrl() != null && paddle.getBaseUrl().contains("sandbox")
+                    && !paddle.isAllowSandboxInProd()) {
+                violations.add("결제 프로바이더가 paddle인데 PADDLE_BASE_URL이 샌드박스입니다"
+                        + "(실결제가 되지 않습니다). 검증 목적이면 PADDLE_ALLOW_SANDBOX_IN_PROD=true로 명시하세요");
+            }
+            if (paddle.isAllowSandboxInProd()) {
+                log.warn("[결제] 샌드박스 허용이 켜져 있습니다 — 실결제가 되지 않습니다. 오픈 전에 반드시 끄세요");
+            }
+            paddle.getPriceIds().forEach((item, priceId) -> {
+                if (isBlank(priceId)) {
+                    violations.add("패들 가격 ID가 비어 있습니다: " + item);
+                }
+            });
         }
 
         if (violations.isEmpty()) {

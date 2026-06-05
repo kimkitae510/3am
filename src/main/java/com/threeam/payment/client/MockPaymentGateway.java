@@ -1,5 +1,6 @@
 package com.threeam.payment.client;
 
+import com.threeam.payment.entity.PaymentItem;
 import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,12 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "payment.provider", havingValue = "mock", matchIfMissing = true)
 public class MockPaymentGateway implements PaymentGateway {
+
+    @Override
+    public CompletableFuture<String> prepare(String orderId, PaymentItem item, int amount) {
+        // 모의 흐름은 PG 쪽 주문이라는 게 없다 — 프론트가 orderId만으로 승인을 부른다.
+        return CompletableFuture.completedFuture(null);
+    }
 
     @Override
     public CompletableFuture<PgPaymentResult> confirm(String paymentKey, String orderId, int amount) {
@@ -29,7 +36,7 @@ public class MockPaymentGateway implements PaymentGateway {
     }
 
     @Override
-    public CompletableFuture<PgPaymentResult> findByOrderId(String orderId) {
+    public CompletableFuture<PgPaymentResult> findByOrderId(String orderId, String paymentKey) {
         // UNKNOWN = 아무것도 확정하지 말라. DONE을 돌려주면 웹훅 경로(인증 없이 열림)로
         // orderId만 던져도 승인 없이 이용권이 지급되는 구멍이 된다 — mock이라도 막는다.
         return CompletableFuture.completedFuture(PgPaymentResult.of(null, orderId, PgStatus.UNKNOWN));

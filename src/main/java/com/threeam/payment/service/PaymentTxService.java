@@ -3,6 +3,7 @@ package com.threeam.payment.service;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.payment.client.PgPaymentResult;
+import com.threeam.payment.client.PgStatus;
 import com.threeam.payment.dto.PaymentResponse;
 import com.threeam.payment.entity.Payment;
 import com.threeam.payment.entity.PaymentItem;
@@ -84,9 +85,33 @@ public class PaymentTxService {
                 PaymentStatus.READY.name(), PaymentStatus.EXPIRED.name()) == 1;
     }
 
+    // 결제창을 열기 전에 PG 거래 식별자를 붙인다(패들 경로). 짧은 트랜잭션 하나로 끝내
+    // 느린 PG 호출과 겹치지 않게 한다 — 호출은 이 메서드 밖에서 이미 끝난 상태다.
+    @Transactional
+    public boolean attachPaymentKey(String orderId, String paymentKey) {
+        return paymentRepository.attachPaymentKey(orderId, paymentKey) == 1;
+    }
+
+    // 재동기화가 필요한 정보만 담은 스냅샷. 상태로 조회 필요 여부를 가르고,
+    // paymentKey는 orderId로 조회할 수 없는 PG(패들)가 거래를 찾는 데 쓴다.
     @Transactional(readOnly = true)
-    public Optional<PaymentStatus> statusOf(String orderId) {
-        return paymentRepository.findByOrderId(orderId).map(Payment::getStatus);
+    public Optional<SyncTarget> syncTargetOf(String orderId) {
+        return paymentRepository.findByOrderId(orderId)
+                .map(payment -> new SyncTarget(payment.getStatus(), payment.getPaymentKey()));
+    }
+
+    public record SyncTarget(PaymentStatus status, String paymentKey) {
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<String> orderIdByPaymentKey(String paymentKey) {
+        return paymentRepository.findFirstByPaymentKey(paymentKey).map(Payment::getOrderId);
+    }
+
+    // 만료 주문 재확인 직후 확인 시각을 남긴다. 되살아난(EXPIRED가 아니게 된) 주문은 건드리지 않는다.
+    @Transactional
+    public void touchExpired(String orderId) {
+        paymentRepository.touchExpired(orderId);
     }
 
     // PG의 실상태를 우리 기록에 반영하는 유일한 창구. 승인 응답, 취소 응답, 웹훅, 재동기화가
@@ -97,9 +122,19 @@ public class PaymentTxService {
         Payment payment = paymentRepository.findByOrderIdForUpdate(orderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
 
-        // 종결된 결제는 웹훅 재전송, 뒤늦은 재동기화가 와도 되살리지 않는다.
-        if (payment.getStatus().isTerminal()) {
+        // 종결된 결제는 웹훅 재전송, 뒤늦은 재동기화가 와도 되살리지 않는다. 단 하나 예외 —
+        // EXPIRED는 "유저가 이탈했을 것"이라는 우리 추측이지 PG가 확인해 준 사실이 아니다.
+        // 결제창이 우리 만료 시각보다 오래 살아 있는 PG(패들)에서는 만료 처리 뒤에 결제가
+        // 성사될 수 있고, 그때 되살리지 않으면 돈만 받고 지급이 사라진다. 돈이 실제로
+        // 움직였다는 PG의 확인이 우리 추측보다 우선한다.
+        // FAILED, CANCELED는 PG가 확인해 준 사실이라 그대로 둔다.
+        boolean revivable = payment.getStatus() == PaymentStatus.EXPIRED
+                && result.status() == PgStatus.DONE;
+        if (payment.getStatus().isTerminal() && !revivable) {
             return toResponse(payment);
+        }
+        if (revivable) {
+            log.warn("만료 처리된 주문이 실제로는 결제됨 — 되살려 지급한다 orderId={}", orderId);
         }
 
         switch (result.status()) {

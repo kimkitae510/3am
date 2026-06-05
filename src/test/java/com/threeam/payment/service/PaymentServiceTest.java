@@ -22,6 +22,7 @@ import com.threeam.payment.client.PgStatus;
 import com.threeam.payment.dto.CancelRequest;
 import com.threeam.payment.dto.ConfirmRequest;
 import com.threeam.payment.dto.OrderCreateRequest;
+import com.threeam.payment.dto.OrderCreateResponse;
 import com.threeam.payment.dto.PaymentResponse;
 import com.threeam.payment.entity.Payment;
 import com.threeam.payment.entity.PaymentItem;
@@ -42,7 +43,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceTest {
 
-    // BUNDLE_STANDARD: 대화 15회 + 진단 1회 = 2,900원
+    // BUNDLE_STANDARD: 대화 5회 + 진단 1회 = 2,900원
     private static final int BUNDLE_AMOUNT = 2900;
 
     @Mock
@@ -139,10 +140,43 @@ class PaymentServiceTest {
         OrderCreateRequest request = orderRequest("BUNDLE_STANDARD", true);
         given(txService.createOrder(eq(1L), eq(PaymentItem.BUNDLE_STANDARD), anyInt()))
                 .willReturn(payment(PaymentStatus.READY));
+        given(paymentGateway.prepare(eq("order-1"), eq(PaymentItem.BUNDLE_STANDARD), anyInt()))
+                .willReturn(CompletableFuture.completedFuture(null));
 
-        service.createOrder(1L, request);
+        service.createOrder(1L, request).join();
 
         verify(consentService).recordPurchaseConsent(1L, "order-1");
+    }
+
+    @Test
+    @DisplayName("주문 생성 - PG가 거래 식별자를 주면 결제창을 열기 전에 주문에 붙여둔다")
+    void createOrder_attachesPgReference() {
+        OrderCreateRequest request = orderRequest("BUNDLE_STANDARD", true);
+        given(txService.createOrder(eq(1L), eq(PaymentItem.BUNDLE_STANDARD), anyInt()))
+                .willReturn(payment(PaymentStatus.READY));
+        given(paymentGateway.prepare(eq("order-1"), eq(PaymentItem.BUNDLE_STANDARD), anyInt()))
+                .willReturn(CompletableFuture.completedFuture("txn_01abc"));
+
+        OrderCreateResponse response = service.createOrder(1L, request).join();
+
+        // 저장해 두지 않으면 결제 후 창이 닫혔을 때 그 결제를 찾을 방법이 없다.
+        verify(txService).attachPaymentKey("order-1", "txn_01abc");
+        assertThat(response.getPgRef()).isEqualTo("txn_01abc");
+    }
+
+    @Test
+    @DisplayName("주문 생성 - PG 거래 생성이 실패하면 주문을 내주지 않는다")
+    void createOrder_failsWhenPrepareFails() {
+        OrderCreateRequest request = orderRequest("BUNDLE_STANDARD", true);
+        given(txService.createOrder(eq(1L), eq(PaymentItem.BUNDLE_STANDARD), anyInt()))
+                .willReturn(payment(PaymentStatus.READY));
+        given(paymentGateway.prepare(eq("order-1"), eq(PaymentItem.BUNDLE_STANDARD), anyInt()))
+                .willReturn(CompletableFuture.failedFuture(
+                        new BusinessException(ErrorCode.PAYMENT_PRICE_NOT_CONFIGURED)));
+
+        assertThatThrownBy(() -> service.createOrder(1L, request).join())
+                .hasCauseInstanceOf(BusinessException.class);
+        verify(txService, never()).attachPaymentKey(any(), any());
     }
 
     private OrderCreateRequest orderRequest(String item, boolean refundPolicyAgreed) {
@@ -341,7 +375,7 @@ class PaymentServiceTest {
     @Test
     @DisplayName("동기화 - 우리 주문이 아니면 PG 조회 없이 조용히 넘긴다(위조 웹훅 무해화)")
     void sync_ignoresUnknownOrder() {
-        given(txService.statusOf("evil-order")).willReturn(java.util.Optional.empty());
+        given(txService.syncTargetOf("evil-order")).willReturn(java.util.Optional.empty());
 
         service.syncByOrderId("evil-order").join();
 
@@ -351,7 +385,8 @@ class PaymentServiceTest {
     @Test
     @DisplayName("동기화 - 이미 종결된 주문은 PG 조회 없이 넘긴다(반복 웹훅 비용 차단)")
     void sync_skipsTerminalOrder() {
-        given(txService.statusOf("done-canceled")).willReturn(java.util.Optional.of(PaymentStatus.CANCELED));
+        given(txService.syncTargetOf("done-canceled")).willReturn(java.util.Optional.of(
+                new PaymentTxService.SyncTarget(PaymentStatus.CANCELED, "txn-1")));
 
         service.syncByOrderId("done-canceled").join();
 
