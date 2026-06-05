@@ -1,14 +1,18 @@
 package com.threeam.payment.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.threeam.payment.client.PaddleSignatureVerifier;
 import com.threeam.payment.service.PaymentService;
 import com.threeam.payment.service.WebhookRateLimiter;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,6 +27,8 @@ public class PaymentWebhookController {
 
     private final PaymentService paymentService;
     private final WebhookRateLimiter webhookRateLimiter;
+    private final PaddleSignatureVerifier signatureVerifier;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/toss")
     public CompletableFuture<ResponseEntity<Void>> toss(@RequestBody JsonNode payload) {
@@ -40,6 +46,46 @@ public class PaymentWebhookController {
         }
         // 논블로킹 — 웹훅이 몰려도 서블릿 스레드를 PG 조회 시간만큼 잡아두지 않는다.
         // 실패하면 500으로 떨어져 토스가 재전송한다(재동기화 스케줄러도 뒤를 받친다).
+        return paymentService.syncByOrderId(orderId)
+                .thenApply(ignored -> ResponseEntity.ok().build());
+    }
+
+    // 패들은 결제창에서 결제가 끝나버려 이 웹훅이 지급의 주 경로다(프론트가 결과를 못 알리고
+    // 창이 닫히는 경우가 있다). 그래서 토스 웹훅보다 한 겹 더 조인다 — 서명을 검증해
+    // 패들이 보낸 것만 받아들이고, 그 다음에야 orderId를 꺼내 실상태를 재조회한다.
+    @PostMapping("/paddle")
+    public CompletableFuture<ResponseEntity<Void>> paddle(
+            @RequestHeader(value = "Paddle-Signature", required = false) String signature,
+            @RequestBody String rawBody) {
+        // 서명은 본문 원문 그대로에 대해 계산된다 — 파싱한 뒤 다시 만든 문자열로는 검증이 안 된다.
+        if (!signatureVerifier.verify(rawBody, signature)) {
+            log.warn("패들 웹훅 서명 검증 실패 — 무시");
+            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
+        }
+        JsonNode payload;
+        try {
+            payload = objectMapper.readTree(rawBody);
+        } catch (Exception e) {
+            log.warn("패들 웹훅 본문 파싱 실패", e);
+            return CompletableFuture.completedFuture(ResponseEntity.ok().build());
+        }
+        String orderId = payload.path("data").path("custom_data").path("order_id").asText(null);
+        if (orderId == null || orderId.isBlank()) {
+            // 환불 확정은 거래가 아니라 조정(adjustment) 이벤트로 온다. 조정에는 custom_data가
+            // 없고 거래 id만 실려 있어, 그 id로 우리 주문을 찾는다 — 이 경로가 없으면
+            // 대시보드에서 환불해도 서버가 몰라 이용권이 회수되지 않는다(실측으로 확인).
+            String transactionId = payload.path("data").path("transaction_id").asText(null);
+            if (transactionId != null && !transactionId.isBlank()) {
+                orderId = paymentService.orderIdByPaymentKey(transactionId).orElse(null);
+            }
+        }
+        if (orderId == null || orderId.isBlank()) {
+            // 구독, 고객 이벤트 등 우리 주문과 무관한 알림. 200으로 받아 재전송을 부르지 않는다.
+            return CompletableFuture.completedFuture(ResponseEntity.ok().build());
+        }
+        if (!webhookRateLimiter.allow(orderId)) {
+            return CompletableFuture.completedFuture(ResponseEntity.ok().build());
+        }
         return paymentService.syncByOrderId(orderId)
                 .thenApply(ignored -> ResponseEntity.ok().build());
     }
