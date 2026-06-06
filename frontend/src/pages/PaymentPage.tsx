@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
+import { BusinessInfo } from '../components/BusinessInfo';
 import {
   createOrder,
   confirmPayment,
+  getPayment,
   getPaymentConfig,
   listPayments,
   type OrderCreateResponse,
@@ -36,9 +38,26 @@ function loadTossSdk(): Promise<any> {
     const script = document.createElement('script');
     script.src = 'https://js.tosspayments.com/v2/standard';
     script.onload = () => resolve((window as any).TossPayments);
-    script.onerror = () => reject(new Error('결제 모듈을 불러오지 못했어요.'));
+    script.onerror = () => reject(new Error('결제 모듈을 불러오지 못했습니다.'));
     document.head.appendChild(script);
   });
+}
+
+// 패들 SDK도 같은 방식으로 필요할 때만 끼워 넣는다.
+function loadPaddleSdk(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const w = window as any;
+    if (w.Paddle) return resolve(w.Paddle);
+    const script = document.createElement('script');
+    script.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+    script.onload = () => resolve((window as any).Paddle);
+    script.onerror = () => reject(new Error('결제 모듈을 불러오지 못했습니다.'));
+    document.head.appendChild(script);
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // 토스 위젯이 요구하는 구매자 식별자. 브라우저별 랜덤 발급으로 충분하다(회원 정보 노출 없음).
@@ -67,6 +86,11 @@ export function PaymentPage() {
   const [widgetReady, setWidgetReady] = useState(false);
   const widgetsRef = useRef<any>(null);
   const aliveRef = useRef(true);
+  // 패들은 결제창이 닫힌 뒤 결과가 잠깐 뒤에 확정된다 — 그 사이를 덮는 표시.
+  const [settling, setSettling] = useState(false);
+  // 패들 초기화는 한 번뿐이라 콜백도 그때 고정된다. 진행 중인 주문은 ref로 넘긴다.
+  const paddleInitRef = useRef(false);
+  const pendingOrderRef = useRef<OrderCreateResponse | null>(null);
 
   useEffect(() => {
     if (!error) return;
@@ -90,7 +114,7 @@ export function PaymentPage() {
     aliveRef.current = true;
     getPaymentConfig()
       .then((c) => aliveRef.current && setConfig(c))
-      .catch((e) => aliveRef.current && setError(extractErrorMessage(e, '상품 정보를 불러오지 못했어요.')))
+      .catch((e) => aliveRef.current && setError(extractErrorMessage(e, '상품 정보를 불러오지 못했습니다.')))
       .finally(() => aliveRef.current && setLoading(false));
     refresh();
     return () => {
@@ -118,7 +142,7 @@ export function PaymentPage() {
       } catch (e) {
         if (alive) {
           setWidgetOrder(null);
-          setError(e instanceof Error ? e.message : '결제 화면을 여는 데 실패했어요.');
+          setError(e instanceof Error ? e.message : '결제 화면을 열지 못했습니다.');
         }
       }
     })();
@@ -126,6 +150,86 @@ export function PaymentPage() {
       alive = false;
     };
   }, [widgetOrder, config]);
+
+  // 패들은 결제창에서 결제가 이미 끝난 뒤에 우리가 확인한다. 승인 호출로 즉시 확정을
+  // 시도하되, 패들이 아직 처리 중이면 웹훅이 확정할 때까지 잠깐 폴링해 결과를 기다린다.
+  const settle = useCallback(
+    async (order: OrderCreateResponse) => {
+      setSettling(true);
+      try {
+        let result: PaymentResponse | null = null;
+        try {
+          result = await confirmPayment({
+            paymentKey: order.pgRef ?? '',
+            orderId: order.orderId,
+            amount: order.amount,
+          });
+        } catch {
+          // 웹훅이 먼저 도착해 이미 처리 중이거나 끝난 경우 — 아래 폴링이 결론을 가져온다.
+        }
+        for (let i = 0; i < 12 && result?.status !== 'DONE'; i += 1) {
+          if (!aliveRef.current) return;
+          await sleep(1500);
+          result = await getPayment(order.orderId);
+        }
+        if (!aliveRef.current) return;
+        if (result?.status === 'DONE') {
+          setNotice(`충전 완료 — ${result.itemName}`);
+        } else {
+          setError('결제 확인이 지연되고 있습니다. 잠시 후 구매 내역에서 확인해 주세요.');
+        }
+        refresh();
+      } finally {
+        if (aliveRef.current) setSettling(false);
+      }
+    },
+    [refresh],
+  );
+
+  // 버튼을 누른 뒤에 SDK를 불러오면 초기화가 끝나기 전에 결제창을 열게 돼 첫 시도가
+  // 조용히 실패한다(두 번째부터는 이미 로드돼 있어 되는 탓에 재현이 들쭉날쭉했다).
+  // 화면에 들어온 시점에 미리 불러 초기화까지 끝내 둔다 — 결제창도 그만큼 빨리 열린다.
+  useEffect(() => {
+    if (config?.provider !== 'paddle' || !config.clientKey || paddleInitRef.current) return;
+    let alive = true;
+    loadPaddleSdk()
+      .then((Paddle) => {
+        if (!alive || paddleInitRef.current) return;
+        // 환경을 별도 설정으로 두면 라이브 전환 때 잊기 딱 좋고, 잊으면 결제가 전부 죽는다.
+        // 토큰 접두어(test_/live_)가 이미 환경을 말해주므로 그걸 따른다 — 키만 갈면 끝.
+        Paddle.Environment.set(config.clientKey.startsWith('test_') ? 'sandbox' : 'production');
+        Paddle.Initialize({
+          token: config.clientKey,
+          eventCallback: (event: any) => {
+            if (event?.name !== 'checkout.completed') return;
+            const pending = pendingOrderRef.current;
+            pendingOrderRef.current = null;
+            if (pending) void settle(pending);
+          },
+        });
+        paddleInitRef.current = true;
+      })
+      .catch(() => {
+        if (alive) setError('결제 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [config, settle]);
+
+  async function openPaddleCheckout(order: OrderCreateResponse) {
+    // 화면 진입 직후에 눌렀다면 초기화가 아직 안 끝났을 수 있다 — 잠깐 기다렸다 연다.
+    for (let i = 0; i < 20 && !paddleInitRef.current; i += 1) {
+      await sleep(150);
+    }
+    if (!paddleInitRef.current) {
+      throw new Error('결제 모듈이 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.');
+    }
+    pendingOrderRef.current = order;
+    // 주문 생성 때 서버가 만들어 둔 거래를 그대로 연다 — 금액과 상품이 서버에 고정돼 있어
+    // 결제창에서 바꿀 수 없다.
+    (window as any).Paddle.Checkout.open({ transactionId: order.pgRef });
+  }
 
   async function buy(itemCode: string) {
     if (buying || !config) return;
@@ -135,7 +239,9 @@ export function PaymentPage() {
     try {
       // 시트의 "동의하고 결제"를 거쳐서만 호출된다 — 동의는 항상 참
       const order = await createOrder(itemCode, true);
-      if (!config.clientKey) {
+      if (config.provider === 'paddle') {
+        await openPaddleCheckout(order);
+      } else if (!config.clientKey) {
         // mock 모드: PG 없이 서버 mock 게이트웨이가 즉시 승인한다 — 키 없이 전체 흐름 확인용.
         const done = await confirmPayment({
           paymentKey: `mock-${order.orderId}`,
@@ -151,7 +257,7 @@ export function PaymentPage() {
         setWidgetOrder(order);
       }
     } catch (e) {
-      if (aliveRef.current) setError(extractErrorMessage(e, '구매를 시작하지 못했어요.'));
+      if (aliveRef.current) setError(extractErrorMessage(e, '구매를 시작하지 못했습니다.'));
     } finally {
       if (aliveRef.current) setBuying(false);
     }
@@ -169,7 +275,7 @@ export function PaymentPage() {
       });
     } catch (e) {
       // 유저가 결제창을 닫은 경우 등 — 주문(READY)은 서버가 30분 뒤 알아서 만료시킨다.
-      setError(e instanceof Error && e.message ? e.message : '결제가 진행되지 않았어요.');
+      setError(e instanceof Error && e.message ? e.message : '결제가 진행되지 않았습니다.');
     }
   }
 
@@ -183,7 +289,7 @@ export function PaymentPage() {
         <div className={styles.topbar}>
           <button className={styles.backButton} onClick={() => navigate('/stories')} aria-label="뒤로">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M15 5l-7 7 7 7" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M15 5l-7 7 7 7" stroke="#ebebee" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           <div className={styles.topTitle}>이용권</div>
@@ -209,6 +315,8 @@ export function PaymentPage() {
           </div>
         )}
 
+        {settling && <div className={styles.state}>결제를 확인하는 중…</div>}
+
         {loading ? (
           <div className={styles.state}>불러오는 중…</div>
         ) : (
@@ -223,7 +331,7 @@ export function PaymentPage() {
                   <span className={styles.balanceKey}>진단</span>
                   <span className={styles.balanceValue}>{usage.assessmentRemaining}회 남음</span>
                 </div>
-                <div className={styles.balanceHint}>충전한 횟수는 기간 제한 없이 남아 있어요.</div>
+                <div className={styles.balanceHint}>충전한 횟수는 기간 제한 없이 남아 있습니다.</div>
               </div>
             )}
 
@@ -236,12 +344,18 @@ export function PaymentPage() {
                       <div className={styles.itemName}>{item.name}</div>
                       <div className={styles.itemGrants}>{grantsText(item)} / 기한 없음</div>
                     </div>
+                    {/* PG 심사 전에는 상품과 가격만 보여주고 결제는 막는다 —
+                        심사자가 무엇을 얼마에 파는지는 확인할 수 있어야 한다 */}
                     <button
                       className={styles.buyButton}
                       onClick={() => setConsentItem(item.code)}
-                      disabled={buying}
+                      disabled={buying || config.provider === 'disabled'}
                     >
-                      {buying ? '진행 중…' : `${item.amount.toLocaleString()}원`}
+                      {config.provider === 'disabled'
+                        ? '준비 중'
+                        : buying
+                          ? '진행 중…'
+                          : `${item.amount.toLocaleString()}원`}
                     </button>
                   </div>
                 ))}
@@ -264,7 +378,7 @@ export function PaymentPage() {
 
             <div className={styles.sectionTitle}>구매 내역</div>
             {payments.length === 0 ? (
-              <div className={styles.emptyHistory}>아직 구매 내역이 없어요.</div>
+              <div className={styles.emptyHistory}>아직 구매 내역이 없습니다.</div>
             ) : (
               payments.map((p) => (
                 <div className={styles.historyCard} key={p.orderId}>
@@ -299,6 +413,9 @@ export function PaymentPage() {
                 </div>
               ))
             )}
+
+            {/* 돈을 내기 직전에 판매자가 누구인지 보여야 한다 */}
+            <BusinessInfo />
           </div>
         )}
 
@@ -308,7 +425,7 @@ export function PaymentPage() {
               <div className={styles.sheetTitle}>결제 전에 확인해 주세요</div>
               <div className={styles.sheetText}>
                 이용권은 결제 즉시 지급되는 디지털 콘텐츠로, 사용을 시작하면 환불(청약철회)이
-                제한됩니다. 사용하지 않은 이용권은 1:1 문의로 전액 환불받을 수 있어요.
+                제한됩니다. 사용하지 않은 이용권은 1:1 문의로 전액 환불받을 수 있습니다.
               </div>
               <button
                 className={styles.btnPrimary}

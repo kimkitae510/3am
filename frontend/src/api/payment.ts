@@ -13,8 +13,8 @@ export interface PaymentItemView {
 }
 
 export interface PaymentConfig {
-  provider: string; // mock | toss
-  clientKey: string; // 비어 있으면 mock — 위젯 없이 모의 승인 흐름을 탄다
+  provider: string; // mock | toss | paddle | disabled
+  clientKey: string; // 비어 있으면 mock — 결제창 없이 모의 승인 흐름을 탄다
   items: PaymentItemView[];
 }
 
@@ -23,6 +23,8 @@ export interface OrderCreateResponse {
   item: string;
   orderName: string;
   amount: number;
+  // 결제창을 열기 전에 PG가 발급한 거래 식별자(패들). 토스와 mock은 null이다.
+  pgRef: string | null;
 }
 
 export interface EntitlementView {
