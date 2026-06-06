@@ -20,6 +20,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PaymentSyncScheduler {
 
+    // 만료 주문을 다시 확인해 주는 기간. 유저가 결제창을 열어둔 채 자리를 뜬 경우를 덮을
+    // 만큼만 잡는다 — 늘리면 이탈 주문까지 계속 조회해 PG 호출이 낭비된다.
+    private static final int EXPIRED_RECHECK_HOURS = 24;
+
+    // 만료 주문 하나를 다시 물어보는 최소 간격. 웹훅이 빠른 길이고 이건 유실 대비 안전망이라
+    // 이 정도 지연은 감수한다 — 없으면 만료 주문마다 매 주기 조회가 나가 하루 수천 건이 낭비된다.
+    private static final int EXPIRED_RECHECK_INTERVAL_MINUTES = 30;
+
     private final PaymentRepository paymentRepository;
     private final PaymentTxService txService;
     private final PaymentService paymentService;
@@ -34,6 +42,28 @@ public class PaymentSyncScheduler {
         syncEach(paymentRepository.findTop20ByStatusAndUpdatedAtBefore(PaymentStatus.CANCEL_REQUESTED, staleBefore));
         // 입금 기한이 지난 가상계좌: 입금됐는데 웹훅이 유실됐을 수도, 그냥 만료일 수도 — 조회로 확정.
         syncEach(paymentRepository.findTop20ByStatusAndVbankDueAtBefore(PaymentStatus.WAITING_FOR_DEPOSIT, now));
+        recheckExpiredWithLiveTransaction(now);
+    }
+
+    // 결제창에서 결제가 끝나는 PG(패들)는 우리가 주문을 만료시킨 뒤에도 결제가 성사될 수 있다.
+    // 그 경우 돈만 나가고 지급이 없어 분쟁이 되므로, 거래가 실재했던 만료 주문만 골라
+    // 생성 후 하루 동안, 30분에 한 번씩 다시 확인한다. 웹훅이 정상이면 여기까지 오지 않는다.
+    private void recheckExpiredWithLiveTransaction(LocalDateTime now) {
+        List<Payment> targets = paymentRepository
+                .findTop20ByStatusAndPaymentKeyIsNotNullAndCreatedAtAfterAndUpdatedAtBefore(
+                        PaymentStatus.EXPIRED,
+                        now.minusHours(EXPIRED_RECHECK_HOURS),
+                        now.minusMinutes(EXPIRED_RECHECK_INTERVAL_MINUTES));
+        for (Payment payment : targets) {
+            try {
+                paymentService.syncByOrderId(payment.getOrderId()).join();
+                // 확인 시각을 남겨야 다음 주기에 같은 주문을 또 조회하지 않는다(간격 확보).
+                txService.touchExpired(payment.getOrderId());
+                log.info("만료 주문 재확인 orderId={}", payment.getOrderId());
+            } catch (RuntimeException e) {
+                log.error("만료 주문 재확인 실패 orderId={}", payment.getOrderId(), e);
+            }
+        }
     }
 
     // 주문만 만들고 위젯에서 이탈한 건. PG에 승인 요청을 한 적이 없으니 조회 없이 만료 처리한다.

@@ -23,7 +23,11 @@ public enum PaymentStatus {
     CANCEL_REQUESTED,      // 취소 API 호출 중(응답 불명 포함) — 재동기화 대상
     CANCELED;              // 취소(환불) 완료. 이용권 회수됨
 
-    // 여기서 끝난 결제는 어떤 이벤트로도 되살리지 않는다(웹훅 재전송, 재동기화가 와도 무시).
+    // 더 진행할 것이 없는 상태. 위조 웹훅이나 뒤늦은 재동기화로 되살아나지 않게 막는 기준이다.
+    //
+    // 단 EXPIRED는 "유저가 이탈했을 것"이라는 우리 추측이라 PG가 결제를 확인해 주면 뒤집힌다
+    // (결제창이 우리 만료보다 오래 사는 PG가 있다). 그 예외는 반영 창구인 applyPgResult에만
+    // 있고 이 판정 자체는 바꾸지 않는다 — 되살릴 근거를 가진 쪽에서만 예외를 두기 위함이다.
     public boolean isTerminal() {
         return this == FAILED || this == EXPIRED || this == CANCELED;
     }
