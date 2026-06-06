@@ -9,7 +9,7 @@ export function TermsContent() {
       <div className={styles.section}>면책 고지</div>
       <div className={styles.noticeBox}>
         <p className={styles.para}>
-          새벽 세시(3AM)의 AI 대화와 재회 진단은 이용자가 들려준 이야기를 근거로 만들어지는
+          3am의 AI 대화와 재회 진단은 이용자가 들려준 이야기를 근거로 만들어지는
           참고 정보입니다. 화면에 표시되는 재회 확률은 과학적으로 검증된 예측이 아니며, 실제
           결과를 보장하지 않습니다.
         </p>
@@ -27,7 +27,7 @@ export function TermsContent() {
 
       <div className={styles.clauseTitle}>제1조 (목적)</div>
       <p className={styles.para}>
-        이 약관은 새벽 세시(이하 "서비스")의 이용 조건과 운영에 관한 기본적인 사항을
+        이 약관은 3am(이하 "서비스")의 이용 조건과 운영에 관한 기본적인 사항을
         정합니다.
       </p>
 
@@ -103,8 +103,10 @@ export function TermsContent() {
 
       <div className={styles.section}>운영자 정보</div>
       <p className={styles.para}>
-        상호: 케이케이티랩 / 대표: 김기태 / 사업자등록번호: (발급 후 기재) / 통신판매업
-        신고번호: (신고 후 기재)
+        {/* 영문 상호를 병기한다 — 결제 대행사 심사자가 약관에서 법인을 확인하는데,
+            한글만 있으면 계정에 등록된 영문명과 대조가 안 돼 불일치로 반려된다 */}
+        상호: 케이케이티랩스 (KKTLABS) / 대표: 김도아 / 사업자등록번호: 281-20-02774 /
+        통신판매업 신고번호: (신고 후 기재)
       </p>
 
       <div className={styles.section}>문의</div>
