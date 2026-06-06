@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -51,6 +52,11 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
+    // 액추에이터 전용 포트(운영에서 127.0.0.1 바인딩). 미설정(개발)이면 -1이라 어떤 요청과도
+    // 안 맞아 기존 인증 규칙이 그대로 적용된다.
+    @Value("${management.server.port:-1}")
+    private int managementPort;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -73,9 +79,18 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/signup", "/api/users/email-verifications",
                                 "/api/auth/login", "/api/auth/reissue", "/api/auth/oauth/**",
                                 "/api/auth/guest").permitAll()
+                        // 상품과 가격은 공개 정보다. 결제 대행사 심사와 전자상거래법 모두
+                        // "로그인 없이 무엇을 얼마에 파는지 보일 것"을 요구해서 이용권 안내
+                        // 페이지가 로그아웃 상태로 이 응답을 읽는다. 내려주는 값은 상품 목록과
+                        // 프론트 결제창용 공개 키뿐이라 유저 정보가 섞이지 않는다.
+                        .requestMatchers(HttpMethod.GET, "/api/payments/config").permitAll()
                         // PG 웹훅 — 토스 서버가 호출하므로 JWT가 없다. 페이로드를 신뢰하지 않고
                         // PG 조회로 재확인하는 구조라(PaymentWebhookController) 열어도 상태 위조가 불가능하다.
                         .requestMatchers("/api/payments/webhook/**").permitAll()
+                        // management 포트(운영: 127.0.0.1:9090)로 온 요청은 인증 면제 — 그 포트는
+                        // 외부에서 닿을 수 없고, 같은 서버의 수집 에이전트(Alloy)가 지표를 긁는 통로다.
+                        // JWT를 에이전트에 쥐여주면 토큰 만료/회전이 수집 장애가 되므로 포트 격리로 대체한다.
+                        .requestMatchers(request -> request.getLocalPort() == managementPort).permitAll()
                         // health만 공개(로드밸런서 헬스체크용). prometheus, info 등 내부 메트릭은
                         // 인증 뒤로 둔다 — 무인증 노출 시 트래픽 패턴, JVM, URI별 요청수가 새어 나간다.
                         // 모니터링 스크래핑은 인증 토큰 또는 내부망에서 호출한다.

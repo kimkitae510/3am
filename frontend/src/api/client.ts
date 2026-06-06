@@ -41,6 +41,12 @@ api.interceptors.response.use(
     const isAuthCall = url.includes('/api/auth/');
 
     if (status === 401 && original && !original._retried && !isAuthCall) {
+      // 애초에 토큰이 없던 방문자는 세션이 끊긴 게 아니다. 공개 화면(이용권 안내 등)이
+      // 인증 필요한 API를 건드린 것뿐이라, 로그인으로 밀어내지 않고 호출한 화면이 처리하게 둔다.
+      // 밀어내면 로그인 없이 볼 수 있어야 하는 화면이 통째로 로그인 폼으로 바뀐다.
+      if (!tokenStore.getRefresh()) {
+        return Promise.reject(error);
+      }
       original._retried = true;
       try {
         refreshing = refreshing ?? reissueAccessToken();

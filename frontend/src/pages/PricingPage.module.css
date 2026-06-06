@@ -1,0 +1,107 @@
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.backButton {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.topTitle {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 28px;
+}
+
+.lead {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0 0 18px;
+}
+
+.state {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 12px 0;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.itemName {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 가격은 이 페이지가 존재하는 이유라 가장 먼저 읽히게 둔다 */
+.price {
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 700;
+  margin: 6px 0 12px;
+}
+
+.grantList {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.sectionTitle {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 22px 0 8px;
+}
+
+.para {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.docLinks {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 26px;
+  padding-bottom: 10px;
+}
+
+.docLink {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}

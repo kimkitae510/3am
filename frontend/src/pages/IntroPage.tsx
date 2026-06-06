@@ -90,6 +90,23 @@ export function IntroPage() {
           이미 계정이 있어요
         </button>
 
+        {/* 결제 대행사 심사와 전자상거래법이 요구하는 상시 링크. 심사자는 계정을 만들지 않고
+            이 화면만 보므로, 로그인 뒤에만 있으면 없는 것과 같다. 히어로를 해치지 않게
+            로그인 화면과 같은 결로 아래에 조용히 둔다 */}
+        <div className={styles.docLinks}>
+          {/* 라벨에 "환불"을 넣어둔다 — 심사자는 약관, 환불정책, 개인정보처리방침 세 가지를
+              찾는데, "이용권 안내"만 적혀 있으면 그 안에 환불정책이 있는 걸 모르고 지나친다 */}
+          <button className={styles.docLink} type="button" onClick={() => navigate('/pricing')}>
+            이용권과 환불
+          </button>
+          <button className={styles.docLink} type="button" onClick={() => navigate('/terms')}>
+            이용약관
+          </button>
+          <button className={styles.docLink} type="button" onClick={() => navigate('/privacy')}>
+            개인정보처리방침
+          </button>
+        </div>
+
         {/* 전자상거래법상 초기화면 표시 의무 — 랜딩을 없앤 뒤로 이 화면이 초기화면이다 */}
         <BusinessInfo />
 

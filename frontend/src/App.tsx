@@ -11,6 +11,7 @@ import { PaymentPage } from './pages/PaymentPage';
 import { PaymentResultPage } from './pages/PaymentResultPage';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
+import { PricingPage } from './pages/PricingPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 
 // 서랍에서 다른 사연으로 갈아타면 경로만 바뀌고 컴포넌트는 그대로 살아 있어 이전 방의
@@ -32,6 +33,7 @@ export default function App() {
       <Route path="/oauth/callback/:provider" element={<OAuthCallbackPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
       <Route path="/stories" element={<StoryEntryPage />} />
       <Route path="/stories/:storyId" element={<ChatRoute />} />
       <Route path="/stories/:storyId/assessment" element={<AssessmentPage />} />

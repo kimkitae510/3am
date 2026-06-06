@@ -104,6 +104,24 @@
   cursor: default;
 }
 
+/* 심사 요건용 상시 링크. 계정 입구(loginLink)보다 뒤에 있어야 할 것들이라 밑줄을 빼고
+   글자도 한 단계 작게 둔다 — 첫 화면에서 눈이 여기로 먼저 가면 안 된다 */
+.docLinks {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.docLink {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .loginLink {
   margin-top: 16px;
   border: none;
