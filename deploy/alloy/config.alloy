@@ -1,0 +1,65 @@
+// Grafana Alloy 설정 — 앱 지표와 호스트 지표를 1분 주기로 긁어 Grafana Cloud로 민다.
+//
+// 설치:
+//   sudo cp deploy/alloy/config.alloy /etc/alloy/config.alloy
+//   토큰은 /etc/alloy/token (권한 600, 소유 alloy) — 파일 내용이 토큰 문자열 하나다.
+//   sudo systemctl restart alloy
+//
+// 토큰은 Grafana Cloud 포털의 Access Policy(metrics:write 권한)에서 발급한다.
+// 설정 파일엔 토큰을 직접 넣지 않는다 — 이 파일은 저장소에 커밋되기 때문이다.
+
+// ── 앱 지표: 스프링 액추에이터 (management 포트, 로컬 전용) ──────────────
+prometheus.scrape "app" {
+  targets = [{
+    __address__ = "127.0.0.1:9090",
+    job         = "3am-app",
+  }]
+  metrics_path    = "/actuator/prometheus"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.relabel.trim.receiver]
+}
+
+// ── 호스트 지표: CPU, 메모리, 디스크, 네트워크 (node_exporter 내장판) ────
+// 컬렉터를 필요한 것만 켠다 — 기본값 전부를 켜면 시리즈가 수백 개 늘어난다.
+prometheus.exporter.unix "host" {
+  set_collectors = ["cpu", "meminfo", "filesystem", "diskstats", "netdev", "loadavg", "uname"]
+
+  filesystem {
+    // 가상/임시 마운트는 디스크 경보에 의미가 없다.
+    fs_types_exclude = "^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?)$"
+  }
+  netdev {
+    // 루프백과 가상 인터페이스 제외.
+    device_exclude = "^(lo|veth.*|docker.*)$"
+  }
+}
+
+prometheus.scrape "host" {
+  targets         = prometheus.exporter.unix.host.targets
+  scrape_interval = "60s"
+  forward_to      = [prometheus.relabel.trim.receiver]
+}
+
+// ── 가짓수 절감: 안 보는 지표는 전송 전에 버린다 ─────────────────────────
+prometheus.relabel "trim" {
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+
+  // JVM 버퍼풀 세부, 클래스 로딩 수는 대시보드나 경보 어디에도 안 쓴다.
+  rule {
+    source_labels = ["__name__"]
+    regex         = "(jvm_buffer_.*|jvm_classes_.*)"
+    action        = "drop"
+  }
+}
+
+// ── Grafana Cloud로 전송 (도쿄 리전 스택: pinksquid1124) ─────────────────
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = "https://prometheus-prod-49-prod-ap-northeast-0.grafana.net/api/prom/push"
+
+    basic_auth {
+      username      = "3423402"            // 스택의 Prometheus 인스턴스 ID
+      password_file = "/etc/alloy/token"   // metrics:write 토큰 (커밋 금지, 서버에만)
+    }
+  }
+}
