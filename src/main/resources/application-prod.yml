@@ -1,5 +1,23 @@
 # 운영 프로파일. SPRING_PROFILES_ACTIVE=prod 로 활성화한다.
 # 개발 기본값(application.yml)에서 운영에 위험한 것만 덮어쓴다.
+server:
+  # 같은 서버의 nginx만 앞에 있다 — 8080을 외부에 직접 노출할 이유가 없다.
+  address: 127.0.0.1
+  # nginx가 붙인 X-Forwarded-For/Proto를 해석한다. 없으면 모든 클라이언트 IP가
+  # nginx(127.0.0.1)로 찍혀 가입 IP 상한 같은 IP 기반 로직이 통째로 무력화된다.
+  forward-headers-strategy: native
+  tomcat:
+    # 톰캣 스레드/커넥션 지표(tomcat_threads_*)는 이 스위치가 있어야 노출된다.
+    mbeanregistry:
+      enabled: true
+
+# 액추에이터를 앱 포트에서 분리해 로컬 전용 포트로 내린다. 외부에서는 존재 자체가 안 보이고,
+# 같은 서버의 수집 에이전트(Alloy)만 인증 없이 긁는다(SecurityConfig의 management 포트 면제와 세트).
+management:
+  server:
+    port: 9090
+    address: 127.0.0.1
+
 spring:
   jpa:
     # 운영에서 show-sql이 켜져 있으면 Message.content(이별 사연) 같은 개인정보가 쿼리 로그로 새어 나간다.
