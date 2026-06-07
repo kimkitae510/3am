@@ -52,14 +52,72 @@ prometheus.relabel "trim" {
   }
 }
 
+// ── DB 내부 지표: MySQL 원격 수집 (읽기 전용 모니터링 계정) ──────────────
+// 접속 문자열(계정:비밀번호@주소)은 서버 파일로만 관리 — 커밋 금지.
+// 파일이 없으면 Alloy 기동이 실패하니, 이 설정을 올릴 때 반드시 함께 만든다.
+local.file "mysql_dsn" {
+  filename  = "/etc/alloy/mysql_dsn"
+  is_secret = true
+}
+
+prometheus.exporter.mysql "db" {
+  data_source_name = local.file.mysql_dsn.content
+}
+
+prometheus.scrape "db" {
+  targets         = prometheus.exporter.mysql.db.targets
+  scrape_interval = "60s"
+  forward_to      = [prometheus.relabel.trim.receiver]
+}
+
+// ── 로그: WARN/ERROR 덩어리만 로키로 ────────────────────────────────────
+// INFO 전문은 서버 파일에만 남긴다 — 사연(개인정보)이 스밀 수 있는 건 주로 INFO 쪽이라
+// 노출면을 좁히는 결정. 에러 원인 조회의 99%는 WARN/ERROR면 충분하다.
+local.file_match "app_logs" {
+  path_targets = [{ __path__ = "/opt/3am/logs/3am.log", job = "3am-app-logs" }]
+}
+
+loki.source.file "app" {
+  targets    = local.file_match.app_logs.targets
+  forward_to = [loki.process.warn_error.receiver]
+}
+
+loki.process "warn_error" {
+  forward_to = [loki.write.grafana_cloud.receiver]
+
+  // 스택트레이스(레벨 표기 없는 후속 줄)가 에러 본줄과 한 덩어리로 묶이게 먼저 합친다.
+  stage.multiline {
+    firstline = "^\\d{4}-\\d{2}-\\d{2} "
+  }
+  // INFO/DEBUG/TRACE 덩어리는 전송 전에 버린다.
+  stage.drop {
+    expression = "\\] (INFO|DEBUG|TRACE) "
+  }
+  stage.static_labels {
+    values = { app = "3am" }
+  }
+}
+
 // ── Grafana Cloud로 전송 (도쿄 리전 스택: pinksquid1124) ─────────────────
+// 토큰 하나로 지표와 로그 둘 다 민다 — 정책(alloy-write)에 metrics:write + logs:write.
 prometheus.remote_write "grafana_cloud" {
   endpoint {
     url = "https://prometheus-prod-49-prod-ap-northeast-0.grafana.net/api/prom/push"
 
     basic_auth {
       username      = "3423402"            // 스택의 Prometheus 인스턴스 ID
-      password_file = "/etc/alloy/token"   // metrics:write 토큰 (커밋 금지, 서버에만)
+      password_file = "/etc/alloy/token"   // 커밋 금지, 서버에만
+    }
+  }
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = "https://logs-prod-030.grafana.net/loki/api/v1/push"
+
+    basic_auth {
+      username      = "1707376"            // 스택의 Loki 인스턴스 ID
+      password_file = "/etc/alloy/token"
     }
   }
 }
