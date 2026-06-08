@@ -17,6 +17,15 @@ management:
   server:
     port: 9090
     address: 127.0.0.1
+  metrics:
+    tags:
+      # 모든 지표에 application 라벨을 단다 — 표준 JVM 대시보드(Micrometer판)가 이 라벨로 앱을 찾는다.
+      application: 3am
+    distribution:
+      # HTTP 응답시간 백분위. 평균은 소수의 느린 요청을 숨겨서(장애 초기 증상) p95/p99를 따로 낸다.
+      # 히스토그램(버킷 수십 개)이 아니라 사전 계산 백분위 3개라 시리즈 부담이 작다.
+      percentiles:
+        "[http.server.requests]": 0.5, 0.95, 0.99
 
 spring:
   jpa:
