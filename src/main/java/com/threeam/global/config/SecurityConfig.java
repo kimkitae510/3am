@@ -79,6 +79,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/signup", "/api/users/email-verifications",
                                 "/api/auth/login", "/api/auth/reissue", "/api/auth/oauth/**",
                                 "/api/auth/guest").permitAll()
+                        // 외부 감시의 DB 관통 체크. 상태 한 단어만 내려줘 무인증 공개해도 새는 게 없다.
+                        .requestMatchers(HttpMethod.GET, "/api/health/db").permitAll()
                         // 상품과 가격은 공개 정보다. 결제 대행사 심사와 전자상거래법 모두
                         // "로그인 없이 무엇을 얼마에 파는지 보일 것"을 요구해서 이용권 안내
                         // 페이지가 로그아웃 상태로 이 응답을 읽는다. 내려주는 값은 상품 목록과
