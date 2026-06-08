@@ -117,11 +117,38 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                 .thenCompose(this::retryOnceIfOverloaded)
                 .thenApply(response -> extractText(response, kind))
                 // 호출 성공/실패 카운터 — 실패율, 호출량을 /actuator/prometheus로 관측(비용, 장애 감지).
+                // 실패는 사유 라벨로 가른다 — "타임아웃 몇 건"을 로그 뒤지지 않고 지표로 바로 본다.
                 .whenComplete((result, ex) -> {
                     inflight.decrementAndGet();
                     Metrics.counter("llm.calls",
-                            "provider", providerName(), "result", ex == null ? "success" : "error").increment();
+                            "provider", providerName(),
+                            "result", ex == null ? "success" : "error",
+                            "reason", ex == null ? "none" : failReason(ex)).increment();
                 });
+    }
+
+    private String failReason(Throwable ex) {
+        Throwable cause = ex;
+        while (cause != null) {
+            if (cause instanceof LlmHttpStatusException statusEx) {
+                return switch (statusEx.status) {
+                    case 429 -> "quota";
+                    case 503 -> "overloaded";
+                    default -> "http_" + (statusEx.status / 100) + "xx";
+                };
+            }
+            if (cause instanceof java.net.http.HttpTimeoutException) {
+                return "timeout";
+            }
+            if (cause instanceof LlmException) {
+                return "parse";
+            }
+            if (cause instanceof java.io.IOException) {
+                return "network";
+            }
+            cause = cause.getCause();
+        }
+        return "other";
     }
 
     // 503은 피크 시간대의 일상이라(실측) 짧게 기다렸다 1회 재시도한다.
@@ -252,7 +279,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             // 오류 본문은 보통 provider 에러 메타(429 한도, 안전성 차단 등)라 진단에 필요하지만, 길이는 자른다.
             log.error("{} {} 응답 오류: status={} body={}", providerName(), kind, response.statusCode(),
                     snippet(response.body()));
-            throw new LlmException();
+            throw new LlmHttpStatusException(response.statusCode());
         }
         return parseBody(response.body(), kind);
     }
