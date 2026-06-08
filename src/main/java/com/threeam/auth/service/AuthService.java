@@ -1,5 +1,6 @@
 package com.threeam.auth.service;
 
+import io.micrometer.core.instrument.Metrics;
 import com.threeam.auth.dto.LoginRequest;
 import com.threeam.auth.dto.OAuthLoginRequest;
 import com.threeam.auth.dto.OAuthLoginResponse;
@@ -55,10 +56,13 @@ public class AuthService {
         User user = userRepository.findByEmailAndDeletedAtIsNull(email).orElse(null);
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             loginAttemptGuard.recordFailure(email, clientIp);
+            // 실패는 4xx라 서버 오류 지표에 안 잡힌다 — 급증(브루트포스, 프론트 고장)은 여기서만 보인다.
+            Metrics.counter("auth.login", "result", "fail").increment();
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
         loginAttemptGuard.recordSuccess(email, clientIp);
+        Metrics.counter("auth.login", "result", "success").increment();
         return issueTokens(user);
     }
 
@@ -84,8 +88,16 @@ public class AuthService {
     // currentUserId: 게스트가 로그인 상태로 소셜을 연결하면(토큰 지참) 새 계정 대신 그 행을 승격한다.
     @Transactional
     public OAuthLoginResponse oauthLogin(AuthProvider provider, OAuthLoginRequest request, Long currentUserId) {
-        OAuthProfile profile = oAuthClient.fetchProfile(
-                provider, request.getCode(), request.getState(), request.getRedirectUri());
+        OAuthProfile profile;
+        try {
+            profile = oAuthClient.fetchProfile(
+                    provider, request.getCode(), request.getState(), request.getRedirectUri());
+        } catch (RuntimeException e) {
+            // 키 만료, 콘솔 설정 변경 같은 소셜 쪽 고장은 5xx가 아니라 이 경로로만 드러난다.
+            Metrics.counter("auth.oauth", "provider", provider.name(), "result", "fail").increment();
+            throw e;
+        }
+        Metrics.counter("auth.oauth", "provider", provider.name(), "result", "success").increment();
 
         User user = userRepository.findByProviderAndProviderId(provider, profile.providerId())
                 .orElse(null);
