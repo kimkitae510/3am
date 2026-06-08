@@ -18,6 +18,7 @@ import com.threeam.payment.entity.PaymentStatus;
 import com.threeam.usage.Entitlement;
 import com.threeam.user.entity.User;
 import com.threeam.user.repository.UserRepository;
+import io.micrometer.core.instrument.Metrics;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -108,6 +109,8 @@ public class PaymentService {
         if (request.getAmount() != payment.getAmount()) {
             log.warn("결제 금액 불일치 orderId={} 주문={} 요청={}",
                     request.getOrderId(), payment.getAmount(), request.getAmount());
+            // 결제 이상은 로그가 아니라 카운터로 알림을 건다 — 로그 문구는 리팩터링에 조용히 깨진다.
+            Metrics.counter("payment.confirm", "result", "amount_mismatch").increment();
             throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
         if (!txService.claimConfirm(request.getOrderId(), request.getPaymentKey())) {
@@ -118,8 +121,10 @@ public class PaymentService {
                 .thenApply(result -> {
                     PaymentResponse response = txService.applyPgResult(request.getOrderId(), result);
                     if (result.status() == PgStatus.FAILED) {
+                        Metrics.counter("payment.confirm", "result", "rejected").increment();
                         throw new BusinessException(ErrorCode.PAYMENT_CONFIRM_REJECTED);
                     }
+                    Metrics.counter("payment.confirm", "result", "success").increment();
                     return response;
                 })
                 .exceptionally(this::rethrowOrPending);
@@ -157,8 +162,10 @@ public class PaymentService {
                     if (result.status() == PgStatus.FAILED) {
                         // 확실한 거절만 원상 복귀. 불명이면 여기 오지 않는다(exceptionally → 재동기화).
                         txService.revertCancelRequest(orderId, from);
+                        Metrics.counter("payment.cancel", "result", "rejected").increment();
                         throw new BusinessException(ErrorCode.PAYMENT_CANCEL_REJECTED);
                     }
+                    Metrics.counter("payment.cancel", "result", "success").increment();
                     return txService.applyPgResult(orderId, result);
                 })
                 .exceptionally(this::rethrowOrPending);
@@ -250,6 +257,7 @@ public class PaymentService {
             throw business;
         }
         log.error("PG 응답 불명 — 상태 보존, 재동기화 대기", cause);
+        Metrics.counter("payment.unknown").increment();
         throw new BusinessException(ErrorCode.PAYMENT_RESULT_PENDING);
     }
 }
