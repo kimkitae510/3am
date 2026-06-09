@@ -1,0 +1,140 @@
+/* 진단 평가 블록 — 결과 화면 본문 카드들과 같은 문법(카드 반지름 16, 안여백 14/16) */
+.card {
+  margin: 14px 4px 0;
+  padding: 15px 16px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.sub {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* 점수 칩 5개 — 세로 나열. 가로로 눌러 넣으면 다섯 문구가 두 줄로 꺾여 순서가 안 읽힌다 */
+.scale {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.chip {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: #2a2a2e;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.chip:hover {
+  background: #35353a;
+}
+
+.chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* 제출 직후 — 보상 안내와 선택한 문구 */
+.thanks {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.thanksBonus {
+  color: #b89dd1;
+  font-weight: 700;
+}
+
+.commentForm {
+  margin-top: 12px;
+}
+
+.commentLabel {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.commentInput {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: #2a2a2e;
+  transition: background 0.15s ease;
+  resize: none;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.commentInput:focus {
+  background: #35353a;
+}
+
+.commentInput::placeholder {
+  color: #8d8d95;
+}
+
+.formRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  gap: 10px;
+}
+
+/* 익명 활용 고지 — 입력칸 바로 밑, 작게. 동의 체크 대신 고지로 가는 설계라 이 줄이 근거다 */
+.notice {
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.submit {
+  padding: 6px 13px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #17171a;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.submit:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* 재방문 시 접힌 한 줄 */
+.doneLine {
+  margin: 14px 4px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.error {
+  margin-top: 8px;
+  color: #d88b9f;
+  font-size: 12px;
+}
