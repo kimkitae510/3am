@@ -64,6 +64,10 @@ public enum ErrorCode {
     ASSESSMENT_NOT_DATING(HttpStatus.CONFLICT, "AS004", "지금은 만나는 중으로 진단된 상태가 아닙니다."),
     ASSESSMENT_NOT_OFFER(HttpStatus.CONFLICT, "AS005", "지금은 상대의 재회 제안으로 확정된 상태가 아닙니다."),
 
+    // 진단 평가
+    REVIEW_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "평가할 진단이 없습니다."),
+    REVIEW_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "R002", "이미 평가한 진단입니다."),
+
     // LLM
     LLM_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "L001", "AI 응답 생성에 실패했습니다."),
     // 비동기 HTTP 대기 초과. 작업 자체는 뒤에서 끝나 저장됐을 수 있어 새로고침을 안내한다.
