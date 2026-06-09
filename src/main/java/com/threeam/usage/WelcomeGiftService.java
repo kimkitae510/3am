@@ -36,6 +36,12 @@ public class WelcomeGiftService {
         grant(userId, UsageKind.CHAT, properties.getGuestTrialChat());
     }
 
+    // 진단 평가 보상. 진단당 평가 1회 제약(ReviewService)이 지급 횟수의 상한을 겸한다.
+    @Transactional
+    public void grantReviewGift(Long userId) {
+        grant(userId, UsageKind.CHAT, properties.getReviewGiftChat());
+    }
+
     private void grant(Long userId, UsageKind kind, int count) {
         if (count <= 0) {
             return;
