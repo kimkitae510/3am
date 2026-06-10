@@ -35,12 +35,13 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public ReviewStatusResponse status(Long userId, Long storyId) {
         Long assessmentId = latestAssessmentId(userId, storyId);
+        boolean rewardAvailable = !reviewRepository.existsByUserId(userId);
         if (assessmentId == null) {
-            return new ReviewStatusResponse(false, null);
+            return new ReviewStatusResponse(false, null, rewardAvailable);
         }
         return reviewRepository.findByAssessmentId(assessmentId)
-                .map(r -> new ReviewStatusResponse(true, r.getScore()))
-                .orElseGet(() -> new ReviewStatusResponse(false, null));
+                .map(r -> new ReviewStatusResponse(true, r.getScore(), rewardAvailable))
+                .orElseGet(() -> new ReviewStatusResponse(false, null, rewardAvailable));
     }
 
     @Transactional
@@ -52,6 +53,8 @@ public class ReviewService {
         if (reviewRepository.findByAssessmentId(assessmentId).isPresent()) {
             throw new BusinessException(ErrorCode.REVIEW_ALREADY_SUBMITTED);
         }
+        // 보상은 유저당 1회 — 저장 전에 판별한다(저장 후엔 방금 저장분이 이력으로 잡힌다).
+        boolean firstReview = !reviewRepository.existsByUserId(userId);
         try {
             // 동시 이중 제출은 사전 조회를 둘 다 통과할 수 있다 — 유니크 제약이 최종 방어선이고,
             // 여기서 flush해 지급 전에 걸러낸다(보상이 나간 뒤 롤백되는 것보다 명확하다).
@@ -62,6 +65,9 @@ public class ReviewService {
                     .build());
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.REVIEW_ALREADY_SUBMITTED);
+        }
+        if (!firstReview) {
+            return new ReviewSubmitResponse(0);
         }
         welcomeGiftService.grantReviewGift(userId);
         return new ReviewSubmitResponse(usageProperties.getReviewGiftChat());

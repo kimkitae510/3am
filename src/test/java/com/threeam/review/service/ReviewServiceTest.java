@@ -66,10 +66,11 @@ class ReviewServiceTest {
     }
 
     @Test
-    @DisplayName("점수 제출 성공 시 저장하고 보상을 지급한다")
+    @DisplayName("첫 평가 제출 시 저장하고 보상을 지급한다")
     void submitGrantsReward() {
         givenOwnedStoryWithAssessment();
         given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.empty());
+        given(reviewRepository.existsByUserId(USER_ID)).willReturn(false);
         given(usageProperties.getReviewGiftChat()).willReturn(2);
 
         ReviewSubmitResponse response =
@@ -78,6 +79,21 @@ class ReviewServiceTest {
         assertThat(response.chatBonus()).isEqualTo(2);
         verify(reviewRepository).saveAndFlush(any(AssessmentReview.class));
         verify(welcomeGiftService).grantReviewGift(USER_ID);
+    }
+
+    @Test
+    @DisplayName("두 번째 평가부터는 저장은 하되 보상을 지급하지 않는다")
+    void submitSkipsRewardAfterFirst() {
+        givenOwnedStoryWithAssessment();
+        given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.empty());
+        given(reviewRepository.existsByUserId(USER_ID)).willReturn(true);
+
+        ReviewSubmitResponse response =
+                reviewService.submit(USER_ID, STORY_ID, new ReviewSubmitRequest(4));
+
+        assertThat(response.chatBonus()).isZero();
+        verify(reviewRepository).saveAndFlush(any(AssessmentReview.class));
+        verifyNoInteractions(welcomeGiftService);
     }
 
     @Test
@@ -186,20 +202,22 @@ class ReviewServiceTest {
     }
 
     @Test
-    @DisplayName("평가 여부 조회: 진단이 없으면 미평가, 평가가 있으면 점수와 함께 내린다")
+    @DisplayName("평가 여부 조회: 진단이 없으면 미평가, 평가가 있으면 점수와 보상 소진 여부까지 내린다")
     void statusReflectsReview() {
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, USER_ID))
                 .willReturn(Optional.of(mock(Story.class)));
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
                 .willReturn(Optional.empty());
+        given(reviewRepository.existsByUserId(USER_ID)).willReturn(false);
         assertThat(reviewService.status(USER_ID, STORY_ID))
-                .isEqualTo(new ReviewStatusResponse(false, null));
+                .isEqualTo(new ReviewStatusResponse(false, null, true));
 
         givenOwnedStoryWithAssessment();
         AssessmentReview review = AssessmentReview.builder()
                 .userId(USER_ID).assessmentId(ASSESSMENT_ID).score(4).build();
         given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.of(review));
+        given(reviewRepository.existsByUserId(USER_ID)).willReturn(true);
         assertThat(reviewService.status(USER_ID, STORY_ID))
-                .isEqualTo(new ReviewStatusResponse(true, 4));
+                .isEqualTo(new ReviewStatusResponse(true, 4, false));
     }
 }
