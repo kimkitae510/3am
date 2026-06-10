@@ -12,15 +12,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "usage")
 public class UsageProperties {
 
-    // 가입 선물은 진단만. 대화는 게스트 체험 3회가 전부고, 추가 대화는 평가 보상과
-    // 결제로만 생긴다 — 연결/가입 제안의 전부가 "진단이 열려요"가 되게.
-    private int signupGiftChat = 0;
+    // 직행 가입 선물. 게스트 체험(3회)과 총량을 맞춰 어느 문으로 들어와도 대화 3 + 진단 1.
+    // 대화 0으로 두면 게스트를 안 거친 가입자는 사연을 말할 길이 없다.
+    private int signupGiftChat = 3;
     private int signupGiftAssessment = 1;
 
     // 게스트 체험. 진단은 0회 — 계정 연결을 유도하는 지점이라 아예 주지 않는다.
     private int guestTrialChat = 3;
 
-    // 게스트가 계정을 연결할 때 주는 대화. 대화 선물은 없다 — 연결이 여는 것은 진단이다.
+    // 게스트가 계정을 연결할 때 주는 대화. 체험으로 이미 받았으므로 없다 — 연결이 여는 것은 진단이다.
     private int guestUpgradeGiftChat = 0;
 
     // 진단 평가 보상. 유저당 1회 — 첫 평가에만 나간다(평가 자체는 진단마다 남길 수 있다).
