@@ -12,18 +12,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "usage")
 public class UsageProperties {
 
-    // 가입 선물. 이월되는 이용권이라 그날 못 써도 증발하지 않는다.
-    private int signupGiftChat = 4;
+    // 가입 선물은 진단만. 대화는 게스트 체험 3회가 전부고, 추가 대화는 평가 보상과
+    // 결제로만 생긴다 — 연결/가입 제안의 전부가 "진단이 열려요"가 되게.
+    private int signupGiftChat = 0;
     private int signupGiftAssessment = 1;
 
     // 게스트 체험. 진단은 0회 — 계정 연결을 유도하는 지점이라 아예 주지 않는다.
     private int guestTrialChat = 3;
 
-    // 게스트가 계정을 연결할 때 주는 대화. 체험분과 합쳐 가입 선물과 같은 총량이 되게 잡는다
-    // (3 + 1 = 4). 여기에 가입 선물과 같은 4를 주면 게스트를 거친 쪽이 두 배 가까이 받는다.
-    private int guestUpgradeGiftChat = 1;
+    // 게스트가 계정을 연결할 때 주는 대화. 대화 선물은 없다 — 연결이 여는 것은 진단이다.
+    private int guestUpgradeGiftChat = 0;
 
-    // 진단 평가 보상. 평가는 진단당 1회만 받을 수 있어 지급도 그 횟수에 묶인다.
+    // 진단 평가 보상. 유저당 1회 — 첫 평가에만 나간다(평가 자체는 진단마다 남길 수 있다).
     private int reviewGiftChat = 2;
 
     // 생성 락의 자동 만료(TTL). LLM 호출이 실패로 락을 못 풀어도 이 시간이 지나면 풀린 것으로 본다.
