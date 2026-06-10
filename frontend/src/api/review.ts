@@ -5,6 +5,7 @@ import { api } from './client';
 export interface ReviewStatus {
   reviewed: boolean;
   score: number | null;
+  rewardAvailable: boolean; // 보상은 유저당 1회 — false면 보상 문구를 띄우지 않는다
 }
 
 export async function getReviewStatus(storyId: number): Promise<ReviewStatus> {

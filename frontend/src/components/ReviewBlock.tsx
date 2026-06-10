@@ -23,6 +23,7 @@ export function ReviewBlock({
   const [loaded, setLoaded] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [fresh, setFresh] = useState(false); // 이번 방문에서 제출했는지 — 재방문은 접힌 줄만
+  const [rewardAvailable, setRewardAvailable] = useState(false); // 보상은 유저당 1회
   const [bonus, setBonus] = useState(0);
   const [saving, setSaving] = useState(false);
   const [comment, setComment] = useState('');
@@ -43,6 +44,7 @@ export function ReviewBlock({
       .then((s) => {
         if (!alive) return;
         setScore(s.reviewed ? s.score : null);
+        setRewardAvailable(s.rewardAvailable);
         setLoaded(true);
       })
       // 상태 조회 실패는 조용히 블록을 접는다 — 부속 기능이 결과 화면을 막을 일이 아니다
@@ -100,7 +102,8 @@ export function ReviewBlock({
     return (
       <div className={styles.card}>
         <div className={styles.title}>이번 진단, 내 상황을 얼마나 제대로 짚었나요?</div>
-        <div className={styles.sub}>평가만 해도 대화 2회를 드려요</div>
+        {/* 보상은 유저당 1회 — 이미 받은 유저에게 띄우면 지급 없는 약속이 된다 */}
+        {rewardAvailable && <div className={styles.sub}>평가만 해도 대화 2회를 드려요</div>}
         <div className={styles.scale}>
           {SCALE.map((label, i) => (
             <button
@@ -124,8 +127,14 @@ export function ReviewBlock({
   return (
     <div className={styles.card}>
       <div className={styles.thanks}>
-        평가 고마워요. <span className={styles.thanksBonus}>대화 {bonus}회</span>를 충전해
-        드렸어요.
+        {bonus > 0 ? (
+          <>
+            평가 고마워요. <span className={styles.thanksBonus}>대화 {bonus}회</span>를 충전해
+            드렸어요.
+          </>
+        ) : (
+          '평가 고마워요.'
+        )}
       </div>
       {askText && !commentSaved && (
         <div className={styles.commentForm}>
