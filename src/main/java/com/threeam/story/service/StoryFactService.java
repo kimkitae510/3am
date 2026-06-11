@@ -2,6 +2,7 @@ package com.threeam.story.service;
 
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
+import com.threeam.story.entity.FactSource;
 import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.StoryFactRepository;
 import com.threeam.story.repository.StoryRepository;
@@ -64,12 +65,24 @@ public class StoryFactService {
 
     // 유저가 진단 화면에서 직접 적어준 사실. 중복 제거 없이 그대로 남긴다 — 같은 문장을 또 적는 건
     // 유저의 선택이고(진단 재료는 temperature 0이라 같은 재료면 같은 결과, 어뷰징 이득이 없다),
-    // 추출기를 태우지 않아 LLM 비용도 없다.
+    // 추출기를 태우지 않아 LLM 비용도 없다. id를 돌려주는 이유: 화면이 취소/수정을 걸 수 있게.
     @Transactional
-    public void appendUserFact(Long userId, Long storyId, String fact) {
+    public Long appendUserFact(Long userId, Long storyId, String fact) {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
-        storyFactRepository.save(StoryFact.userProvided(storyId, fact.trim()));
+        return storyFactRepository.save(StoryFact.userProvided(storyId, fact.trim())).getId();
+    }
+
+    // 유저가 직접 적은 줄의 취소. append-only 원칙은 대화에서 추출된 사실의 것이다 — 방금 손으로
+    // 적은 줄을 지우는 건 사실의 번복이 아니라 입력 취소라서, USER 출처에 한해서만 지운다.
+    @Transactional
+    public void deleteUserFact(Long userId, Long storyId, Long factId) {
+        storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        StoryFact fact = storyFactRepository.findById(factId)
+                .filter(f -> f.getStoryId().equals(storyId) && f.getSource() == FactSource.USER)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_FACT_NOT_FOUND));
+        storyFactRepository.delete(fact);
     }
 
     // 번복(정정) 기록은 중복 제거 없이 매번 새 줄로 남긴다 — 같은 문장이라도 각각 별개의 사건이다.

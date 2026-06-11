@@ -117,6 +117,8 @@ class StoryFactServiceTest {
     void appendUserFact_savesWithUserSource() {
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, 1L))
                 .willReturn(Optional.of(mock(Story.class)));
+        given(storyFactRepository.save(any(StoryFact.class)))
+                .willAnswer(inv -> inv.getArgument(0));
 
         storyFactService.appendUserFact(1L, STORY_ID, "  상대에게 어제 먼저 연락이 옴  ");
 
@@ -125,6 +127,45 @@ class StoryFactServiceTest {
         assertThat(captor.getValue().getFact()).isEqualTo("상대에게 어제 먼저 연락이 옴");
         assertThat(captor.getValue().getSource()).isEqualTo(FactSource.USER);
         assertThat(captor.getValue().getSourceAssessmentId()).isNull();
+    }
+
+    @Test
+    @DisplayName("직접 입력 취소 - 내 사연의 USER 출처 사실만 지운다")
+    void deleteUserFact_deletesOwnUserFact() {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, 1L))
+                .willReturn(Optional.of(mock(Story.class)));
+        StoryFact fact = StoryFact.userProvided(STORY_ID, "지울 사실");
+        given(storyFactRepository.findById(5L)).willReturn(Optional.of(fact));
+
+        storyFactService.deleteUserFact(1L, STORY_ID, 5L);
+
+        verify(storyFactRepository).delete(fact);
+    }
+
+    @Test
+    @DisplayName("직접 입력 취소 - 추출된 사실은 지울 수 없다")
+    void deleteUserFact_rejectsExtractedFact() {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, 1L))
+                .willReturn(Optional.of(mock(Story.class)));
+        given(storyFactRepository.findById(5L))
+                .willReturn(Optional.of(StoryFact.of(STORY_ID, "추출된 사실", 99L)));
+
+        assertThatThrownBy(() -> storyFactService.deleteUserFact(1L, STORY_ID, 5L))
+                .isInstanceOf(BusinessException.class);
+        verify(storyFactRepository, never()).delete(any(StoryFact.class));
+    }
+
+    @Test
+    @DisplayName("직접 입력 취소 - 다른 사연의 사실은 지울 수 없다")
+    void deleteUserFact_rejectsForeignStoryFact() {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, 1L))
+                .willReturn(Optional.of(mock(Story.class)));
+        given(storyFactRepository.findById(5L))
+                .willReturn(Optional.of(StoryFact.userProvided(999L, "남의 사실")));
+
+        assertThatThrownBy(() -> storyFactService.deleteUserFact(1L, STORY_ID, 5L))
+                .isInstanceOf(BusinessException.class);
+        verify(storyFactRepository, never()).delete(any(StoryFact.class));
     }
 
     @Test

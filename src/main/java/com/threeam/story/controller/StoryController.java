@@ -5,6 +5,7 @@ import com.threeam.story.dto.MessageResponse;
 import com.threeam.story.dto.MessageRetryResponse;
 import com.threeam.story.dto.MessageSendRequest;
 import com.threeam.story.dto.StoryCreateRequest;
+import com.threeam.story.dto.StoryFactCreateResponse;
 import com.threeam.story.dto.StoryFactRequest;
 import com.threeam.story.dto.StoryResponse;
 import com.threeam.story.service.StoryFactService;
@@ -83,12 +84,22 @@ public class StoryController {
 
     // 진단 화면의 "사실 직접 알려주기" — 채팅 없이 원장에 사실을 보태고 재진단 가드를 통과시킨다.
     @PostMapping("/{storyId}/facts")
-    public ResponseEntity<Void> addFact(
+    public ResponseEntity<StoryFactCreateResponse> addFact(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long storyId,
             @Valid @RequestBody StoryFactRequest request) {
-        storyFactService.appendUserFact(userId, storyId, request.content());
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        Long id = storyFactService.appendUserFact(userId, storyId, request.content());
+        return ResponseEntity.status(HttpStatus.CREATED).body(new StoryFactCreateResponse(id));
+    }
+
+    // 직접 적은 사실의 취소. USER 출처만 지워진다 — 추출된 사실은 원장 정정 기입으로만 다룬다.
+    @DeleteMapping("/{storyId}/facts/{factId}")
+    public ResponseEntity<Void> deleteFact(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long storyId,
+            @PathVariable Long factId) {
+        storyFactService.deleteUserFact(userId, storyId, factId);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{storyId}")

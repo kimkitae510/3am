@@ -54,6 +54,8 @@ public enum ErrorCode {
     STORY_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "사연을 찾을 수 없습니다."),
     // 재시도 버튼을 두 번 눌렀거나, 그새 답이 붙은 경우. 화면을 새로 그리면 해소된다.
     CHAT_RETRY_NOT_APPLICABLE(HttpStatus.CONFLICT, "S002", "다시 시도할 답변이 없습니다."),
+    // 유저가 직접 적은 사실의 취소/수정 대상이 없거나(이미 지움), 추출된 사실을 지우려 한 경우.
+    STORY_FACT_NOT_FOUND(HttpStatus.NOT_FOUND, "S003", "남긴 기록을 찾을 수 없습니다."),
 
     // 진단
     ASSESSMENT_NO_MESSAGES(HttpStatus.BAD_REQUEST, "AS001", "진단할 대화 내용이 없습니다."),
@@ -66,7 +68,7 @@ public enum ErrorCode {
 
     // 진단 평가
     REVIEW_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "평가할 진단이 없습니다."),
-    REVIEW_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "R002", "이미 평가한 진단입니다."),
+    // R002(중복 평가)는 결번 — 점수가 업서트로 바뀌며 중복이라는 개념 자체가 사라졌다.
 
     // LLM
     LLM_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "L001", "AI 응답 생성에 실패했습니다."),
