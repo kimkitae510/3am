@@ -38,26 +38,29 @@
 }
 
 .chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   padding: 10px 14px;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 12px;
   background: #2a2a2e;
   color: var(--text);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .chip:hover {
   background: #35353a;
 }
 
-/* 선택 표시는 라벤더 테두리 + 옅은 채움 — 다시 눌러 바꿀 수 있다는 게 보이게 버튼 모양 유지 */
+/* 선택 표시는 색이 아니라 밝기 한 단 + 체크 — 보라 강조는 화면에서 혼자 튀었다 */
 .chipSelected,
 .chipSelected:hover {
-  background: rgba(184, 157, 209, 0.16);
-  border-color: #b89dd1;
+  background: #3a3a40;
 }
 
 .chip:disabled {
@@ -135,18 +138,8 @@
   cursor: default;
 }
 
-/* 저장된 후기 — 입력칸과 같은 채움에 읽기 전용 느낌만 */
-.savedComment {
-  margin-top: 8px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: #2a2a2e;
-  color: var(--text);
-  font-size: 13px;
-  white-space: pre-wrap;
-}
-
 .thanks {
+  margin-top: 8px;
   color: var(--text-muted);
   font-size: 12px;
 }
@@ -154,17 +147,6 @@
 .thanksBonus {
   color: #b89dd1;
   font-weight: 700;
-}
-
-.ghostBtn {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 12px;
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
 .error {

@@ -35,7 +35,6 @@ export function ReviewBlock({
   const [loaded, setLoaded] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [savedComment, setSavedComment] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
   const [rewardAvailable, setRewardAvailable] = useState(false);
   const [bonusGranted, setBonusGranted] = useState(0); // 이번 방문에서 지급된 양(안내용)
   const [comment, setComment] = useState('');
@@ -48,7 +47,6 @@ export function ReviewBlock({
     setLoaded(false);
     setScore(null);
     setSavedComment(null);
-    setEditing(false);
     setBonusGranted(0);
     setComment('');
     setError('');
@@ -92,7 +90,6 @@ export function ReviewBlock({
     try {
       const res = await submitReviewComment(storyId, text);
       setSavedComment(text);
-      setEditing(false);
       if (res.chatBonus > 0) {
         setBonusGranted(res.chatBonus);
         setRewardAvailable(false);
@@ -124,31 +121,20 @@ export function ReviewBlock({
               disabled={scoreSaving}
               onClick={() => handleScore(i + 1)}
             >
-              {label}
+              <span>{label}</span>
+              {score === i + 1 && (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M4 12.5l5 5 11-11" stroke="currentColor" strokeWidth="2.2"
+                        strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
             </button>
           ))}
         </div>
 
-        {ask && savedComment != null && !editing ? (
-          <div className={styles.commentForm}>
-            <div className={styles.savedComment}>{savedComment}</div>
-            <div className={styles.formRow}>
-              <span className={styles.thanks}>
-                남겨주셔서 감사합니다.
-                {bonusGranted > 0 && (
-                  <>
-                    {' '}
-                    <span className={styles.thanksBonus}>대화 {bonusGranted}회</span>를 충전해
-                    드렸어요.
-                  </>
-                )}
-              </span>
-              <button className={styles.ghostBtn} onClick={() => setEditing(true)}>
-                수정
-              </button>
-            </div>
-          </div>
-        ) : ask ? (
+        {/* 후기 칸은 항상 편집 가능한 폼 — 저장 후 별도의 수정 버튼을 두면 장식만 는다.
+            고치고 싶으면 그냥 고쳐서 다시 남기면 된다 */}
+        {ask && (
           <div className={styles.commentForm}>
             <div className={styles.commentLabel}>{ask.label}</div>
             <textarea
@@ -165,14 +151,26 @@ export function ReviewBlock({
               </span>
               <button
                 className={styles.submit}
-                disabled={!comment.trim() || commentSaving}
+                disabled={!comment.trim() || comment.trim() === savedComment || commentSaving}
                 onClick={handleComment}
               >
                 {commentSaving ? '남기는 중' : '남기기'}
               </button>
             </div>
+            {savedComment != null && (
+              <div className={styles.thanks}>
+                남겨주셔서 감사합니다.
+                {bonusGranted > 0 && (
+                  <>
+                    {' '}
+                    <span className={styles.thanksBonus}>대화 {bonusGranted}회</span>를 충전해
+                    드렸어요.
+                  </>
+                )}
+              </div>
+            )}
           </div>
-        ) : null}
+        )}
         {error && <div className={styles.error}>{error}</div>}
       </div>
     </>
