@@ -102,15 +102,9 @@
 .formRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-top: 8px;
   gap: 10px;
-}
-
-/* 익명 활용 고지 — 동의 체크 대신 고지로 가는 설계라 이 줄이 근거다 */
-.notice {
-  color: var(--text-muted);
-  font-size: 11.5px;
 }
 
 /* 제출 버튼은 라벤더 채움 — 흰 채움은 어두운 화면에서 혼자 시끄러웠다 */

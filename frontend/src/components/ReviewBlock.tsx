@@ -146,9 +146,6 @@ export function ReviewBlock({
               maxLength={COMMENT_MAX}
             />
             <div className={styles.formRow}>
-              <span className={styles.notice}>
-                {score != null && score >= 4 ? '후기는 익명으로 서비스 소개에 쓰일 수 있어요' : ''}
-              </span>
               <button
                 className={styles.submit}
                 disabled={!comment.trim() || comment.trim() === savedComment || commentSaving}
