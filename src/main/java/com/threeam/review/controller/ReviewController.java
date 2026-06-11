@@ -6,7 +6,6 @@ import com.threeam.review.dto.ReviewSubmitRequest;
 import com.threeam.review.dto.ReviewSubmitResponse;
 import com.threeam.review.service.ReviewService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,19 +30,20 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.status(userId, storyId));
     }
 
+    // 점수는 업서트라 만들기와 고치기가 한 경로다 — 본문 없는 204로 답한다.
     @PostMapping
-    public ResponseEntity<ReviewSubmitResponse> submit(@AuthenticationPrincipal Long userId,
-                                                       @PathVariable Long storyId,
-                                                       @RequestBody ReviewSubmitRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(reviewService.submit(userId, storyId, request));
+    public ResponseEntity<Void> submit(@AuthenticationPrincipal Long userId,
+                                       @PathVariable Long storyId,
+                                       @RequestBody ReviewSubmitRequest request) {
+        reviewService.submitScore(userId, storyId, request);
+        return ResponseEntity.noContent().build();
     }
 
+    // 보상(후기 완성 시 유저당 1회)이 여기서 나가므로 지급량을 본문으로 돌려준다(미지급이면 0).
     @PutMapping("/comment")
-    public ResponseEntity<Void> comment(@AuthenticationPrincipal Long userId,
-                                        @PathVariable Long storyId,
-                                        @RequestBody ReviewCommentRequest request) {
-        reviewService.addComment(userId, storyId, request);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<ReviewSubmitResponse> comment(@AuthenticationPrincipal Long userId,
+                                                        @PathVariable Long storyId,
+                                                        @RequestBody ReviewCommentRequest request) {
+        return ResponseEntity.ok(reviewService.addComment(userId, storyId, request));
     }
 }

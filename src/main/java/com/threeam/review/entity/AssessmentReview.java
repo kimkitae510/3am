@@ -54,6 +54,10 @@ public class AssessmentReview {
         this.score = score;
     }
 
+    public void updateScore(int score) {
+        this.score = score;
+    }
+
     public void updateComment(String comment) {
         this.comment = comment;
     }

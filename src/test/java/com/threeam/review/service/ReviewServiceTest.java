@@ -1,9 +1,11 @@
 package com.threeam.review.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -22,14 +24,12 @@ import com.threeam.story.repository.StoryRepository;
 import com.threeam.usage.UsageProperties;
 import com.threeam.usage.WelcomeGiftService;
 import java.util.Optional;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceTest {
@@ -65,159 +65,142 @@ class ReviewServiceTest {
                 .willReturn(Optional.of(assessment));
     }
 
-    @Test
-    @DisplayName("첫 평가 제출 시 저장하고 보상을 지급한다")
-    void submitGrantsReward() {
-        givenOwnedStoryWithAssessment();
-        given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.empty());
-        given(reviewRepository.existsByUserId(USER_ID)).willReturn(false);
-        given(usageProperties.getReviewGiftChat()).willReturn(2);
-
-        ReviewSubmitResponse response =
-                reviewService.submit(USER_ID, STORY_ID, new ReviewSubmitRequest(5));
-
-        assertThat(response.chatBonus()).isEqualTo(2);
-        verify(reviewRepository).saveAndFlush(any(AssessmentReview.class));
-        verify(welcomeGiftService).grantReviewGift(USER_ID);
+    private AssessmentReview review(int score) {
+        return AssessmentReview.builder()
+                .userId(USER_ID).assessmentId(ASSESSMENT_ID).score(score).build();
     }
 
     @Test
-    @DisplayName("두 번째 평가부터는 저장은 하되 보상을 지급하지 않는다")
-    void submitSkipsRewardAfterFirst() {
+    @DisplayName("첫 점수 제출은 새 행으로 저장하고 보상은 없다")
+    void firstScoreSavesWithoutReward() {
         givenOwnedStoryWithAssessment();
         given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.empty());
-        given(reviewRepository.existsByUserId(USER_ID)).willReturn(true);
 
-        ReviewSubmitResponse response =
-                reviewService.submit(USER_ID, STORY_ID, new ReviewSubmitRequest(4));
+        reviewService.submitScore(USER_ID, STORY_ID, new ReviewSubmitRequest(5));
 
-        assertThat(response.chatBonus()).isZero();
         verify(reviewRepository).saveAndFlush(any(AssessmentReview.class));
         verifyNoInteractions(welcomeGiftService);
     }
 
     @Test
-    @DisplayName("이미 평가한 진단이면 거부하고 보상도 지급하지 않는다")
-    void submitRejectsDuplicate() {
+    @DisplayName("점수 재제출은 기존 행을 고친다(업서트)")
+    void scoreResubmitUpdatesExisting() {
         givenOwnedStoryWithAssessment();
-        AssessmentReview existing = AssessmentReview.builder()
-                .userId(USER_ID).assessmentId(ASSESSMENT_ID).score(4).build();
+        AssessmentReview existing = review(2);
         given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.of(existing));
 
-        Assertions.assertThatThrownBy(() ->
-                        reviewService.submit(USER_ID, STORY_ID, new ReviewSubmitRequest(3)))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_ALREADY_SUBMITTED);
-        verifyNoInteractions(welcomeGiftService);
-    }
+        reviewService.submitScore(USER_ID, STORY_ID, new ReviewSubmitRequest(4));
 
-    @Test
-    @DisplayName("동시 이중 제출로 유니크 제약에 걸려도 중복 응답으로 정리되고 보상은 없다")
-    void submitRejectsConcurrentDuplicate() {
-        givenOwnedStoryWithAssessment();
-        given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.empty());
-        given(reviewRepository.saveAndFlush(any(AssessmentReview.class)))
-                .willThrow(new DataIntegrityViolationException("uk_review_assessment"));
-
-        Assertions.assertThatThrownBy(() ->
-                        reviewService.submit(USER_ID, STORY_ID, new ReviewSubmitRequest(4)))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_ALREADY_SUBMITTED);
-        verifyNoInteractions(welcomeGiftService);
+        assertThat(existing.getScore()).isEqualTo(4);
+        verify(reviewRepository, never()).saveAndFlush(any());
     }
 
     @Test
     @DisplayName("점수 범위(1~5)를 벗어나면 거부한다")
-    void submitRejectsOutOfRangeScore() {
-        Assertions.assertThatThrownBy(() ->
-                        reviewService.submit(USER_ID, STORY_ID, new ReviewSubmitRequest(0)))
+    void scoreOutOfRangeRejected() {
+        assertThatThrownBy(() ->
+                reviewService.submitScore(USER_ID, STORY_ID, new ReviewSubmitRequest(0)))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
-        Assertions.assertThatThrownBy(() ->
-                        reviewService.submit(USER_ID, STORY_ID, new ReviewSubmitRequest(6)))
+        assertThatThrownBy(() ->
+                reviewService.submitScore(USER_ID, STORY_ID, new ReviewSubmitRequest(6)))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
         verifyNoInteractions(storyRepository, reviewRepository, welcomeGiftService);
     }
 
     @Test
-    @DisplayName("남의 사연에는 평가할 수 없다")
-    void submitRejectsForeignStory() {
+    @DisplayName("남의 사연에는 점수를 남길 수 없다")
+    void foreignStoryRejected() {
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, USER_ID))
                 .willReturn(Optional.empty());
 
-        Assertions.assertThatThrownBy(() ->
-                        reviewService.submit(USER_ID, STORY_ID, new ReviewSubmitRequest(3)))
+        assertThatThrownBy(() ->
+                reviewService.submitScore(USER_ID, STORY_ID, new ReviewSubmitRequest(3)))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.STORY_NOT_FOUND);
     }
 
     @Test
     @DisplayName("진단이 없는 사연이면 평가 대상이 없다고 알린다")
-    void submitRejectsWhenNoAssessment() {
+    void noAssessmentRejected() {
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, USER_ID))
                 .willReturn(Optional.of(mock(Story.class)));
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
                 .willReturn(Optional.empty());
 
-        Assertions.assertThatThrownBy(() ->
-                        reviewService.submit(USER_ID, STORY_ID, new ReviewSubmitRequest(3)))
+        assertThatThrownBy(() ->
+                reviewService.submitScore(USER_ID, STORY_ID, new ReviewSubmitRequest(3)))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_TARGET_NOT_FOUND);
     }
 
     @Test
-    @DisplayName("텍스트는 점수를 남긴 뒤에만 이어서 남길 수 있다")
-    void commentRequiresExistingReview() {
+    @DisplayName("첫 후기 완성 시에만 보상을 지급한다")
+    void firstCompletedCommentGrantsReward() {
+        givenOwnedStoryWithAssessment();
+        AssessmentReview existing = review(5);
+        given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.of(existing));
+        given(reviewRepository.existsByUserIdAndCommentIsNotNull(USER_ID)).willReturn(false);
+        given(usageProperties.getReviewGiftChat()).willReturn(2);
+
+        ReviewSubmitResponse response =
+                reviewService.addComment(USER_ID, STORY_ID, new ReviewCommentRequest(" 유형이 소름 "));
+
+        assertThat(response.chatBonus()).isEqualTo(2);
+        assertThat(existing.getComment()).isEqualTo("유형이 소름");
+        verify(welcomeGiftService).grantReviewGift(USER_ID);
+    }
+
+    @Test
+    @DisplayName("이미 보상을 받은 유저의 후기는 저장만 하고 지급하지 않는다")
+    void laterCommentSkipsReward() {
+        givenOwnedStoryWithAssessment();
+        AssessmentReview existing = review(4);
+        given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.of(existing));
+        given(reviewRepository.existsByUserIdAndCommentIsNotNull(USER_ID)).willReturn(true);
+
+        ReviewSubmitResponse response =
+                reviewService.addComment(USER_ID, STORY_ID, new ReviewCommentRequest("수정된 후기"));
+
+        assertThat(response.chatBonus()).isZero();
+        assertThat(existing.getComment()).isEqualTo("수정된 후기");
+        verifyNoInteractions(welcomeGiftService);
+    }
+
+    @Test
+    @DisplayName("후기는 점수를 남긴 뒤에만 붙는다")
+    void commentRequiresScore() {
         givenOwnedStoryWithAssessment();
         given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.empty());
 
-        Assertions.assertThatThrownBy(() ->
-                        reviewService.addComment(USER_ID, STORY_ID, new ReviewCommentRequest("내용")))
+        assertThatThrownBy(() ->
+                reviewService.addComment(USER_ID, STORY_ID, new ReviewCommentRequest("내용")))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_TARGET_NOT_FOUND);
+        verifyNoInteractions(welcomeGiftService);
     }
 
     @Test
-    @DisplayName("텍스트를 남기면 기존 평가에 붙는다")
-    void commentAttachesToReview() {
-        givenOwnedStoryWithAssessment();
-        AssessmentReview review = AssessmentReview.builder()
-                .userId(USER_ID).assessmentId(ASSESSMENT_ID).score(5).build();
-        given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.of(review));
-
-        reviewService.addComment(USER_ID, STORY_ID, new ReviewCommentRequest(" 유형 분석이 소름 "));
-
-        assertThat(review.getComment()).isEqualTo("유형 분석이 소름");
-    }
-
-    @Test
-    @DisplayName("빈 텍스트는 거부한다")
-    void commentRejectsBlank() {
-        Assertions.assertThatThrownBy(() ->
-                        reviewService.addComment(USER_ID, STORY_ID, new ReviewCommentRequest("  ")))
+    @DisplayName("빈 후기는 거부한다")
+    void blankCommentRejected() {
+        assertThatThrownBy(() ->
+                reviewService.addComment(USER_ID, STORY_ID, new ReviewCommentRequest("  ")))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
         verifyNoInteractions(storyRepository, reviewRepository);
     }
 
     @Test
-    @DisplayName("평가 여부 조회: 진단이 없으면 미평가, 평가가 있으면 점수와 보상 소진 여부까지 내린다")
-    void statusReflectsReview() {
-        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, USER_ID))
-                .willReturn(Optional.of(mock(Story.class)));
-        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
-                .willReturn(Optional.empty());
-        given(reviewRepository.existsByUserId(USER_ID)).willReturn(false);
-        assertThat(reviewService.status(USER_ID, STORY_ID))
-                .isEqualTo(new ReviewStatusResponse(false, null, true));
-
+    @DisplayName("상태 조회는 점수, 후기, 보상 가능 여부를 함께 내린다")
+    void statusCarriesScoreCommentAndReward() {
         givenOwnedStoryWithAssessment();
-        AssessmentReview review = AssessmentReview.builder()
-                .userId(USER_ID).assessmentId(ASSESSMENT_ID).score(4).build();
-        given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.of(review));
-        given(reviewRepository.existsByUserId(USER_ID)).willReturn(true);
+        AssessmentReview existing = review(4);
+        existing.updateComment("좋았어요");
+        given(reviewRepository.findByAssessmentId(ASSESSMENT_ID)).willReturn(Optional.of(existing));
+        given(reviewRepository.existsByUserIdAndCommentIsNotNull(USER_ID)).willReturn(true);
+
         assertThat(reviewService.status(USER_ID, STORY_ID))
-                .isEqualTo(new ReviewStatusResponse(true, 4, false));
+                .isEqualTo(new ReviewStatusResponse(true, 4, "좋았어요", false));
     }
 }

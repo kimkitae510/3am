@@ -8,6 +8,7 @@ public interface AssessmentReviewRepository extends JpaRepository<AssessmentRevi
 
     Optional<AssessmentReview> findByAssessmentId(Long assessmentId);
 
-    // 보상 지급 여부 판별 — 평가 이력이 하나라도 있으면 이미 받은 유저다.
-    boolean existsByUserId(Long userId);
+    // 보상 지급 여부 판별 — 보상 조건은 "후기까지 완성"이라, 후기 붙은 평가가 하나라도
+    // 있으면 이미 받은 유저다.
+    boolean existsByUserIdAndCommentIsNotNull(Long userId);
 }

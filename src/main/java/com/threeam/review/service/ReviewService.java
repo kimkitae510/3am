@@ -19,7 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 // 진단 평가. 평가 대상은 항상 "그 사연의 최신 진단"이다 — 화면이 보여주는 결과가 최신
 // 진단이므로, 진단 id를 클라이언트에 노출하지 않고 storyId만 받아 서버가 대상을 정한다.
-// 점수와 텍스트를 두 단계로 나눈 이유: 텍스트를 쓰다 이탈해도 점수(핵심 데이터)는 남는다.
+// 점수는 업서트(마음이 바뀌면 다시 누른다), 후기도 언제든 고칠 수 있다.
+// 보상은 후기까지 완성했을 때 유저당 1회 — 점수 원탭만으로 나가면 탭 5번이 대화 2회가 된다.
 @Service
 @RequiredArgsConstructor
 public class ReviewService {
@@ -35,46 +36,43 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public ReviewStatusResponse status(Long userId, Long storyId) {
         Long assessmentId = latestAssessmentId(userId, storyId);
-        boolean rewardAvailable = !reviewRepository.existsByUserId(userId);
+        boolean rewardAvailable = !reviewRepository.existsByUserIdAndCommentIsNotNull(userId);
         if (assessmentId == null) {
-            return new ReviewStatusResponse(false, null, rewardAvailable);
+            return new ReviewStatusResponse(false, null, null, rewardAvailable);
         }
         return reviewRepository.findByAssessmentId(assessmentId)
-                .map(r -> new ReviewStatusResponse(true, r.getScore(), rewardAvailable))
-                .orElseGet(() -> new ReviewStatusResponse(false, null, rewardAvailable));
+                .map(r -> new ReviewStatusResponse(true, r.getScore(), r.getComment(), rewardAvailable))
+                .orElseGet(() -> new ReviewStatusResponse(false, null, null, rewardAvailable));
     }
 
     @Transactional
-    public ReviewSubmitResponse submit(Long userId, Long storyId, ReviewSubmitRequest request) {
+    public void submitScore(Long userId, Long storyId, ReviewSubmitRequest request) {
         if (request.score() < 1 || request.score() > 5) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         Long assessmentId = requireLatestAssessmentId(userId, storyId);
-        if (reviewRepository.findByAssessmentId(assessmentId).isPresent()) {
-            throw new BusinessException(ErrorCode.REVIEW_ALREADY_SUBMITTED);
+        AssessmentReview existing = reviewRepository.findByAssessmentId(assessmentId).orElse(null);
+        if (existing != null) {
+            existing.updateScore(request.score());
+            return;
         }
-        // 보상은 유저당 1회 — 저장 전에 판별한다(저장 후엔 방금 저장분이 이력으로 잡힌다).
-        boolean firstReview = !reviewRepository.existsByUserId(userId);
         try {
-            // 동시 이중 제출은 사전 조회를 둘 다 통과할 수 있다 — 유니크 제약이 최종 방어선이고,
-            // 여기서 flush해 지급 전에 걸러낸다(보상이 나간 뒤 롤백되는 것보다 명확하다).
             reviewRepository.saveAndFlush(AssessmentReview.builder()
                     .userId(userId)
                     .assessmentId(assessmentId)
                     .score(request.score())
                     .build());
         } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.REVIEW_ALREADY_SUBMITTED);
+            // 동시 이중 탭의 경합 — 진 쪽이다. 승자가 방금 같은 점수를 넣었을 확률이 높고,
+            // flush 실패로 트랜잭션이 롤백 전용이라 여기서 더 쓸 수도 없다. 그냥 성공으로
+            // 돌려보낸다 — 다르게 고치고 싶으면 다시 누르는 순간 업서트 경로로 반영된다.
         }
-        if (!firstReview) {
-            return new ReviewSubmitResponse(0);
-        }
-        welcomeGiftService.grantReviewGift(userId);
-        return new ReviewSubmitResponse(usageProperties.getReviewGiftChat());
     }
 
+    // 후기(텍스트). 점수를 남긴 진단에만 붙는다. 보상은 "후기까지 완성한 첫 번째" 한 번뿐 —
+    // 판별은 갱신 전에 해야 이번에 붙이는 후기가 자기 자신을 이력으로 잡지 않는다.
     @Transactional
-    public void addComment(Long userId, Long storyId, ReviewCommentRequest request) {
+    public ReviewSubmitResponse addComment(Long userId, Long storyId, ReviewCommentRequest request) {
         String comment = request.comment() == null ? "" : request.comment().trim();
         if (comment.isEmpty() || comment.length() > COMMENT_MAX) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -82,7 +80,13 @@ public class ReviewService {
         Long assessmentId = requireLatestAssessmentId(userId, storyId);
         AssessmentReview review = reviewRepository.findByAssessmentId(assessmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_TARGET_NOT_FOUND));
+        boolean firstCompleted = !reviewRepository.existsByUserIdAndCommentIsNotNull(userId);
         review.updateComment(comment);
+        if (!firstCompleted) {
+            return new ReviewSubmitResponse(0);
+        }
+        welcomeGiftService.grantReviewGift(userId);
+        return new ReviewSubmitResponse(usageProperties.getReviewGiftChat());
     }
 
     // 사연 소유 검증을 겸한다 — 남의 storyId로는 최신 진단 id 자체를 알 수 없다.
