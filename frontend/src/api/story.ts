@@ -69,8 +69,15 @@ export async function retryLastReply(storyId: number): Promise<{ pollAfterId: nu
 }
 
 // 진단 화면의 "사실 직접 알려주기" — 채팅 없이 사실 원장에 한 줄 쌓고 재진단 가드를 통과시킨다.
-export async function addStoryFact(storyId: number, content: string): Promise<void> {
-  await api.post(`/api/stories/${storyId}/facts`, { content });
+// 반환된 id로 취소/수정을 건다.
+export async function addStoryFact(storyId: number, content: string): Promise<number> {
+  const { data } = await api.post<{ id: number }>(`/api/stories/${storyId}/facts`, { content });
+  return data.id;
+}
+
+// 직접 적은 사실의 취소. 유저가 입력한 줄만 지워진다(추출된 사실은 대상이 아님).
+export async function deleteStoryFact(storyId: number, factId: number): Promise<void> {
+  await api.delete(`/api/stories/${storyId}/facts/${factId}`);
 }
 
 // afterId 이후 새로 생긴 메시지(주로 어시스턴트 답)를 시간순으로.
