@@ -174,11 +174,15 @@ public class MessageTxService {
         // 대화 뒤(안 묻히는 자리)에 싣는다. 단 첫 답변 턴에만이다: 매 턴 실었더니 "질문은 꼭
         // 해라"는 압박이 매 턴 재점화돼, 물을 게 없는 턴에도 차단 여부나 다짐 확인 같은 질문을
         // 짜냈다(실측). 이후 턴의 질문 규칙은 페르소나 본문이 맡는다.
-        if (isFirstAnswer(recent)) {
-            String questionReminder = personaProperties.getQuestionReminder();
-            if (questionReminder != null && !questionReminder.isBlank()) {
-                prompt.add(ChatMessage.system(questionReminder));
+        int answerNo = answerNo(recent);
+        for (String section : personaProperties.sectionsFor(answerNo)) {
+            if (section != null && !section.isBlank()) {
+                prompt.add(ChatMessage.system(section));
             }
+        }
+        String turnGuide = personaProperties.turnGuide(answerNo);
+        if (turnGuide != null && !turnGuide.isBlank()) {
+            prompt.add(ChatMessage.system(turnGuide));
         }
         // 출력 직전 점검은 반드시 대화 뒤, 프롬프트의 맨 끝이다 — 앞에 두면 리마인더와 같은
         // 자리가 되어 같은 이유로 묻힌다. 여기가 마지막으로 읽히는 지시라는 게 이 블록의 전부다.
@@ -229,8 +233,10 @@ public class MessageTxService {
         };
     }
 
-    private boolean isFirstAnswer(List<Message> recent) {
-        return recent.stream().noneMatch(message -> message.getRole() != MessageRole.USER);
+    // 지금 만들 답이 몇 번째인지(1부터). 이미 붙은 상담자 답의 수 + 1이다.
+    // 첫 화면 인사 말풍선은 저장되지 않으므로 세지 않는다.
+    private int answerNo(List<Message> recent) {
+        return (int) recent.stream().filter(message -> message.getRole() != MessageRole.USER).count() + 1;
     }
 
 
