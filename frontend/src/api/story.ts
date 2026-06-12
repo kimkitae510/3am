@@ -33,6 +33,8 @@ export interface MessageResponse {
   // 답을 못 받아 폴백이 저장된 턴. 화면은 이 값으로 재시도 버튼을 띄운다
   // (폴백 문구를 프론트가 복사해 비교하면 문구를 고칠 때마다 두 곳이 어긋난다)
   failed: boolean;
+  // 말풍선 대신 입력 카드로 그릴 질문들. 서버가 본문에서 떼어 보낸다.
+  questions: string[];
 }
 
 export interface MessagePageResponse {
