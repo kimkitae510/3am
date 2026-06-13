@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { BusinessInfo } from '../components/BusinessInfo';
 import {
@@ -15,6 +15,7 @@ import {
 import { getUsage, type UsageStatusResponse } from '../api/usage';
 import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
+import { paymentOrigin } from '../utils/paymentOrigin';
 import styles from './PaymentPage.module.css';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -28,7 +29,7 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELED: '환불 완료',
 };
 
-const KIND_LABEL: Record<string, string> = { CHAT: '대화', ASSESSMENT: '진단' };
+const KIND_LABEL: Record<string, string> = { CHAT: '대화', ASSESSMENT: '분석' };
 
 // 토스 SDK는 외부 스크립트라 필요할 때(실결제 모드) 한 번만 끼워 넣는다.
 function loadTossSdk(): Promise<any> {
@@ -71,6 +72,7 @@ function customerKey(): string {
 
 export function PaymentPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [config, setConfig] = useState<PaymentConfig | null>(null);
   const [usage, setUsage] = useState<UsageStatusResponse | null>(null);
   const [payments, setPayments] = useState<PaymentResponse[]>([]);
@@ -283,11 +285,22 @@ export function PaymentPage() {
     return p.grants.map((g) => `${KIND_LABEL[g.kind] ?? g.kind} ${g.count}회`).join(' + ');
   }
 
+  // 이용권은 대화방, 분석, 서랍 등 여러 자리에서 들어온다. '/stories'로 돌려보내면 통로가
+  // 가장 최근 방을 열어, 들어온 방과 다른 방에 떨어진다. 온 길 그대로 되짚는다.
+  // 히스토리가 없는 첫 화면(새로고침, 링크 직접 진입)이면 적어둔 출발 자리로 보낸다.
+  function goBack() {
+    if (location.key === 'default') {
+      navigate(paymentOrigin());
+      return;
+    }
+    navigate(-1);
+  }
+
   return (
     <PhoneFrame>
       <div className={styles.wrap}>
         <div className={styles.topbar}>
-          <button className={styles.backButton} onClick={() => navigate('/stories')} aria-label="뒤로">
+          <button className={styles.backButton} onClick={goBack} aria-label="뒤로">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <path d="M15 5l-7 7 7 7" stroke="#ebebee" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -328,7 +341,7 @@ export function PaymentPage() {
                   <span className={styles.balanceValue}>{usage.chatRemaining}회 남음</span>
                 </div>
                 <div className={styles.balanceRow}>
-                  <span className={styles.balanceKey}>진단</span>
+                  <span className={styles.balanceKey}>분석</span>
                   <span className={styles.balanceValue}>{usage.assessmentRemaining}회 남음</span>
                 </div>
                 <div className={styles.balanceHint}>충전한 횟수는 기간 제한 없이 남아 있습니다.</div>

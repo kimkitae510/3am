@@ -24,9 +24,9 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-// 한 시점의 재회 진단 결과. 사연(storyId)별로 쌓여 시간에 따른 확률 변화 히스토리가 된다.
+// 한 시점의 분석 리포트 결과. 사연(storyId)별로 쌓여 시간에 따른 확률 변화 히스토리가 된다.
 // v2: 자유 감점(deductions) 대신 유형(1층) + 고정 요인 판정(2층)을 남긴다 —
-// 확률은 TypeBandScorer가 이 둘로 계산하므로, 제안 번복(retract-offer) 때 재진단 없이 재현된다.
+// 확률은 TypeBandScorer가 이 둘로 계산하므로, 제안 번복(retract-offer) 때 재분석 없이 재현된다.
 @Entity
 @Table(name = "assessments")
 @Getter
@@ -75,7 +75,7 @@ public class Assessment {
     private JumpRule jumpRule;
 
     // 이 대화에서 상담자가 재회 가능성을 어느 쪽으로 말했는지. 화면에는 안 나가고,
-    // 진단 확률과 대조해 두 판정이 어긋난 사연을 찾는 데만 쓴다.
+    // 분석 확률과 대조해 두 판정이 어긋난 사연을 찾는 데만 쓴다.
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(length = 10)

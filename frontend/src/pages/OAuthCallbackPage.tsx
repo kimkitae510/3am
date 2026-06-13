@@ -24,23 +24,23 @@ export function OAuthCallbackPage() {
     started.current = true;
 
     if (provider !== 'kakao' && provider !== 'naver') {
-      setError('지원하지 않는 로그인 방식이에요.');
+      setError('지원하지 않는 로그인 방식입니다.');
       return;
     }
     const denied = searchParams.get('error');
     if (denied) {
-      setError('로그인이 취소됐어요.');
+      setError('로그인이 취소되었습니다.');
       return;
     }
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const stored = consumeStoredState();
     if (!code) {
-      setError('인가 코드를 받지 못했어요. 다시 시도해 주세요.');
+      setError('인가 코드를 받지 못했습니다. 다시 시도해 주세요.');
       return;
     }
     if (stored.state && state !== stored.state) {
-      setError('요청 확인에 실패했어요. 다시 시도해 주세요.');
+      setError('요청을 확인하지 못했습니다. 다시 시도해 주세요.');
       return;
     }
 
@@ -60,7 +60,7 @@ export function OAuthCallbackPage() {
         }
         navigate('/stories', { replace: true });
       })
-      .catch((err) => setError(extractErrorMessage(err, '소셜 로그인에 실패했어요.')));
+      .catch((err) => setError(extractErrorMessage(err, '소셜 로그인에 실패했습니다.')));
   }, [provider, searchParams, navigate]);
 
   async function handleConfirmSwitch() {
@@ -71,7 +71,7 @@ export function OAuthCallbackPage() {
       navigate('/stories', { replace: true });
     } catch (err) {
       setSwitchTicket(null);
-      setError(extractErrorMessage(err, '계정 전환에 실패했어요. 다시 시도해 주세요.'));
+      setError(extractErrorMessage(err, '계정을 전환하지 못했습니다. 다시 시도해 주세요.'));
     } finally {
       setSwitching(false);
     }
@@ -79,12 +79,11 @@ export function OAuthCallbackPage() {
 
   return (
     <PhoneFrame>
-      <div className={styles.landBg} />
-      <div className={`${styles.body} ${styles.aboveSky}`}>
+      <div className={styles.body}>
         <div className={styles.brand}>
-          <div className={styles.title}>새벽 세시</div>
+          <div className={styles.title}>3am</div>
           <div className={styles.subtitle}>
-            {error ? '로그인에 문제가 생겼어요.' : switchTicket ? '확인이 필요해요.' : '로그인하는 중이에요…'}
+            {error ? '로그인에 문제가 생겼습니다.' : switchTicket ? '확인이 필요합니다.' : '로그인하는 중입니다…'}
           </div>
         </div>
         <div className={styles.spacer} />
@@ -97,8 +96,8 @@ export function OAuthCallbackPage() {
 
         {switchTicket && (
           <SwitchConfirmSheet
-            title="이미 가입된 계정이 있어요"
-            message="이 소셜 계정은 이미 3am 회원이에요. 이 계정으로 로그인하면 지금까지 게스트로 나눈 대화는 가져올 수 없어요."
+            title="이미 가입된 계정입니다"
+            message="이 소셜 계정은 이미 3am 회원입니다. 이 계정으로 로그인하면 지금까지 게스트로 나눈 대화는 가져올 수 없습니다."
             confirmLabel="게스트 대화 포기하고 로그인"
             submitting={switching}
             onConfirm={() => void handleConfirmSwitch()}

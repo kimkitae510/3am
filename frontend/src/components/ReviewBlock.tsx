@@ -21,7 +21,7 @@ function commentAsk(score: number): { label: string; placeholder: string } {
 
 const COMMENT_MAX = 300;
 
-// 진단 결과 하단의 평가 블록. 점수는 원탭 업서트(다시 누르면 바뀜), 후기도 언제든 수정.
+// 분석 결과 하단의 평가 블록. 점수는 원탭 업서트(다시 누르면 바뀜), 후기도 언제든 수정.
 // 보상(+2)은 후기까지 완성한 첫 번째 한 번뿐이라, 문구도 지급 가능할 때만 띄운다.
 export function ReviewBlock({
   storyId,
@@ -29,7 +29,7 @@ export function ReviewBlock({
   onRewarded,
 }: {
   storyId: number;
-  resultKey: string; // 진단 시각 — 새 진단이 오면 평가 상태를 다시 읽는다
+  resultKey: string; // 분석 시각 — 새 분석이 오면 평가 상태를 다시 읽는다
   onRewarded?: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
@@ -107,9 +107,9 @@ export function ReviewBlock({
   const ask = score != null ? commentAsk(score) : null;
   return (
     <>
-      <div className={styles.head}>진단 평가</div>
+      <div className={styles.head}>분석 평가</div>
       <div className={styles.card}>
-        <div className={styles.title}>이번 진단, 내 상황을 얼마나 제대로 짚었나요?</div>
+        <div className={styles.title}>이번 분석, 내 상황을 얼마나 제대로 짚었나요?</div>
         {/* 보상은 후기 완성 시 유저당 1회 — 이미 받은 유저에게 띄우면 지급 없는 약속이 된다 */}
         {rewardAvailable && <div className={styles.sub}>후기까지 남기면 대화 2회를 드려요</div>}
         <div className={styles.scale}>

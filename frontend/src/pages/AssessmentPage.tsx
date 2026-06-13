@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { HelpModal } from '../components/HelpModal';
+import { ReviewBlock } from '../components/ReviewBlock';
 import {
   confirmBreakup,
   getAssessments,
@@ -11,11 +12,14 @@ import {
   type FactorView,
 } from '../api/assessment';
 import { getUsage } from '../api/usage';
-import { addStoryFact } from '../api/story';
+import { addStoryFact, deleteStoryFact } from '../api/story';
 import { getSimilarCases, type SimilarCases } from '../api/match';
+import { createShare } from '../api/share';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
+import { useGoPayment } from '../utils/paymentOrigin';
 import { GAUGE_MAX, bandLabel } from '../utils/assessmentScale';
+import { FACTOR_LABEL, JUMP_CARD, STAGE_LEVEL, TYPE_CHIP, TYPE_READING } from '../utils/assessmentView';
 import styles from './AssessmentPage.module.css';
 
 // 수치 계산 방식(범위, 단계 기준)은 화면에 공개하지 않는다 — "왜 80이 최대냐" 같은 질문만 만든다.
@@ -36,6 +40,19 @@ function formatMonths(m: number): string {
   return r === 0 ? `${y}년` : `${y}년 ${r}개월`;
 }
 
+// 답변 칸 상한. 원장 한 줄이 200자인데 질문을 앞에 붙여 저장하므로, 남는 47자 안에서
+// 질문을 줄인다 — 상한이 질문마다 달라지면 유저가 읽을 수 없는 숫자가 된다.
+const ANSWER_MAX = 150;
+
+// 원장에 남길 한 줄. 답은 그대로 두고 넘치는 몫은 질문에서 던다 — 잘려야 할 쪽은
+// 유저가 쓴 말이 아니라 우리가 붙인 꼬리표다.
+function factLine(ask: string, answer: string): string {
+  const room = 200 - answer.length - 3;
+  if (room < 8) return answer;
+  const label = ask.length > room ? `${ask.slice(0, room - 1)}…` : ask;
+  return `${label} — ${answer}`;
+}
+
 // 요인별로 유저에게 물을 문구 — 부족 정보 안내에 쓴다.
 const FACTOR_ASK: Record<string, string> = {
   상대신호: '이별 후 상대의 반응(연락, 차단, SNS)',
@@ -47,7 +64,7 @@ const FACTOR_ASK: Record<string, string> = {
   접점: '다시 만날 접점이 있는지(약속, 같은 소속, 공통 지인)',
 };
 
-/* 로딩/진단 중 점 애니메이션 — 일러스트(달) 대신 쓰는 유일한 장식 */
+/* 로딩/분석 중 점 애니메이션 — 일러스트(달) 대신 쓰는 유일한 장식 */
 function Dots() {
   return (
     <span className={styles.stateDots} aria-hidden="true">
@@ -87,7 +104,7 @@ function BackBar({ onBack, onHelp }: { onBack: () => void; onHelp?: () => void }
           <path d="M15 5l-7 7 7 7" stroke="#ebebee" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      <div className={styles.topTitle}>진단</div>
+      <div className={styles.topTitle}>분석</div>
       {onHelp && (
         <button className={styles.helpButton} onClick={onHelp} aria-label="도움말">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -100,7 +117,7 @@ function BackBar({ onBack, onHelp }: { onBack: () => void; onHelp?: () => void }
   );
 }
 
-// 진행 중인 진단 호출을 컴포넌트 밖(모듈)에 붙잡아 둔다 — 라우팅으로 나갔다 와도 컴포넌트만
+// 진행 중인 분석 호출을 컴포넌트 밖(모듈)에 붙잡아 둔다 — 라우팅으로 나갔다 와도 컴포넌트만
 // 죽지 요청은 살아 있으므로, 재입장 시 같은 호출에 다시 붙어 스피너가 이어지고 결과도 받는다.
 // 중복 실행(쿼터 이중 차감)도 여기서 막힌다: 돌고 있으면 새 POST를 만들지 않는다.
 // 새로고침으로 모듈까지 날아간 판은 백엔드 인플라이트 잠금이 이중 실행을 거른다.
@@ -132,46 +149,83 @@ export function AssessmentPage() {
   const { storyId: storyIdParam } = useParams();
   const storyId = Number(storyIdParam);
   const navigate = useNavigate();
+  const goPayment = useGoPayment();
 
   const [result, setResult] = useState<AssessmentResponse | null>(null);
-  // 직전 진단의 확률 — 게이지 옆 "지난 진단보다 ±N" 표시용. 번복(잠금 해제, 제안 철회) 뒤에는
+  // 직전 분석의 확률 — 게이지 옆 "지난 분석보다 ±N" 표시용. 번복(잠금 해제, 제안 철회) 뒤에는
   // 비교 기준이 흐려져서 null로 지운다(엉뚱한 증감이 뜨는 것보다 안 뜨는 게 낫다).
   const [prevProb, setPrevProb] = useState<number | null>(null);
   const [loading, setLoading] = useState(true); // 진입 시 저장된 기록 조회(공짜 GET)
-  const [diagnosing, setDiagnosing] = useState(false); // 새 진단(LLM 호출, 쿼터 차감) 실행 중
+  const [diagnosing, setDiagnosing] = useState(false); // 새 분석(LLM 호출, 쿼터 차감) 실행 중
   const [error, setError] = useState('');
   // "이야기가 부족해요" 안내 — 에러 배너와 달리 스스로 사라지지 않는다.
   // 무엇을 더 말해야 하는지가 담겨 있어서, 유저가 읽고 뒤로가기로 나갈 때까지 떠 있어야 한다.
   const [notice, setNotice] = useState('');
-  const [remaining, setRemaining] = useState<number | null>(null); // 남은 진단 횟수(이용권)
-  const [isGuest, setIsGuest] = useState(false); // 게스트는 진단 잠금 — 계정 연결 유도
-  // 대화가 한 줄도 없는 방에서 진단을 누른 경우(AS001). 실패가 아니라 순서가 뒤바뀐 것이라
+  const [remaining, setRemaining] = useState<number | null>(null); // 남은 분석 횟수(이용권)
+  const [isGuest, setIsGuest] = useState(false); // 게스트는 분석 잠금 — 계정 연결 유도
+  // 대화가 한 줄도 없는 방에서 분석을 누른 경우(AS001). 실패가 아니라 순서가 뒤바뀐 것이라
   // 에러 배너 대신 "먼저 대화하기" 안내 화면으로 갈아탄다.
   const [noMessages, setNoMessages] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  // 비슷한 사례. 진단이 뽑아둔 분류로 찾으므로 LLM 호출도 차감도 없다 — 실패해도 조용히 접는다.
+  // 비슷한 사례. 분석이 뽑아둔 분류로 찾으므로 LLM 호출도 차감도 없다 — 실패해도 조용히 접는다.
   const [similar, setSimilar] = useState<SimilarCases | null>(null);
   // 본문이 길어 기본은 접어두고, 펼친 것만 전문을 보여준다.
   const [openCase, setOpenCase] = useState<number | null>(null);
-  // 사실 직접 입력 폼 — 채팅으로 말하기 애매한 사실을 원장에 바로 보태는 통로.
+  // 질문에 답하는 칸의 입력값. 펼친 질문 하나만 쓰므로 상태도 하나면 된다.
   const [factInput, setFactInput] = useState('');
   const [factSaving, setFactSaving] = useState(false);
-  const [factNotice, setFactNotice] = useState('');
+  // 펼쳐 둔 질문. 한 번에 하나만 연다 — 여러 칸이 동시에 열려 있으면 어디에 쓰는 중인지
+  // 흐려지고, 세 질문의 답을 한 칸에 몰아 쓰던 예전 문제로 되돌아간다.
+  const [openAsk, setOpenAsk] = useState<number | null>(null);
+  // 이번 분석에서 답을 남긴 질문(질문 순번 → 답과 원장 줄 id). 분석이 새로 나오면 목록도
+  // 새로 오므로 함께 비운다. id를 들고 있어야 지우기와 수정(교체)이 된다.
+  const [answers, setAnswers] = useState<Record<number, { content: string; factId: number }>>({});
   const [confirming, setConfirming] = useState(false); // 헤어짐 확인 API 진행 중
   const [retracting, setRetracting] = useState(false); // 제안 번복 API 진행 중
-  // 진단 생성이 실패했을 때 뜨는 재시도 패널. 스스로 사라지는 에러 배너와 달리, 유저가 누를
-  // 때까지 남는다 — "다시 진단을 눌러 주세요"라고 시키는 대신 누를 것을 화면에 둔다.
+  const [copied, setCopied] = useState(false); // 공유 시트가 없어 클립보드로 복사된 판의 피드백
+  const [sharing, setSharing] = useState(false); // 공유 토큰 발급 중(연타 방지)
+  // 분석 생성이 실패했을 때 뜨는 재시도 패널. 스스로 사라지는 에러 배너와 달리, 유저가 누를
+  // 때까지 남는다 — "다시 분석을 눌러 주세요"라고 시키는 대신 누를 것을 화면에 둔다.
   const [retryable, setRetryable] = useState(false);
   // 연속 실패 쿨다운의 남은 초(서버가 내려준 값에서 시작). 0이면 즉시 재시도 가능.
   const [cooldown, setCooldown] = useState(0);
   const aliveRef = useRef(true);
 
-  // 에러 배너(쿼터 소진, 재진단 거부 등)가 화면에 계속 남지 않게 잠시 뒤 스스로 사라진다.
+  // 에러 배너(쿼터 소진, 재분석 거부 등)가 화면에 계속 남지 않게 잠시 뒤 스스로 사라진다.
   useEffect(() => {
     if (!error) return;
     const timer = window.setTimeout(() => aliveRef.current && setError(''), 6000);
     return () => clearTimeout(timer);
   }, [error]);
+
+  // 답변 완료 표시는 분석(createdAt)별로 localStorage에 남긴다 — 답 자체는 저장 즉시 서버
+  // 원장에 들어가지만, 어느 질문에 답했는지는 화면 상태라 나갔다 오면 사라졌다(실측).
+  // 질문 목록이 분석 결과에 붙어 오므로 같은 분석이면 순번도 같다 — 순번을 키로 쓸 수 있다.
+  // 새 분석이 오면 키가 바뀌어 표시도 자연히 리셋된다(지난 질문의 완료 표시가 남으면
+  // 엉뚱한 질문이 답변 완료로 보인다).
+  const answersKey = (r: AssessmentResponse | null) =>
+    `askAnswers:${storyId}:${r?.createdAt ?? ''}`;
+
+  useEffect(() => {
+    const saved: Record<number, { content: string; factId: number }> = {};
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem(answersKey(result)) ?? '{}');
+      if (parsed && typeof parsed === 'object') {
+        for (const [k, v] of Object.entries(parsed)) {
+          // 옛 포맷(문자열만 저장)은 버린다 — factId가 없으면 지우기/수정을 걸 수 없다
+          if (v && typeof v === 'object' && typeof (v as { factId?: unknown }).factId === 'number') {
+            saved[Number(k)] = v as { content: string; factId: number };
+          }
+        }
+      }
+    } catch {
+      // 깨진 저장값은 없는 셈 친다
+    }
+    setAnswers(saved);
+    setOpenAsk(null);
+    setFactInput('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
 
   // 쿨다운 카운트다운. 매 초 setTimeout을 새로 거는 방식이라 interval이 어긋나 쌓이지 않고,
   // 0이 되면 재시도 버튼이 새로고침 없이 스스로 살아난다.
@@ -181,15 +235,26 @@ export function AssessmentPage() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  async function handleAddFact() {
+  // 질문 하나에 답을 남긴다. 질문을 함께 저장하는 이유는 "없어요" 같은 답만 원장에 들어가면
+  // 무엇에 대한 답인지 잃기 때문 — 다음 분석이 그 줄만 보고도 뜻을 알아야 한다.
+  async function handleAnswer(index: number, ask: string) {
     const content = factInput.trim();
     if (!content || factSaving) return;
     setFactSaving(true);
     try {
-      await addStoryFact(storyId, content);
+      // 수정이면 이전 줄부터 지운다 — 옛 답과 새 답이 원장에 겹쳐 쌓이면 다음 분석이 둘 다 읽는다.
+      // 이전 줄 삭제 실패(이미 지워짐 등)는 삼킨다 — 새 답을 남기는 게 본론이다.
+      const before = answers[index];
+      if (before) await deleteStoryFact(storyId, before.factId).catch(() => {});
+      const factId = await addStoryFact(storyId, factLine(ask, content));
       if (aliveRef.current) {
+        setAnswers((prev) => {
+          const next = { ...prev, [index]: { content, factId } };
+          localStorage.setItem(answersKey(result), JSON.stringify(next));
+          return next;
+        });
         setFactInput('');
-        setFactNotice('기록했습니다. 다시 진단하면 반영됩니다.');
+        setOpenAsk(null);
       }
     } catch (e) {
       if (aliveRef.current) {
@@ -203,15 +268,15 @@ export function AssessmentPage() {
   async function handleConfirmBreakup() {
     setConfirming(true);
     try {
-      // 서버가 오판이던 잠금 판정을 지우고 직전 확률 진단을 돌려준다 — 화면이 즉시 복귀한다.
+      // 서버가 오판이던 잠금 판정을 지우고 직전 확률 분석을 돌려준다 — 화면이 즉시 복귀한다.
       const res = await confirmBreakup(storyId);
       if (aliveRef.current) {
         setResult(res);
         setPrevProb(null);
-        // 직전 확률 진단이 없으면(첫 진단부터 잠금) 빈 화면이 되는데, 맨 안내("기록이 없어요")로
+        // 직전 확률 분석이 없으면(첫 분석부터 잠금) 빈 화면이 되는데, 맨 안내("기록이 없어요")로
         // 두면 번복이 무시된 것처럼 읽힌다 — 확인이 반영됐고 다음이 뭔지 말해준다.
         if (!res) {
-          setNotice('헤어진 상태로 변경했습니다. 아래 진단 받기를 누르면 재회 가능성을 진단합니다.');
+          setNotice('헤어진 상태로 변경했습니다. 아래 분석 받기를 누르면 재회 가능성을 분석합니다.');
         }
         refreshUsage();
       }
@@ -248,12 +313,37 @@ export function AssessmentPage() {
       .catch(() => {});
   }
 
-  // 새 진단은 버튼으로만 실행한다 — 페이지 진입만으로 일일 쿼터가 닳지 않게.
+  // 결과 공유 — 공유 토큰을 받아 공개 결과 페이지 링크를 OS 공유 시트에 올린다. 카톡에
+  // 붙이면 /s/{token}의 OG 태그가 미리보기 카드를 만들고, 받은 사람은 읽기 전용 결과
+  // 화면으로 들어온다. 링크는 분석 1건에 1개(스냅샷)라 재공유는 같은 링크를 재사용하고,
+  // 재분석 후 공유하면 새 링크가 나온다. 시트가 없는 데스크톱은 "요약 + 링크"를 클립보드에
+  // 복사한다. 시트에서 취소하면 AbortError가 나는데 실패가 아니라 조용히 삼킨다.
+  async function handleShare() {
+    if (sharing || result?.probability == null) return;
+    setSharing(true);
+    try {
+      const { token } = await createShare(storyId);
+      const url = `${window.location.origin}/s/${token}`;
+      const text = `재회 가능성 ${result.probability}% (${bandLabel(result.probability)}) — 새벽 세시 분석 리포트`;
+      if (navigator.share) {
+        await navigator.share({ title: '새벽 세시', text, url });
+      } else {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        setCopied(true);
+        window.setTimeout(() => aliveRef.current && setCopied(false), 2000);
+      }
+    } catch {
+      // 공유 취소 또는 토큰 발급 실패 — 결과 화면에 에러를 띄울 일이 아니다
+    } finally {
+      if (aliveRef.current) setSharing(false);
+    }
+  }
+
+  // 새 분석은 버튼으로만 실행한다 — 페이지 진입만으로 일일 쿼터가 닳지 않게.
   async function diagnose() {
     setDiagnosing(true);
     setError('');
     setNoMessages(false); // 대화를 나누고 돌아왔을 수 있다 — 매 시도마다 다시 판단한다
-    setFactNotice(''); // 직접 입력분이 이번 진단에 들어가므로 "다시 진단하면"의 볼일이 끝났다
     try {
       const res = await startOrJoinRun(storyId);
       if (aliveRef.current) {
@@ -279,7 +369,7 @@ export function AssessmentPage() {
           // 새 결과로 갈아끼우기 전, 화면에 있던 확률이 이번 결과의 비교 기준이 된다.
           setPrevProb(result?.probability ?? null);
           setResult(res);
-          // 이번 진단이 분류를 새로 뽑았을 수 있으니 사례도 다시 찾는다.
+          // 이번 분석이 분류를 새로 뽑았을 수 있으니 사례도 다시 찾는다.
           refreshSimilar();
         }
         refreshUsage(); // 후차감이라 성공 시점에 갱신
@@ -295,13 +385,13 @@ export function AssessmentPage() {
           setRetryable(true);
           setCooldown(0);
         } else if (code === 'AS001') {
-          // 진단할 대화가 없음 — 유저가 뭘 잘못한 게 아니라 아직 할 차례가 아닌 것이다
+          // 분석할 대화가 없음 — 유저가 뭘 잘못한 게 아니라 아직 할 차례가 아닌 것이다
           setNoMessages(true);
         } else {
           setError(
             code === 'Q001'
-              ? '진단 횟수를 모두 사용했습니다. 아래 충전하기로 이어갈 수 있습니다.'
-              : extractErrorMessage(e, '진단에 실패했습니다. 잠시 후 다시 시도해 주세요.'),
+              ? '분석 횟수를 모두 사용했습니다. 아래 충전하기로 이어갈 수 있습니다.'
+              : extractErrorMessage(e, '분석에 실패했습니다. 잠시 후 다시 시도해 주세요.'),
           );
         }
       }
@@ -310,8 +400,8 @@ export function AssessmentPage() {
     }
   }
 
-  // 사례 조회는 조회 한 번이라 진단과 달리 자유롭게 부른다. 실패는 삼킨다 —
-  // 부속 정보라 못 불러왔다고 진단 화면에 에러를 띄울 일이 아니다.
+  // 사례 조회는 조회 한 번이라 분석과 달리 자유롭게 부른다. 실패는 삼킨다 —
+  // 부속 정보라 못 불러왔다고 분석 화면에 에러를 띄울 일이 아니다.
   function refreshSimilar() {
     getSimilarCases(storyId)
       .then((res) => aliveRef.current && setSimilar(res))
@@ -322,20 +412,20 @@ export function AssessmentPage() {
     aliveRef.current = true;
     refreshUsage();
     refreshSimilar();
-    // 나갔다 온 사이에도 진단이 돌고 있으면 그 호출에 다시 붙는다 — 새 POST 없이
+    // 나갔다 온 사이에도 분석이 돌고 있으면 그 호출에 다시 붙는다 — 새 POST 없이
     // 진행 중 표시가 복원되고, 끝나는 순간 결과가 그대로 이 화면에 실린다.
     if (inflightRun && inflightRun.storyId === storyId) {
       diagnose();
     }
-    // 진입 시엔 저장된 최신 진단만 보여준다. LLM 호출 없음.
+    // 진입 시엔 저장된 최신 분석만 보여준다. LLM 호출 없음.
     getAssessments(storyId)
       .then((all) => {
         if (!aliveRef.current) return;
         setResult(all[0] ?? null);
-        // 비교 기준은 "직전의 확률 있는 진단" — 사이에 낀 잠금 판정(DATING 등)은 건너뛴다.
+        // 비교 기준은 "직전의 확률 있는 분석" — 사이에 낀 잠금 판정(DATING 등)은 건너뛴다.
         setPrevProb(all.slice(1).find((a) => a.probability != null)?.probability ?? null);
       })
-      .catch((e) => aliveRef.current && setError(extractErrorMessage(e, '진단 기록을 불러오지 못했습니다.')))
+      .catch((e) => aliveRef.current && setError(extractErrorMessage(e, '분석 기록을 불러오지 못했습니다.')))
       .finally(() => aliveRef.current && setLoading(false));
     return () => {
       aliveRef.current = false;
@@ -345,13 +435,13 @@ export function AssessmentPage() {
 
   const toChat = () => navigate(`/stories/${storyId}`);
 
-  // 실패/빈 화면에서도 남은 횟수가 보여야 한다(실측: 진단 실패 후 몇 회 남았는지 알 길이 없었음).
+  // 실패/빈 화면에서도 남은 횟수가 보여야 한다(실측: 분석 실패 후 몇 회 남았는지 알 길이 없었음).
   // 실패는 후차감이라 차감되지 않는데, 그걸 확인할 방법이 이 표시다.
   const remainingHint =
     remaining != null ? (
       <div className={styles.stateHint}>
-        남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
-        <button className={styles.topupLink} onClick={() => navigate('/payment')}>
+        남은 분석 <span className={styles.hintCountNum}>{remaining}회</span>
+        <button className={styles.topupLink} onClick={goPayment}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 4.5v15M4.5 12h15" stroke="#B89DD1" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
@@ -360,7 +450,7 @@ export function AssessmentPage() {
       </div>
     ) : null;
 
-  // 진단 생성 실패와 연속 실패 쿨다운의 공용 조각. 결과가 있을 때(배너 자리)와 없을 때(빈 화면)
+  // 분석 생성 실패와 연속 실패 쿨다운의 공용 조각. 결과가 있을 때(배너 자리)와 없을 때(빈 화면)
   // 양쪽에서 같은 모양으로 쓰인다 — 실패 화면이 두 벌로 갈라지지 않게.
   // 채팅의 실패 처리와 같은 문법으로 맞춘다 — 큰 패널 + 채운 버튼은 실패를 사건처럼 키웠다.
   // 어두운 토스트에 아이콘 + 한 줄 사유, 행동은 작은 회색 칩. 두 화면의 실패가 같은 말로 읽힌다.
@@ -383,12 +473,12 @@ export function AssessmentPage() {
         <div className={styles.retryTitle}>
           {cooldown > 0
             ? `${formatCooldown(cooldown)} 후 다시 시도할 수 있습니다`
-            : '진단을 만들지 못했습니다'}
+            : '분석을 만들지 못했습니다'}
         </div>
         <div className={styles.retryBody}>
           {cooldown > 0
-            ? '진단을 만들지 못하는 상태가 이어지고 있습니다. 이번 진단은 차감되지 않았습니다'
-            : '이번 진단은 차감되지 않았습니다'}
+            ? '분석을 만들지 못하는 상태가 이어지고 있습니다. 이번 분석은 차감되지 않았습니다'
+            : '이번 분석은 차감되지 않았습니다'}
         </div>
         <button className={styles.retryBtn} onClick={diagnose} disabled={cooldown > 0}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -416,7 +506,7 @@ export function AssessmentPage() {
               <>
                 <div className={styles.stateTitle}>이야기를 읽고 있습니다</div>
                 <Dots />
-                {/* 진단 LLM이 느릴 때 이탈해도 손해가 아니라는 안내 — 결과는 저장돼 재진입 시 보인다 */}
+                {/* 분석 LLM이 느릴 때 이탈해도 손해가 아니라는 안내 — 결과는 저장돼 재진입 시 보인다 */}
                 <div className={styles.stateBody}>
                   지금까지의 대화에서 신호를 찾고 있습니다
                   <br />
@@ -447,7 +537,7 @@ export function AssessmentPage() {
               대화로
             </button>
             <button className={styles.btnPrimary} onClick={diagnose}>
-              다시 진단 (1회 차감)
+              다시 분석 (1회 차감)
             </button>
           </div>
         </div>
@@ -455,7 +545,7 @@ export function AssessmentPage() {
     );
   }
 
-  // 게스트는 진단이 잠겨 있다 — 계정 연결로 유도한다(진단 버튼 대신).
+  // 게스트는 분석이 잠겨 있다 — 계정 연결로 유도한다(분석 버튼 대신).
   // 문장 두 줄만 있던 빈 화면은 무엇이 열리는지가 안 보였다. 실제 결과 화면을 읽을 수
   // 없을 만큼 흐리게 깔아 형태만 보여주고, 그 위에서 여는 값을 말한다.
   if (isGuest) {
@@ -509,9 +599,9 @@ export function AssessmentPage() {
                   <circle cx="12" cy="15.5" r="1.15" fill="#B89DD1" />
                 </svg>
               </div>
-              <div className={styles.lockTitle}>계정을 연결하면 진단이 열려요</div>
+              <div className={styles.lockTitle}>계정을 연결하면 분석이 열려요</div>
               <div className={styles.lockSub}>
-                대화는 그대로 이어지고, 진단 1회와 대화 5회 증정
+                대화는 그대로 이어지고, 분석 1회를 드려요
               </div>
               <div className={styles.lockPerks}>
                 {perk('재회 확률', '지금까지 나눈 대화를 읽고 재회 확률을 계산합니다')}
@@ -522,7 +612,7 @@ export function AssessmentPage() {
           </div>
           <div className={styles.lockFooter}>
             <button className={styles.btnPrimary} onClick={() => navigate('/guest-link')}>
-              진단 1회 받고 시작하기
+              분석 1회 받고 시작하기
             </button>
             <div className={styles.lockFoot}>카카오, 네이버로 바로 연결할 수 있습니다</div>
           </div>
@@ -531,7 +621,7 @@ export function AssessmentPage() {
     );
   }
 
-  // 진단 기록이 아직 없음 — 여기서만 첫 진단을 시작한다.
+  // 분석 기록이 아직 없음 — 여기서만 첫 분석을 시작한다.
   // 방금 "이야기 부족" 안내를 받았다면 기본 문구 대신 그 안내를 계속 보여준다(자동 소멸 없음).
   if (!result) {
     return (
@@ -541,12 +631,12 @@ export function AssessmentPage() {
           <div className={styles.state}>
             {retryPanel ??
               (noMessages ? (
-                // 대화가 한 줄도 없는데 진단을 누른 판. 서버 문구("진단할 대화 내용이 없습니다")를
+                // 대화가 한 줄도 없는데 분석을 누른 판. 서버 문구("분석할 대화 내용이 없습니다")를
                 // 그대로 띄우면 처음 온 사람에겐 거절로만 읽힌다 — 무엇을 먼저 해야 하는지 말한다
                 <>
                   <div className={styles.stateTitle}>먼저 이야기를 들려주세요</div>
                   <div className={styles.stateBody}>
-                    진단은 나눈 대화를 읽고 계산합니다.
+                    분석은 나눈 대화를 읽고 계산합니다.
                     <br />
                     그 사람과 어떻게 헤어졌는지부터 들려주세요.
                   </div>
@@ -555,9 +645,9 @@ export function AssessmentPage() {
                 <div className={styles.stateBody}>{notice}</div>
               ) : (
                 <>
-                  <div className={styles.stateTitle}>아직 진단 기록이 없습니다</div>
+                  <div className={styles.stateTitle}>아직 분석 기록이 없습니다</div>
                   <div className={styles.stateBody}>
-                    지금까지의 대화를 읽고 재회 가능성을 진단합니다
+                    지금까지의 대화를 읽고 재회 가능성을 분석합니다
                     <br />
                     대화를 충분히 나눌수록 정확해져요
                   </div>
@@ -569,14 +659,14 @@ export function AssessmentPage() {
               하단에 또 두면 쿨다운 중 비활성 버튼과 활성 버튼이 나란히 보인다 */}
           {!retryPanel && (
             <div className={styles.footer}>
-              {/* 대화가 없으면 진단 버튼은 누를 때마다 같은 거절만 받는다 — 할 수 있는 일로 바꾼다 */}
+              {/* 대화가 없으면 분석 버튼은 누를 때마다 같은 거절만 받는다 — 할 수 있는 일로 바꾼다 */}
               {noMessages ? (
                 <button className={styles.btnPrimary} onClick={toChat}>
                   대화하러 가기
                 </button>
               ) : (
                 <button className={styles.btnPrimary} onClick={diagnose}>
-                  진단 받기
+                  분석 받기
                 </button>
               )}
             </div>
@@ -586,7 +676,7 @@ export function AssessmentPage() {
     );
   }
 
-  // "계속 대화하면 진단도 따라 갱신된다"는 오해가 있어, 이 결과가 언제 것인지 명시한다.
+  // "계속 대화하면 분석도 따라 갱신된다"는 오해가 있어, 이 결과가 언제 것인지 명시한다.
   const metaDate = result.createdAt ? formatListTime(result.createdAt) : '방금';
 
   // INSUFFICIENT는 저장되지 않고 diagnose()에서 배너로 처리되므로 여기 도달하는 결과는
@@ -603,73 +693,62 @@ export function AssessmentPage() {
   // 문장(다른 카드와 같은 관찰문 결)으로 채운다 — 프론트가 지어낸 티가 나면 안 된다.
   const typeRaises = result.breakupType === '충동형' || result.breakupType === '상황형';
   // 유저가 통보한 이별은 유형 대신 상대의 미련 단계(점프)가 구간을 정한다 — 카드도 그 문법으로.
-  const JUMP_CARD: Record<string, { level: '매우유리' | '유리' | '불리' | '매우불리'; reading: string }> = {
-    유저통보상대미련: { level: '매우유리', reading: '내가 통보했지만 상대에게 미련이 뚜렷해 기본 확률 구간이 높은 축에 속함.' },
-    유저통보미련흔적: { level: '유리', reading: '내가 통보했고 상대에게 미련의 흔적이 남아 기본 확률 구간이 중간 축에 속함.' },
-    유저통보미련없음: { level: '매우불리', reading: '내가 통보했고 상대가 수용을 끝내 기본 확률 구간이 낮은 축에 속함.' },
-    상대접촉재개: { level: '유리', reading: '닫혀 있던 상대가 통로를 열고 먼저 연락해 와 기본 확률 구간이 중간 축에 속함.' },
-    상대재회의사: { level: '매우유리', reading: '상대가 재회 의사를 내비치고 있어 기본 확률 구간이 높은 축에 속함.' },
-    반복재회패턴: { level: '매우유리', reading: '헤어질 때마다 다시 만나온 관계라 기본 확률 구간이 높은 축에 속함.' },
-    상대문닫힘: { level: '매우불리', reading: '상대가 정리를 요구하고 문을 닫은 상태라 기본 확률 구간이 낮은 축에 속함.' },
-    상대결혼약혼: { level: '매우불리', reading: '상대의 결혼이나 약혼이 확인돼 기본 확률 구간이 가장 낮은 축에 속함.' },
-  };
-  // 유형은 판정이 아니라 대역이지만, 카드 칩은 대역 위치를 4단으로 번역해 보여준다
-  // (신뢰붕괴형에 '불리'는 과소 표현이라는 실측 피드백 — 바닥 구간 유형은 '매우불리'로).
-  const TYPE_CHIP: Record<string, '매우유리' | '유리' | '불리' | '매우불리'> = {
-    충동형: '매우유리',
-    상황형: '유리',
-    외부요인형: '불리',
-    권태식음형: '불리',
-    소진형: '불리',
-    결심완료형: '매우불리',
-    환승형: '매우불리',
-    신뢰붕괴형: '매우불리',
-  };
-  const TYPE_READING: Record<string, string> = {
-    충동형: '감정이 격해진 순간의 이별이라 기본 확률 구간이 높은 축에 속함.',
-    상황형: '마음보다 환경이 가른 이별이라 기본 확률 구간이 높은 축에 속함.',
-    외부요인형: '마음 밖의 고착된 조건이 막는 이별이라 기본 확률 구간이 중간 아래에 속함.',
-    권태식음형: '설렘과 애정이 잦아들어 끝난 이별이라 기본 확률 구간이 낮은 축에 속함.',
-    소진형: '상대가 지쳐서 끝낸 이별이라 기본 확률 구간이 낮은 축에 속함.',
-    결심완료형: '오래 고민하고 정리를 끝낸 통보라 기본 확률 구간이 낮은 축에 속함.',
-    환승형: '마음이 이미 다른 사람에게 옮겨간 이별이라 기본 확률 구간이 낮은 축에 속함.',
-    신뢰붕괴형: '상대의 신뢰가 무너진 이별이라 기본 확률 구간이 가장 낮은 축에 속함.',
-  };
+  // (카드 사전들은 공유 페이지와 공용이라 utils/assessmentView로 옮겼다.)
   const jumpCard = result.jumpRule ? JUMP_CARD[result.jumpRule] : undefined;
-  const typeItem: FactorView | null = jumpCard
+  // 계산은 2층이다 — 유형이 대역을 정하고 점프가 그 대역을 끌어당긴다. 카드도 2장이어야 한다.
+  // 점프가 있으면 유형 카드를 대체하던 때는 바닥 대역 유형에서 낮춘 신호가 0개로 나왔다
+  // (실측: 환승형 + 상대접촉재개 = 42%인데 화면엔 올린 신호만 넷, 게다가 환승 사실이
+  // '유리' 카드의 근거로 붙었다).
+  // 카드 제목에 유형 이름을 괄호로 달지 않는다 — 루브릭이 LLM에게 금지한 내부 용어를
+  // (유저가 못 알아듣는다는 실측으로) 화면이 대신 출력하던 자리였다.
+  const typeItem: FactorView | null = result.breakupType
     ? {
-        name: '이별 구도',
-        level: jumpCard.level,
+        name: '이별 사유',
+        level: TYPE_CHIP[result.breakupType] ?? (typeRaises ? '유리' : '불리'),
         evidence: result.typeEvidence ?? '',
-        rationale: jumpCard.reading,
+        rationale: TYPE_READING[result.breakupType] ?? null,
         stage: null,
       }
-    : result.breakupType
-      ? {
-          name: `이별 사유(${result.breakupType})`,
-          level: TYPE_CHIP[result.breakupType] ?? (typeRaises ? '유리' : '불리'),
-          evidence: result.typeEvidence ?? '',
-          rationale: TYPE_READING[result.breakupType] ?? null,
-          stage: null,
-        }
-      : null;
-  const typeItemRaises = typeItem != null && (typeItem.level === '유리' || typeItem.level === '매우유리');
+    : null;
+  // 점프 카드는 근거 줄을 비운다 — typeEvidence는 유형 카드의 것이고 같은 문장을 두 장에
+  // 실으면 중복이다. 점프의 판독 문장이 이미 사실을 담고 있다.
+  const jumpItem: FactorView | null = jumpCard
+    ? { name: '이별 후 상황', level: jumpCard.level, evidence: '', rationale: jumpCard.reading, stage: null }
+    : null;
+  const heads = [typeItem, jumpItem].filter((i): i is FactorView => i != null);
+  const raises = (i: FactorView) => i.level === '유리' || i.level === '매우유리';
+  const shown = factors.map((f) => ({
+    ...f,
+    name: FACTOR_LABEL[f.name] ?? f.name,
+    level:
+      f.stage && (f.level === '불리' || f.level === '매우불리')
+        ? STAGE_LEVEL[f.stage] ?? f.level
+        : f.level,
+  }));
+  // 도움말은 "무겁게 본 것부터 위에 옵니다"라고 말한다. 그런데 백엔드가 내려주는 순서는
+  // 요인 슬롯의 폭 순서이고 실제 증감은 level이 절반을 가르므로, 그대로 두면 '불리'(-5)가
+  // '매우불리'(-8)보다 위에 오는 판이 생긴다 — 화면이 자기 설명을 어긴다. 정확한 증감까지는
+  // 프론트가 알 수 없지만(백엔드 상수를 복제하면 언젠가 어긋난다) 등급으로 묶는 것만으로
+  // 그 역전은 사라진다. sort는 안정 정렬이라 같은 등급 안에서는 백엔드 순서가 유지된다.
+  // 이별 사유와 이별 후 상황은 대역을 정하는 층이라 언제나 맨 위다.
+  const strong = (l: FactorView['level']) => (l === '매우불리' || l === '매우유리' ? 0 : 1);
+  const byWeight = (a: FactorView, b: FactorView) => strong(a.level) - strong(b.level);
   const unfavorable = [
-    ...(typeItem && !typeItemRaises ? [typeItem] : []),
-    ...factors.filter((f) => f.level === '불리' || f.level === '매우불리'),
+    ...heads.filter((i) => !raises(i)),
+    ...shown.filter((f) => f.level === '불리' || f.level === '매우불리').sort(byWeight),
   ];
   const favorable = [
-    ...(typeItem && typeItemRaises ? [typeItem] : []),
-    ...factors.filter((f) => f.level === '유리' || f.level === '매우유리'),
+    ...heads.filter(raises),
+    ...shown.filter((f) => f.level === '유리' || f.level === '매우유리').sort(byWeight),
   ];
   // 판단 근거가 없던 요인 — 카드 대신 "알려주면 정확해져요"로 뒤집어 다음 대화를 유도한다.
   const missing = factors.filter((f) => f.level === '중립' && f.evidence === NO_EVIDENCE);
-  // 진단이 대화를 읽고 만든 질문을 우선 쓴다 — 요인 슬롯의 고정 문구("상대에게 새로 만나는
+  // 분석이 대화를 읽고 만든 질문을 우선 쓴다 — 요인 슬롯의 고정 문구("상대에게 새로 만나는
   // 사람이 있는지")는 그 사연의 맥락이 하나도 안 담겨 빈칸 채우기로 읽힌다.
-  // 진단이 못 뽑았을 때만 고정 문구로 내려간다.
+  // 분석이 못 뽑았을 때만 고정 문구로 내려간다.
   const asks: string[] = (result.unansweredQuestions?.length ?? 0) > 0
     ? result.unansweredQuestions!
-    : missing.map((f) => FACTOR_ASK[f.name] ?? f.name);
+    : missing.map((f) => FACTOR_ASK[f.name] ?? FACTOR_LABEL[f.name] ?? f.name);
 
   return (
     <PhoneFrame>
@@ -695,7 +774,7 @@ export function AssessmentPage() {
         )}
         {retryPanel}
         <div className={styles.body}>
-          <div className={styles.meta}>마지막 진단 {metaDate}</div>
+          <div className={styles.meta}>마지막 분석 {metaDate}</div>
 
           {/* 재회 성공과 사귀는 중은 확률 화면이 아니다 — 게이지 대신 히어로 문법(같은 결)으로.
               게이지에 반투명 덮개를 씌우던 잠금은 미완성 화면처럼 읽혔다(실측) */}
@@ -703,7 +782,7 @@ export function AssessmentPage() {
             <div className={styles.reunitedHero}>
               <div className={styles.reunitedTitle}>다시 만나게 되었습니다</div>
               <div className={styles.reunitedSub}>
-                재회에 성공해 확률 진단은 여기까지입니다.
+                재회에 성공해 확률 분석은 여기까지입니다.
                 <br />
                 이제 관계를 이어가는 대화로 함께합니다.
               </div>
@@ -712,7 +791,7 @@ export function AssessmentPage() {
             <div className={styles.reunitedHero}>
               <div className={styles.reunitedTitle}>지금은 만나는 중입니다</div>
               <div className={styles.reunitedSub}>
-                재회 확률은 이별을 전제로 한 진단이라
+                재회 확률은 이별을 전제로 한 분석이라
                 <br />
                 헤어진 뒤에 다시 열려요.
               </div>
@@ -740,7 +819,7 @@ export function AssessmentPage() {
                 </div>
               </div>
               <div className={styles.gaugeLabel}>재회 가능성</div>
-              {/* 직전 진단 대비 변화 — 정지 사진이던 결과에 흐름을 붙인다(전체 추이는 기록 화면) */}
+              {/* 직전 분석 대비 변화 — 정지 사진이던 결과에 흐름을 붙인다(전체 추이는 기록 화면) */}
               {!dating && prevProb != null && prob < 100 && (
                 <div
                   className={`${styles.deltaChip} ${
@@ -748,8 +827,8 @@ export function AssessmentPage() {
                   }`}
                 >
                   {prob === prevProb
-                    ? '지난 진단과 같습니다'
-                    : `지난 진단보다 ${prob > prevProb ? '+' : ''}${prob - prevProb}%`}
+                    ? '지난 분석과 같습니다'
+                    : `지난 분석보다 ${prob > prevProb ? '+' : ''}${prob - prevProb}%`}
                 </div>
               )}
             </>
@@ -762,7 +841,7 @@ export function AssessmentPage() {
                 <div className={styles.lockTitle}>혹시 다시 헤어지게 됐다면</div>
                 <div className={styles.lockAskRow}>
                   <span className={styles.lockAskText}>
-                    다시 헤어졌거나 진단이 잘못 판단한 경우 알려 주세요. 확률 진단을 다시 엽니다.
+                    다시 헤어졌거나 분석이 잘못 판단한 경우 알려 주세요. 확률 분석을 다시 엽니다.
                   </span>
                   <button
                     className={styles.lockConfirmBtn}
@@ -780,7 +859,7 @@ export function AssessmentPage() {
               <div className={styles.lockCard}>
                 <div className={styles.lockAskRowSolo}>
                   <span className={styles.lockAskText}>
-                    진단이 잘못 판단한 경우 알려 주세요. 확률 진단을 다시 엽니다.
+                    분석이 잘못 판단한 경우 알려 주세요. 확률 분석을 다시 엽니다.
                   </span>
                   <button
                     className={styles.lockConfirmBtn}
@@ -804,7 +883,7 @@ export function AssessmentPage() {
               </div>
               <div className={styles.lockAskRow}>
                 <span className={styles.lockAskText}>
-                  제안이 무산되었거나 진단이 잘못 판단한 경우 알려 주세요.
+                  제안이 무산되었거나 분석이 잘못 판단한 경우 알려 주세요.
                 </span>
                 <button
                   className={styles.lockConfirmBtn}
@@ -817,6 +896,32 @@ export function AssessmentPage() {
             </div>
           ) : (
             <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
+          )}
+
+          {/* 공유는 확률 결과에서만 — 잠금 판정(사귀는 중, 재회 성공)은 남에게 보일 내용이
+              아니다 */}
+          {!locked && result.probability != null && (
+            <div className={styles.shareRow}>
+              <button className={styles.shareBtn} onClick={handleShare} disabled={sharing}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M12 14.5V4M8.2 7.3L12 3.5l3.8 3.8"
+                    stroke="#B89DD1"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M6 11.5v8.5h12v-8.5"
+                    stroke="#B89DD1"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {copied ? '링크를 복사했어요' : '공유하기'}
+              </button>
+            </div>
           )}
 
           {/* 확률 화면에도 총평을 싣는다 — 요인 조각들만으론 서사가 없어 숫자가 건조하게 남는다 */}
@@ -832,7 +937,7 @@ export function AssessmentPage() {
               (재회 성공 화면과 같은 원칙, 판정은 번복 대비로 저장만 유지) */}
           {!locked && prob < 100 && unfavorable.length > 0 && (
             <>
-              <SectionHead title="가능성을 낮춘 요인" />
+              <SectionHead title="가능성을 낮춘 신호" count={unfavorable.length} countClass={styles.weightMinus} />
               <div className={styles.dedList}>
                 {unfavorable.map((f) => (
                   <div className={styles.dedItem} key={f.name}>
@@ -852,7 +957,7 @@ export function AssessmentPage() {
 
           {!locked && prob < 100 && favorable.length > 0 && (
             <>
-              <SectionHead title="가능성을 올린 요인" />
+              <SectionHead title="가능성을 올린 신호" count={favorable.length} countClass={styles.weightPlus} />
               <div className={styles.dedList}>
                 {favorable.map((f) => (
                   <div className={styles.dedItem} key={f.name}>
@@ -870,7 +975,7 @@ export function AssessmentPage() {
             </>
           )}
 
-          {/* 비슷한 사례 — 진단이 뽑은 분류로 찾은 참조 사례. 유사도 순 그대로 보여준다:
+          {/* 비슷한 사례 — 분석이 뽑은 분류로 찾은 참조 사례. 유사도 순 그대로 보여준다:
               성공담을 골라 끼우면 헛된 희망을 파는 것이라, 확률에서 지켜온 원칙과 어긋난다.
               그래서 "너도 이렇게 된다"가 아니라 "비슷한 상황이 이랬다"로 읽히게 문구를 잡는다 */}
           {similar && similar.cases.length > 0 && (
@@ -924,7 +1029,7 @@ export function AssessmentPage() {
           )}
 
           {/* 사례가 없을 때도 섹션 머리를 달고 이유를 갈라 말한다 — 머리 없이 문장만 있으면
-              어느 섹션의 말인지 못 읽는다(실측). 진단 기록이 없는 첫 화면에선 굳이 띄우지 않는다 */}
+              어느 섹션의 말인지 못 읽는다(실측). 분석 기록이 없는 첫 화면에선 굳이 띄우지 않는다 */}
           {(similar?.emptyReason === 'NO_PROFILE' || similar?.emptyReason === 'NO_MATCH') && (
             <>
               <SectionHead title="비슷한 사례" />
@@ -937,70 +1042,91 @@ export function AssessmentPage() {
           )}
 
           {/* 근거가 없어 중립으로 남은 요인 — 채워달라는 요청으로 뒤집어 다음 대화를 유도한다.
-              채팅에서 말하면 다음 진단에 반영된다. 맨 아래 배치 — 판독(요인, 사례)이 먼저,
-              다음 진단을 위한 요청은 마지막이 자연스러운 독서 순서다 */
+              채팅에서 말하면 다음 분석에 반영된다. 맨 아래 배치 — 판독(요인, 사례)이 먼저,
+              다음 분석을 위한 요청은 마지막이 자연스러운 독서 순서다 */
           }
-          {/* 확률을 움직일 정보를 한 카드로 모은다 — 비어 있는 것(과거)과 지켜볼 것(앞으로)은
-              둘 다 "다음 진단을 바꿀 재료"라 같은 자리에 있어야 읽힌다. 따로 두면 섹션이 하나씩
-              둥둥 뜨고 어디에 적는지도 딴 살림으로 읽힌다(실측 지적).
-              폼에 적으면 원장에 쌓이고 그것만으로 재진단 가드가 열린다(대화 횟수 차감 없음) */}
+          {/* 폼에 적으면 원장에 쌓이고 그것만으로 재분석 가드가 열린다(대화 횟수 차감 없음) */}
           {!locked && (
             <>
-              <SectionHead title="확률을 바꿀 수 있는 요인" />
-              {prob < 100 && (asks.length > 0 || (result.watchFor?.length ?? 0) > 0) && (
-                <div className={styles.changeCard}>
-                  {asks.length > 0 && (
-                    <div className={styles.changeGroup}>
-                      <div className={styles.changeLabel}>아직 모르는 것</div>
-                      {asks.map((ask, i) => (
-                        <div className={styles.changeRow} key={i}>
-                          <div className={styles.changeAsk}>{ask}</div>
+              {/* "앞으로 지켜볼 것"은 내렸다 — 상대가 먼저 연락하면 유리하다는 건 유저가 이미
+                  아는 얘기라 자리값을 못 했고, 그 일이 실제로 생기면 대화에서 말하게 되어
+                  다음 분석의 요인 카드로 잡힌다(서버는 계속 만든다, 화면에서만 뺀 것).
+                  묻는 목록과 적는 칸은 한 상자에 둔다 — 묻고 답하는 한 쌍이라 갈라놓을 이유가 없다 */}
+              <SectionHead title="알려주시면 분석이 더 정확해져요" />
+              <div className={styles.askNote}>대화 횟수는 차감되지 않고, 답변은 다음 분석에 반영됩니다.</div>
+              <div className={styles.dedList}>
+                {(prob < 100 ? asks : []).map((ask, i) => {
+                  const done = answers[i] != null;
+                  const open = openAsk === i;
+                  return (
+                    <div className={styles.dedItem} key={i}>
+                      {/* 답은 접어둔다 — 펼쳐 두면 화면이 내가 쓴 글로 덮이고,
+                          다시 눌러 고칠 수 있다는 것도 안 읽힌다 */}
+                      <button
+                        type="button"
+                        className={styles.askTop}
+                        onClick={() => {
+                          setFactInput(open ? '' : (answers[i]?.content ?? ''));
+                          setOpenAsk(open ? null : i);
+                        }}
+                        aria-expanded={open}
+                      >
+                        <div className={styles.dedSignal}>{ask}</div>
+                        {done ? (
+                          <span className={styles.askDone}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                              <path d="M4 12.5l5 5 11-11" stroke="currentColor" strokeWidth="2.4"
+                                    strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            답변 완료
+                          </span>
+                        ) : (
+                          <span className={styles.askChevron} aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                              <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2"
+                                    strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </span>
+                        )}
+                      </button>
+                      {open && (
+                        <div className={styles.askForm}>
+                          <textarea
+                            className={styles.factInput}
+                            value={factInput}
+                            onChange={(e) => setFactInput(e.target.value)}
+                            placeholder="답변 입력"
+                            rows={2}
+                            maxLength={ANSWER_MAX}
+                            autoFocus
+                          />
+                          <div className={styles.factFormRow}>
+                            {/* 평소엔 안 보인다 — 한참 남은 숫자는 읽을 이유가 없고 칸만 시끄럽다 */}
+                            <span className={styles.factCount}>
+                              {factInput.length > ANSWER_MAX * 0.7
+                                ? `${factInput.length}/${ANSWER_MAX}`
+                                : ''}
+                            </span>
+                            <button
+                              className={styles.factSubmit}
+                              disabled={!factInput.trim() || factSaving}
+                              onClick={() => handleAnswer(i, ask)}
+                            >
+                              {factSaving ? '남기는 중' : done ? '수정' : '남기기'}
+                            </button>
+                          </div>
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                  {(result.watchFor?.length ?? 0) > 0 && (
-                    <div className={styles.changeGroup}>
-                      <div className={styles.changeLabel}>앞으로 지켜볼 것</div>
-                      {result.watchFor.map((w, i) => (
-                        <div className={styles.changeRow} key={i}>
-                          <div className={styles.changeWatchPoint}>{w.point}</div>
-                          <div className={styles.changeWatchEffect}>{w.effect}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* 읽는 것(위 목록)과 쓰는 것을 한 상자에 담으면 어디까지가 목록이고
-                  어디부터 적는 칸인지 안 읽힌다 — 카드를 갈라 각자 제목을 갖게 한다 */}
-              <div className={styles.factCard}>
-                <div className={styles.factTitle}>새로 생긴 사실 적기</div>
-                <div className={styles.factDesc}>
-                  대화에서 말하지 않은 사실도 여기 적으면 다음 진단에 반영됩니다. 대화 횟수는 차감되지 않습니다.
-                </div>
-                <textarea
-                  className={styles.factInput}
-                  value={factInput}
-                  onChange={(e) => setFactInput(e.target.value)}
-                  placeholder="예: 어제 상대에게서 먼저 연락이 왔다"
-                  rows={2}
-                  maxLength={200}
-                />
-                <div className={styles.factFormRow}>
-                  <span className={styles.factCount}>{factInput.length}/200</span>
-                  <button
-                    className={styles.factSubmit}
-                    disabled={!factInput.trim() || factSaving}
-                    onClick={handleAddFact}
-                  >
-                    {factSaving ? '남기는 중' : '남기기'}
-                  </button>
-                </div>
-                {factNotice && <div className={styles.factSaved}>{factNotice}</div>}
+                  );
+                })}
               </div>
             </>
           )}
+
+          {/* 분석 평가 — 판독을 다 읽은 뒤가 평가할 수 있는 시점이라 맨 아래.
+              잠금 판정(DATING 등)도 평가 대상이다: 오판이면 그게 골든셋 재료다 */}
+          <ReviewBlock storyId={storyId} resultKey={result.createdAt ?? ''} onRewarded={refreshUsage} />
 
         </div>
 
@@ -1010,14 +1136,14 @@ export function AssessmentPage() {
             {/* 무료/이용권 각각 보여주되 숫자만 밝게(채팅 잔여 줄과 같은 문법) */}
             {remaining != null ? (
               <>
-                남은 진단 <span className={styles.hintCountNum}>{remaining}회</span>
+                남은 분석 <span className={styles.hintCountNum}>{remaining}회</span>
               </>
             ) : (
               '이용권 없음'
             )}
           </div>
           {/* 소진 전에도 구매 위치가 보이게 상시 진입점 — 채팅의 충전하기와 같은 동선 */}
-          <button className={styles.topupLink} onClick={() => navigate('/payment')}>
+          <button className={styles.topupLink} onClick={goPayment}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 4.5v15M4.5 12h15" stroke="#B89DD1" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
@@ -1032,18 +1158,18 @@ export function AssessmentPage() {
           {/* 쿨다운 중엔 여기서도 막는다 — 위 패널은 비활성인데 아래로 우회되면 서버만 거절하고
               화면은 왜 안 되는지 말해주지 않는 상태가 된다 */}
           <button className={styles.btnPrimary} onClick={diagnose} disabled={cooldown > 0}>
-            다시 진단 (1회 차감)
+            다시 분석 (1회 차감)
           </button>
         </div>
 
         {showHelp && (
           <HelpModal
-            title="진단 가이드"
+            title="분석 가이드"
             onClose={() => setShowHelp(false)}
             sections={[
               {
                 heading: '재회 가능성',
-                text: '대화와 기록된 사실을 근거로 "상대가 돌아올 가능성"을 봅니다. 어떤 이유로 헤어졌는지가 먼저 큰 틀을 정하고, 그 안에서 이별 후 벌어진 일들이 숫자를 올리거나 내립니다. 대화가 쌓이거나 새로운 일이 생긴 뒤 다시 진단하면 숫자도 다시 계산됩니다.',
+                text: '대화와 기록된 사실을 근거로 "상대가 돌아올 가능성"을 봅니다. 어떤 이유로 헤어졌는지가 먼저 큰 틀을 정하고, 그 안에서 이별 후 벌어진 일들이 숫자를 올리거나 내립니다. 대화가 쌓이거나 새로운 일이 생긴 뒤 다시 분석하면 숫자도 다시 계산됩니다.',
               },
               {
                 heading: '숫자를 믿어도 되나요',
@@ -1055,19 +1181,19 @@ export function AssessmentPage() {
               },
               {
                 heading: '가능성을 움직인 신호',
-                text: '가능성을 올린 요인과 낮춘 요인을 근거와 함께 보여드려요. 각 요인은 매우유리에서 매우불리까지로 판정되고, 무겁게 본 것부터 위에 옵니다. 근거가 없어 판단하지 못한 항목은 맨 아래 "확률을 바꿀 수 있는 요인"에 모아 둡니다.',
+                text: '가능성을 올린 신호와 낮춘 신호를 근거와 함께 보여드려요. 각 신호는 매우유리에서 매우불리까지로 판정되고, 무겁게 본 것부터 위에 옵니다. 근거가 없어 판단하지 못한 항목은 맨 아래 "더 알려주시면 정확해져요"에 모아 둡니다.',
               },
               {
-                heading: '확률을 바꿀 수 있는 요인',
-                text: '맨 아래 카드입니다. "아직 모르는 것"은 알려주시면 다음 진단에서 판정이 채워지는 항목이고, "앞으로 지켜볼 것"은 그런 일이 실제로 벌어지면 확률이 크게 움직이는 신호입니다. 대화에서 말해도 되고, 그 카드에 한 줄로 적어두셔도 다음 진단에 반영됩니다.',
+                heading: '더 알려주시면 정확해져요',
+                text: '맨 아래 카드입니다. 아직 근거가 없어 판단하지 못한 항목을 모아 둔 곳으로, 알려주시면 다음 분석에서 그 판정이 채워집니다. 대화에서 말해도 되고, 그 카드의 입력칸에 한 줄로 적어두셔도 반영됩니다. 적는 것은 대화 횟수가 차감되지 않습니다.',
               },
               {
                 heading: '비슷한 사례',
                 text: '이별 사유와 상황이 닮은 사례를 찾아 보여 드립니다. 이별을 부른 계기가 얼마나 겹치는지를 가장 크게 보고, 통보한 쪽과 지금 연락 상태, 이별 후 지난 기간을 함께 견줍니다. 결과가 좋은 사례를 골라 보여 드리지는 않습니다. 남의 결말이 내 결말을 예고하지 않기 때문입니다. 사례 보기는 횟수가 차감되지 않습니다.',
               },
               {
-                heading: '진단 횟수',
-                text: '진단은 이용권에서 1회씩 차감됩니다. 이야기가 부족하다는 안내만 받은 경우에는 차감되지 않습니다.',
+                heading: '분석 횟수',
+                text: '분석은 이용권에서 1회씩 차감됩니다. 이야기가 부족하다는 안내만 받은 경우에는 차감되지 않습니다.',
               },
             ]}
           />

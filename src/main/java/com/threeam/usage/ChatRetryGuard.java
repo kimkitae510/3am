@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-// 채팅 연속 실패 가드. 진단의 같은 가드(AssessmentTxService)와 짝이며, 차이는 두 가지다:
+// 채팅 연속 실패 가드. 분석의 같은 가드(AssessmentTxService)와 짝이며, 차이는 두 가지다:
 //  - 범위가 story가 아니라 유저다(생성 락과 같은 범위 — 방을 갈아타는 우회를 막는다).
 //  - "같은 재료" 판정이 없다. 답변이 저장되면 행을 지우므로 streak 자체가 연속 실패 수다.
 @Component

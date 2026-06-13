@@ -57,7 +57,7 @@ export function SignupPage() {
       setCodeSent(true);
       startCooldown();
     } catch (err) {
-      setError(extractErrorMessage(err, '인증 메일 발송에 실패했어요.'));
+      setError(extractErrorMessage(err, '인증 메일을 보내지 못했습니다.'));
     } finally {
       setSendingCode(false);
     }
@@ -94,7 +94,7 @@ export function SignupPage() {
       // 가입 선물(이용권)은 로그인 화면 안내로 알린다 — 받은 걸 모르면 준 게 아니다.
       navigate('/login', { state: { welcomeGift: true } });
     } catch (err) {
-      setError(extractErrorMessage(err, '가입에 실패했어요.'));
+      setError(extractErrorMessage(err, '가입에 실패했습니다.'));
     } finally {
       setSubmitting(false);
     }
@@ -103,11 +103,10 @@ export function SignupPage() {
   return (
     <PhoneFrame>
       {/* 홈과 같은 시안 그라데이션 — 로그인 계열 화면의 톤을 맞춘다 */}
-      <div className={styles.landBg} />
-      <form className={`${styles.body} ${styles.aboveSky}`} onSubmit={handleSignup}>
+      <form className={styles.body} onSubmit={handleSignup}>
         <button type="button" className={styles.backTop} onClick={() => navigate('/login')} aria-label="뒤로">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M15 5l-7 7 7 7" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M15 5l-7 7 7 7" stroke="#ebebee" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
         <div className={styles.brand}>
@@ -149,7 +148,7 @@ export function SignupPage() {
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                 />
               </div>
-              <div className={styles.hint}>메일이 안 보이면 스팸함도 확인해 주세요. 코드는 10분 동안 유효해요.</div>
+              <div className={styles.hint}>메일이 보이지 않으면 스팸함도 확인해 주세요. 코드는 10분 동안 유효합니다.</div>
             </>
           )}
           <div className={styles.field}>
@@ -259,7 +258,7 @@ export function SignupPage() {
                 {showDoc === 'terms' ? <TermsContent /> : <PrivacyContent />}
               </div>
               <button type="button" className={styles.sheetAgree} onClick={() => setShowDoc(null)}>
-                확인했어요
+                확인했습니다
               </button>
             </div>
           </div>

@@ -77,11 +77,11 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     // 채팅 temperature. 명시하지 않으면 API 기본값(1.0)으로 도는데, 그 온도에서는 금지 규칙
     // 이탈이 매 토큰마다 조금씩 붙어 답변이 길수록 누적된다(실측: 규칙이 있는데도 노컨택
-    // 템플릿과 판정 반복이 재발). 진단은 0(같은 사실에 같은 점수)이고, 채팅은 말투가 굳지
+    // 템플릿과 판정 반복이 재발). 분석은 0(같은 사실에 같은 점수)이고, 채팅은 말투가 굳지
     // 않을 만큼만 낮춘다. 0으로 내리면 관용구 재사용이 늘어 매 대화가 같은 문장으로 시작한다.
     abstract double temperature();
 
-    // 진단(deep) 전용 thinking 세기 — 채팅(low)과 분리. 2.5 계열은 예산 숫자(-1=동적), 3.x는 단계.
+    // 분석(deep) 전용 thinking 세기 — 채팅(low)과 분리. 2.5 계열은 예산 숫자(-1=동적), 3.x는 단계.
     abstract int assessmentThinkingBudget();
 
     abstract String assessmentThinkingLevel();
@@ -93,7 +93,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
     // "왜 토큰이 널뛰냐"는 혼동이 반복됐다(실측). 호출 종류로 라벨을 구분한다.
     private static final String KIND_CHAT = "채팅";
     private static final String KIND_EXTRACT = "추출";
-    private static final String KIND_DEEP = "진단";
+    private static final String KIND_DEEP = "분석";
 
     @Override
     public CompletableFuture<String> generate(List<ChatMessage> messages) {
@@ -167,7 +167,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
     }
 
     // 안전성 필터 해제(BLOCK_NONE): 이별 상담 도메인은 불륜, 환승, 이별 통보 같은 무거운 소재가
-    // 일상 입력인데, 기본 임계값에서는 생성이 도중에 차단돼 JSON이 잘리는 실측이 있었다(진단 파싱 실패).
+    // 일상 입력인데, 기본 임계값에서는 생성이 도중에 차단돼 JSON이 잘리는 실측이 있었다(분석 파싱 실패).
     // 상담 응답의 수위는 필터가 아니라 페르소나와 루브릭이 관리한다. 그래도 잘리면
     // finishReason=SAFETY 경고 로그로 드러난다(일부 카테고리는 BLOCK_NONE에서도 강제 차단이 남는다).
     private static final List<Map<String, String>> SAFETY_SETTINGS = List.of(
@@ -207,7 +207,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         body.put("contents", contents);
         body.put("safetySettings", SAFETY_SETTINGS);
         // JSON 모드: 모델이 코드펜스, 잡설 없이 순수 JSON만 뱉도록 강제한다.
-        // 정밀 판단(deep=진단): temperature 0(같은 사실 위 점수 출렁임 실측 대응) + thinking 유지(긴 루브릭 추론).
+        // 정밀 판단(deep=분석): temperature 0(같은 사실 위 점수 출렁임 실측 대응) + thinking 유지(긴 루브릭 추론).
         // 채팅/추출(그 외): thinking을 낮게 켠다 — 끄면 페르소나 규칙(메아리, 양자택일) 위반이 반복
         // 실측됐고, 기본(동적)은 비용이 튄다. 주의: thinking 제어 필드가 세대마다 다르다 —
         // 2.5 계열은 thinkingBudget(토큰 숫자), 3.x는 thinkingLevel. 문법이 안 맞으면 조용히
@@ -224,8 +224,8 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         }
         if (deep) {
             generationConfig.put("temperature", 0);
-            // 진단은 유형 게이트 → 요인 5슬롯 → 출력 직전 점검의 다단 절차라 thinking을 명시한다.
-            // 판별은 진단이 실제로 때리는 deep 엔드포인트의 모델명으로(진단 전용 모델이 다를 수 있다).
+            // 분석은 유형 게이트 → 요인 5슬롯 → 출력 직전 점검의 다단 절차라 thinking을 명시한다.
+            // 판별은 분석이 실제로 때리는 deep 엔드포인트의 모델명으로(분석 전용 모델이 다를 수 있다).
             if (deepEndpoint().contains("gemini-2.5")) {
                 if (assessmentThinkingBudget() >= 0) {
                     generationConfig.put("thinkingConfig",
@@ -249,15 +249,15 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         // 무엇이 실제로 실려 나가는지 남긴다 — thinking 제어 필드는 문법이 안 맞으면 조용히
         // 무시돼서, 설정을 올렸는데 추론량이 안 변하는 일이 반복됐다(실측). 프롬프트와 키는
         // 안 찍고 generationConfig만 찍는다(개인정보 없음, 몇 십 바이트).
-        log.info("{} {} 생성 설정: {}", providerName(), deep ? "진단" : "채팅", generationConfig);
+        log.info("{} {} 생성 설정: {}", providerName(), deep ? "분석" : "채팅", generationConfig);
 
         try {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(deep ? deepEndpoint() : endpoint()))
                     .header("Content-Type", "application/json")
                     // 타임아웃 없이는 LLM이 매달릴 때 future가 영원히 미완 → 답도 폴백도 저장되지 않는다.
-                    // 진단(deep)은 긴 루브릭 + 추론이라 채팅보다 길지만, 채팅 값의 배수가 아니라
-                    // 자기 설정값을 쓴다 — 배수로 묶어두면 채팅을 만질 때 진단이 따라 움직여
+                    // 분석(deep)은 긴 루브릭 + 추론이라 채팅보다 길지만, 채팅 값의 배수가 아니라
+                    // 자기 설정값을 쓴다 — 배수로 묶어두면 채팅을 만질 때 분석이 따라 움직여
                     // usage.assessment-lock-ttl-seconds와 spring request-timeout을 말없이 넘어간다.
                     .timeout(Duration.ofSeconds(deep ? assessmentTimeoutSeconds() : timeoutSeconds()))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8));
@@ -271,12 +271,12 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         }
     }
 
-    // 로그로 남기는 응답 본문 상한. 오류 진단에 필요한 앞부분만 남기고 잘라 로그 폭탄, 개인정보 노출을 줄인다.
+    // 로그로 남기는 응답 본문 상한. 오류 분석에 필요한 앞부분만 남기고 잘라 로그 폭탄, 개인정보 노출을 줄인다.
     private static final int LOG_BODY_LIMIT = 500;
 
     private String extractText(HttpResponse<String> response, String kind) {
         if (response.statusCode() / 100 != 2) {
-            // 오류 본문은 보통 provider 에러 메타(429 한도, 안전성 차단 등)라 진단에 필요하지만, 길이는 자른다.
+            // 오류 본문은 보통 provider 에러 메타(429 한도, 안전성 차단 등)라 분석에 필요하지만, 길이는 자른다.
             log.error("{} {} 응답 오류: status={} body={}", providerName(), kind, response.statusCode(),
                     snippet(response.body()));
             throw new LlmHttpStatusException(response.statusCode());
@@ -382,7 +382,7 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         }
         // 토큰 총량 분포 — 프롬프트 창, 추출 호출이 비용에 미치는 영향을 실측으로 집계한다.
         Metrics.summary("llm.tokens.total", "provider", providerName()).record(total);
-        // 캐시 적중률은 호출 종류마다 다르다(채팅은 연속 호출이라 잘 맞고, 진단은 띄엄띄엄해서 불리).
+        // 캐시 적중률은 호출 종류마다 다르다(채팅은 연속 호출이라 잘 맞고, 분석은 띄엄띄엄해서 불리).
         // 종류별로 갈라 집계해야 어느 쪽에 명시적 캐싱이 필요한지가 갈린다.
         Metrics.summary("llm.tokens.cached", "provider", providerName(), "kind", kind).record(cached);
     }

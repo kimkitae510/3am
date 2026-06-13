@@ -1,0 +1,28 @@
+/* 질문 말풍선은 대화 목록이 그대로 그린다(ChatPage의 viewMessages) — 여기엔 대화에
+   없는 요소만 둔다. 프사, 이름, 꼬리를 여기서 다시 만들면 두 곳이 어긋난다(실측). */
+
+/* 건너뛰기는 유저 말풍선 자리에 두되 강조하지 않는다 — 권하는 선택지가 아니라
+   답을 못 할 때의 퇴로다. 라벤더를 쓰면 눌러야 할 것으로 보인다(카톡 챗봇의 빠른 답변이
+   본 선택지에만 색을 쓰는 것과 같은 이유) */
+.skip {
+  align-self: flex-end;
+  margin: 6px 0 2px;
+  padding: 7px 4px;
+  border: none;
+  background: none;
+  color: #6e6879;
+  font-size: 12.5px;
+  cursor: pointer;
+  animation: appear 0.2s ease-out;
+}
+
+.skip:hover {
+  color: #9a93a6;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

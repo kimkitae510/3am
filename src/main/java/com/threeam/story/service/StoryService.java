@@ -295,7 +295,7 @@ public class StoryService {
         return new MessagePageResponse(messages, nextCursor, slice.hasNext());
     }
 
-    // 소프트 딜리트: 대화, 기억, 진단은 남길 기록이라 물리 삭제하지 않고 사연에 삭제 시각만 찍는다.
+    // 소프트 딜리트: 대화, 기억, 분석은 남길 기록이라 물리 삭제하지 않고 사연에 삭제 시각만 찍는다.
     @Transactional
     public void deleteStory(Long userId, Long storyId) {
         Story story = findOwned(storyId, userId);

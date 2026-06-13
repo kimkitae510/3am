@@ -17,8 +17,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 진단 평가. 평가 대상은 항상 "그 사연의 최신 진단"이다 — 화면이 보여주는 결과가 최신
-// 진단이므로, 진단 id를 클라이언트에 노출하지 않고 storyId만 받아 서버가 대상을 정한다.
+// 분석 평가. 평가 대상은 항상 "그 사연의 최신 분석"이다 — 화면이 보여주는 결과가 최신
+// 분석이므로, 분석 id를 클라이언트에 노출하지 않고 storyId만 받아 서버가 대상을 정한다.
 // 점수는 업서트(마음이 바뀌면 다시 누른다), 후기도 언제든 고칠 수 있다.
 // 보상은 후기까지 완성했을 때 유저당 1회 — 점수 원탭만으로 나가면 탭 5번이 대화 2회가 된다.
 @Service
@@ -69,7 +69,7 @@ public class ReviewService {
         }
     }
 
-    // 후기(텍스트). 점수를 남긴 진단에만 붙는다. 보상은 "후기까지 완성한 첫 번째" 한 번뿐 —
+    // 후기(텍스트). 점수를 남긴 분석에만 붙는다. 보상은 "후기까지 완성한 첫 번째" 한 번뿐 —
     // 판별은 갱신 전에 해야 이번에 붙이는 후기가 자기 자신을 이력으로 잡지 않는다.
     @Transactional
     public ReviewSubmitResponse addComment(Long userId, Long storyId, ReviewCommentRequest request) {
@@ -89,7 +89,7 @@ public class ReviewService {
         return new ReviewSubmitResponse(usageProperties.getReviewGiftChat());
     }
 
-    // 사연 소유 검증을 겸한다 — 남의 storyId로는 최신 진단 id 자체를 알 수 없다.
+    // 사연 소유 검증을 겸한다 — 남의 storyId로는 최신 분석 id 자체를 알 수 없다.
     private Long latestAssessmentId(Long userId, Long storyId) {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));

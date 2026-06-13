@@ -12,29 +12,29 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "usage")
 public class UsageProperties {
 
-    // 직행 가입 선물. 게스트 체험(3회)과 총량을 맞춰 어느 문으로 들어와도 대화 3 + 진단 1.
+    // 직행 가입 선물. 게스트 체험(3회)과 총량을 맞춰 어느 문으로 들어와도 대화 3 + 분석 1.
     // 대화 0으로 두면 게스트를 안 거친 가입자는 사연을 말할 길이 없다.
     private int signupGiftChat = 3;
     private int signupGiftAssessment = 1;
 
-    // 게스트 체험. 진단은 0회 — 계정 연결을 유도하는 지점이라 아예 주지 않는다.
+    // 게스트 체험. 분석은 0회 — 계정 연결을 유도하는 지점이라 아예 주지 않는다.
     private int guestTrialChat = 3;
 
-    // 게스트가 계정을 연결할 때 주는 대화. 체험으로 이미 받았으므로 없다 — 연결이 여는 것은 진단이다.
+    // 게스트가 계정을 연결할 때 주는 대화. 체험으로 이미 받았으므로 없다 — 연결이 여는 것은 분석이다.
     private int guestUpgradeGiftChat = 0;
 
-    // 진단 평가 보상. 유저당 1회 — 첫 평가에만 나간다(평가 자체는 진단마다 남길 수 있다).
+    // 분석 평가 보상. 유저당 1회 — 첫 평가에만 나간다(평가 자체는 분석마다 남길 수 있다).
     private int reviewGiftChat = 2;
 
     // 생성 락의 자동 만료(TTL). LLM 호출이 실패로 락을 못 풀어도 이 시간이 지나면 풀린 것으로 본다.
     // 반드시 해당 종류의 LLM 타임아웃보다 커야 한다 — 짧으면 아직 진행 중인 생성 위로 두 번째
     // 요청이 만료된 락을 뺏어(acquire의 IF locked_until < now) 동시 생성이 된다.
-    // 채팅 50초 < 60초, 진단 90초 < 100초. 정상 종료든 실패든 콜백에서 즉시 반납하므로
+    // 채팅 50초 < 60초, 분석 90초 < 100초. 정상 종료든 실패든 콜백에서 즉시 반납하므로
     // 이 값이 실제로 쓰이는 건 프로세스 강제 종료나 콜백 유실뿐이다.
     private long chatLockTtlSeconds = 60;
     private long assessmentLockTtlSeconds = 100;
 
-    // 채팅 연속 실패 가드. 진단(2회/3분)보다 느슨하다 — 채팅은 턴이 짧고 잦아 2회면 일시 장애에
+    // 채팅 연속 실패 가드. 분석(2회/3분)보다 느슨하다 — 채팅은 턴이 짧고 잦아 2회면 일시 장애에
     // 걸리고, 대화 리듬이라 3분은 이탈로 이어진다. 1분이면 분당 1회로 캡돼 비용 방어엔 충분하다.
     private int chatFailStreakLimit = 3;
     private long chatFailCooldownSeconds = 60;

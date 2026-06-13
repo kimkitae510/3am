@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 // 결제 오케스트레이션. 트랜잭션 밖(NOT_SUPPORTED)에서 느린 PG 호출을 논블로킹으로 다루고,
-// DB 반영은 PaymentTxService의 짧은 트랜잭션으로 위임한다 — 진단(LLM)과 같은 구조.
+// DB 반영은 PaymentTxService의 짧은 트랜잭션으로 위임한다 — 분석(LLM)과 같은 구조.
 @Slf4j
 @Service
 @RequiredArgsConstructor

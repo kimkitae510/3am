@@ -1,13 +1,20 @@
-/* 카톡 프로필 문법 — 시트가 아니라 전체 화면. 캐릭터가 하나뿐인 서비스라 사진에 무대를 준다.
-   150px 카드에 담았을 때 가슴까지 든 원본에서 얼굴이 40px밖에 안 남던 문제도 여기서 풀린다 */
+/* 인스타식 프사 확대 — 눌렀던 원이 그대로 커진다.
+   화면을 갈아엎는 프로필 페이지는 대화를 끊었다(사진 한 장 보려고 방을 나간 꼴).
+   어둠 위에 원 하나만 띄우면 대화 위에 잠깐 겹쳤다 사라지는 것으로 읽힌다. */
 .overlay {
   position: absolute;
   inset: 0;
-  background: var(--bg);
   z-index: 12;
+  background: rgba(8, 8, 10, 0.92);
   display: flex;
   flex-direction: column;
-  animation: fade 0.18s ease-out;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  animation: fade 0.16s ease-out;
 }
 
 @keyframes fade {
@@ -19,70 +26,40 @@
   }
 }
 
-.stage {
-  position: relative;
-  height: 56%;
-  flex-shrink: 0;
-  background: var(--surface);
+/* 원이 커지는 동작 자체가 "아까 그 프사다"를 말한다 — 페이드만 하면 딴 화면이 된다 */
+@keyframes pop {
+  from {
+    transform: scale(0.72);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
-/* 원본이 무대보다 세로로 길어 아래가 조금 잘린다 — 세로값이 얼굴 위치 손잡이다.
-   확대는 걸지 않는다. 화면 절반을 쓰는 그림이라 당기는 만큼 그대로 흐려진다 */
-.portrait {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 50%;
+/* 원을 유지한다 — 귀퉁이의 의자는 잘리지만, 네모 판이 뜨면 프사가 커진 게 아니라
+   딴 화면이 열린 것으로 읽힌다. 뒤는 흰 판으로 채운다. 투명한 채로 어둠 위에 두면
+   인물 둘레만 밝아 후광처럼 보인다 */
+/* 동그란 창은 이 틀이 갖고, 그림은 그 안에서 따로 움직인다. 그림 자체에 원을 씌우면
+   그림과 창이 한 몸이라 아무리 밀어도 잘리는 자리가 그대로다 */
+.frame {
   display: block;
-}
-
-/* 사진이 아래에서 딱 끊기면 잘라 붙인 것처럼 보인다 — 배경색으로 녹여 화면에 앉힌다 */
-.fade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 96px;
-  background: linear-gradient(to bottom, rgba(15, 15, 17, 0), var(--bg));
-}
-
-.close {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  width: 36px;
-  height: 36px;
-  border: none;
+  width: 80%;
+  max-width: 324px;
+  aspect-ratio: 1;
   border-radius: 50%;
-  background: rgba(10, 10, 12, 0.45);
-  color: #ebebee;
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
+  overflow: hidden;
+  background: #f4f1f3;
+  animation: pop 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
-.body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 26px 26px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.name {
-  color: var(--text);
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-}
-
-.intro {
-  color: var(--text-sub);
-  font-size: 13.5px;
-  line-height: 1.7;
-  text-align: center;
-  white-space: pre-line;
+/* 창보다 크게 넣어(112%) 오른쪽 아래 귀퉁이의 의자를 밖으로 밀어내고,
+   아래로 내려(4%) 정수리 위에 여백을 남긴다 — 머리가 창 테두리에 닿으면 잘린 것처럼 보인다 */
+.portrait {
+  display: block;
+  width: 112%;
+  margin-left: -6%;
+  margin-top: 4%;
 }
 

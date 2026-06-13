@@ -4,16 +4,48 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#17151B" />
+    <!-- CSS가 오기 전에도 브라우저가 어두운 화면임을 알게 — 첫 화면이 흰 판으로 번쩍이는 것 방지 -->
+    <meta name="color-scheme" content="dark" />
     <link
       rel="stylesheet"
       as="style"
       crossorigin
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
     />
-    <title>새벽 세시</title>
+    <title>3am</title>
+    <meta
+      name="description"
+      content="지난 연애를 정리하려는 사람을 위한 소프트웨어. 이별까지의 상황을 적으면 이별의 유형과 작용한 요인을 담은 분석 리포트를 돌려준다."
+    />
   </head>
   <body>
     <div id="root"></div>
+    <!-- 결제 대행사 심사는 자바스크립트를 돌리지 않고 HTML만 받아간다. 화면을 전부 리액트가
+         그리므로 봇에게는 이 문서가 빈 페이지로 보이고, 약관과 환불정책, 사업자정보를 하나도
+         못 찾는다. 여기가 봇이 읽는 유일한 자리다 — 화면에는 나오지 않으니 지우지 말 것.
+         값이 BusinessInfo.tsx와 겹친다. 사업자정보가 바뀌면 양쪽을 같이 고친다. -->
+    <noscript>
+      <h1>3am</h1>
+      <p>
+        지난 연애를 정리하려는 사람을 위한 소프트웨어입니다. 이별까지의 상황을 적으면 이별의
+        유형과 작용한 요인을 정리한 분석 리포트를 글로 돌려드립니다.
+      </p>
+      <p>
+        적어주신 내용을 소프트웨어가 자동으로 분석한 결과입니다. 상담사가 응대하지 않으며,
+        이용자끼리 연결하거나 소개하지 않습니다.
+      </p>
+      <p>이용권: 분석 1회와 대화 5회 2,900원. 결제 즉시 지급되는 디지털 콘텐츠입니다.</p>
+      <ul>
+        <li><a href="/pricing">이용권과 환불 정책</a></li>
+        <li><a href="/terms">이용약관</a></li>
+        <li><a href="/privacy">개인정보처리방침</a></li>
+      </ul>
+      <p>
+        케이케이티랩스 / 대표 김도아 / 사업자등록번호 281-20-02774<br />
+        대구광역시 달성군 다사읍 대실역북로1길 6, 106동 301호<br />
+        문의 <a href="mailto:rlarlxo516@gmail.com">rlarlxo516@gmail.com</a> / 010-3449-6662
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

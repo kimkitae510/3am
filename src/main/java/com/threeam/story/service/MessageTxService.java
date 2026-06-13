@@ -37,7 +37,7 @@ public class MessageTxService {
     private static final int HISTORY_WINDOW = 20;
 
     // 채팅 프롬프트에 싣는 사실 원장 상한(최근 N개). 원장은 무제한으로 쌓이므로 통째로 실으면
-    // 대화가 길수록 호출당 입력 토큰이 선형 증가한다. 채팅은 맥락용이라 진단(50)보다 적은 30.
+    // 대화가 길수록 호출당 입력 토큰이 선형 증가한다. 채팅은 맥락용이라 분석(50)보다 적은 30.
     private static final int FACT_INJECT_LIMIT = 30;
 
     private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
@@ -129,7 +129,7 @@ public class MessageTxService {
 
         List<ChatMessage> prompt = new ArrayList<>();
         // 페르소나가 프롬프트의 맨 앞이자 유일한 고정 지시 블록이다. 캐싱은 앞에서부터 똑같은
-        // 만큼만 먹으므로 고정분은 전부 여기 모으고, 매번 바뀌는 것(원장, 기억, 진단)은 뒤에 둔다.
+        // 만큼만 먹으므로 고정분은 전부 여기 모으고, 매번 바뀌는 것(원장, 기억, 분석)은 뒤에 둔다.
         // 별도 리마인더 블록은 없앴다 — '프롬프트 말미에 다시 박는다'는 전제로 만들었는데
         // system 메시지는 언제나 대화보다 앞이라 말미인 적이 없었고, 결국 페르소나의 중복이었다.
         // 진짜 말미가 필요한 것은 출력 직전 점검뿐이고 그건 대화 뒤(contents)로 따로 나간다.
@@ -143,7 +143,7 @@ public class MessageTxService {
             for (int i = recentFacts.size() - 1; i >= 0; i--) {
                 StoryFact fact = recentFacts.get(i);
                 block.append("\n- (").append(FACT_DATE.format(fact.getCreatedAt())).append(")");
-                // 직접 입력분은 유저의 주장임을 표시한다(진단 프롬프트와 같은 라벨).
+                // 직접 입력분은 유저의 주장임을 표시한다(분석 프롬프트와 같은 라벨).
                 if (fact.getSource() == FactSource.USER) {
                     block.append(" [유저 직접 입력]");
                 }
@@ -156,7 +156,7 @@ public class MessageTxService {
                 .map(StoryMemory::getSummary)
                 .filter(summary -> !summary.isBlank())
                 .ifPresent(summary -> prompt.add(ChatMessage.system("지금까지 요약: " + summary)));
-        // 최근 진단을 매 턴 싣는다. 단 결과 라벨이 아니라 재료다 — 확률(강도의 기준점)과
+        // 최근 분석을 매 턴 싣는다. 단 결과 라벨이 아니라 재료다 — 확률(강도의 기준점)과
         // 무겁게 본 사실들만 넣고, 유형 이름과 요인 이름과 점프 이름은 전부 뺀다.
         // 라벨을 실었을 때 그 단어가 그대로 대화에 새어나왔고("소진형 상태거든"), 결과만
         // 실었을 땐 새 사실이 나와도 낡은 값에 묶였다(둘 다 실측). 재료가 함께 있으면
@@ -197,18 +197,18 @@ public class MessageTxService {
     // 이 턴이 이 사연의 첫 답변인지. 어시스턴트 메시지가 아직 없으면 첫 답변이다.
     // (recent는 방금 저장한 유저 메시지를 포함한 최신 N개다. 창 밖으로 밀려날 만큼 대화가
     // 길면 당연히 첫 답변이 아니므로 창 안만 봐도 충분하다.)
-    // 진단을 재료로 옮긴 블록. 확률은 강도의 기준점으로만 주고, 나머지는 판정 라벨이 아니라
+    // 분석을 재료로 옮긴 블록. 확률은 강도의 기준점으로만 주고, 나머지는 판정 라벨이 아니라
     // 관찰된 사실과 그 방향으로 적는다 — 유형, 점프, 요인 이름은 유저의 언어가 아니라 내부
     // 어휘라 프롬프트에 없으면 새어나갈 수도 없다. 중립(근거 없음) 슬롯은 판을 안 움직여 뺀다.
     private String describeAssessment(Assessment assessment) {
-        StringBuilder block = new StringBuilder("최근 진단: 재회 가능성 ")
+        StringBuilder block = new StringBuilder("최근 분석: 재회 가능성 ")
                 .append(assessment.getProbability()).append("%\n");
         List<AssessmentFactor> weighted = assessment.getFactors().stream()
                 .filter(f -> f.getLevel() != FactorLevel.NEUTRAL)
                 .filter(f -> f.getEvidence() != null && !f.getEvidence().isBlank())
                 .toList();
         if (!weighted.isEmpty()) {
-            block.append("진단이 무겁게 본 것:\n");
+            block.append("분석이 무겁게 본 것:\n");
             for (AssessmentFactor factor : weighted) {
                 block.append("- ").append(factor.getEvidence().trim())
                         .append(" (").append(direction(factor.getLevel())).append(")\n");

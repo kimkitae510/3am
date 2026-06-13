@@ -5,7 +5,7 @@ import { BusinessInfo } from '../components/BusinessInfo';
 import { getPaymentConfig, type PaymentItemView } from '../api/payment';
 import styles from './PricingPage.module.css';
 
-const KIND_LABEL: Record<string, string> = { CHAT: '대화', ASSESSMENT: '진단' };
+const KIND_LABEL: Record<string, string> = { CHAT: '대화', ASSESSMENT: '분석' };
 
 // 로그인 없이 무엇을 얼마에 파는지 보여주는 공개 페이지.
 // 결제 대행사 심사자는 계정을 만들지 않고 사이트를 보기 때문에, 가격이 결제 화면(로그인 뒤)에만
@@ -40,8 +40,10 @@ export function PricingPage() {
 
         <div className={styles.body}>
           <p className={styles.lead}>
-            새벽 세시는 이별한 사람이 AI 캐릭터와 대화하며 상황을 정리하고, 재회 가능성을 진단받는
-            서비스입니다. 대화와 진단은 횟수 단위로 충전해서 사용합니다.
+            새벽 세시는 지난 연애를 정리하려는 사람을 위한 소프트웨어입니다. 이별까지의 상황을
+            적으면 이별의 유형과 작용한 요인을 정리한 분석 리포트를 글로 돌려드립니다. 소프트웨어가
+            자동으로 만드는 결과이며 상담사가 응대하지 않습니다. 대화와 분석은 횟수 단위로
+            충전해서 사용합니다.
           </p>
 
           {failed && <div className={styles.state}>가격 정보를 불러오지 못했습니다.</div>}
@@ -77,12 +79,21 @@ export function PricingPage() {
           </p>
 
           <div className={styles.docLinks}>
-            <button className={styles.docLink} type="button" onClick={() => navigate('/terms')}>
+            {/* IntroPage와 같은 이유로 a — 크롤러가 따라갈 href가 있어야 한다 */}
+            <a
+              className={styles.docLink}
+              href="/terms"
+              onClick={(e) => { e.preventDefault(); navigate('/terms'); }}
+            >
               이용약관
-            </button>
-            <button className={styles.docLink} type="button" onClick={() => navigate('/privacy')}>
+            </a>
+            <a
+              className={styles.docLink}
+              href="/privacy"
+              onClick={(e) => { e.preventDefault(); navigate('/privacy'); }}
+            >
               개인정보처리방침
-            </button>
+            </a>
           </div>
 
           <BusinessInfo defaultOpen />

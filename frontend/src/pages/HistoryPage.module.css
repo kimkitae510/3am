@@ -8,7 +8,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 2px 20px 14px;
+  /* 실기기에선 목업 상태바를 벗어서 이 줄이 화면 맨 위에 바로 붙는다 — 위를 띄운다 */
+  padding: 14px 20px 14px;
   flex-shrink: 0;
 }
 
@@ -88,7 +89,7 @@
   font-size: 10.5px;
 }
 
-/* 목록 — 맨바닥 행 더미 대신 한 카드 안 구분선 목록(진단 화면 신호 목록과 같은 문법) */
+/* 목록 — 맨바닥 행 더미 대신 한 카드 안 구분선 목록(분석 화면 신호 목록과 같은 문법) */
 .list {
   margin-top: 16px;
   display: flex;

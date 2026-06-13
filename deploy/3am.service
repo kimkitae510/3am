@@ -1,0 +1,42 @@
+# /etc/systemd/system/3am.service
+#
+# 설치:
+#   sudo cp deploy/3am.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now 3am
+
+[Unit]
+Description=3am backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=threeam
+WorkingDirectory=/opt/3am
+
+# 시크릿은 전부 여기서 주입한다. Spring Boot는 .env를 스스로 읽지 않는다.
+# 파일 권한은 600으로 잠글 것 — DB 비밀번호와 JWT 시크릿이 들어간다.
+EnvironmentFile=/opt/3am/.env
+
+# prod가 아니면 show-sql이 켜진 채로 떠서 이별 사연이 쿼리 로그로 샌다.
+Environment=SPRING_PROFILES_ACTIVE=prod
+
+# 앱 전용 서버(DB는 HeatWave)라 힙을 넉넉히 주되, OS 파일 캐시 몫은 남긴다.
+# LLM 요청/응답 문자열이 메모리의 주 소비처이고 엔티티는 가볍다.
+ExecStart=/usr/bin/java -Xms1g -Xmx4g -XX:+UseG1GC \
+  -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Seoul \
+  -jar /opt/3am/app.jar
+
+# server.shutdown=graceful + timeout-per-shutdown-phase=20s 를 기다려 준다.
+# 짧게 끊으면 진행 중인 결제 승인이 중간에 잘린다.
+KillSignal=SIGTERM
+TimeoutStopSec=40
+
+Restart=always
+RestartSec=5
+
+# 사례 데이터와 프롬프트 자산은 WorkingDirectory 기준 상대경로로 읽는다
+ReadWritePaths=/opt/3am
+
+[Install]
+WantedBy=multi-user.target

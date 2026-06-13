@@ -25,7 +25,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     // 폴링용: 아직 아무것도 안 붙었는지만 본다(끊긴 턴 판정 전에 목록을 통째로 읽지 않기 위해).
     boolean existsByStoryIdAndIdGreaterThan(Long storyId, Long afterId);
 
-    // 재진단 가드용: 마지막 진단 이후 새로 나눈 대화가 있는지.
+    // 재분석 가드용: 마지막 분석 이후 새로 나눈 대화가 있는지.
     boolean existsByStoryIdAndCreatedAtAfter(Long storyId, LocalDateTime createdAt);
 
     // 사실 추출 게이팅용: 워터마크 이후 아직 안 훑은 메시지가 몇 개인지(임계 미만이면 LLM 호출 자체를 건너뛴다).

@@ -16,6 +16,8 @@ out/
 
 ### Environment / Secrets ###
 .env
+.env.*
+!.env.example
 application-local.yml
 application-secret.yml
 persona.yml
@@ -40,6 +42,8 @@ logs/
 ### 서비스 핵심 데이터 (커밋 제외, 로컬 관리) ###
 사례*.json*
 사례시드.sql
+사례검수.md
+사례검토*.md
 분류체계.md
 루브릭v2.md
 실제수집*.json
@@ -53,3 +57,15 @@ logs/
 프로젝트-해설.md
 매칭오판.md
 골든셋.md
+테스트사연.md
+연구노트.md
+운영설정.md
+운영명세.md
+
+# 네이버 로그인 BI 자산 원본 묶음 — 쓰는 한 장만 frontend/src/assets 로 복사해 두었다
+NAVER_login_KR/
+__MACOSX/
+
+# 작업 원본 이미지 — 실제로 쓰는 것은 frontend/src/assets 로 복사해 둔다
+frontend/public/character(수정).png
+kakaotalk_sharing_btn_small_ov.png

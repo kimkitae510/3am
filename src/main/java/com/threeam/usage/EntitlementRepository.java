@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface EntitlementRepository extends JpaRepository<Entitlement, Long> {
 
-    // 묶음 상품은 결제 하나가 이용권 여러 종(대화, 진단)을 지급한다.
+    // 묶음 상품은 결제 하나가 이용권 여러 종(대화, 분석)을 지급한다.
     List<Entitlement> findByPaymentId(Long paymentId);
 
     List<Entitlement> findByPaymentIdIn(Collection<Long> paymentIds);

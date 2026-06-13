@@ -9,10 +9,10 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
           3:00
           <div className={styles.statusIcons}>
             <svg width="18" height="11" viewBox="0 0 18 11">
-              <rect x="0" y="6" width="3" height="5" rx="1" fill="#ECEAF0" />
-              <rect x="5" y="3" width="3" height="8" rx="1" fill="#ECEAF0" />
-              <rect x="10" y="0" width="3" height="11" rx="1" fill="#ECEAF0" />
-              <rect x="15" y="0" width="3" height="11" rx="1" fill="#ECEAF0" opacity=".35" />
+              <rect x="0" y="6" width="3" height="5" rx="1" fill="#ebebee" />
+              <rect x="5" y="3" width="3" height="8" rx="1" fill="#ebebee" />
+              <rect x="10" y="0" width="3" height="11" rx="1" fill="#ebebee" />
+              <rect x="15" y="0" width="3" height="11" rx="1" fill="#ebebee" opacity=".35" />
             </svg>
             <div className={styles.battery}>
               <div className={styles.batteryFill} />

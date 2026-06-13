@@ -10,7 +10,7 @@ import com.threeam.assessment.entity.ReplacementStage;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.util.List;
 
-// LLM이 대화를 읽고 내려준 진단(파싱 결과). 확률(%)은 여기 없다.
+// LLM이 대화를 읽고 내려준 분석(파싱 결과). 확률(%)은 여기 없다.
 // LLM은 유형(1층)과 요인 판정(2층)만 내리고, 최종 숫자는 백엔드(TypeBandScorer)가 계산한다.
 // 예외: activeReunionOffer(상대의 유효한 만남/재회 제안)면 백엔드가 100으로 확정한다.
 // summary는 없다 — 기억 요약은 채팅 사실 추출이 전담한다(주인 단일화).
@@ -28,10 +28,10 @@ public record ReunionDiagnosis(
         RelapseRisk relapseRisk,            // 유지 전망(성사 확률과 별개 축)
         String relapseReason,
         List<WatchItem> watchFor,           // 관찰 포인트 1~2개
-        // 상담자가 물었는데 유저가 답하지 않은 것. 진단은 대화를 통째로 보므로 추가 호출
+        // 상담자가 물었는데 유저가 답하지 않은 것. 분석은 대화를 통째로 보므로 추가 호출
         // 없이 뽑을 수 있다. 화면의 "아직 모르는 것"이 고정 문구 대신 이걸 쓴다.
         List<String> unansweredQuestions,
-        // 이 대화에서 상담자가 재회 가능성을 어느 쪽으로 말했는지(관측). 진단 확률과
+        // 이 대화에서 상담자가 재회 가능성을 어느 쪽으로 말했는지(관측). 분석 확률과
         // 대조해 두 판정이 어긋난 사연을 찾는 데만 쓴다.
         ChatDirection chatDirection,
         MatchProfileItem matchProfile,      // 사례 매칭용 분류(분류체계 어휘). 못 뽑으면 null

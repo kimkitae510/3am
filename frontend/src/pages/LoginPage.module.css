@@ -1,4 +1,7 @@
+/* position: relative가 있어야 좌상단 뒤로가기(.backTop, .backLanding)가 이 칸을 기준으로
+   앉는다. 없으면 기준이 폰 프레임 전체로 올라가 상태바(시간) 자리까지 파고든다 */
 .body {
+  position: relative;
   padding: 0 34px 40px;
   height: 100%;
   display: flex;
@@ -10,16 +13,10 @@
   margin-top: 64px;
 }
 
-/* 프레임 전체를 덮는 배경 층(.landBg) 위로 콘텐츠를 올린다 */
-.aboveSky {
-  position: relative;
-  z-index: 1;
-}
-
 /* 이메일 모드 좌상단 뒤로가기 — 랜딩으로 복귀. 가입(.backTop)과 같은 자리 */
 .backLanding {
   position: absolute;
-  top: 6px;
+  top: 10px;
   left: 18px;
   border: none;
   background: transparent;
@@ -91,7 +88,8 @@
   outline: none;
   background: transparent;
   color: var(--text);
-  font-size: 15px;
+  /* iOS는 16px 미만이면 탭할 때 화면을 확대한다 — 그 뒤로 레이아웃이 어긋난 채로 남는다 */
+  font-size: 16px;
 }
 
 .input::placeholder {
@@ -142,20 +140,18 @@
 }
 
 /* 소셜 로그인 — 각 브랜드 가이드 색상 고정(테마 변수 미사용) */
-/* 홈(랜딩) — 디자인 시안(LoginHome.jsx)의 무채색 결. 남색 틴트는 기각, 시안 원본(#101016/#0a0a0e/#08080b)은
-   "너무 까맣다" 피드백이라 두 단계 밝힌 값 */
-.landBg {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(130% 100% at 50% 0%, #1a1a23 0%, #111117 52%, #0c0c10 100%);
-}
-
+/* 랜딩 전용 배경 층은 없앴다 — 팔레트를 중성으로 옮기면서 --surface가 랜딩 배경과 같은
+   값이 되어, 프레임 배경 위에 같은 색을 한 번 더 칠하는 죽은 층이 됐다.
+   랜딩에만 무드를 깔 일이 생기면 PhoneFrame 위에 층을 다시 두면 된다 */
 .landing {
   position: relative;
   z-index: 1;
   height: 100%;
   display: flex;
   flex-direction: column;
+  /* 사업자정보를 펼치면 화면보다 길어진다 — 문서 스크롤을 막아둔 실기기에서는
+     여기서 받지 않으면 프레임에 잘려 안 보인다 */
+  overflow-y: auto;
 }
 
 /* 로고 락업 — 인프런 결: 남는 세로 공간의 중심에 로고, 태그라인은 아래 */
@@ -168,17 +164,22 @@
   text-align: center;
 }
 
+/* 로고 아래 부제 — 흐린 안내문이 아니라 로고와 함께 서는 한 줄이다.
+   내가 잰 인프런 400/16은 웹 로그인 폼의 부제였고, 랜딩의 태그라인은 그보다 굵다 */
+/* 굵기가 아니라 색으로 세운다 — 흰 글자가 어두운 배경에서 번져 굵어 보일 뿐,
+   실제 획은 평범한 400이다. 다만 순백은 로고와 같은 값이라 둘이 같은 층으로 붙는다.
+   한 칸만 내려 로고 아래로 앉히되 회색으로는 안 떨어지게 */
 .brandTagline {
-  margin: 16px 0 0;
+  margin: 14px 0 0;
   font-size: 14px;
   font-weight: 400;
-  letter-spacing: 0.2px;
-  color: rgba(240, 240, 242, 0.72);
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .brandLogo {
   font-size: 64px;
-  font-weight: 200;
+  font-weight: 400;
   letter-spacing: 7px; /* 시안의 14px은 과하게 벌어져 보임(실측 피드백) */
   text-indent: 7px; /* 마지막 글자 뒤 자간으로 중심이 밀리는 것 보정 */
   color: #fff;
@@ -197,11 +198,16 @@
   margin: 0 28px 8px;
 }
 
+/* 간격은 gap 하나로 균등하게 주지 않는다 — 히어로 버튼 묶음과 로그인 묶음은
+   서로 다른 덩어리라, 묶음 안은 좁히고 묶음 사이만 크게 벌린다 */
 .landButtons {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  padding: 0 28px 20px; /* 안심 문구 제거 후 푸터와의 간격을 여기서 받친다 */
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 20px 20px;
 }
 
 .landBtn {
@@ -220,19 +226,20 @@
   font-family: inherit;
 }
 
-/* 소셜 원형 아이콘 줄 — 문구 없이 브랜드 색 원으로만 */
+/* 소셜 아이콘 줄 — 세 칸이 같은 중립 타일이라 로고 형태만으로 구분된다 */
 .socialRow {
   display: flex;
   justify-content: center;
-  gap: 22px;
-  padding-bottom: 4px;
+  gap: 16px;
 }
 
+/* 라운드 스퀘어는 아래 알약 버튼과 모서리 언어가 어긋난다 — 둘 다 원형 계열로 */
 .circleBtn {
-  width: 56px;
-  height: 56px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
-  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -240,18 +247,22 @@
   padding: 0;
 }
 
+/* 브랜드 판은 색 그대로 — 심볼만 색칠하면 무슨 서비스인지 못 알아본다.
+   대신 타일을 56에서 52로 줄이고 간격을 좁혀 원색 면적을 낮춘다 */
 .circleKakao {
   background: #fee500;
+  border-color: transparent;
 }
 
 .circleNaver {
   background: #03c75a;
+  border-color: transparent;
 }
 
-/* 3am 자체 계정 — 배경 결에 맞춘 어두운 원 + 외곽선, 안에는 로고 미니어처 */
+/* 3am 자체 계정 — 배경 결에 맞춘 어두운 타일, 안에는 로고 미니어처 */
 .circleEmail {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 /* 원 안의 로고 미니어처 — 상단 로고 락업과 같은 문법(숫자만 보라), 작은 크기라 두께는 한 단계 올림 */
@@ -267,14 +278,16 @@
   color: var(--accent);
 }
 
-/* "이미 계정이 있나요?" 구분선 — 양쪽 실선 사이 텍스트 */
+/* 소셜과 게스트 진입 사이의 구분선. 소셜이 위, 게스트가 아래로 놓이면서
+   "여기서 갈린다"를 말해줄 것이 필요해졌다 */
 .orDivider {
   display: flex;
   align-items: center;
-  gap: 12px;
-  color: rgba(236, 237, 237, 0.55);
+  gap: 14px;
+  width: 100%;
+  color: var(--text-muted);
   font-size: 12.5px;
-  margin: 10px 0 4px;
+  margin: 26px 0 16px;
 }
 
 .orDivider::before,
@@ -282,15 +295,30 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.13);
 }
 
-/* 게스트 진입이 메인 — 채움형 히어로 버튼으로 시선을 여기에 */
+/* 채운 라벤더 판은 로고 하나뿐인 화면에서 너무 무거웠다 — 테두리만 있는 알약으로 둔다.
+   색은 소셜 타일이 이미 들고 있어서, 여기까지 채우면 하단이 색 덩어리가 된다 */
 .landStart {
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 700;
-  font-size: 15.5px;
+  width: 100%;
+  height: 56px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.3px;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+/* 채움이 없는 버튼일수록 눌리는 반응이 있어야 판으로 읽힌다 */
+.landStart:active {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.38);
 }
 
 /* 이메일 화면 하단 텍스트 링크(회원가입 등) — 인프런의 "이메일 찾기|비밀번호 찾기" 자리 */
@@ -344,10 +372,45 @@
   font-size: 13.5px;
 }
 
-/* 가입 화면 좌상단 뒤로가기 — 폼(.aboveSky) 기준 배치라 상태바 바로 아래에 온다. 로그인(.backLanding)과 같은 자리 */
+/* 가입 화면 좌상단 뒤로가기 — 폼(.body) 기준 배치라 상태바 바로 아래에 온다. 로그인(.backLanding)과 같은 자리 */
+/* 계정 연결 화면 — 이메일 폼(입력 3개, 동의 5줄)을 내리고 소셜 두 칸만 남으면서
+   위에서부터 흐르는 폼 레이아웃이 맞지 않게 됐다. 남은 한 덩어리를 세로 중앙에 세운다 */
+.linkBody {
+  justify-content: center;
+}
+
+.linkHero {
+  text-align: center;
+}
+
+.linkHero .title {
+  font-size: 26px;
+}
+
+.linkHero .subtitle {
+  font-size: 14.5px;
+  margin-top: 9px;
+}
+
+/* 받는 것은 문장에 섞지 않고 알약 하나로 — 제목 아래 한 줄이 더 붙으면 안내문이 쌓인다 */
+.linkGift {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.linkSocial {
+  margin-top: 36px;
+}
+
 .backTop {
   position: absolute;
-  top: 6px;
+  top: 10px;
   left: 18px;
   border: none;
   background: transparent;
@@ -416,7 +479,7 @@
   display: flex;
   justify-content: center;
   gap: 14px;
-  padding-bottom: 30px;
+  padding-bottom: 10px; /* 아래에 사업자 정보(초기화면 표시 의무)가 붙는다 */
 }
 
 .docLink {

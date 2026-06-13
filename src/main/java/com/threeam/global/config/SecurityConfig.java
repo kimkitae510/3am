@@ -74,7 +74,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 비동기(CompletableFuture) 응답의 ASYNC 재디스패치, 에러 포워딩은 최초 REQUEST에서
                         // 이미 인증을 통과한 내부 흐름 — Security 6은 기본으로 이것까지 검사해서,
-                        // 면제하지 않으면 진단 API가 처리 완료 후 401로 떨어진다.
+                        // 면제하지 않으면 분석 API가 처리 완료 후 401로 떨어진다.
                         .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers("/api/users/signup", "/api/users/email-verifications",
                                 "/api/auth/login", "/api/auth/reissue", "/api/auth/oauth/**",
@@ -86,6 +86,10 @@ public class SecurityConfig {
                         // 페이지가 로그아웃 상태로 이 응답을 읽는다. 내려주는 값은 상품 목록과
                         // 프론트 결제창용 공개 키뿐이라 유저 정보가 섞이지 않는다.
                         .requestMatchers(HttpMethod.GET, "/api/payments/config").permitAll()
+                        // 분석 공유 — 링크를 받은 비회원이 여는 공개 조회와 OG 페이지.
+                        // 토큰(192비트 랜덤)이 곧 열쇠라 무인증으로 열어도 추측으로 남의 결과에
+                        // 닿을 수 없고, 내려가는 값도 사연 원문이 빠진 요약뿐이다.
+                        .requestMatchers(HttpMethod.GET, "/api/share/*", "/s/*").permitAll()
                         // PG 웹훅 — 토스 서버가 호출하므로 JWT가 없다. 페이로드를 신뢰하지 않고
                         // PG 조회로 재확인하는 구조라(PaymentWebhookController) 열어도 상태 위조가 불가능하다.
                         .requestMatchers("/api/payments/webhook/**").permitAll()

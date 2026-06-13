@@ -14,11 +14,11 @@ public class MockLlmClient implements LlmClient {
     @Override
     public CompletableFuture<String> generate(List<ChatMessage> messages) {
         return CompletableFuture.completedFuture(
-                "지금은 많이 힘든 시간일 거예요. 여기서는 천천히, 하고 싶은 만큼 이야기해도 괜찮아요. "
+                "지금은 많이 힘든 시간일 겁니다. 여기서는 천천히, 하고 싶은 만큼 이야기하셔도 괜찮습니다. "
                         + "(개발용 임시 응답 — 실제 LLM 연동 전 고정 메시지입니다.)");
     }
 
-    // 진단 흐름 검증용 고정 JSON. 실제 판단은 Gemini가 한다.
+    // 분석 흐름 검증용 고정 JSON. 실제 판단은 Gemini가 한다.
     // 유저 발화가 적으면 INSUFFICIENT(데이터 부족)를, 충분하면 POSSIBLE을 돌려줘 두 흐름을 다 확인할 수 있게 한다.
     @Override
     public CompletableFuture<String> generateJson(List<ChatMessage> messages) {
@@ -27,7 +27,7 @@ public class MockLlmClient implements LlmClient {
             return CompletableFuture.completedFuture("""
                     {
                       "verdict": "INSUFFICIENT",
-                      "reason": "아직 진단하기엔 이야기가 부족해요. 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일을 조금만 더 들려줄래요?",
+                      "reason": "아직 분석하기엔 이야기가 부족합니다. 어쩌다 헤어졌는지, 지금 연락은 되는지, 상대와 최근 있었던 일을 조금만 더 들려주십시오.",
                       "summary": ""
                     }
                     """);
@@ -63,7 +63,7 @@ public class MockLlmClient implements LlmClient {
                     "repeatBreakup": null,
                     "partnerHasNew": null
                   },
-                  "reason": "개발용 임시 진단 — 실제 LLM 연동 전 고정 응답입니다.",
+                  "reason": "개발용 임시 분석 — 실제 LLM 연동 전 고정 응답입니다.",
                   "newFacts": ["상대가 먼저 이별을 통보함 (개발용 임시 사실)"]
                 }
                 """);

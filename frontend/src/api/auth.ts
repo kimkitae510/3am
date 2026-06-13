@@ -76,7 +76,7 @@ export async function confirmOAuthSwitch(switchTicket: string): Promise<TokenRes
   return data;
 }
 
-// 로그인 없이 시작 — 서버가 게스트 계정을 만들어 토큰을 준다(대화 총 3회, 진단/결제는 계정 연결 후).
+// 로그인 없이 시작 — 서버가 게스트 계정을 만들어 토큰을 준다(대화 총 3회, 분석/결제는 계정 연결 후).
 export async function guestStart(): Promise<TokenResponse> {
   const { data } = await api.post<TokenResponse>('/api/auth/guest');
   tokenStore.set(data.accessToken, data.refreshToken);

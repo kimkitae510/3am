@@ -41,7 +41,7 @@ public class Story {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    // 소프트 딜리트: 물리 삭제 대신 시각만 찍는다. 대화, 진단은 남겨둬야 할 기록이라 지우지 않는다.
+    // 소프트 딜리트: 물리 삭제 대신 시각만 찍는다. 대화, 분석은 남겨둬야 할 기록이라 지우지 않는다.
     // null이면 살아있는 사연. 조회 쿼리는 deletedAt IS NULL만 노출한다.
     @Column
     private LocalDateTime deletedAt;
@@ -51,13 +51,13 @@ public class Story {
     @Column
     private LocalDateTime lastReadAt;
 
-    // 마지막으로 진단이 "근거 부족(INSUFFICIENT)"을 받은 시각. 이후 새 대화가 없으면 재진단을
-    // LLM 없이 거부하는 근거(무차감 재호출로 비싼 진단이 반복되는 것 방지). 성공 진단 시 null로 지운다.
+    // 마지막으로 분석이 "근거 부족(INSUFFICIENT)"을 받은 시각. 이후 새 대화가 없으면 재분석을
+    // LLM 없이 거부하는 근거(무차감 재호출로 비싼 분석이 반복되는 것 방지). 성공 분석 시 null로 지운다.
     // 인메모리 맵을 대체 — 재시작, 멀티인스턴스에서도 유지된다.
     @Column
     private LocalDateTime lastInsufficientAt;
 
-    // 진단 생성 실패(응답 잘림, 안전성 차단, 장애)의 "같은 재료 연속" 횟수와 마지막 시각.
+    // 분석 생성 실패(응답 잘림, 안전성 차단, 장애)의 "같은 재료 연속" 횟수와 마지막 시각.
     // 실패는 후차감이라 쿼터가 안 깎여, 같은 재료로 무한 재시도(무료 LLM 호출)가 가능했다(실측: 안전성 잘림 반복).
     // 같은 재료 연속 2회 실패면 새 대화 전까지 LLM 없이 거부한다. 1회는 재시도 허용(일시 장애 복구 여지).
     // LLM 왕복이 정상 처리되면(INSUFFICIENT 판정 포함) 초기화한다.

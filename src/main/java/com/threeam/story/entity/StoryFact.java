@@ -45,7 +45,7 @@ public class StoryFact {
     @Column(nullable = false, length = MAX_LENGTH)
     private String fact;
 
-    // 어느 진단에서 추출됐는지(추적용). 물리 FK는 걸지 않는다.
+    // 어느 분석에서 추출됐는지(추적용). 물리 FK는 걸지 않는다.
     @Column
     private Long sourceAssessmentId;
 
@@ -69,7 +69,7 @@ public class StoryFact {
         return new StoryFact(storyId, fact, sourceAssessmentId, FactSource.EXTRACTED);
     }
 
-    // 유저가 진단 화면에서 직접 적어준 사실. 재진단 가드의 "새 재료"로 인정된다.
+    // 유저가 분석 화면에서 직접 적어준 사실. 재분석 가드의 "새 재료"로 인정된다.
     public static StoryFact userProvided(Long storyId, String fact) {
         return new StoryFact(storyId, fact, null, FactSource.USER);
     }

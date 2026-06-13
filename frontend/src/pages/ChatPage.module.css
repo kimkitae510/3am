@@ -50,7 +50,7 @@
   height: 32px;
   border-radius: 50%;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.07);
+  background: #f4f1f3; /* 그림 배경이 투명이라 뒤를 밝게 깔아야 얼굴이 안 칙칙하다 */
   flex-shrink: 0;
 }
 
@@ -83,6 +83,12 @@
   flex-shrink: 0;
 }
 
+/* 서랍 입구 — 분석과 같은 칩 문법(라벤더 아이콘 + 흰 글자). 아이콘 단독은 뜻이 안 읽힌
+   이력이 있어 이름을 함께 쓴다 */
+.drawerButton {
+  composes: diagButton;
+}
+
 
 .messages {
   flex: 1;
@@ -102,7 +108,51 @@
   margin-bottom: 6px;
 }
 
-/* 빈 대화 상태 — 진단 상태 화면과 같은 타이포 위계(제목 + 흐린 본문) */
+/* 분석 입구 안내 — 대화 흐름 밖의 시스템 줄. 라벤더 틴트 알약은 이 화면에 없던 문법이라
+   겉돌았다 — 헤더 칩, 토스트와 같은 어두운 칩 + 라벤더 아이콘 문법으로 맞추고,
+   눌린다는 것은 끝의 꺾쇠가 말한다 */
+/* 분석 입구 — 대화 흐름 안의 카드. 예전엔 목록 끝의 얇은 회색 한 줄이었는데 시스템 안내처럼
+   읽혀 그냥 지나쳤다("분석을 어떻게 받는지 모르겠다" 실측). 방금 읽은 답변 다음 자리가
+   시선이 이미 가 있는 곳이다. 노출 조건은 그대로 — 방당 1회, 분석 이력이 없을 때만 */
+.diagHintCard {
+  margin: 12px 0 4px;
+  padding: 14px 16px 15px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.diagHintTitle {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.diagHintBody {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.diagHintBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px 0;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 빈 대화 상태 — 분석 상태 화면과 같은 타이포 위계(제목 + 흐린 본문) */
 .state {
   margin: auto;
   display: flex;
@@ -174,17 +224,19 @@
   border: none;
   border-radius: 50%;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.07);
+  background: #f4f1f3; /* 그림 배경이 투명이라 뒤를 밝게 깔아야 얼굴이 안 칙칙하다 */
   cursor: pointer;
 }
 
 /* 카톡 프사가 잘 보이는 건 크기가 아니라 원본이 이미 얼굴 위주로 잘려 있어서다.
    CSS로 당겨 맞추는 대신 얼굴만 잘라낸 파일을 따로 두고 그대로 채운다 */
+/* 창보다 조금 크게 넣고 왼쪽으로 당긴다 — 꽉 채우면 얼굴이 오른쪽으로 치우쳐 보인다.
+   위는 0으로 고정한다. 조금이라도 올리면 머리끝이 잘린다 */
 .avatarImg {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 106%;
+  margin-left: -6%;
+  margin-top: 0;
 }
 
 .msgTime {
@@ -288,7 +340,7 @@
   align-items: center;
 }
 
-/* 상단 우측: 진단 버튼 + 도움말 */
+/* 상단 우측: 분석 버튼 + 도움말 */
 .topRight {
   display: flex;
   align-items: center;
@@ -546,7 +598,8 @@
   border: 1px solid var(--border);
   padding: 11px 18px;
   color: var(--text);
-  font-size: 15px;
+  /* iOS는 16px 미만이면 탭할 때 화면을 확대한다 — 그 뒤로 레이아웃이 어긋난 채로 남는다 */
+  font-size: 16px;
   line-height: 1.4;
   resize: none;
   outline: none;

@@ -30,10 +30,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-// 재회 진단 LLM 호출 담당(v2: 대역+요인 체계). 대화 + 원장을 루브릭으로 감싸
+// 분석 리포트 LLM 호출 담당(v2: 대역+요인 체계). 대화 + 원장을 루브릭으로 감싸
 // 유형(1층)과 요인 판정(2층)을 JSON으로 받아 파싱한다.
 // 최종 확률은 여기서 만들지 않는다 → 백엔드(TypeBandScorer)가 대역과 상수로 계산한다.
-// 진단 루브릭 전문은 이 서비스의 핵심이라 소스에 두지 않고
+// 분석 루브릭 전문은 이 서비스의 핵심이라 소스에 두지 않고
 // AssessmentProperties(로컬 rubric.yml, gitignore)로 주입받는다.
 @Slf4j
 @Component
@@ -45,7 +45,7 @@ public class ReunionLlm {
     private final AssessmentProperties assessmentProperties;
 
     // todayLine: "오늘 날짜: ..." — 루브릭의 시간 규칙(5주/3개월, 소진형 1개월)의 기준점.
-    // previousDigest: 직전 진단 요지(유형, 확률, 요인 판정) — 새 사실 없이 유형이 흔들리는 것을 막는다.
+    // previousDigest: 직전 분석 요지(유형, 확률, 요인 판정) — 새 사실 없이 유형이 흔들리는 것을 막는다.
     public CompletableFuture<ReunionDiagnosis> diagnose(List<String> knownFactLines,
                                                         List<ChatMessage> conversation,
                                                         String todayLine, String previousDigest) {
@@ -61,7 +61,7 @@ public class ReunionLlm {
         if (matchGuide != null && !matchGuide.isBlank()) {
             prompt.add(ChatMessage.system(matchGuide));
         }
-        // 날짜와 직전 진단은 매번 바뀌는 재료라 고정분(루브릭, 사전) 뒤에 둔다 — 캐시 프리픽스 보호.
+        // 날짜와 직전 분석은 매번 바뀌는 재료라 고정분(루브릭, 사전) 뒤에 둔다 — 캐시 프리픽스 보호.
         if (todayLine != null && !todayLine.isBlank()) {
             prompt.add(ChatMessage.system(todayLine));
         }
@@ -76,9 +76,9 @@ public class ReunionLlm {
         if (finalCheck != null && !finalCheck.isBlank()) {
             prompt.add(ChatMessage.system(finalCheck));
         }
-        // 진단은 긴 루브릭 일관 적용이 필요해 정밀 판단 경로로 — 설정에 따라 더 강한 모델이 배정된다.
+        // 분석은 긴 루브릭 일관 적용이 필요해 정밀 판단 경로로 — 설정에 따라 더 강한 모델이 배정된다.
         // 파싱 실패의 자동 재시도는 없다 — temperature 0의 즉시 재시도는 같은 실패를 재생산하고
-        // 진단 1회분이 소리 없이 2배 과금된다(v1 실측). 재시도는 유저 버튼, 반복 실패는 쿨다운 가드.
+        // 분석 1회분이 소리 없이 2배 과금된다(v1 실측). 재시도는 유저 버튼, 반복 실패는 쿨다운 가드.
         return llmClient.generateJsonDeep(prompt, RESPONSE_SCHEMA).thenApply(this::parse);
     }
 
@@ -152,7 +152,7 @@ public class ReunionLlm {
                         "gender", "repeatBreakup", "partnerHasNew")));
     }
 
-    // 진단 응답의 문법을 생성 단계에서 강제하는 스키마. 프롬프트(rubric.yml)의 JSON 지시와 짝이며,
+    // 분석 응답의 문법을 생성 단계에서 강제하는 스키마. 프롬프트(rubric.yml)의 JSON 지시와 짝이며,
     // 루브릭을 고쳐 필드가 바뀌면 여기도 같이 고쳐야 한다 — 스키마에 없는 필드는 모델이 낼 수 없다.
     // propertyOrdering은 루브릭의 절차 순서와 맞춘다(판정 → 유형 → 요인 → 전망 → 관찰 → 총평).
     private static final Map<String, Object> RESPONSE_SCHEMA = Map.ofEntries(
@@ -194,7 +194,7 @@ public class ReunionLlm {
 
     private ReunionDiagnosis parse(String json) {
         try {
-            // 코드펜스, 잡설이 붙은 응답을 한 번 다듬어 살린다 — 진단 실패는 유저에게 502로 보이는 비용이다.
+            // 코드펜스, 잡설이 붙은 응답을 한 번 다듬어 살린다 — 분석 실패는 유저에게 502로 보이는 비용이다.
             JsonNode root = objectMapper.readTree(LlmJson.salvage(json));
             ReunionVerdict verdict = enumValue(ReunionVerdict.class, root.path("verdict").asText(null),
                     ReunionVerdict.POSSIBLE);
@@ -215,7 +215,7 @@ public class ReunionLlm {
             // 점프 대역만으로 계산된다 — 상대에게 귀속할 사실 없이 유저 사정으로 끝난 이별이 그 경로다).
             if (verdict == ReunionVerdict.POSSIBLE && !activeReunionOffer && breakupType == null
                     && jumpRule == JumpRule.NONE) {
-                log.warn("진단 유형 누락 — 근거 없는 확률 방지 위해 INSUFFICIENT로 강등");
+                log.warn("분석 유형 누락 — 근거 없는 확률 방지 위해 INSUFFICIENT로 강등");
                 verdict = ReunionVerdict.INSUFFICIENT;
             }
 
@@ -223,7 +223,7 @@ public class ReunionLlm {
                     root.path("relapseRisk").path("level").asText(null));
             String relapseReason = clip(root.path("relapseRisk").path("reason").asText(""), TEXT_MAX);
 
-            // 개수 제한은 폭주 방어용 안전핀뿐(정상 진단에선 닿지 않는다). 길이는 원장 컬럼에 맞춰 자른다.
+            // 개수 제한은 폭주 방어용 안전핀뿐(정상 분석에선 닿지 않는다). 길이는 원장 컬럼에 맞춰 자른다.
             List<String> newFacts = new ArrayList<>();
             for (JsonNode node : root.path("newFacts")) {
                 String fact = node.asText("").trim();
@@ -244,9 +244,9 @@ public class ReunionLlm {
                     matchProfile(root),
                     root.path("reason").asText(""), newFacts);
         } catch (Exception e) {
-            // 응답 본문(json)에는 사연 기반 진단 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
+            // 응답 본문(json)에는 사연 기반 분석 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
             boolean truncated = json != null && !json.trim().endsWith("}");
-            log.error("재회 진단 JSON 파싱 실패 (본문 길이 {}자, 잘림 의심={}, 꼬리=[{}])",
+            log.error("분석 리포트 JSON 파싱 실패 (본문 길이 {}자, 잘림 의심={}, 꼬리=[{}])",
                     json == null ? 0 : json.length(), truncated, tail(json), e);
             throw new LlmException();
         }
@@ -266,12 +266,12 @@ public class ReunionLlm {
             FactorName name = FactorName.fromLabel(node.path("name").asText(null));
             FactorLevel level = FactorLevel.fromLabel(node.path("level").asText(null));
             if (name == null || level == null) {
-                log.warn("진단 요인 폐기(슬롯 밖): name={} level={}",
+                log.warn("분석 요인 폐기(슬롯 밖): name={} level={}",
                         node.path("name").asText(""), node.path("level").asText(""));
                 continue;
             }
             if (byName.containsKey(name)) {
-                log.warn("진단 요인 중복 — 첫 판정만 유지: {}", name);
+                log.warn("분석 요인 중복 — 첫 판정만 유지: {}", name);
                 continue;
             }
             String rationale = clip(node.path("rationale").asText("").trim(), TEXT_MAX);
@@ -326,7 +326,7 @@ public class ReunionLlm {
         return value.length() > max ? value.substring(0, max) : value;
     }
 
-    // 잘림 원인 판별용 꼬리 길이. 짧게 잡는다 — 진단 문장이 통째로 남으면 로그가 개인정보 저장소가 된다.
+    // 잘림 원인 판별용 꼬리 길이. 짧게 잡는다 — 분석 문장이 통째로 남으면 로그가 개인정보 저장소가 된다.
     private static final int TAIL_LENGTH = 120;
 
     private String tail(String json) {
@@ -380,7 +380,7 @@ public class ReunionLlm {
                 && ageGroup == null && gender == null && repeatBreakup == null
                 && partnerHasNew == null;
         if (empty) {
-            // 정상 진단에서 반복되면 스키마/지시가 또 뚫린 것 — 매칭이 조용히 죽는 걸 관측 가능하게.
+            // 정상 분석에서 반복되면 스키마/지시가 또 뚫린 것 — 매칭이 조용히 죽는 걸 관측 가능하게.
             log.warn("매칭 분류 미추출 — matchProfile이 비어 있음");
         }
         return empty ? null : new ReunionDiagnosis.MatchProfileItem(reason, subReasons, dumper,

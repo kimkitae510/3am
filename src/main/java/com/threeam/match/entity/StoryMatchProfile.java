@@ -14,9 +14,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
-// 사례 매칭에 쓰는 "이 사연의 상황" 스냅샷. 진단 LLM이 대화에서 함께 뽑아 준다.
-// 진단마다 한 행씩 새로 쌓는다(assessments와 같은 문법) — 진단은 하루 1회 쿼터라 양이 안 늘고,
-// 덮어쓰면 과거 진단 시점에 상황이 어땠는지를 잃는다. 매칭은 최신 행만 읽는다.
+// 사례 매칭에 쓰는 "이 사연의 상황" 스냅샷. 분석 LLM이 대화에서 함께 뽑아 준다.
+// 분석마다 한 행씩 새로 쌓는다(assessments와 같은 문법) — 분석은 하루 1회 쿼터라 양이 안 늘고,
+// 덮어쓰면 과거 분석 시점에 상황이 어땠는지를 잃는다. 매칭은 최신 행만 읽는다.
 // 전 필드 null 허용: 대화 초반엔 안 드러난 것이 많고, 없는 걸 지어내는 쪽이 더 나쁘다.
 @Entity
 @Table(name = "story_match_profile")
@@ -84,8 +84,8 @@ public class StoryMatchProfile {
         this.partnerHasNew = partnerHasNew;
     }
 
-    // 이번 진단이 못 뽑은 항목을 직전 스냅샷에서 이어받는다. null은 "이번엔 안 드러남"이지
-    // "없어졌다"가 아니라서 — 한 번 밝혀진 이별 사유가 다음 진단에서 사라지면 매칭이 끊긴다.
+    // 이번 분석이 못 뽑은 항목을 직전 스냅샷에서 이어받는다. null은 "이번엔 안 드러남"이지
+    // "없어졌다"가 아니라서 — 한 번 밝혀진 이별 사유가 다음 분석에서 사라지면 매칭이 끊긴다.
     public void backfillFrom(StoryMatchProfile previous) {
         this.reason = this.reason != null ? this.reason : previous.reason;
         this.subReasons = this.subReasons != null ? this.subReasons : previous.subReasons;

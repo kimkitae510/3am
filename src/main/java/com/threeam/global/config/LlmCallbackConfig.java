@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-// LLM 응답 뒤에 붙는 후속 작업(답변 저장, 원장 적재, 진단 저장)을 돌릴 전용 풀.
+// LLM 응답 뒤에 붙는 후속 작업(답변 저장, 원장 적재, 분석 저장)을 돌릴 전용 풀.
 //
 // 전에는 thenAccept, handle을 executor 없이 써서 이 작업들이 HttpClient 내부 스레드에서 실행됐다.
 // 톰캣 스레드는 안 잡으니 요청 처리엔 문제가 없었지만, DB 쓰기와 커넥션 획득이 우리가 만들지도

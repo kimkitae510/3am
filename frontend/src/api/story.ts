@@ -70,7 +70,7 @@ export async function retryLastReply(storyId: number): Promise<{ pollAfterId: nu
   return data;
 }
 
-// 진단 화면의 "사실 직접 알려주기" — 채팅 없이 사실 원장에 한 줄 쌓고 재진단 가드를 통과시킨다.
+// 분석 화면의 "사실 직접 알려주기" — 채팅 없이 사실 원장에 한 줄 쌓고 재분석 가드를 통과시킨다.
 // 반환된 id로 취소/수정을 건다.
 export async function addStoryFact(storyId: number, content: string): Promise<number> {
   const { data } = await api.post<{ id: number }>(`/api/stories/${storyId}/facts`, { content });

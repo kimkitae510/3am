@@ -3,9 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { confirmPayment, type PaymentResponse } from '../api/payment';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
+import { paymentOrigin } from '../utils/paymentOrigin';
 import styles from './PaymentResultPage.module.css';
 
-const KIND_LABEL: Record<string, string> = { CHAT: '대화', ASSESSMENT: '진단' };
+const KIND_LABEL: Record<string, string> = { CHAT: '대화', ASSESSMENT: '분석' };
 
 // 토스 위젯의 successUrl/failUrl 도착지. 성공 리다이렉트여도 "인증 완료"일 뿐이라
 // 여기서 서버 승인(confirm)을 마쳐야 돈이 움직이고 이용권이 지급된다.
@@ -20,7 +21,7 @@ export function PaymentResultPage() {
   );
   const [payment, setPayment] = useState<PaymentResponse | null>(null);
   const [message, setMessage] = useState(
-    isSuccessPath ? '' : params.get('message') || '결제가 진행되지 않았어요.',
+    isSuccessPath ? '' : params.get('message') || '결제가 진행되지 않았습니다.',
   );
   const requested = useRef(false); // StrictMode 이중 실행 방어(서버도 멱등이지만 요청 자체를 줄인다)
 
@@ -32,7 +33,7 @@ export function PaymentResultPage() {
     const amount = Number(params.get('amount'));
     if (!paymentKey || !orderId || !amount) {
       setPhase('failed');
-      setMessage('결제 정보가 올바르지 않아요. 처음부터 다시 시도해 주세요.');
+      setMessage('결제 정보가 올바르지 않습니다. 처음부터 다시 시도해 주세요.');
       return;
     }
     confirmPayment({ paymentKey, orderId, amount })
@@ -47,7 +48,7 @@ export function PaymentResultPage() {
           setMessage(extractErrorMessage(e));
         } else {
           setPhase('failed');
-          setMessage(extractErrorMessage(e, '결제 승인에 실패했어요.'));
+          setMessage(extractErrorMessage(e, '결제 승인에 실패했습니다.'));
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,7 +62,7 @@ export function PaymentResultPage() {
             <>
               <div className={styles.kicker}>결제 확인 중</div>
               <div className={styles.bigMsg}>
-                결제를 확정하고 있어요.
+                결제를 확정하고 있습니다.
                 <br />
                 잠시만 기다려 주세요.
               </div>
@@ -73,10 +74,10 @@ export function PaymentResultPage() {
               <div className={styles.bigMsg}>{payment.itemName}</div>
               <div className={styles.subMsg}>
                 {payment.status === 'WAITING_FOR_DEPOSIT'
-                  ? '입금이 확인되면 이용권이 채워져요. 입금 계좌는 이용권 화면에서 볼 수 있어요.'
+                  ? '입금이 확인되면 이용권이 채워집니다. 입금 계좌는 이용권 화면에서 확인할 수 있습니다.'
                   : payment.entitlements
                       .map((e) => `${KIND_LABEL[e.kind] ?? e.kind} ${e.totalCount}회`)
-                      .join(', ') + '가 채워졌어요.'}
+                      .join(', ') + '가 채워졌습니다.'}
               </div>
             </>
           )}
@@ -86,7 +87,7 @@ export function PaymentResultPage() {
               <div className={styles.bigMsg}>
                 결제 결과를
                 <br />
-                확인하고 있어요.
+                확인하고 있습니다.
               </div>
               <div className={styles.subMsg}>{message}</div>
             </>
@@ -97,7 +98,7 @@ export function PaymentResultPage() {
               <div className={styles.bigMsg}>
                 결제가
                 <br />
-                완료되지 않았어요.
+                완료되지 않았습니다.
               </div>
               <div className={styles.subMsg}>{message}</div>
             </>
@@ -105,8 +106,9 @@ export function PaymentResultPage() {
         </div>
         {phase !== 'confirming' && (
           <div className={styles.footer}>
-            <button className={styles.btnGhost} onClick={() => navigate('/stories')}>
-              대화 목록
+            {/* 토스를 다녀오면 히스토리가 끊겨 뒤로가 없다 — 결제로 들어간 자리를 적어둔 걸로 되돌린다 */}
+            <button className={styles.btnGhost} onClick={() => navigate(paymentOrigin())}>
+              돌아가기
             </button>
             <button className={styles.btnPrimary} onClick={() => navigate('/payment')}>
               이용권 화면으로

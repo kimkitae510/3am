@@ -15,8 +15,8 @@ public class VertexAiProperties {
     private String location = "global";
     private String model = "gemini-2.5-flash";
 
-    // 정밀 판단(재회 진단) 전용 모델. 비우면 기본 model을 그대로 쓴다.
-    // 진단은 긴 루브릭 일관 적용이 필요해 채팅보다 강한 모델을 배정할 수 있게 분리.
+    // 정밀 판단(분석 리포트) 전용 모델. 비우면 기본 model을 그대로 쓴다.
+    // 분석은 긴 루브릭 일관 적용이 필요해 채팅보다 강한 모델을 배정할 수 있게 분리.
     private String assessmentModel;
 
     // 응답 전체 대기 상한. 초과 시 호출이 실패로 완료되고 폴백 메시지가 저장된다.
@@ -40,8 +40,8 @@ public class VertexAiProperties {
                 + "/publishers/google/models/" + targetModel + ":generateContent";
     }
 
-    // 진단(deep) 전용 응답 상한. 채팅과 분리해 둔다 — 전에는 채팅 값의 3배로 계산했는데,
-    // 채팅 타임아웃을 만질 때마다 진단이 조용히 따라 움직여 usage.assessment-lock-ttl-seconds와
+    // 분석(deep) 전용 응답 상한. 채팅과 분리해 둔다 — 전에는 채팅 값의 3배로 계산했는데,
+    // 채팅 타임아웃을 만질 때마다 분석이 조용히 따라 움직여 usage.assessment-lock-ttl-seconds와
     // spring request-timeout을 넘길 뻔했다(실측). 두 값은 각자의 이유로 정해져야 한다.
     private long assessmentTimeoutSeconds = 90;
 
@@ -52,10 +52,10 @@ public class VertexAiProperties {
     private String thinkingLevel = "low";
 
     // 채팅 temperature. 명시하지 않으면 API 기본(1.0)이라 금지 규칙 이탈이 답변 길이에 비례해
-    // 누적됐다(실측). 진단은 0으로 못 박혀 있고, 채팅은 말투가 굳지 않을 만큼만 낮춘다.
+    // 누적됐다(실측). 분석은 0으로 못 박혀 있고, 채팅은 말투가 굳지 않을 만큼만 낮춘다.
     private double temperature = 0.7;
 
-    // 진단(deep) 전용 thinking. 2.5 계열은 -1이 동적(모델 재량), 3.x는 high 고정.
+    // 분석(deep) 전용 thinking. 2.5 계열은 -1이 동적(모델 재량), 3.x는 high 고정.
     private int assessmentThinkingBudget = -1;
     private String assessmentThinkingLevel = "medium";
 

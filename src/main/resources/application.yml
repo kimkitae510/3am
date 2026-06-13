@@ -31,7 +31,8 @@ spring:
       - optional:file:./application-secret.yml
 
   datasource:
-    url: jdbc:mysql://localhost:3306/threeam?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    # 앱과 DB를 다른 서버에 두는 구성이라 호스트를 고정하지 않는다(기본값은 로컬 개발).
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:threeam}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -224,3 +225,8 @@ management:
 # 참조 사례 파일(서비스 자산, gitignore) — 시동 때 메모리로 로드. 경로는 환경변수로 주입한다.
 match:
   case-file: ${MATCH_CASE_FILE:사례데이터.json}
+
+# 진단 공유 — /s/{token} OG 페이지가 절대 URL(og:url, og:image)을 만들 때 쓰는 서비스 주소.
+# 크롤러가 읽는 값이라 상대 경로로는 안 되고, 운영에선 https://3amchat.xyz 를 주입한다.
+share:
+  base-url: ${SHARE_BASE_URL:http://localhost:5173}

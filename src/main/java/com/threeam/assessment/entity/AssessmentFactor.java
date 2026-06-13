@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-// 진단 요인 한 슬롯의 판정 결과. 확률 재계산(제안 번복)의 재료라 판정을 통째로 남긴다.
+// 분석 요인 한 슬롯의 판정 결과. 확률 재계산(제안 번복)의 재료라 판정을 통째로 남긴다.
 @Embeddable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

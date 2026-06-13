@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 // 관찰 포인트 — "이게 확인되면 판이 바뀐다". 행동 지시가 아니라 판독의 연장이다.
-// 유저가 다음 진단을 돌릴 이유가 되는 자리라 진단과 함께 저장한다.
+// 유저가 다음 분석을 돌릴 이유가 되는 자리라 분석과 함께 저장한다.
 @Embeddable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

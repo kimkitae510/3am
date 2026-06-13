@@ -82,7 +82,7 @@ public class StoryController {
         return ResponseEntity.ok(storyService.getMessagesSince(userId, storyId, after));
     }
 
-    // 진단 화면의 "사실 직접 알려주기" — 채팅 없이 원장에 사실을 보태고 재진단 가드를 통과시킨다.
+    // 분석 화면의 "사실 직접 알려주기" — 채팅 없이 원장에 사실을 보태고 재분석 가드를 통과시킨다.
     @PostMapping("/{storyId}/facts")
     public ResponseEntity<StoryFactCreateResponse> addFact(
             @AuthenticationPrincipal Long userId,

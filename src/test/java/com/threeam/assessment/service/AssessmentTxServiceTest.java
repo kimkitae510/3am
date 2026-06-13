@@ -319,15 +319,15 @@ class AssessmentTxServiceTest {
     void confirmBreakup_deletesLockAndRestoresPrevious() {
         givenOwnedStory();
         Assessment dating = datingAssessment();
-        // 1차 조회: 잠금 판정 확인, 2차 조회(삭제 후): 직전 확률 진단이 최신이 된다.
-        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
-                .willReturn(Optional.of(dating), Optional.of(lastAssessment()));
+        Assessment previous = lastAssessment();
+        given(assessmentRepository.findByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(List.of(dating, previous));
 
         var restored = txService.confirmBreakup(1L, STORY_ID);
 
         assertThat(restored).isPresent();
         assertThat(restored.get().getProbability()).isEqualTo(20); // 재진단 없이 직전 확률로
-        verify(assessmentRepository).delete(dating);
+        verify(assessmentRepository).deleteAll(List.of(dating));
         verify(storyFactService).appendCorrection(STORY_ID,
                 AssessmentTxService.BREAKUP_CONFIRMED_FACT);
     }
@@ -336,18 +336,37 @@ class AssessmentTxServiceTest {
     @DisplayName("헤어짐 확인 - 직전 확률 진단이 없으면 빈 값(첫 진단 안내로 복귀)")
     void confirmBreakup_emptyWhenNoPrevious() {
         givenOwnedStory();
-        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
-                .willReturn(Optional.of(datingAssessment()), Optional.empty());
+        given(assessmentRepository.findByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(List.of(datingAssessment()));
 
         assertThat(txService.confirmBreakup(1L, STORY_ID)).isEmpty();
+    }
+
+    // 번복하고 재진단했는데 또 잠금이 나오면 잠금이 겹쳐 쌓인다. 하나만 지우면 바로 아래
+    // 잠금이 올라와 화면이 그대로라 아무 일도 안 일어난 것처럼 보인다(실측).
+    @Test
+    @DisplayName("헤어짐 확인 - 잠금 판정이 여러 개 쌓여 있으면 한 번에 다 걷어낸다")
+    void confirmBreakup_clearsStackedLocks() {
+        givenOwnedStory();
+        Assessment newer = datingAssessment();
+        Assessment older = datingAssessment();
+        Assessment previous = lastAssessment();
+        given(assessmentRepository.findByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(List.of(newer, older, previous));
+
+        var restored = txService.confirmBreakup(1L, STORY_ID);
+
+        assertThat(restored).isPresent();
+        assertThat(restored.get().getProbability()).isEqualTo(20);
+        verify(assessmentRepository).deleteAll(List.of(newer, older));
     }
 
     @Test
     @DisplayName("헤어짐 확인 - 마지막 판정이 DATING이 아니면 거부한다(원장 오염 방지)")
     void confirmBreakup_rejectsWhenNotDating() {
         givenOwnedStory();
-        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
-                .willReturn(Optional.of(lastAssessment())); // POSSIBLE
+        given(assessmentRepository.findByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(List.of(lastAssessment())); // POSSIBLE
 
         assertThatThrownBy(() -> txService.confirmBreakup(1L, STORY_ID))
                 .isInstanceOf(BusinessException.class)
@@ -360,8 +379,8 @@ class AssessmentTxServiceTest {
     @DisplayName("헤어짐 확인 - 진단 기록이 아예 없어도 거부한다")
     void confirmBreakup_rejectsWithoutAssessment() {
         givenOwnedStory();
-        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
-                .willReturn(Optional.empty());
+        given(assessmentRepository.findByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(List.of());
 
         assertThatThrownBy(() -> txService.confirmBreakup(1L, STORY_ID))
                 .isInstanceOf(BusinessException.class)

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-// 경로가 단수(review)인 이유: 평가 대상이 "그 사연의 최신 진단" 하나뿐이라 목록이 없다.
+// 경로가 단수(review)인 이유: 평가 대상이 "그 사연의 최신 분석" 하나뿐이라 목록이 없다.
 @RestController
 @RequestMapping("/api/stories/{storyId}/review")
 @RequiredArgsConstructor

@@ -13,9 +13,9 @@ public class GeminiProperties {
     private String apiKey;
     private String model = "gemini-2.5-flash-lite";
 
-    // 정밀 판단(재회 진단) 전용 모델. 비우면 기본 model을 그대로 쓴다.
+    // 정밀 판단(분석 리포트) 전용 모델. 비우면 기본 model을 그대로 쓴다.
     // 원래 vertex 경로에만 있던 분리인데, 크레딧 소진 후 gemini 경로로 복귀해도
-    // 진단만 강한 모델을 유지할 수 있게 동일하게 지원한다.
+    // 분석만 강한 모델을 유지할 수 있게 동일하게 지원한다.
     private String assessmentModel;
 
     private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
@@ -23,8 +23,8 @@ public class GeminiProperties {
     // 응답 전체 대기 상한. 초과 시 호출이 실패로 완료되고 폴백 메시지가 저장된다.
     private long timeoutSeconds = 50;
 
-    // 진단(deep) 전용 응답 상한. 채팅과 분리해 둔다 — 전에는 채팅 값의 3배로 계산했는데,
-    // 채팅 타임아웃을 만질 때마다 진단이 조용히 따라 움직여 usage.assessment-lock-ttl-seconds와
+    // 분석(deep) 전용 응답 상한. 채팅과 분리해 둔다 — 전에는 채팅 값의 3배로 계산했는데,
+    // 채팅 타임아웃을 만질 때마다 분석이 조용히 따라 움직여 usage.assessment-lock-ttl-seconds와
     // spring request-timeout을 넘길 뻔했다(실측). 두 값은 각자의 이유로 정해져야 한다.
     private long assessmentTimeoutSeconds = 90;
 
@@ -35,10 +35,10 @@ public class GeminiProperties {
     private String thinkingLevel = "low";
 
     // 채팅 temperature. 명시하지 않으면 API 기본(1.0)이라 금지 규칙 이탈이 답변 길이에 비례해
-    // 누적됐다(실측). 진단은 0으로 못 박혀 있고, 채팅은 말투가 굳지 않을 만큼만 낮춘다.
+    // 누적됐다(실측). 분석은 0으로 못 박혀 있고, 채팅은 말투가 굳지 않을 만큼만 낮춘다.
     private double temperature = 0.7;
 
-    // 진단(deep) 전용 thinking. 진단은 유형 게이트 → 요인 5슬롯 → 교차 점검의 다단 절차라
+    // 분석(deep) 전용 thinking. 분석은 유형 게이트 → 요인 5슬롯 → 교차 점검의 다단 절차라
     // 채팅보다 추론량이 크다. 2.5 계열은 -1이 동적(모델 재량), 3.x는 high 고정.
     private int assessmentThinkingBudget = -1;
     private String assessmentThinkingLevel = "medium";

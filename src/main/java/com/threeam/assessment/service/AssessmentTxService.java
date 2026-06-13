@@ -35,7 +35,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 진단의 DB 단계를 "짧은 트랜잭션"으로 분리한다.
+// 분석의 DB 단계를 "짧은 트랜잭션"으로 분리한다.
 // 느린 LLM 호출은 이 트랜잭션 밖(AssessmentService)에서 일어나므로 커넥션을 점유하지 않는다.
 @Service
 @RequiredArgsConstructor
@@ -43,7 +43,7 @@ public class AssessmentTxService {
 
     private static final int HISTORY_WINDOW = 20;
 
-    // 진단 프롬프트에 싣는 사실 원장 상한(최근 N개). 진단은 사실이 확률의 근거라 채팅(30)보다 넉넉히.
+    // 분석 프롬프트에 싣는 사실 원장 상한(최근 N개). 분석은 사실이 확률의 근거라 채팅(30)보다 넉넉히.
     private static final int FACT_INJECT_LIMIT = 50;
 
     private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
@@ -82,11 +82,11 @@ public class AssessmentTxService {
 
     // 차단은 이 시간 동안만이다 — 새 대화 없이도 쿨다운이 지나면 다시 열어준다.
     // 생성 불량(정상 종료인데 본문 잘림)은 시간이 지나면 성공하기도 해서, 새 대화만 해제
-    // 조건이면 진단만 원하는 유저가 갇힌다. 또 실패하면 다시 쿨다운 — 시도 빈도만 캡된다.
+    // 조건이면 분석만 원하는 유저가 갇힌다. 또 실패하면 다시 쿨다운 — 시도 빈도만 캡된다.
     // 3분: 남은 시간을 카운트다운으로 보여주는 이상, 무작정 길게 잡으면 기다릴 마음이 사라진다.
     private static final Duration FAIL_RETRY_COOLDOWN = Duration.ofMinutes(3);
 
-    // 진단 실패 재시도 가드: 실패는 후차감(미차감)이라, 같은 재료가 계속 같은 이유로 실패하면
+    // 분석 실패 재시도 가드: 실패는 후차감(미차감)이라, 같은 재료가 계속 같은 이유로 실패하면
     // 무한 무료 LLM 호출이 된다(실측). 같은 재료 연속 2회 실패면 새 대화나 쿨다운 전까지 거부.
     // 반환값은 재시도까지 남은 초 — 0이면 차단 아님. 화면의 카운트다운이 이 값을 쓴다.
     @Transactional(readOnly = true)
@@ -137,19 +137,19 @@ public class AssessmentTxService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
     }
 
-    // tx1: 소유권 확인 + 재진단 가드 + 최근 대화 + 기억 요약을 모아 온다. 짧게 끝난다.
+    // tx1: 소유권 확인 + 재분석 가드 + 최근 대화 + 기억 요약을 모아 온다. 짧게 끝난다.
     @Transactional(readOnly = true)
     public AssessmentContext loadContext(Long userId, Long storyId) {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
 
-        // 재진단 가드: 지난 진단 이후 새 대화가 없으면 같은 재료라 거부한다(AS002).
+        // 재분석 가드: 지난 분석 이후 새 대화가 없으면 같은 재료라 거부한다(AS002).
         // "원장에 새 사실이 없어도 거부"(구 AS003)는 폐지 — temperature 0으로 같은 재료면 같은
-        // 점수가 나와 출렁임 문제가 사라졌고, 채팅 추출이 사실을 놓쳤을 때 진단이 대화에서
+        // 점수가 나와 출렁임 문제가 사라졌고, 채팅 추출이 사실을 놓쳤을 때 분석이 대화에서
         // 직접 사실을 뽑아 복구하는 길을 가드가 막는 부작용이 실측됐다(재회 성사 미기재 사건).
-        // 기준은 마지막 진단과 마지막 헤어짐 확인(번복) 중 늦은 쪽 — 번복이 잠금 진단을 지우면
-        // 그 진단을 소진시킨 메시지들이 미소진으로 되돌아가, 진단 시각만 보면 새 대화 없이
-        // 진단과 번복이 무한 반복된다(실측).
+        // 기준은 마지막 분석과 마지막 헤어짐 확인(번복) 중 늦은 쪽 — 번복이 잠금 분석을 지우면
+        // 그 분석을 소진시킨 메시지들이 미소진으로 되돌아가, 분석 시각만 보면 새 대화 없이
+        // 분석과 번복이 무한 반복된다(실측).
         Optional<Assessment> lastAssessment = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId);
         LocalDateTime lastAssessedAt = lastAssessment.map(Assessment::getCreatedAt).orElse(null);
         LocalDateTime lastConfirmedAt = storyFactRepository
@@ -161,7 +161,7 @@ public class AssessmentTxService {
                 .max(LocalDateTime::compareTo)
                 .ifPresent(since -> {
                     // 유저가 화면에서 직접 적어준 사실도 새 대화와 동급의 새 재료다 —
-                    // 채팅 없이 사실만 보태고 재진단하는 동선(부족 정보 직접 입력)을 허용한다.
+                    // 채팅 없이 사실만 보태고 재분석하는 동선(부족 정보 직접 입력)을 허용한다.
                     if (!messageRepository.existsByStoryIdAndCreatedAtAfter(storyId, since)
                             && !storyFactRepository.existsByStoryIdAndSourceAndCreatedAtAfter(
                                     storyId, FactSource.USER, since)) {
@@ -177,12 +177,19 @@ public class AssessmentTxService {
         }
 
         // 최신→과거로 왔으니 시간순으로 뒤집어 대화 순서를 복원한다.
+        // 상담자(시현)의 말은 싣지 않는다 — 그건 관측된 사실이 아니라 그때의 추측인데,
+        // 분석이 그 해석 문장을 요인 근거로 옮겨 적는 오염이 실측됐다(골든셋 12).
+        // 둘이 서로를 베끼면 판정이 늘 일치해 교차 검증도 무의미해진다. 분석의 재료는
+        // 유저가 말한 사실과 원장(StoryFact)이고, 원장은 아래에서 따로 실린다.
         List<ChatMessage> conversation = new ArrayList<>();
         for (int i = recent.size() - 1; i >= 0; i--) {
             Message message = recent.get(i);
-            conversation.add(message.getRole() == MessageRole.USER
-                    ? ChatMessage.user(message.getContent())
-                    : ChatMessage.assistant(message.getContent()));
+            if (message.getRole() == MessageRole.USER) {
+                conversation.add(ChatMessage.user(message.getContent()));
+            }
+        }
+        if (conversation.isEmpty()) {
+            throw new BusinessException(ErrorCode.ASSESSMENT_NO_MESSAGES);
         }
 
         return new AssessmentContext(factLines(storyId), conversation,
@@ -194,11 +201,11 @@ public class AssessmentTxService {
         return "오늘 날짜: " + LocalDate.now() + ". 이별 경과 등 시간 계산은 이 날짜 기준이다.";
     }
 
-    // 직전 진단 요지 — 새 사실 없이 유형이 진단마다 흔들리는 것을 막는 앵커.
+    // 직전 분석 요지 — 새 사실 없이 유형이 분석마다 흔들리는 것을 막는 앵커.
     // 판정값만 싣는다(근거, 총평 제외) — 지난 판단의 서사까지 주면 반향실이 된다.
     // 유형이 없어도 점프 판이면 싣는다 — 유저 통보 판은 설계상 유형이 비는데, 유형 없음만으로
     // 앵커를 버리면 제일 흔들리는 판(미련 뚜렷/흔적 경계)이 매번 백지 재판정된다
-    // (질문 한 줄 보태고 재진단했더니 +10 실측). v1 데이터(둘 다 없음)나 잠금 판정이면 null.
+    // (질문 한 줄 보태고 재분석했더니 +10 실측). v1 데이터(둘 다 없음)나 잠금 판정이면 null.
     private String previousDigest(Assessment last) {
         if (last == null) {
             return null;
@@ -226,10 +233,10 @@ public class AssessmentTxService {
             }
             parts.add(factors.toString());
         }
-        return "직전 진단 요지(참고 — 루브릭의 직전 진단 규칙 적용): " + String.join(", ", parts);
+        return "직전 분석 요지(참고 — 루브릭의 직전 분석 규칙 적용): " + String.join(", ", parts);
     }
 
-    // tx2: 진단 결과 저장 + 새 사실 원장 append + 매칭 프로필 갱신.
+    // tx2: 분석 결과 저장 + 새 사실 원장 append + 매칭 프로필 갱신.
     // 기억 요약은 여기서 건드리지 않는다 — 채팅 사실 추출이 전담한다(주인 단일화, v2).
     @Transactional
     public AssessmentResponse save(Long storyId, Assessment assessment,
@@ -241,35 +248,45 @@ public class AssessmentTxService {
     }
 
     // 유저가 "사귀는 중" 판정을 번복할 때 원장에 남기는 문장.
-    // 진단 프롬프트(ReunionLlm)가 이 문장을 근거로 DATING 재판정을 멈춘다 — 문구를 바꾸면 프롬프트 규칙도 함께 바꿔야 한다.
+    // 분석 프롬프트(ReunionLlm)가 이 문장을 근거로 DATING 재판정을 멈춘다 — 문구를 바꾸면 프롬프트 규칙도 함께 바꿔야 한다.
     public static final String BREAKUP_CONFIRMED_FACT = "유저가 직접 확인함: 사귀는 중이 아니라 헤어진 상태다";
 
     // 마지막 판정이 "만나는 중"(DATING 또는 재회 성공 REUNITED)일 때만 받는다 —
     // 아무 때나 열어두면 원장에 무의미한 확인 기록이 쌓인다. 재회했다가 다시 헤어지는 경우도 이 창구다.
     // 유저가 "헤어진 게 맞다"고 정정하면 그 잠금 판정은 오판이므로 기록에서 지우고,
-    // 직전 확률 진단이 다시 최신이 되게 한다(100% 번복과 같은 즉시 복귀 — 재진단 불필요).
-    // 직전 확률 진단이 없으면(첫 진단부터 잠금) 빈 값 — 화면은 첫 진단 안내로 돌아간다.
+    // 직전 확률 분석이 다시 최신이 되게 한다(100% 번복과 같은 즉시 복귀 — 재분석 불필요).
+    // 직전 확률 분석이 없으면(첫 분석부터 잠금) 빈 값 — 화면은 첫 분석 안내로 돌아간다.
     @Transactional
     public Optional<AssessmentResponse> confirmBreakup(Long userId, Long storyId) {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
-        Assessment last = assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                .filter(a -> a.getVerdict() == ReunionVerdict.DATING
-                        || a.getVerdict() == ReunionVerdict.REUNITED)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ASSESSMENT_NOT_DATING));
-        assessmentRepository.delete(last);
+        // 잠금 판정은 연달아 쌓인다 — 번복하고 재분석했는데 또 잠금이 나오는 경로가 있다.
+        // 최신 하나만 지우면 바로 아래 잠금이 올라와 화면이 그대로라 아무 일도 안 일어난
+        // 것처럼 보인다(실측). 최신부터 이어지는 잠금 판정을 한 번에 다 걷어낸다.
+        List<Assessment> all = assessmentRepository.findByStoryIdOrderByCreatedAtDesc(storyId);
+        List<Assessment> locks = new ArrayList<>();
+        for (Assessment a : all) {
+            if (a.getVerdict() != ReunionVerdict.DATING
+                    && a.getVerdict() != ReunionVerdict.REUNITED) {
+                break;
+            }
+            locks.add(a);
+        }
+        if (locks.isEmpty()) {
+            throw new BusinessException(ErrorCode.ASSESSMENT_NOT_DATING);
+        }
+        assessmentRepository.deleteAll(locks);
         storyFactService.appendCorrection(storyId, BREAKUP_CONFIRMED_FACT);
-        return assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(storyId)
-                .map(AssessmentResponse::from);
+        return all.stream().skip(locks.size()).findFirst().map(AssessmentResponse::from);
     }
 
     // 유저가 "상대의 재회 제안 유효(100%)" 확정을 번복할 때 원장에 남기는 문장.
     // 이것도 ReunionLlm 프롬프트의 false 규칙과 짝 — 문구를 바꾸면 프롬프트도 함께 바꿔야 한다.
     public static final String OFFER_RETRACTED_FACT = "유저가 직접 확인함: 상대의 재회 제안은 더 이상 유효하지 않다";
 
-    // 마지막 진단이 제안 확정(100%)일 때만 받는다. confirmBreakup과 같은 원리의 잠금 해제 창구.
-    // 100은 합산 결과가 아니라 확정 표시일 뿐이라, 저장해 둔 신호들을 재합산하면 재진단(LLM 비용)
-    // 없이 즉시 일반 확률로 되돌릴 수 있다. 원장 정정은 다음 진단의 오판(제안 재확정)을 막는다.
+    // 마지막 분석이 제안 확정(100%)일 때만 받는다. confirmBreakup과 같은 원리의 잠금 해제 창구.
+    // 100은 합산 결과가 아니라 확정 표시일 뿐이라, 저장해 둔 신호들을 재합산하면 재분석(LLM 비용)
+    // 없이 즉시 일반 확률로 되돌릴 수 있다. 원장 정정은 다음 분석의 오판(제안 재확정)을 막는다.
     @Transactional
     public AssessmentResponse retractOffer(Long userId, Long storyId) {
         storyRepository.findByIdAndUserIdAndDeletedAtIsNull(storyId, userId)

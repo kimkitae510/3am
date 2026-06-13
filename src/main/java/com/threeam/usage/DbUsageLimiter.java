@@ -64,7 +64,7 @@ public class DbUsageLimiter implements UsageLimiter {
             return;
         }
         // 게스트의 소진은 충전이 아니라 계정 연결로 풀린다 — 코드로 화면 안내를 가른다.
-        // 게스트에게 진단 이용권은 애초에 지급하지 않으므로 진단은 항상 이 경로로 온다.
+        // 게스트에게 분석 이용권은 애초에 지급하지 않으므로 분석은 항상 이 경로로 온다.
         throw new BusinessException(isGuest(userId)
                 ? ErrorCode.GUEST_LINK_REQUIRED : ErrorCode.QUOTA_EXCEEDED);
     }

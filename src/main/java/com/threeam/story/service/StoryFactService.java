@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 사실 원장의 유일한 쓰기 창구. 진단(AssessmentTxService)과 채팅 추출이 함께 쓴다.
+// 사실 원장의 유일한 쓰기 창구. 분석(AssessmentTxService)과 채팅 추출이 함께 쓴다.
 // 원장은 append-only: 지우지 않고, 정정도 새 줄로 잇는다(프롬프트의 정정 기입 규칙).
 @Slf4j
 @Service
@@ -38,7 +38,7 @@ public class StoryFactService {
     }
 
     // 동일 문장은 건너뛴다(프롬프트의 중복 금지 지시가 1차, 여기가 2차 방어). 지우는 일은 없다.
-    // sourceAssessmentId는 진단 경로에서만 채워진다(채팅 추출은 null).
+    // sourceAssessmentId는 분석 경로에서만 채워진다(채팅 추출은 null).
     @Transactional
     public void appendFacts(Long storyId, Long sourceAssessmentId, List<String> newFacts) {
         if (newFacts == null || newFacts.isEmpty()) {
@@ -63,8 +63,8 @@ public class StoryFactService {
         }
     }
 
-    // 유저가 진단 화면에서 직접 적어준 사실. 중복 제거 없이 그대로 남긴다 — 같은 문장을 또 적는 건
-    // 유저의 선택이고(진단 재료는 temperature 0이라 같은 재료면 같은 결과, 어뷰징 이득이 없다),
+    // 유저가 분석 화면에서 직접 적어준 사실. 중복 제거 없이 그대로 남긴다 — 같은 문장을 또 적는 건
+    // 유저의 선택이고(분석 재료는 temperature 0이라 같은 재료면 같은 결과, 어뷰징 이득이 없다),
     // 추출기를 태우지 않아 LLM 비용도 없다. id를 돌려주는 이유: 화면이 취소/수정을 걸 수 있게.
     @Transactional
     public Long appendUserFact(Long userId, Long storyId, String fact) {
@@ -87,7 +87,7 @@ public class StoryFactService {
 
     // 번복(정정) 기록은 중복 제거 없이 매번 새 줄로 남긴다 — 같은 문장이라도 각각 별개의 사건이다.
     // appendFacts를 타면 두 번째 번복부터 건너뛰어져 정정이 옛 위치에 머물고, 그 뒤에 쌓인
-    // "사귀는 중" 류 사실들에게 시간순으로 밀려 정정이 영구히 무력화된다(진단↔번복 루프 실측).
+    // "사귀는 중" 류 사실들에게 시간순으로 밀려 정정이 영구히 무력화된다(분석↔번복 루프 실측).
     @Transactional
     public void appendCorrection(Long storyId, String fact) {
         storyFactRepository.save(StoryFact.of(storyId, fact, null));

@@ -21,7 +21,7 @@ public class AssessmentController {
 
     private final AssessmentService assessmentService;
 
-    // 입력 폼 없이 사연의 대화를 읽어 진단한다. LLM 호출이 끼므로 논블로킹으로 반환한다.
+    // 입력 폼 없이 사연의 대화를 읽어 분석한다. LLM 호출이 끼므로 논블로킹으로 반환한다.
     @PostMapping
     public CompletableFuture<ResponseEntity<AssessmentResponse>> assess(
             @AuthenticationPrincipal Long userId,
@@ -36,8 +36,8 @@ public class AssessmentController {
         return ResponseEntity.ok(assessmentService.getHistory(userId, storyId));
     }
 
-    // "만나는 중" 잠금을 유저가 직접 번복한다(진단이 오해했을 수 있다). 오판이던 잠금 판정을
-    // 지우고 직전 확률 진단을 돌려준다 — 직전 진단이 없으면 204(첫 진단 안내로 복귀).
+    // "만나는 중" 잠금을 유저가 직접 번복한다(분석이 오해했을 수 있다). 오판이던 잠금 판정을
+    // 지우고 직전 확률 분석을 돌려준다 — 직전 분석이 없으면 204(첫 분석 안내로 복귀).
     @PostMapping("/confirm-breakup")
     public ResponseEntity<AssessmentResponse> confirmBreakup(@AuthenticationPrincipal Long userId,
                                                              @PathVariable Long storyId) {

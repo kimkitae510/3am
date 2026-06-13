@@ -3,9 +3,9 @@ package com.threeam.assessment.entity;
 import java.util.Arrays;
 import java.util.List;
 
-// 진단 조정 요인(2층)의 고정 슬롯. 순서가 곧 무게 순서다(화면도 이 순서로 보여준다).
+// 분석 조정 요인(2층)의 고정 슬롯. 순서가 곧 무게 순서다(화면도 이 순서로 보여준다).
 // 자유 신호 대신 슬롯을 고정한 이유: 같은 사실이면 같은 자리에 같은 판정이 재현되게 —
-// v1의 자유 signal은 진단마다 이름과 점수가 달라져 확률이 출렁였다.
+// v1의 자유 signal은 분석마다 이름과 점수가 달라져 확률이 출렁였다.
 public enum FactorName {
     PARTNER_SIGNAL("상대신호"),       // 상대의 이별 후 행동 방향
     REPLACEMENT("대체자"),            // 상대에게 새 사람이 있는가

@@ -53,12 +53,14 @@ class MessageTxServiceTest {
     private ChatPersonaProperties personaProperties = personaProperties();
 
     private static final String FINAL_CHECK = "출력 직전 점검 자리표시자";
-    private static final String QUESTION_REMINDER = "질문 원칙 자리표시자";
+    private static final String QUESTION = "질문 원칙 자리표시자";
+    private static final String ANALYSIS = "분석 규칙 자리표시자";
 
     private static ChatPersonaProperties personaProperties() {
         ChatPersonaProperties properties = new ChatPersonaProperties();
         properties.setFinalCheck(FINAL_CHECK);
-        properties.setQuestionReminder(QUESTION_REMINDER);
+        properties.setQuestion(QUESTION);
+        properties.setAnalysis(ANALYSIS);
         properties.setAssessmentGuide("이 값과 어긋나게 말하지 마라");
         return properties;
     }
@@ -159,8 +161,8 @@ class MessageTxServiceTest {
     }
 
     @Test
-    @DisplayName("프롬프트 조립 - 질문 원칙 리마인더는 첫 답변 턴에만 싣는다")
-    void buildPrompt_questionReminderOnlyOnFirstAnswer() {
+    @DisplayName("프롬프트 조립 - 회차가 맡지 않은 일의 규칙은 싣지 않는다")
+    void buildPrompt_loadsOnlySectionsForThatAnswerNo() {
         Story story = story(10L);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
@@ -172,7 +174,9 @@ class MessageTxServiceTest {
         List<ChatMessage> first = messageTxService
                 .appendUserMessageAndBuildPrompt(1L, 10L, "사연이야").prompt();
 
-        assertThat(first).extracting(ChatMessage::content).contains(QUESTION_REMINDER);
+        assertThat(first).extracting(ChatMessage::content).contains(QUESTION);
+        // 1회차는 묻기만 한다 — 분석 규칙이 실리면 지시로 미뤄도 결국 분석한다(실측)
+        assertThat(first).extracting(ChatMessage::content).doesNotContain(ANALYSIS);
 
         // 어시스턴트 답이 이미 있는 대화 = 이후 턴. 매 턴 실으면 "질문은 꼭 해라" 압박이
         // 재점화돼 물을 게 없는 턴에도 질문을 짜낸다(실측) — 이후 턴 규칙은 본문이 맡는다.
@@ -185,7 +189,8 @@ class MessageTxServiceTest {
         List<ChatMessage> later = messageTxService
                 .appendUserMessageAndBuildPrompt(1L, 10L, "그리고 이것도 있어").prompt();
 
-        assertThat(later).extracting(ChatMessage::content).doesNotContain(QUESTION_REMINDER);
+        assertThat(later).extracting(ChatMessage::content).doesNotContain(QUESTION);
+        assertThat(later).extracting(ChatMessage::content).contains(ANALYSIS);
         assertThat(later).extracting(ChatMessage::content).contains(FINAL_CHECK); // 점검은 매 턴 유지
     }
 

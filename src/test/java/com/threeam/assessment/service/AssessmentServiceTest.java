@@ -150,7 +150,7 @@ class AssessmentServiceTest {
     }
 
     @Test
-    @DisplayName("진단 - DATING(사귀는 중)이면 확률과 유형 없이 저장하고 쿼터는 차감한다")
+    @DisplayName("진단 - DATING(사귀는 중)이면 확률과 유형 없이 저장하고 쿼터는 안 깎는다")
     void assess_datingLocksProbability() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         // LLM이 실수로 offer=true와 유형을 보냈어도 전부 무시돼야 한다(구조적 잠금)
@@ -171,11 +171,12 @@ class AssessmentServiceTest {
         assertThat(response.getBreakupType()).isNull();   // 유형/요인 폐기
         assertThat(response.getFactors()).isEmpty();
         verify(scorer, never()).apply(any(), any(), anyList());
-        verify(usageLimiter).record(UsageKind.ASSESSMENT, 1L, 1); // 정식 결과라 차감
+        // 확률이 없는 판정은 유저가 받은 게 안내 한 줄뿐이라 근거부족과 같이 면제한다.
+        verify(usageLimiter, never()).record(UsageKind.ASSESSMENT, 1L, 1);
     }
 
     @Test
-    @DisplayName("진단 - REUNITED(재회 성공)면 확률 없이 저장하고 쿼터는 차감한다")
+    @DisplayName("진단 - REUNITED(재회 성공)면 확률 없이 저장하고 쿼터는 안 깎는다")
     void assess_reunitedSavesWithoutProbability() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
@@ -190,7 +191,7 @@ class AssessmentServiceTest {
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.REUNITED);
         assertThat(response.getProbability()).isNull(); // 목표 달성 상태 — 확률 산출 없음
         verify(scorer, never()).apply(any(), any(), anyList());
-        verify(usageLimiter).record(UsageKind.ASSESSMENT, 1L, 1);
+        verify(usageLimiter, never()).record(UsageKind.ASSESSMENT, 1L, 1);
     }
 
     @Test

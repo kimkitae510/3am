@@ -14,9 +14,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
-// 진단 하나에 대한 유저의 정확도 평가. "재회가 될지"는 평가 시점에 검증할 수 없으므로
-// 묻는 것은 예측이 아니라 "진단이 내 상황을 얼마나 제대로 짚었는가"다.
-// 진단당 1행 유니크 — 중복 평가와 보상 이중 지급을 DB 수준에서 함께 막는다.
+// 분석 하나에 대한 유저의 정확도 평가. "재회가 될지"는 평가 시점에 검증할 수 없으므로
+// 묻는 것은 예측이 아니라 "분석이 내 상황을 얼마나 제대로 짚었는가"다.
+// 분석당 1행 유니크 — 중복 평가와 보상 이중 지급을 DB 수준에서 함께 막는다.
 @Entity
 @Table(name = "assessment_reviews", uniqueConstraints =
         @UniqueConstraint(name = "uk_review_assessment", columnNames = {"assessment_id"}))

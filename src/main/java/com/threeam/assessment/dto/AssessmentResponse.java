@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.Getter;
 
-// 진단 응답(v2). 유형과 요인 판정은 화면 표기용 한국어 라벨로 내린다 —
+// 분석 응답(v2). 유형과 요인 판정은 화면 표기용 한국어 라벨로 내린다 —
 // 프론트가 enum 상수를 다시 번역하지 않게 하고, 라벨 사전을 한 곳(백엔드 enum)에만 둔다.
 @Getter
 public class AssessmentResponse {

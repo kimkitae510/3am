@@ -26,7 +26,7 @@ public enum ErrorCode {
     MAIL_SEND_FAILED(HttpStatus.BAD_GATEWAY, "U008", "인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요."),
     // 가입 필수 동의와 결제 청약철회 고지 동의가 공용으로 쓴다
     CONSENT_REQUIRED(HttpStatus.BAD_REQUEST, "U009", "필수 동의 항목이 누락되었습니다."),
-    // 게스트 차단(진단, 결제)과 게스트 대화 소진이 공용으로 쓴다 — 프론트는 이 코드로 계정 연결을 유도한다
+    // 게스트 차단(분석, 결제)과 게스트 대화 소진이 공용으로 쓴다 — 프론트는 이 코드로 계정 연결을 유도한다
     GUEST_LINK_REQUIRED(HttpStatus.FORBIDDEN, "U010",
             "둘러보기로 이용할 수 있는 범위를 넘었습니다. 계정을 연결하면 지금까지의 대화를 그대로 이어갈 수 있습니다."),
     // 둘러보기도 계정 생성이라 가입과 같은 IP 상한에 걸린다. 가입 문구를 그대로 쓰면 가입한 적도
@@ -57,17 +57,22 @@ public enum ErrorCode {
     // 유저가 직접 적은 사실의 취소/수정 대상이 없거나(이미 지움), 추출된 사실을 지우려 한 경우.
     STORY_FACT_NOT_FOUND(HttpStatus.NOT_FOUND, "S003", "남긴 기록을 찾을 수 없습니다."),
 
-    // 진단
-    ASSESSMENT_NO_MESSAGES(HttpStatus.BAD_REQUEST, "AS001", "진단할 대화 내용이 없습니다."),
+    // 분석
+    ASSESSMENT_NO_MESSAGES(HttpStatus.BAD_REQUEST, "AS001", "분석할 대화 내용이 없습니다."),
     ASSESSMENT_NO_NEW_MESSAGES(HttpStatus.CONFLICT, "AS002",
-            "마지막 진단 이후 새로운 이야기가 없습니다. 대화를 나누거나 아래에서 사실을 직접 알려준 뒤 다시 진단해 주세요."),
+            "마지막 분석 이후 새로운 이야기가 없습니다. 대화를 나누거나 아래에서 사실을 직접 알려준 뒤 다시 분석해 주세요."),
     // AS003(새 사실 없음 거부)은 폐지 — temperature 0으로 출렁임이 해소됐고, 추출 누락 시
-    // 진단의 자가 복구를 막는 부작용이 있었다. 코드 번호는 결번으로 남긴다.
-    ASSESSMENT_NOT_DATING(HttpStatus.CONFLICT, "AS004", "지금은 만나는 중으로 진단된 상태가 아닙니다."),
+    // 분석의 자가 복구를 막는 부작용이 있었다. 코드 번호는 결번으로 남긴다.
+    ASSESSMENT_NOT_DATING(HttpStatus.CONFLICT, "AS004", "지금은 만나는 중으로 분석된 상태가 아닙니다."),
     ASSESSMENT_NOT_OFFER(HttpStatus.CONFLICT, "AS005", "지금은 상대의 재회 제안으로 확정된 상태가 아닙니다."),
 
-    // 진단 평가
-    REVIEW_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "평가할 진단이 없습니다."),
+    // 분석 공유
+    SHARE_NOT_FOUND(HttpStatus.NOT_FOUND, "SH001", "공유된 분석을 찾을 수 없습니다. 링크가 잘못되었거나 삭제된 이야기입니다."),
+    // 분석 기록이 없거나 잠금 판정(사귀는 중, 재회 성공)이라 공유할 확률 화면이 없는 경우
+    SHARE_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "SH002", "공유할 분석 결과가 없습니다."),
+
+    // 분석 평가
+    REVIEW_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "평가할 분석이 없습니다."),
     // R002(중복 평가)는 결번 — 점수가 업서트로 바뀌며 중복이라는 개념 자체가 사라졌다.
 
     // LLM

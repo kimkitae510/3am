@@ -9,6 +9,6 @@ public interface AssessmentRepository extends JpaRepository<Assessment, Long> {
 
     List<Assessment> findByStoryIdOrderByCreatedAtDesc(Long storyId);
 
-    // 채팅에서 "왜 이 진단이야?" 후속 질문에 답할 수 있게, 최신 진단 1건을 프롬프트에 싣는다.
+    // 채팅에서 "왜 이 분석이야?" 후속 질문에 답할 수 있게, 최신 분석 1건을 프롬프트에 싣는다.
     Optional<Assessment> findFirstByStoryIdOrderByCreatedAtDesc(Long storyId);
 }

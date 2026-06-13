@@ -20,7 +20,7 @@ public class MessageResponse {
     // 프론트가 폴백 문구를 복사해 문자열로 비교하면 문구를 고칠 때마다 두 곳이 어긋난다.
     private final boolean failed;
     // 화면이 입력칸으로 그릴 질문들. 본문(content)에서는 빠지지만 저장된 원문에는 남는다 —
-    // 지우면 다음 턴과 진단이 상담자가 무엇을 물었는지 모른다.
+    // 지우면 다음 턴과 분석이 상담자가 무엇을 물었는지 모른다.
     private final List<String> questions;
 
     private MessageResponse(Long id, MessageRole role, String content, LocalDateTime createdAt,

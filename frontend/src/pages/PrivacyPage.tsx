@@ -11,7 +11,7 @@ export function PrivacyPage() {
         <div className={styles.topbar}>
           <button className={styles.backButton} onClick={() => navigate(-1)} aria-label="뒤로">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M15 5l-7 7 7 7" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M15 5l-7 7 7 7" stroke="#ebebee" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           <div className={styles.topTitle}>개인정보처리방침</div>

@@ -66,11 +66,11 @@ public class Message {
     }
 
     // LLM 호출이 실패했을 때 답 대신 저장하는 말풍선. 폴링이 이걸 받고 정상 종료한다.
-    // 페르소나가 하는 말이라 페르소나 문법을 따른다 — 반말, 마침표 없이.
+    // 페르소나가 하는 말이라 페르소나 문법을 따른다 — 하십시오체, 마침표 없이.
     // 여기 두는 이유: 화면의 재시도 버튼과 서버의 재시도 검사가 "이게 실패한 턴인가"를
     // 같은 기준으로 판정해야 한다. 문구가 두 군데로 갈리면 버튼만 뜨고 요청은 거절된다.
     public static final String FALLBACK_CONTENT =
-            "미안, 지금 답을 정리하기가 어렵네\n조금 있다가 다시 보내줄 수 있어?";
+            "죄송합니다, 지금 답을 정리하기가 어렵습니다\n조금 뒤에 다시 보내주시겠습니까?";
 
     public static Message fallback(Story story) {
         return assistant(story, FALLBACK_CONTENT);

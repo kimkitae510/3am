@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 감정 흐름 요약(StoryMemory)의 유일한 쓰기 창구. 진단과 채팅 추출이 함께 쓴다.
+// 감정 흐름 요약(StoryMemory)의 유일한 쓰기 창구. 분석과 채팅 추출이 함께 쓴다.
 // 원장(사실)과 달리 요약은 "현재 상태" 한 장이면 충분해서 쌓지 않고 통째로 교체한다.
 @Service
 @RequiredArgsConstructor

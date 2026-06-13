@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HelpModal, CONTACT_OPENCHAT_URL } from './HelpModal';
-import { BusinessInfo } from './BusinessInfo';
-import { listStories, deleteStory, type StoryResponse } from '../api/story';
+import { listStories, createStory, deleteStory, type StoryResponse } from '../api/story';
 import { getUsage, type UsageStatusResponse } from '../api/usage';
 import { logout } from '../api/auth';
 import { extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
+import { useGoPayment } from '../utils/paymentOrigin';
 import styles from './StoryDrawer.module.css';
 
 const LONG_PRESS_MS = 450;
@@ -17,10 +17,12 @@ const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min)
 // 앱을 열면 목록을 거치지 않고 대화로 바로 들어가야 한다.
 export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: number; onClose: () => void }) {
   const navigate = useNavigate();
+  const goPayment = useGoPayment();
   const [stories, setStories] = useState<StoryResponse[]>([]);
   const [usage, setUsage] = useState<UsageStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<StoryResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -54,9 +56,29 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
     };
   }, []);
 
+  async function handleNew() {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const story = await createStory();
+      navigate(`/stories/${story.id}`);
+      onClose();
+    } catch (e) {
+      setError(extractErrorMessage(e, '새 대화를 시작하지 못했습니다.'));
+      setCreating(false);
+    }
+  }
+
   async function handleLogout() {
+    // 게스트가 누르는 '로그인'은 나가는 게 아니라 계정을 붙이러 가는 것이다. 여기서 토큰을
+    // 지우면 로그인 화면이 게스트인 줄 몰라 대화가 사라진다는 경고를 못 띄운다.
+    if (usage?.guest) {
+      navigate('/login');
+      return;
+    }
     await logout();
-    navigate('/login');
+    // 나가면 로그인 폼이 아니라 첫 화면으로 — 계정 없이도 바로 이야기를 시작할 수 있는 자리다
+    navigate('/');
   }
 
   function clearLong() {
@@ -138,11 +160,6 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
     }
   }
 
-  // 보고 있는 방을 맨 위로 — 어디에 있는지를 배지가 아니라 자리로 알린다
-  const ordered = stories
-    .slice()
-    .sort((a, b) => Number(b.id === currentStoryId) - Number(a.id === currentStoryId));
-
   function offsetFor(id: number): number {
     if (dragId === id) return dragX;
     return openId === id ? -SWIPE_WIDTH : 0;
@@ -157,7 +174,7 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
             {/* 게스트의 계정 연결은 서랍이 아니라 채팅 화면 입력창 위가 맡는다 — 서랍은 열어야
                 보이는 자리라 정작 연결이 필요한 사람에게 안 보인다 */}
             {usage && !usage.guest && (
-              <button className={styles.payButton} onClick={() => navigate('/payment')}>
+              <button className={styles.payButton} onClick={goPayment}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <rect x="3.5" y="6" width="17" height="12.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.7" />
                   <path d="M3.5 10.2h17" stroke="#B89DD1" strokeWidth="1.7" />
@@ -184,10 +201,16 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
         ) : error ? (
           <div className={styles.state}>{error}</div>
         ) : stories.length === 0 ? (
-          <div className={styles.state}>아직 시작한 이야기가 없습니다.</div>
+          <div className={styles.state}>
+            아직 시작한 이야기가 없습니다.
+            <br />
+            아래 버튼으로 그 사람 이야기를 시작해 보세요.
+          </div>
         ) : (
           <div className={styles.list}>
-            {ordered.map((s) => (
+            {/* 순서는 서버가 준 그대로 — 마지막 대화가 오간 시각 순이다. 보고 있는 방을
+                맨 위로 끌어올리면 목록이 열람 순으로 뒤집혀 어디까지 이야기했는지가 흐려진다 */}
+            {stories.map((s) => (
               <div className={styles.swipeRow} key={s.id}>
                 {/* 평상시엔 완전히 감춘다 — 모서리로 빨간 배경이 비치는 잔상 방지 */}
                 <button
@@ -228,6 +251,13 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
           </div>
         )}
 
+        <button className={styles.newButton} onClick={handleNew} disabled={creating}>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v14M5 12h14" stroke="#1a1a1d" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+          {creating ? '시작하는 중…' : '새 이야기'}
+        </button>
+
         {/* 랜딩을 없애면 재방문 회원이 로그인 입구를 못 찾는다 — 다른 기기에서 온 사람에게는
             자기 대화가 통째로 사라진 것처럼 보인다. 그래서 서랍 하단에 상시로 둔다 */}
         <div className={styles.footer}>
@@ -240,11 +270,6 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
           </a>
         </div>
 
-        {/* 로그인한 유저는 초기화면을 다시 볼 일이 없다 — 서랍이 이 앱의 푸터다 */}
-        <div className={styles.bizWrap}>
-          <BusinessInfo />
-        </div>
-
         {showHelp && (
           <HelpModal
             title="이용 가이드"
@@ -252,7 +277,7 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
             sections={[
               {
                 heading: '사람마다 방을 따로 만듭니다',
-                text: '한 방에는 한 사람과의 이별 이야기만 담아 주세요. 대화로 쌓은 기억과 진단 결과가 방마다 따로 관리되기 때문에, 여러 사람 이야기를 한 방에서 하면 진단이 섞여 부정확해집니다.',
+                text: '한 방에는 한 사람과의 이별 이야기만 담아 주세요. 대화로 쌓은 기억과 분석 결과가 방마다 따로 관리되기 때문에, 여러 사람 이야기를 한 방에서 하면 분석이 섞여 부정확해집니다.',
               },
               {
                 heading: '목록 다루기',
@@ -260,7 +285,7 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
               },
               {
                 heading: '이용권',
-                text: '대화와 진단은 이용권에서 1회씩 차감됩니다. 대화는 길이와 무관하게 한 번 주고받을 때마다 1회입니다. 남은 횟수는 기한 없이 유지되며, 위 이용권 버튼에서 잔여 확인과 충전을 할 수 있습니다.',
+                text: '대화와 분석은 이용권에서 1회씩 차감됩니다. 대화는 길이와 무관하게 한 번 주고받을 때마다 1회입니다. 남은 횟수는 기한 없이 유지되며, 위 이용권 버튼에서 잔여 확인과 충전을 할 수 있습니다.',
               },
             ]}
           />
@@ -271,7 +296,7 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
             <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
               <div className={styles.dialogTitle}>이 대화를 삭제할까요?</div>
               <div className={styles.dialogText}>
-                이 방에서 나눈 대화, 재회 진단 기록, 쌓아온 기억이
+                이 방에서 나눈 대화, 분석 리포트 기록, 쌓아온 기억이
                 <br />
                 모두 지워져요. 새 방을 만들어도 이 이야기는
                 <br />

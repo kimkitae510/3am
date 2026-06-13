@@ -17,10 +17,10 @@ public interface StoryFactRepository extends JpaRepository<StoryFact, Long> {
     // 입력 토큰 비용이 대화 길이에 비례해 선형 증가한다. 호출부에서 시간순으로 뒤집어 쓴다.
     List<StoryFact> findByStoryIdOrderByIdDesc(Long storyId, Pageable pageable);
 
-    // 재진단 가드용: 특정 문장(번복 확인 기록)의 가장 최근 시각.
+    // 재분석 가드용: 특정 문장(번복 확인 기록)의 가장 최근 시각.
     Optional<StoryFact> findFirstByStoryIdAndFactOrderByIdDesc(Long storyId, String fact);
 
-    // 재진단 가드용: 마지막 진단 이후 유저가 직접 적어준 사실이 있는지 — 새 대화와 동급의 새 재료.
+    // 재분석 가드용: 마지막 분석 이후 유저가 직접 적어준 사실이 있는지 — 새 대화와 동급의 새 재료.
     boolean existsByStoryIdAndSourceAndCreatedAtAfter(Long storyId, FactSource source,
             LocalDateTime after);
 

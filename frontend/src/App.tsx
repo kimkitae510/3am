@@ -13,6 +13,7 @@ import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { PricingPage } from './pages/PricingPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
+import { SharedResultPage } from './pages/SharedResultPage';
 
 // 서랍에서 다른 사연으로 갈아타면 경로만 바뀌고 컴포넌트는 그대로 살아 있어 이전 방의
 // 메시지와 입력이 잠깐 남는다. 예전엔 목록 화면을 거쳐서 이 전환 자체가 없었다.
@@ -34,6 +35,10 @@ export default function App() {
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/pricing" element={<PricingPage />} />
+      {/* 분석 공유의 읽기 전용 화면. /s/는 운영에선 nginx가 백엔드(OG 태그 HTML)로 보내고
+          그 HTML이 /shared/로 되돌려보낸다 — 개발(vite)엔 그 관문이 없어 /s/도 직접 받는다 */}
+      <Route path="/s/:token" element={<SharedResultPage />} />
+      <Route path="/shared/:token" element={<SharedResultPage />} />
       <Route path="/stories" element={<StoryEntryPage />} />
       <Route path="/stories/:storyId" element={<ChatRoute />} />
       <Route path="/stories/:storyId/assessment" element={<AssessmentPage />} />

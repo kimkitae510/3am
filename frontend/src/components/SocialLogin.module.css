@@ -1,0 +1,207 @@
+/* 이름을 단 가로 버튼 — 로그인 화면의 형태 */
+.wideRow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+}
+
+.wideBtn {
+  width: 100%;
+  height: 54px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+}
+
+.badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badgeKakao {
+  background: #fee500;
+}
+
+/* 네이버 자산의 N은 원 지름의 35.7%다. 26px 배지면 잉크 9.3px, 말풍선 패스는 viewBox의
+   22/24만 채우므로 svg는 10.1px이어야 같은 잉크가 나온다. height auto로 비율 보존 */
+.badgeSymbol {
+  width: 10.1px;
+  height: auto;
+  display: block;
+}
+
+/* 네이버는 공식 배포 이미지를 그대로 쓴다 — 원 안 N의 비율과 여백이 BI 규격이라
+   직접 그리면 검수에서 변형으로 잡힌다 */
+.badgeImg {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: block;
+}
+
+/* 첫 화면 하단의 원형 심볼 */
+.iconWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 26px;
+  margin-bottom: 20px;
+}
+
+.iconLabel {
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.iconRow {
+  display: flex;
+  gap: 14px;
+}
+
+.iconBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.iconKakao {
+  background: #fee500;
+}
+
+/* 44px 원이면 잉크 15.7px — 위 배지와 같은 계산 */
+.iconSymbol {
+  width: 17.1px;
+  height: auto;
+  display: block;
+}
+
+/* 이미지가 원형 배경까지 포함한 완성 자산이라 배경을 따로 깔지 않는다 */
+.iconImg {
+  width: 44px;
+  height: 44px;
+  display: block;
+}
+
+/* 아래는 두 화면이 같이 쓰는 동의 시트 — 로그인 화면에서 옮겨왔다 */
+.sheetOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.sheet {
+  width: 86%;
+  max-height: 82%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sheetTitle {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sheetAgree {
+  height: 44px;
+  border: none;
+  border-radius: 13px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sheetAgree:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.consentBox {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+}
+
+/* 두 줄로 감기는 행도 체크박스가 첫 줄에 붙게 위 정렬 — 행마다 모양이 달라지던 원인 */
+.consentRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+  user-select: none;
+}
+
+.consentRow > span {
+  flex: 1;
+}
+
+.consentCheck {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0; /* 첫 줄 텍스트(13px x 1.5)와 눈높이 맞춤 */
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* 문장 속 문서 이름이 곧 링크 — 색 강조 대신 밑줄만 */
+.consentLink {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--text-sub);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.consentAll {
+  align-items: center;
+  color: var(--text);
+  font-weight: 700;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}

@@ -17,12 +17,15 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
     // 소유권까지 한 번에 건다. 없거나 남의 것이거나 삭제된 것이면 빈 Optional → 404로 통일(존재 여부 노출 방지).
     Optional<Story> findByIdAndUserIdAndDeletedAtIsNull(Long id, Long userId);
 
-    // INSUFFICIENT 재시도 가드 표시. ts=null이면 해제(성공 진단 시). 벌크 UPDATE라 엔티티 로드가 불필요하다.
+    // 분석 공유의 공개 조회용 — 열람자가 소유자가 아니므로 소유권 없이 생존 여부만 본다.
+    Optional<Story> findByIdAndDeletedAtIsNull(Long id);
+
+    // INSUFFICIENT 재시도 가드 표시. ts=null이면 해제(성공 분석 시). 벌크 UPDATE라 엔티티 로드가 불필요하다.
     @Modifying(clearAutomatically = true)
     @Query("update Story s set s.lastInsufficientAt = :ts where s.id = :id")
     void updateLastInsufficientAt(@Param("id") Long id, @Param("ts") LocalDateTime ts);
 
-    // 진단 실패 표시: 같은 재료(새 대화 없음)의 연속 실패는 카운트를 올리고,
+    // 분석 실패 표시: 같은 재료(새 대화 없음)의 연속 실패는 카운트를 올리고,
     @Modifying(clearAutomatically = true)
     @Query("update Story s set s.assessFailStreak = s.assessFailStreak + 1, s.lastAssessFailedAt = :ts where s.id = :id")
     void incrementAssessFailStreak(@Param("id") Long id, @Param("ts") LocalDateTime ts);

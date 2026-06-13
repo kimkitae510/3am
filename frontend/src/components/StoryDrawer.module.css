@@ -15,7 +15,6 @@
   flex-direction: column;
   position: relative;
   background: var(--bg);
-  border-left: 1px solid var(--border);
   animation: slideIn 0.2s ease-out;
 }
 
@@ -129,7 +128,7 @@
   align-items: center;
 }
 
-/* 채팅 헤더 진단 버튼과 같은 문법 — 중립 회색 칩 + 흰 글자, 색은 아이콘에만 */
+/* 채팅 헤더 분석 버튼과 같은 문법 — 중립 회색 칩 + 흰 글자, 색은 아이콘에만 */
 .payButton {
   display: inline-flex;
   align-items: center;
@@ -210,7 +209,7 @@
   background: #1e1e22;
 }
 
-/* 지금 보고 있는 방은 맨 위로 올라온다 — 배지나 강조선을 덧대는 대신 자리로 알린다 */
+/* 지금 보고 있는 방 — 배지나 강조선을 덧대는 대신 바탕 한 단으로만 알린다 */
 .itemCurrent {
   background: var(--surface);
 }
@@ -289,13 +288,39 @@
   line-height: 1.6;
 }
 
+.newButton {
+  margin: 0 18px;
+  height: 50px;
+  border: none;
+  border-radius: 16px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.newButton:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* 주 액션(새 이야기)과 부가 메뉴는 성격이 다른데 셋 다 흐린 색이라
+   간격만으로는 한 덩어리로 뭉쳐 보였다. 선을 하나 긋고 사이를 크게 벌려 층을 가른다 */
 .footer {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin: 16px 18px 24px;
+  gap: 14px;
+  margin: 22px 18px 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
 }
 
 .footLink {
@@ -311,9 +336,4 @@
 .footDot {
   color: var(--border);
   font-size: 11px;
-}
-
-.bizWrap {
-  flex-shrink: 0;
-  padding: 0 18px 20px;
 }

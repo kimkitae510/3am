@@ -16,7 +16,7 @@ function shortDate(iso: string | null): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-// 하루에 여러 번 진단하면 날짜만으론 행이 안 갈린다 — 시간까지 붙인다.
+// 하루에 여러 번 분석하면 날짜만으론 행이 안 갈린다 — 시간까지 붙인다.
 function longDateTime(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -50,10 +50,10 @@ export function HistoryPage() {
     (async () => {
       try {
         const all = await getAssessments(storyId);
-        // 확률이 있는(POSSIBLE) 진단만 추이에 쓴다.
+        // 확률이 있는(POSSIBLE) 분석만 추이에 쓴다.
         if (aliveRef.current) setItems(all.filter((a) => a.probability != null));
       } catch (e) {
-        if (aliveRef.current) setError(extractErrorMessage(e, '진단 기록을 불러오지 못했어요.'));
+        if (aliveRef.current) setError(extractErrorMessage(e, '분석 기록을 불러오지 못했습니다.'));
       } finally {
         if (aliveRef.current) setLoading(false);
       }
@@ -78,10 +78,10 @@ export function HistoryPage() {
         <div className={styles.topbar}>
           <button className={styles.backButton} onClick={back} aria-label="뒤로">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M15 5l-7 7 7 7" stroke="#ECEAF0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M15 5l-7 7 7 7" stroke="#ebebee" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <div className={styles.topTitle}>진단 기록</div>
+          <div className={styles.topTitle}>분석 기록</div>
         </div>
 
         <div className={styles.body}>
@@ -91,9 +91,9 @@ export function HistoryPage() {
             <div className={styles.state}>{error}</div>
           ) : items.length === 0 ? (
             <div className={styles.state}>
-              아직 진단 기록이 없어요.
+              아직 분석 기록이 없습니다.
               <br />
-              대화를 나눈 뒤 재회 진단을 받아보세요.
+              대화를 나눈 뒤 분석 리포트를 받아 보세요.
             </div>
           ) : (
             <>
@@ -103,16 +103,16 @@ export function HistoryPage() {
                   {totalDelta}
                   <span className={styles.deltaUnit}>%</span>
                 </div>
-                <div className={styles.summaryCaption}>첫 진단과 비교한 변화 (진단 {items.length}회)</div>
+                <div className={styles.summaryCaption}>첫 분석과 비교한 변화 (분석 {items.length}회)</div>
               </div>
 
               {asc.length >= 2 && (
                 <div className={styles.chartCard}>
                   <svg width="100%" viewBox="0 0 320 168" preserveAspectRatio="none" style={{ display: 'block' }}>
-                    <line x1="20" y1="40" x2="300" y2="40" stroke="#2A2833" strokeWidth="1" />
-                    <line x1="20" y1="90" x2="300" y2="90" stroke="#2A2833" strokeWidth="1" />
-                    <line x1="20" y1="140" x2="300" y2="140" stroke="#2A2833" strokeWidth="1" />
-                    <polyline points={points} fill="none" stroke="#6E6B76" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                    <line x1="20" y1="40" x2="300" y2="40" stroke="#2a2a2e" strokeWidth="1" />
+                    <line x1="20" y1="90" x2="300" y2="90" stroke="#2a2a2e" strokeWidth="1" />
+                    <line x1="20" y1="140" x2="300" y2="140" stroke="#2a2a2e" strokeWidth="1" />
+                    <polyline points={points} fill="none" stroke="#6c6c74" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                     {asc.map((a, i) => {
                       const last = i === asc.length - 1;
                       return (
@@ -121,8 +121,8 @@ export function HistoryPage() {
                           cx={xFor(i, asc.length)}
                           cy={yFor(a.probability ?? 0)}
                           r={last ? 5 : 3.5}
-                          fill={last ? '#B89DD1' : '#17151B'}
-                          stroke={last ? 'none' : '#6E6B76'}
+                          fill={last ? '#B89DD1' : '#161618'}
+                          stroke={last ? 'none' : '#6c6c74'}
                           strokeWidth={last ? 0 : 2}
                         />
                       );
@@ -136,13 +136,13 @@ export function HistoryPage() {
                 </div>
               )}
 
-              {/* 행 오른쪽 증감의 기준(직전 진단 대비)이 안 보이면 숫자가 수수께끼가 된다 */}
+              {/* 행 오른쪽 증감의 기준(직전 분석 대비)이 안 보이면 숫자가 수수께끼가 된다 */}
               {items.length >= 2 && (
-                <div className={styles.listCaption}>오른쪽 증감은 직전 진단과의 차이예요</div>
+                <div className={styles.listCaption}>오른쪽 증감은 직전 분석과의 차이입니다</div>
               )}
               <div className={styles.list}>
                 {items.map((a, i) => {
-                  const prev = items[i + 1]; // 바로 이전(더 과거) 진단
+                  const prev = items[i + 1]; // 바로 이전(더 과거) 분석
                   const d =
                     prev && prev.probability != null && a.probability != null
                       ? a.probability - prev.probability

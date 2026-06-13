@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 진단이 뽑아둔 프로필로 참조 사례를 찾아준다. LLM을 부르지 않아 쿼터도 없다.
+// 분석이 뽑아둔 프로필로 참조 사례를 찾아준다. LLM을 부르지 않아 쿼터도 없다.
 // 사례는 CaseStore가 메모리에 상주시킨 불변 목록이라 요청 경로에서 DB는 프로필 한 행뿐이다.
 @Service
 @RequiredArgsConstructor
