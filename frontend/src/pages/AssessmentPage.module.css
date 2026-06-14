@@ -462,6 +462,11 @@
   color: #b89dd1;
 }
 
+/* 관계 심리, 재발 위험 중간처럼 유불리가 아닌 값 — 색으로 방향을 말하지 않는다 */
+.weightNeutral {
+  color: #b0b0b8;
+}
+
 .guideItem + .guideItem {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }

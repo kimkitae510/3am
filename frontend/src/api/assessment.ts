@@ -20,6 +20,23 @@ export interface WatchView {
   effect: string;
 }
 
+// 관계 심리 — 확률과 무관한 "관계 이해용" 층. 라벨은 화면 표기용 한국어("불안형", "추구-회피").
+// confidence("높음"/"중간"/"낮음")는 지금 화면에선 안 쓰지만 백엔드가 판정과 함께 저장한다.
+export interface AttachmentStyle {
+  label: string;
+  confidence: string;
+}
+
+export interface RelationshipPsychology {
+  attachment: {
+    user: AttachmentStyle | null;
+    partner: AttachmentStyle | null;
+    description: string | null;
+  } | null;
+  interactionPattern: { label: string; confidence: string; description: string | null } | null;
+  needConflict: { left: string | null; right: string | null; description: string | null } | null;
+}
+
 export interface AssessmentResponse {
   verdict: Verdict;
   probability: number | null; // 잠금 판정이면 null
@@ -28,6 +45,8 @@ export interface AssessmentResponse {
   jumpRule: string | null; // 점프 라벨("유저통보미련흔적" 등). 유저 통보 판이면 유형 대신 이게 대역을 정함
   relapseRisk: string | null; // 유지 전망 라벨("높음")
   relapseReason: string | null;
+  // 관계 심리(애착 경향, 관계 패턴, 욕구 충돌). 정보가 부족한 진단과 옛 데이터는 null
+  relationshipPsychology?: RelationshipPsychology | null;
   reason: string;
   factors: FactorView[];
   watchFor: WatchView[];

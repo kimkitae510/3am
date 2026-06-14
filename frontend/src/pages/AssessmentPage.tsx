@@ -975,6 +975,104 @@ export function AssessmentPage() {
             </>
           )}
 
+          {/* 관계 심리 — 확률과 무관한 이해용 층. 잠금 판정(사귀는 중, 재회 성공)에도
+              보여준다: 확률이 아니라 관계 구조의 설명이라 어느 판에서도 유효하다.
+              보류값(판단보류, 뚜렷하지않음)은 행을 그리지 않는다 — "모르겠다"를 카드로
+              만들면 소음이다 */}
+          {(() => {
+            const psych = result.relationshipPsychology;
+            if (!psych) return null;
+            const sides = [
+              psych.attachment?.user && psych.attachment.user.label !== '판단보류'
+                ? `나 ${psych.attachment.user.label}`
+                : null,
+              psych.attachment?.partner && psych.attachment.partner.label !== '판단보류'
+                ? `상대 ${psych.attachment.partner.label}`
+                : null,
+            ].filter(Boolean);
+            const showAttachment = sides.length > 0;
+            const pattern = psych.interactionPattern;
+            const showPattern = !!pattern && pattern.label !== '뚜렷하지않음';
+            const needs = psych.needConflict;
+            const showNeeds = !!needs && !!needs.left && !!needs.right;
+            if (!showAttachment && !showPattern && !showNeeds) return null;
+            return (
+              <>
+                <SectionHead title="우리 관계는 왜 힘들었을까" />
+                <div className={styles.dedList}>
+                  {showAttachment && psych.attachment && (
+                    <div className={styles.dedItem}>
+                      <div className={styles.dedTop}>
+                        <div className={styles.dedSignal}>애착 경향</div>
+                        <span className={`${styles.weightLabel} ${styles.weightNeutral}`}>
+                          {sides.join(', ')}
+                        </span>
+                      </div>
+                      {psych.attachment.description && (
+                        <div className={styles.dedRationale}>{psych.attachment.description}</div>
+                      )}
+                    </div>
+                  )}
+                  {showPattern && pattern && (
+                    <div className={styles.dedItem}>
+                      <div className={styles.dedTop}>
+                        <div className={styles.dedSignal}>관계 패턴</div>
+                        <span className={`${styles.weightLabel} ${styles.weightNeutral}`}>
+                          {pattern.label}
+                        </span>
+                      </div>
+                      {pattern.description && (
+                        <div className={styles.dedRationale}>{pattern.description}</div>
+                      )}
+                    </div>
+                  )}
+                  {showNeeds && needs && (
+                    <div className={styles.dedItem}>
+                      <div className={styles.dedTop}>
+                        <div className={styles.dedSignal}>핵심 욕구</div>
+                        <span className={`${styles.weightLabel} ${styles.weightNeutral}`}>
+                          {needs.left} ↔ {needs.right}
+                        </span>
+                      </div>
+                      {needs.description && (
+                        <div className={styles.dedRationale}>{needs.description}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+
+          {/* 유지 전망 — 성사와 별개 축. 관계 심리 다음 자리라 "구조가 안 바뀌면 반복된다"로
+              서사가 이어진다. 데이터만 내려오고 화면에 없던 값을 이제 그린다 */}
+          {!locked && prob < 100 && result.relapseRisk && (
+            <>
+              <SectionHead title="다시 만나면 같은 문제가 반복될까" />
+              <div className={styles.dedList}>
+                <div className={styles.dedItem}>
+                  <div className={styles.dedTop}>
+                    <div className={styles.dedSignal}>재발 위험</div>
+                    <span
+                      className={`${styles.weightLabel} ${
+                        result.relapseRisk === '높음'
+                          ? styles.weightMinus
+                          : result.relapseRisk === '낮음'
+                            ? styles.weightPlus
+                            : styles.weightNeutral
+                      }`}
+                    >
+                      {result.relapseRisk}
+                    </span>
+                  </div>
+                  {result.relapseReason && (
+                    <div className={styles.dedRationale}>{result.relapseReason}</div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
           {/* 비슷한 사례 — 분석이 뽑은 분류로 찾은 참조 사례. 유사도 순 그대로 보여준다:
               성공담을 골라 끼우면 헛된 희망을 파는 것이라, 확률에서 지켜온 원칙과 어긋난다.
               그래서 "너도 이렇게 된다"가 아니라 "비슷한 상황이 이랬다"로 읽히게 문구를 잡는다 */}
