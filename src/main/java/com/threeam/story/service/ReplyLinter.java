@@ -28,12 +28,6 @@ public class ReplyLinter {
     private static final Pattern BOARD_WORDS =
             Pattern.compile("(?<![가-힣])판(을|이|은|에|도|까지)(?=\\s|,|$)|주도권|밑밥|포석");
 
-    // 문어체 평서 '~거다' 계열. 페르소나는 '~거야'로 못 박혀 있다.
-    private static final Pattern WRITTEN_ENDING = Pattern.compile("거다(\\s|,|$)");
-
-    // 마침표는 말풍선을 끊는 자리라 금지다(물음표, 쉼표는 허용). 줄임표(...)는 제외한다.
-    private static final Pattern PERIOD_END = Pattern.compile("(?<!\\.)\\.(?!\\.)\\s*$");
-
     private static final Pattern BULLET = Pattern.compile("^\\s*[-*]\\s|[·•]");
 
     // 양자택일 '형태'. 선택지가 실제로 그 둘뿐인 사실 확인('먼저 제안한 게 너야 걔야?')은
@@ -50,20 +44,9 @@ public class ReplyLinter {
         }
         Map<String, Integer> hits = new LinkedHashMap<>();
         count(hits, "판세어휘", BOARD_WORDS, reply);
-        count(hits, "거다어미", WRITTEN_ENDING, reply);
         count(hits, "불릿", BULLET, reply);
         count(hits, "마크다운", MARKDOWN, reply);
         count(hits, "양자택일형태", EITHER_OR, reply);
-        // 마침표는 줄 단위로 본다 — 본문 중간의 소수점, 줄임표를 마침표로 세지 않기 위해.
-        int periods = 0;
-        for (String line : reply.split("\n")) {
-            if (PERIOD_END.matcher(line.strip()).find()) {
-                periods++;
-            }
-        }
-        if (periods > 0) {
-            hits.put("마침표", periods);
-        }
 
         if (hits.isEmpty()) {
             Metrics.counter("chat.reply.clean").increment();
@@ -89,7 +72,6 @@ public class ReplyLinter {
     public List<String> violatedRules(String reply) {
         Map<String, Integer> hits = new LinkedHashMap<>();
         count(hits, "판세어휘", BOARD_WORDS, reply);
-        count(hits, "거다어미", WRITTEN_ENDING, reply);
         count(hits, "불릿", BULLET, reply);
         count(hits, "마크다운", MARKDOWN, reply);
         count(hits, "양자택일형태", EITHER_OR, reply);

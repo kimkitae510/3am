@@ -25,13 +25,6 @@ class ReplyLinterTest {
     }
 
     @Test
-    @DisplayName("어미 - '~거다'는 잡고 '~거야'는 통과시킨다")
-    void catchesWrittenEnding() {
-        assertThat(linter.violatedRules("도망친 거다")).contains("거다어미");
-        assertThat(linter.violatedRules("도망친 거야")).isEmpty();
-    }
-
-    @Test
     @DisplayName("형식 - 불릿과 마크다운을 잡는다")
     void catchesFormatting() {
         assertThat(linter.violatedRules("- 첫째로 이건")).contains("불릿");
@@ -48,8 +41,9 @@ class ReplyLinterTest {
     }
 
     @Test
-    @DisplayName("정상 답변은 아무것도 걸리지 않는다")
+    @DisplayName("정상 답변은 아무것도 걸리지 않는다(존댓말, 마침표 포함)")
     void cleanReplyPasses() {
-        assertThat(linter.violatedRules("걔가 조율 대신 이별을 고른 거야\n\n지금은 연락 안 하는 게 맞아")).isEmpty();
+        assertThat(linter.violatedRules(
+                "조율 대신 이별을 선택한 것으로 보입니다.\n\n지금은 연락하지 않는 편이 좋겠습니다.")).isEmpty();
     }
 }
