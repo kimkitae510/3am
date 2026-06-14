@@ -2,6 +2,7 @@ package com.threeam.assessment.service;
 
 import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
+import com.threeam.assessment.dto.RelationshipPsychology;
 import com.threeam.assessment.dto.ReunionDiagnosis.MatchProfileItem;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
@@ -212,9 +213,6 @@ public class AssessmentTxService {
         }
         boolean hasType = last.getBreakupType() != null;
         boolean hasJump = last.getJumpRule() != null && last.getJumpRule() != JumpRule.NONE;
-        if (!hasType && !hasJump) {
-            return null;
-        }
         List<String> parts = new ArrayList<>();
         if (hasType) {
             parts.add("유형=" + last.getBreakupType().label());
@@ -233,7 +231,41 @@ public class AssessmentTxService {
             }
             parts.add(factors.toString());
         }
+        // 확률 앵커가 없는 판(v1, 잠금)은 유형/점프/요인을 싣지 않지만, 관계 심리 라벨은
+        // verdict와 무관하게 싣는다 — 관계 구조는 진단 사이에 잘 안 변하는 값이라
+        // 새 행동 근거 없이 출렁이면 안 된다(루브릭의 직전 판정 유지 규칙과 세트).
+        if (!hasType && !hasJump) {
+            parts.clear();
+        }
+        String psychology = psychologyDigest(last.getRelationshipPsychology());
+        if (psychology != null) {
+            parts.add(psychology);
+        }
+        if (parts.isEmpty()) {
+            return null;
+        }
         return "직전 분석 요지(참고 — 루브릭의 직전 분석 규칙 적용): " + String.join(", ", parts);
+    }
+
+    // 관계 심리는 라벨만 싣는다(설명 제외 — 지난 서사까지 주면 반향실이 된다).
+    private String psychologyDigest(RelationshipPsychology psychology) {
+        if (psychology == null) {
+            return null;
+        }
+        List<String> bits = new ArrayList<>();
+        if (psychology.interactionPattern() != null) {
+            bits.add("패턴=" + psychology.interactionPattern().label());
+        }
+        RelationshipPsychology.Attachment attachment = psychology.attachment();
+        if (attachment != null) {
+            if (attachment.user() != null) {
+                bits.add("애착(유저)=" + attachment.user().label());
+            }
+            if (attachment.partner() != null) {
+                bits.add("애착(상대)=" + attachment.partner().label());
+            }
+        }
+        return bits.isEmpty() ? null : "관계심리: " + String.join(" ", bits);
     }
 
     // tx2: 분석 결과 저장 + 새 사실 원장 append + 매칭 프로필 갱신.

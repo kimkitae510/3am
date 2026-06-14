@@ -3,6 +3,7 @@ package com.threeam.assessment.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.AssessmentProperties;
+import com.threeam.assessment.dto.RelationshipPsychology;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.FactorItem;
 import com.threeam.assessment.dto.ReunionDiagnosis.WatchItem;
@@ -121,6 +122,58 @@ public class ReunionLlm {
                 "propertyOrdering", List.of("level", "reason"));
     }
 
+    // 관계 심리(확률과 무관한 이해용 층)의 스키마. 라벨을 enum으로 못 박아 사전 밖 어휘를
+    // 생성 단계에서 차단한다. 전체가 nullable — 읽을 재료가 없으면 통째로 비우는 게 맞다.
+    private static Map<String, Object> attachmentStyleSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "nullable", true,
+                "properties", Map.of(
+                        "label", Map.of("type", "STRING",
+                                "enum", RelationshipPsychology.ATTACHMENT_LABELS),
+                        "confidence", Map.of("type", "STRING",
+                                "enum", RelationshipPsychology.CONFIDENCE_LABELS)),
+                "required", List.of("label", "confidence"),
+                "propertyOrdering", List.of("label", "confidence"));
+    }
+
+    private static Map<String, Object> relationshipPsychologySchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "nullable", true,
+                "properties", Map.of(
+                        "attachment", Map.of(
+                                "type", "OBJECT",
+                                "nullable", true,
+                                "properties", Map.of(
+                                        "user", attachmentStyleSchema(),
+                                        "partner", attachmentStyleSchema(),
+                                        "description", Map.of("type", "STRING")),
+                                "required", List.of("description"),
+                                "propertyOrdering", List.of("user", "partner", "description")),
+                        "interactionPattern", Map.of(
+                                "type", "OBJECT",
+                                "nullable", true,
+                                "properties", Map.of(
+                                        "label", Map.of("type", "STRING",
+                                                "enum", RelationshipPsychology.PATTERN_LABELS),
+                                        "confidence", Map.of("type", "STRING",
+                                                "enum", RelationshipPsychology.CONFIDENCE_LABELS),
+                                        "description", Map.of("type", "STRING")),
+                                "required", List.of("label", "confidence", "description"),
+                                "propertyOrdering", List.of("label", "confidence", "description")),
+                        "needConflict", Map.of(
+                                "type", "OBJECT",
+                                "nullable", true,
+                                "properties", Map.of(
+                                        "left", Map.of("type", "STRING", "nullable", true),
+                                        "right", Map.of("type", "STRING", "nullable", true),
+                                        "description", Map.of("type", "STRING")),
+                                "required", List.of("description"),
+                                "propertyOrdering", List.of("left", "right", "description"))),
+                "propertyOrdering", List.of("attachment", "interactionPattern", "needConflict"));
+    }
+
     // 매칭 분류의 스키마. 어휘를 enum으로 못 박는 게 핵심 — 자유 서술을 허용하면
     // "여사친 문제"처럼 뜻은 같고 글자가 다른 값이 나와 사례의 태그와 안 겹친다.
     private static Map<String, Object> matchProfileSchema() {
@@ -175,6 +228,7 @@ public class ReunionLlm {
                                     .map(JumpRule::label).toList())),
                     Map.entry("factors", Map.of("type", "ARRAY", "items", factorItemSchema())),
                     Map.entry("relapseRisk", relapseRiskSchema()),
+                    Map.entry("relationshipPsychology", relationshipPsychologySchema()),
                     Map.entry("watchFor", Map.of("type", "ARRAY", "items", watchItemSchema())),
                     Map.entry("unansweredQuestions", Map.of("type", "ARRAY",
                             "items", Map.of("type", "STRING"))),
@@ -189,8 +243,8 @@ public class ReunionLlm {
                     "jumpRule", "matchProfile", "reason")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
                     "breakupTypeSecondary", "typeEvidence", "jumpRule", "factors", "relapseRisk",
-                    "watchFor", "unansweredQuestions", "chatDirection", "matchProfile", "reason",
-                    "newFacts")));
+                    "relationshipPsychology", "watchFor", "unansweredQuestions", "chatDirection",
+                    "matchProfile", "reason", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
         try {
@@ -242,6 +296,7 @@ public class ReunionLlm {
                     parseUnanswered(root),
                     ChatDirection.fromLabel(root.path("chatDirection").asText(null)),
                     matchProfile(root),
+                    relationshipPsychology(root),
                     root.path("reason").asText(""), newFacts);
         } catch (Exception e) {
             // 응답 본문(json)에는 사연 기반 분석 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
@@ -336,6 +391,84 @@ public class ReunionLlm {
         String trimmed = json.stripTrailing();
         return trimmed.length() <= TAIL_LENGTH ? trimmed
                 : trimmed.substring(trimmed.length() - TAIL_LENGTH);
+    }
+
+    // 관계 심리 파싱. 사전 밖 라벨은 그 축만 버리고, 세 축이 전부 비면 null로 접는다 —
+    // 확률과 무관한 층이라 일부가 죽어도 진단 전체를 실패시키지 않는다.
+    private RelationshipPsychology relationshipPsychology(JsonNode root) {
+        JsonNode node = root.path("relationshipPsychology");
+        if (!node.isObject()) {
+            return null;
+        }
+        RelationshipPsychology.Attachment attachment = parseAttachment(node.path("attachment"));
+        RelationshipPsychology.PatternItem pattern = parsePattern(node.path("interactionPattern"));
+        RelationshipPsychology.NeedConflict needs = parseNeedConflict(node.path("needConflict"));
+        if (attachment == null && pattern == null && needs == null) {
+            return null;
+        }
+        return new RelationshipPsychology(attachment, pattern, needs);
+    }
+
+    private RelationshipPsychology.Attachment parseAttachment(JsonNode node) {
+        if (!node.isObject()) {
+            return null;
+        }
+        RelationshipPsychology.Style user = parseStyle(node.path("user"));
+        RelationshipPsychology.Style partner = parseStyle(node.path("partner"));
+        String description = clip(node.path("description").asText("").trim(), TEXT_MAX);
+        if (user == null && partner == null) {
+            return null;
+        }
+        return new RelationshipPsychology.Attachment(user, partner,
+                description.isBlank() ? null : description);
+    }
+
+    private RelationshipPsychology.Style parseStyle(JsonNode node) {
+        String label = node.path("label").asText("").trim();
+        if (!RelationshipPsychology.ATTACHMENT_LABELS.contains(label)) {
+            if (!label.isBlank()) {
+                log.warn("애착 라벨 폐기(사전에 없음): {}", label);
+            }
+            return null;
+        }
+        String confidence = node.path("confidence").asText("").trim();
+        return new RelationshipPsychology.Style(label,
+                RelationshipPsychology.CONFIDENCE_LABELS.contains(confidence) ? confidence : "낮음");
+    }
+
+    private RelationshipPsychology.PatternItem parsePattern(JsonNode node) {
+        String label = node.path("label").asText("").trim();
+        if (!RelationshipPsychology.PATTERN_LABELS.contains(label)) {
+            if (!label.isBlank()) {
+                log.warn("관계 패턴 라벨 폐기(사전에 없음): {}", label);
+            }
+            return null;
+        }
+        String confidence = node.path("confidence").asText("").trim();
+        String description = clip(node.path("description").asText("").trim(), TEXT_MAX);
+        return new RelationshipPsychology.PatternItem(label,
+                RelationshipPsychology.CONFIDENCE_LABELS.contains(confidence) ? confidence : "낮음",
+                description.isBlank() ? null : description);
+    }
+
+    // 욕구는 자유 서술이라 사전 검증이 없다 — 길이만 막는다. 짧은 명사구를 기대하는 칸이라
+    // 문장이 오면 화면이 깨지므로 라벨 길이로 자른다.
+    private static final int NEED_MAX = 30;
+
+    private RelationshipPsychology.NeedConflict parseNeedConflict(JsonNode node) {
+        if (!node.isObject()) {
+            return null;
+        }
+        String left = clip(node.path("left").asText("").trim(), NEED_MAX);
+        String right = clip(node.path("right").asText("").trim(), NEED_MAX);
+        String description = clip(node.path("description").asText("").trim(), TEXT_MAX);
+        if (left.isBlank() && right.isBlank()) {
+            return null;
+        }
+        return new RelationshipPsychology.NeedConflict(
+                left.isBlank() ? null : left,
+                right.isBlank() ? null : right,
+                description.isBlank() ? null : description);
     }
 
     // 사전에 없는 값은 사례와 겹칠 수 없으니 저장할 값어치가 없다 — 통째로 버리는 대신 항목별로 거른다.

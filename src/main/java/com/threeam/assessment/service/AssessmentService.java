@@ -221,9 +221,11 @@ public class AssessmentService {
             String reason = (diagnosis.reason() == null || diagnosis.reason().isBlank())
                     ? fallback
                     : diagnosis.reason();
+            // 관계 심리는 잠금 판정에도 싣는다 — 사귀는 중이든 재회했든 관계 구조 이해는 유효하다.
             Assessment assessment = Assessment.builder()
                     .storyId(storyId)
                     .verdict(diagnosis.verdict())
+                    .relationshipPsychology(diagnosis.relationshipPsychology())
                     .reason(reason)
                     .build();
             return txService.save(storyId, assessment, diagnosis.newFacts(),
@@ -255,6 +257,7 @@ public class AssessmentService {
                 .jumpRule(diagnosis.jumpRule())
                 .relapseRisk(diagnosis.relapseRisk())
                 .relapseReason(blankToNull(diagnosis.relapseReason()))
+                .relationshipPsychology(diagnosis.relationshipPsychology())
                 .reason(diagnosis.reason())
                 .factors(factors);
         diagnosis.watchFor().forEach(w -> builder.watchPoint(WatchPoint.of(w.point(), w.effect())));

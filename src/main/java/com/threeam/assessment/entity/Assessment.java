@@ -1,7 +1,9 @@
 package com.threeam.assessment.entity;
 
+import com.threeam.assessment.dto.RelationshipPsychology;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -90,6 +92,12 @@ public class Assessment {
     @Column(length = 300)
     private String relapseReason;
 
+    // 관계 심리(애착 경향, 관계 패턴, 욕구 충돌) — 확률과 무관한 "관계 이해용" 층.
+    // JSON 통짜 저장(컨버터 참고). 정보가 부족한 진단은 null.
+    @Convert(converter = RelationshipPsychologyConverter.class)
+    @Column(columnDefinition = "TEXT")
+    private RelationshipPsychology relationshipPsychology;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
 
@@ -123,7 +131,8 @@ public class Assessment {
                        BreakupType breakupType, BreakupType breakupTypeSecondary,
                        String typeEvidence, JumpRule jumpRule,
                        ChatDirection chatDirection,
-                       RelapseRisk relapseRisk, String relapseReason, String reason,
+                       RelapseRisk relapseRisk, String relapseReason,
+                       RelationshipPsychology relationshipPsychology, String reason,
                        @Singular List<AssessmentFactor> factors,
                        @Singular List<WatchPoint> watchPoints,
                        @Singular("unansweredQuestion") List<String> unansweredQuestions) {
@@ -137,6 +146,7 @@ public class Assessment {
         this.chatDirection = chatDirection;
         this.relapseRisk = relapseRisk;
         this.relapseReason = relapseReason;
+        this.relationshipPsychology = relationshipPsychology;
         this.reason = reason;
         this.factors = factors != null ? new ArrayList<>(factors) : new ArrayList<>();
         this.watchPoints = watchPoints != null ? new ArrayList<>(watchPoints) : new ArrayList<>();

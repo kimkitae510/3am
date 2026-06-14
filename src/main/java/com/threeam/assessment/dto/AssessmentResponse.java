@@ -18,6 +18,9 @@ public class AssessmentResponse {
     private final String jumpRule;          // 점프 라벨("유저통보미련흔적" 등). 없으면 null
     private final String relapseRisk;       // 유지 전망 라벨("높음"). 없으면 null
     private final String relapseReason;
+    // 관계 심리(애착 경향, 관계 패턴, 욕구 충돌) — 확률과 무관한 "관계 이해용" 층. 없으면 null.
+    // 저장 구조(record)를 그대로 내린다 — 라벨이 이미 화면 표기용 한국어라 변환할 게 없다.
+    private final RelationshipPsychology relationshipPsychology;
     private final String reason;
     private final List<FactorView> factors;
     private final List<WatchView> watchFor;
@@ -31,7 +34,7 @@ public class AssessmentResponse {
 
     private AssessmentResponse(ReunionVerdict verdict, Integer probability, String breakupType,
                                String typeEvidence, String jumpRule, String relapseRisk,
-                               String relapseReason,
+                               String relapseReason, RelationshipPsychology relationshipPsychology,
                                String reason, List<FactorView> factors, List<WatchView> watchFor,
                                List<String> unansweredQuestions,
                                LocalDateTime createdAt, Integer retryAfterSeconds) {
@@ -42,6 +45,7 @@ public class AssessmentResponse {
         this.jumpRule = jumpRule;
         this.relapseRisk = relapseRisk;
         this.relapseReason = relapseReason;
+        this.relationshipPsychology = relationshipPsychology;
         this.reason = reason;
         this.factors = factors;
         this.watchFor = watchFor;
@@ -52,8 +56,8 @@ public class AssessmentResponse {
 
     public AssessmentResponse withRetryAfterSeconds(int seconds) {
         return new AssessmentResponse(verdict, probability, breakupType, typeEvidence, jumpRule,
-                relapseRisk, relapseReason, reason, factors, watchFor, unansweredQuestions,
-                createdAt, seconds);
+                relapseRisk, relapseReason, relationshipPsychology, reason, factors, watchFor,
+                unansweredQuestions, createdAt, seconds);
     }
 
     public static AssessmentResponse from(Assessment assessment) {
@@ -74,6 +78,7 @@ public class AssessmentResponse {
                         ? assessment.getJumpRule().label() : null,
                 assessment.getRelapseRisk() != null ? assessment.getRelapseRisk().label() : null,
                 assessment.getRelapseReason(),
+                assessment.getRelationshipPsychology(),
                 assessment.getReason(),
                 factors,
                 watchFor,

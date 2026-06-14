@@ -190,6 +190,53 @@ class ReunionLlmTest {
     }
 
     @Test
+    @DisplayName("관계 심리 - 라벨을 검증해 파싱하고, 사전 밖 라벨은 그 축만 버린다")
+    void parse_relationshipPsychology() {
+        ReunionDiagnosis diagnosis = diagnose("""
+                {
+                  "verdict": "POSSIBLE",
+                  "activeReunionOffer": false,
+                  "breakupType": "소진형",
+                  "factors": [],
+                  "relationshipPsychology": {
+                    "attachment": {
+                      "user": {"label": "불안형", "confidence": "중간"},
+                      "partner": {"label": "회피 성향", "confidence": "높음"},
+                      "description": "멀어질수록 확인하려 했고 상대는 거리를 뒀음"
+                    },
+                    "interactionPattern": {"label": "추구-회피", "confidence": "높음",
+                      "description": "확인할수록 물러나고 물러날수록 더 확인하는 반복"},
+                    "needConflict": {"left": "연결감", "right": "자율성",
+                      "description": "연결을 확인하는 행동이 상대의 혼자 시간을 침해함"}
+                  },
+                  "reason": ""
+                }
+                """);
+
+        var psychology = diagnosis.relationshipPsychology();
+        assertThat(psychology).isNotNull();
+        assertThat(psychology.attachment().user().label()).isEqualTo("불안형");
+        assertThat(psychology.attachment().user().confidence()).isEqualTo("중간");
+        assertThat(psychology.attachment().partner()).isNull(); // "회피 성향"은 사전 밖 — 그 축만 버림
+        assertThat(psychology.interactionPattern().label()).isEqualTo("추구-회피");
+        assertThat(psychology.needConflict().left()).isEqualTo("연결감");
+        assertThat(psychology.needConflict().right()).isEqualTo("자율성");
+    }
+
+    @Test
+    @DisplayName("관계 심리 - 세 축이 전부 비면 null로 접는다 (라벨 없는 attachment는 축이 아니다)")
+    void parse_relationshipPsychologyEmpty() {
+        ReunionDiagnosis diagnosis = diagnose("""
+                {"verdict": "POSSIBLE", "activeReunionOffer": false, "breakupType": "충동형",
+                 "factors": [],
+                 "relationshipPsychology": {"attachment": {"description": "라벨 없이 설명만"}},
+                 "reason": ""}
+                """);
+
+        assertThat(diagnosis.relationshipPsychology()).isNull();
+    }
+
+    @Test
     @DisplayName("깨진 JSON은 LlmException으로 실패한다 — LLM 재호출(자동 재시도) 없이")
     void parse_malformed_throws() {
         given(llmClient.generateJsonDeep(anyList(), any()))

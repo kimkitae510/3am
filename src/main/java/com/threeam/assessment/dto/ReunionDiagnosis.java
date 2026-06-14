@@ -35,6 +35,9 @@ public record ReunionDiagnosis(
         // 대조해 두 판정이 어긋난 사연을 찾는 데만 쓴다.
         ChatDirection chatDirection,
         MatchProfileItem matchProfile,      // 사례 매칭용 분류(분류체계 어휘). 못 뽑으면 null
+        // 관계 심리(애착 경향, 관계 패턴, 욕구 충돌) — 확률 계산에 쓰지 않는 "관계 이해용" 층.
+        // verdict와 무관하게 채워질 수 있고, 읽을 재료가 없으면 null.
+        RelationshipPsychology relationshipPsychology,
         String reason,
         List<String> newFacts) {            // 새로 드러난 사실 → StoryFact 원장에 append
 
