@@ -22,6 +22,7 @@ import com.threeam.story.repository.StoryRepository;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,16 @@ public class MessageTxService {
     private static final int FACT_INJECT_LIMIT = 30;
 
     private static final DateTimeFormatter FACT_DATE = DateTimeFormatter.ofPattern("M/d");
+
+    // 마크다운 강조(**), 제목(#) 기호. 화면이 마크다운을 렌더링하지 않아 기호가 글자 그대로
+    // 노출된다(굵은 소제목 실측). 표시에서만 지우지 않고 저장 전에 걷는다 — 기록에 남으면
+    // 다음 턴 프롬프트에 실려 모델이 같은 형식을 이어간다.
+    private static final Pattern MARKDOWN_MARKS =
+            Pattern.compile("\\*\\*|^#{1,6}\\s+", Pattern.MULTILINE);
+
+    static String stripMarkdown(String reply) {
+        return reply == null ? null : MARKDOWN_MARKS.matcher(reply).replaceAll("");
+    }
 
 
     // 페르소나 실문구는 저장소 밖(persona.yml, gitignore)에서 주입된다. 코드에는 자리표시 기본값만 있다.
@@ -116,7 +127,7 @@ public class MessageTxService {
     public MessageResponse appendAssistantReply(Long storyId, String reply) {
         Story story = storyRepository.findById(storyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
-        Message answer = messageRepository.save(Message.assistant(story, reply));
+        Message answer = messageRepository.save(Message.assistant(story, stripMarkdown(reply)));
         story.touch();
         return MessageResponse.from(answer);
     }

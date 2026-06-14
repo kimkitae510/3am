@@ -312,6 +312,21 @@ class MessageTxServiceTest {
         verify(messageRepository).save(any(Message.class));
     }
 
+    @Test
+    @DisplayName("어시스턴트 응답 저장 - 마크다운 기호는 저장 전에 걷어낸다(화면이 렌더링하지 않아 그대로 노출됨)")
+    void appendAssistant_stripsMarkdownMarks() {
+        Story story = story(10L);
+        given(storyRepository.findById(10L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+
+        MessageResponse response = messageTxService.appendAssistantReply(10L,
+                "## 분석\n**의사소통과 정서적 기대의 충돌**이 반복된 것으로 보입니다. 별표 하나 *는 남습니다.");
+
+        // 굵게(**)와 줄머리 제목(#)만 걷는다. 별표 하나는 건드리지 않는다.
+        assertThat(response.getContent()).isEqualTo(
+                "분석\n의사소통과 정서적 기대의 충돌이 반복된 것으로 보입니다. 별표 하나 *는 남습니다.");
+    }
+
     private Story story(Long id) {
         Story story = Story.builder().userId(1L).title("사연").build();
         ReflectionTestUtils.setField(story, "id", id);
