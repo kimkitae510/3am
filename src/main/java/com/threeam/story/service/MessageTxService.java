@@ -1,5 +1,6 @@
 package com.threeam.story.service;
 
+import com.threeam.assessment.dto.RelationshipPsychology;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.FactorLevel;
@@ -225,6 +226,13 @@ public class MessageTxService {
                         .append(" (").append(direction(factor.getLevel())).append(")\n");
             }
         }
+        // 관계 심리 라벨은 싣는다 — 유형/요인명과 달리 유저에게 말하라고 만든 어휘다.
+        // 진단이 원본, 채팅이 인용: 채팅이 같은 관계에 딴 이름(요구-철회 vs 추구-회피)을
+        // 지어 진단 화면과 어긋나는 것을 막는다. 설명 문장은 안 싣는다(지난 서사 반복 방지).
+        String psychology = describePsychology(assessment.getRelationshipPsychology());
+        if (psychology != null) {
+            block.append(psychology).append('\n');
+        }
         // 지시 문구는 프롬프트 자산이라 코드에 두지 않는다 — 코드는 데이터(확률, 사실, 방향)만
         // 만들고 사용 규칙은 로컬 yml(assessment-guide)에서 주입한다. 비면 데이터만 실린다.
         String guide = personaProperties.getAssessmentGuide();
@@ -232,6 +240,30 @@ public class MessageTxService {
             block.append(guide.trim());
         }
         return block.toString();
+    }
+
+    private String describePsychology(RelationshipPsychology psychology) {
+        if (psychology == null) {
+            return null;
+        }
+        List<String> bits = new ArrayList<>();
+        if (psychology.interactionPattern() != null) {
+            bits.add("관계 패턴=" + psychology.interactionPattern().label());
+        }
+        RelationshipPsychology.Attachment attachment = psychology.attachment();
+        if (attachment != null) {
+            if (attachment.user() != null) {
+                bits.add("유저의 애착 경향=" + attachment.user().label());
+            }
+            if (attachment.partner() != null) {
+                bits.add("상대의 애착 경향=" + attachment.partner().label());
+            }
+        }
+        RelationshipPsychology.NeedConflict needs = psychology.needConflict();
+        if (needs != null && needs.left() != null && needs.right() != null) {
+            bits.add("핵심 욕구 유저=" + needs.left() + " 상대=" + needs.right());
+        }
+        return bits.isEmpty() ? null : "분석이 판정한 관계 심리: " + String.join(", ", bits);
     }
 
     private String direction(FactorLevel level) {

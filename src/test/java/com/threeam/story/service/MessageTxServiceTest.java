@@ -161,6 +161,43 @@ class MessageTxServiceTest {
     }
 
     @Test
+    @DisplayName("프롬프트 조립 - 관계 심리 라벨은 실린다(유저에게 말하는 어휘 — 채팅이 딴 이름을 짓지 않게)")
+    void buildPrompt_carriesRelationshipPsychologyLabels() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "요즘 어때")),
+                        PageRequest.of(0, 20), false));
+        Assessment assessment = Assessment.builder()
+                .storyId(10L)
+                .verdict(ReunionVerdict.POSSIBLE)
+                .probability(35)
+                .breakupType(BreakupType.BURNOUT)
+                .relationshipPsychology(new com.threeam.assessment.dto.RelationshipPsychology(
+                        new com.threeam.assessment.dto.RelationshipPsychology.Attachment(
+                                new com.threeam.assessment.dto.RelationshipPsychology.Style("불안형", "중간"),
+                                new com.threeam.assessment.dto.RelationshipPsychology.Style("회피형", "높음"),
+                                "설명은 프롬프트에 안 실린다"),
+                        new com.threeam.assessment.dto.RelationshipPsychology.PatternItem(
+                                "추구-회피", "높음", "설명은 프롬프트에 안 실린다"),
+                        null))
+                .reason("총평")
+                .build();
+        ReflectionTestUtils.setField(assessment, "createdAt", java.time.LocalDateTime.now());
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
+                .willReturn(Optional.of(assessment));
+
+        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "요즘 어때").prompt();
+
+        assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
+                .extracting(ChatMessage::content)
+                // 라벨은 실리고 설명 문장은 안 실린다(지난 서사 반복 방지)
+                .anyMatch(c -> c.contains("추구-회피") && c.contains("불안형") && c.contains("회피형"))
+                .noneMatch(c -> c.contains("설명은 프롬프트에 안 실린다"));
+    }
+
+    @Test
     @DisplayName("프롬프트 조립 - 회차가 맡지 않은 일의 규칙은 싣지 않는다")
     void buildPrompt_loadsOnlySectionsForThatAnswerNo() {
         Story story = story(10L);
