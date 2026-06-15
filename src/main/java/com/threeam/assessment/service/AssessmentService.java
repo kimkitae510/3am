@@ -252,7 +252,6 @@ public class AssessmentService {
                 .probability(probability)
                 .breakupType(diagnosis.breakupType())
                 .breakupTypeSecondary(diagnosis.breakupTypeSecondary())
-                .chatDirection(diagnosis.chatDirection())
                 .typeEvidence(blankToNull(diagnosis.typeEvidence()))
                 .jumpRule(diagnosis.jumpRule())
                 .relapseRisk(diagnosis.relapseRisk())

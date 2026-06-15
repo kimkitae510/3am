@@ -252,20 +252,27 @@ public class AssessmentTxService {
         if (psychology == null) {
             return null;
         }
+        // 보류값은 앵커로 싣지 않는다 — "판단보류"를 실으면 다음 진단이 그 값을 유지하려 해
+        // 근거가 생겨도 판단을 안 하게 된다(앵커의 목적은 판정 유지지 보류 유지가 아니다).
         List<String> bits = new ArrayList<>();
-        if (psychology.interactionPattern() != null) {
-            bits.add("패턴=" + psychology.interactionPattern().label());
+        RelationshipPsychology.PatternItem pattern = psychology.interactionPattern();
+        if (pattern != null && !RelationshipPsychology.PATTERN_UNDECIDED.equals(pattern.label())) {
+            bits.add("패턴=" + pattern.label());
         }
         RelationshipPsychology.Attachment attachment = psychology.attachment();
         if (attachment != null) {
-            if (attachment.user() != null) {
+            if (judged(attachment.user())) {
                 bits.add("애착(유저)=" + attachment.user().label());
             }
-            if (attachment.partner() != null) {
+            if (judged(attachment.partner())) {
                 bits.add("애착(상대)=" + attachment.partner().label());
             }
         }
         return bits.isEmpty() ? null : "관계심리: " + String.join(" ", bits);
+    }
+
+    private boolean judged(RelationshipPsychology.Style style) {
+        return style != null && !RelationshipPsychology.ATTACHMENT_UNDECIDED.equals(style.label());
     }
 
     // tx2: 분석 결과 저장 + 새 사실 원장 append + 매칭 프로필 갱신.

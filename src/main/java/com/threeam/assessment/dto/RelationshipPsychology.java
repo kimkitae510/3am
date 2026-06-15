@@ -21,6 +21,11 @@ public record RelationshipPsychology(
 
     public static final List<String> CONFIDENCE_LABELS = List.of("높음", "중간", "낮음");
 
+    // 판단이 안 서는 판의 값. 화면과 프롬프트 주입에서 이 값들은 행을 만들지 않는다 —
+    // "모르겠다"를 카드나 앵커로 만들면 소음이고, 다음 진단을 그 값에 묶는다.
+    public static final String ATTACHMENT_UNDECIDED = "판단보류";
+    public static final String PATTERN_UNDECIDED = "뚜렷하지않음";
+
     // 애착 경향. 유저와 상대를 각각 본다 — 한쪽만 판정하면 롱디처럼 양쪽이 다른 판
     // (유저 불안 활성화 + 상대 회피 전략)을 담을 수 없다.
     public record Attachment(Style user, Style partner, String description) {

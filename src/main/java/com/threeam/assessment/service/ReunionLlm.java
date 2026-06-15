@@ -8,7 +8,6 @@ import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.dto.ReunionDiagnosis.FactorItem;
 import com.threeam.assessment.dto.ReunionDiagnosis.WatchItem;
 import com.threeam.assessment.entity.BreakupType;
-import com.threeam.assessment.entity.ChatDirection;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.JumpRule;
@@ -123,11 +122,14 @@ public class ReunionLlm {
     }
 
     // 관계 심리(확률과 무관한 이해용 층)의 스키마. 라벨을 enum으로 못 박아 사전 밖 어휘를
-    // 생성 단계에서 차단한다. 전체가 nullable — 읽을 재료가 없으면 통째로 비우는 게 맞다.
+    // 생성 단계에서 차단한다.
+    // nullable로 두지 않고 전부 required로 강제한다 — nullable 객체는 모델이 절차에서
+    // 빠지는 순간 조용히 생략하는 게 실측됐다(matchProfile이 v2 전환 직후 통째로 비어
+    // 나온 것과 같은 자리). 판단이 안 서는 판의 탈출구는 '필드 생략'이 아니라 라벨
+    // 자체다(판단보류, 뚜렷하지않음) — 그래야 "못 읽었다"와 "안 냈다"가 구분된다.
     private static Map<String, Object> attachmentStyleSchema() {
         return Map.of(
                 "type", "OBJECT",
-                "nullable", true,
                 "properties", Map.of(
                         "label", Map.of("type", "STRING",
                                 "enum", RelationshipPsychology.ATTACHMENT_LABELS),
@@ -140,20 +142,17 @@ public class ReunionLlm {
     private static Map<String, Object> relationshipPsychologySchema() {
         return Map.of(
                 "type", "OBJECT",
-                "nullable", true,
                 "properties", Map.of(
                         "attachment", Map.of(
                                 "type", "OBJECT",
-                                "nullable", true,
                                 "properties", Map.of(
                                         "user", attachmentStyleSchema(),
                                         "partner", attachmentStyleSchema(),
                                         "description", Map.of("type", "STRING")),
-                                "required", List.of("description"),
+                                "required", List.of("user", "partner", "description"),
                                 "propertyOrdering", List.of("user", "partner", "description")),
                         "interactionPattern", Map.of(
                                 "type", "OBJECT",
-                                "nullable", true,
                                 "properties", Map.of(
                                         "label", Map.of("type", "STRING",
                                                 "enum", RelationshipPsychology.PATTERN_LABELS),
@@ -164,13 +163,13 @@ public class ReunionLlm {
                                 "propertyOrdering", List.of("label", "confidence", "description")),
                         "needConflict", Map.of(
                                 "type", "OBJECT",
-                                "nullable", true,
                                 "properties", Map.of(
                                         "left", Map.of("type", "STRING", "nullable", true),
                                         "right", Map.of("type", "STRING", "nullable", true),
                                         "description", Map.of("type", "STRING")),
                                 "required", List.of("description"),
                                 "propertyOrdering", List.of("left", "right", "description"))),
+                "required", List.of("attachment", "interactionPattern", "needConflict"),
                 "propertyOrdering", List.of("attachment", "interactionPattern", "needConflict"));
     }
 
@@ -232,18 +231,16 @@ public class ReunionLlm {
                     Map.entry("watchFor", Map.of("type", "ARRAY", "items", watchItemSchema())),
                     Map.entry("unansweredQuestions", Map.of("type", "ARRAY",
                             "items", Map.of("type", "STRING"))),
-                    Map.entry("chatDirection", Map.of("type", "STRING",
-                            "enum", ChatDirection.labels())),
                     Map.entry("matchProfile", matchProfileSchema()),
                     Map.entry("reason", Map.of("type", "STRING")),
                     Map.entry("newFacts", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))))),
             // 배열류와 유형은 필수에서 뺀다 — 잠금 판정(DATING 등)은 루브릭이 비우라고 지시하는데
             // 필수로 걸면 억지로 채우게 된다.
             Map.entry("required", List.of("verdict", "activeReunionOffer",
-                    "jumpRule", "matchProfile", "reason")),
+                    "jumpRule", "matchProfile", "relationshipPsychology", "reason")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
                     "breakupTypeSecondary", "typeEvidence", "jumpRule", "factors", "relapseRisk",
-                    "relationshipPsychology", "watchFor", "unansweredQuestions", "chatDirection",
+                    "relationshipPsychology", "watchFor", "unansweredQuestions",
                     "matchProfile", "reason", "newFacts")));
 
     private ReunionDiagnosis parse(String json) {
@@ -294,7 +291,6 @@ public class ReunionLlm {
                     jumpRule,
                     factors, relapseRisk, relapseReason, parseWatch(root),
                     parseUnanswered(root),
-                    ChatDirection.fromLabel(root.path("chatDirection").asText(null)),
                     matchProfile(root),
                     relationshipPsychology(root),
                     root.path("reason").asText(""), newFacts);

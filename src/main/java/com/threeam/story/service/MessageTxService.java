@@ -246,16 +246,18 @@ public class MessageTxService {
         if (psychology == null) {
             return null;
         }
+        // 보류값은 싣지 않는다 — 상담자에게 "판단보류"를 알려줘도 쓸 말이 없다.
         List<String> bits = new ArrayList<>();
-        if (psychology.interactionPattern() != null) {
-            bits.add("관계 패턴=" + psychology.interactionPattern().label());
+        RelationshipPsychology.PatternItem pattern = psychology.interactionPattern();
+        if (pattern != null && !RelationshipPsychology.PATTERN_UNDECIDED.equals(pattern.label())) {
+            bits.add("관계 패턴=" + pattern.label());
         }
         RelationshipPsychology.Attachment attachment = psychology.attachment();
         if (attachment != null) {
-            if (attachment.user() != null) {
+            if (judged(attachment.user())) {
                 bits.add("유저의 애착 경향=" + attachment.user().label());
             }
-            if (attachment.partner() != null) {
+            if (judged(attachment.partner())) {
                 bits.add("상대의 애착 경향=" + attachment.partner().label());
             }
         }
@@ -264,6 +266,10 @@ public class MessageTxService {
             bits.add("핵심 욕구 유저=" + needs.left() + " 상대=" + needs.right());
         }
         return bits.isEmpty() ? null : "분석이 판정한 관계 심리: " + String.join(", ", bits);
+    }
+
+    private boolean judged(RelationshipPsychology.Style style) {
+        return style != null && !RelationshipPsychology.ATTACHMENT_UNDECIDED.equals(style.label());
     }
 
     private String direction(FactorLevel level) {
