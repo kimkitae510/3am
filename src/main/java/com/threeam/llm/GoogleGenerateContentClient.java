@@ -86,6 +86,14 @@ abstract class GoogleGenerateContentClient implements LlmClient {
 
     abstract String assessmentThinkingLevel();
 
+    // 저가 판별용 계층. 상담이 아니라 "이 말이 어느 갈래인가"만 가리는 자리라 강한 모델도
+    // 긴 추론도 필요 없다. 비우면 채팅 모델을 그대로 쓴다(설정 없이도 돌게).
+    abstract String quickEndpoint();
+
+    abstract String quickThinkingLevel();
+
+    abstract int quickThinkingBudget();
+
     // 로그 라벨용
     abstract String providerName();
 
@@ -94,21 +102,43 @@ abstract class GoogleGenerateContentClient implements LlmClient {
     private static final String KIND_CHAT = "채팅";
     private static final String KIND_EXTRACT = "추출";
     private static final String KIND_DEEP = "분석";
+    private static final String KIND_QUICK = "판별";
 
     @Override
     public CompletableFuture<String> generate(List<ChatMessage> messages) {
-        return send(buildRequest(messages, false, false, null), KIND_CHAT);
+        return send(buildRequest(messages, false, LlmTier.CHAT, null), KIND_CHAT);
     }
 
     @Override
     public CompletableFuture<String> generateJson(List<ChatMessage> messages) {
-        return send(buildRequest(messages, true, false, null), KIND_EXTRACT);
+        return send(buildRequest(messages, true, LlmTier.CHAT, null), KIND_EXTRACT);
     }
 
     @Override
     public CompletableFuture<String> generateJsonDeep(List<ChatMessage> messages,
                                                       Map<String, Object> responseSchema) {
-        return send(buildRequest(messages, true, true, responseSchema), KIND_DEEP);
+        return send(buildRequest(messages, true, LlmTier.DEEP, responseSchema), KIND_DEEP);
+    }
+
+    @Override
+    public CompletableFuture<String> generateJsonQuick(List<ChatMessage> messages) {
+        return send(buildRequest(messages, true, LlmTier.QUICK, null), KIND_QUICK);
+    }
+
+    private String endpointFor(LlmTier tier) {
+        return switch (tier) {
+            case DEEP -> deepEndpoint();
+            case QUICK -> quickEndpoint();
+            default -> endpoint();
+        };
+    }
+
+    private String tierLabel(LlmTier tier) {
+        return switch (tier) {
+            case DEEP -> "분석";
+            case QUICK -> "판별";
+            default -> "채팅";
+        };
     }
 
     private CompletableFuture<String> send(HttpRequest request, String kind) {
@@ -176,8 +206,9 @@ abstract class GoogleGenerateContentClient implements LlmClient {
             Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_NONE"),
             Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_NONE"));
 
-    private HttpRequest buildRequest(List<ChatMessage> messages, boolean json, boolean deep,
+    private HttpRequest buildRequest(List<ChatMessage> messages, boolean json, LlmTier tier,
                                      Map<String, Object> responseSchema) {
+        boolean deep = tier == LlmTier.DEEP;
         // system은 system_instruction으로, 대화는 contents(user/model)로 나눠 받는다.
         // 단 '대화보다 뒤에 온 system 메시지'는 예외다 — 그건 대화 뒤에 놓이길 의도하고 넣은 것이라
         // (출력 직전 점검), system_instruction으로 접으면 대화 앞으로 가버려 의도가 정반대가 된다.
@@ -235,6 +266,14 @@ abstract class GoogleGenerateContentClient implements LlmClient {
                 generationConfig.put("thinkingConfig",
                         Map.of("thinkingLevel", assessmentThinkingLevel()));
             }
+        } else if (tier == LlmTier.QUICK) {
+            // 판별은 같은 문장에 같은 답이 나와야 한다 — 흔들리면 같은 질문이 턴마다 다른 모듈로 간다.
+            generationConfig.put("temperature", 0);
+            if (quickEndpoint().contains("gemini-2.5")) {
+                generationConfig.put("thinkingConfig", Map.of("thinkingBudget", quickThinkingBudget()));
+            } else if (!quickThinkingLevel().isBlank()) {
+                generationConfig.put("thinkingConfig", Map.of("thinkingLevel", quickThinkingLevel()));
+            }
         } else {
             generationConfig.put("temperature", temperature());
             if (endpoint().contains("gemini-2.5")) {
@@ -249,11 +288,11 @@ abstract class GoogleGenerateContentClient implements LlmClient {
         // 무엇이 실제로 실려 나가는지 남긴다 — thinking 제어 필드는 문법이 안 맞으면 조용히
         // 무시돼서, 설정을 올렸는데 추론량이 안 변하는 일이 반복됐다(실측). 프롬프트와 키는
         // 안 찍고 generationConfig만 찍는다(개인정보 없음, 몇 십 바이트).
-        log.info("{} {} 생성 설정: {}", providerName(), deep ? "분석" : "채팅", generationConfig);
+        log.info("{} {} 생성 설정: {}", providerName(), tierLabel(tier), generationConfig);
 
         try {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
-                    .uri(URI.create(deep ? deepEndpoint() : endpoint()))
+                    .uri(URI.create(endpointFor(tier)))
                     .header("Content-Type", "application/json")
                     // 타임아웃 없이는 LLM이 매달릴 때 future가 영원히 미완 → 답도 폴백도 저장되지 않는다.
                     // 분석(deep)은 긴 루브릭 + 추론이라 채팅보다 길지만, 채팅 값의 배수가 아니라

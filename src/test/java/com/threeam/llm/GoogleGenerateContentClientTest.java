@@ -52,7 +52,22 @@ class GoogleGenerateContentClientTest {
                 }
 
                 @Override
-                String assessmentThinkingLevel() {
+                String quickEndpoint() {
+                return "https://example/quick";
+            }
+
+            @Override
+            String quickThinkingLevel() {
+                return "low";
+            }
+
+            @Override
+            int quickThinkingBudget() {
+                return 0;
+            }
+
+            @Override
+            String assessmentThinkingLevel() {
                     return "high";
                 }
 

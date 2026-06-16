@@ -30,6 +30,25 @@ public class GeminiLlmClient extends GoogleGenerateContentClient {
                 ? properties.getModel() : assessmentModel);
     }
 
+
+    // 판별 전용 모델. 비우면 채팅 모델을 그대로 쓴다 — 설정을 안 넣어도 돌아야 한다.
+    @Override
+    String quickEndpoint() {
+        String matchModel = properties.getMatchModel();
+        return endpointFor(matchModel == null || matchModel.isBlank()
+                ? properties.getModel() : matchModel);
+    }
+
+    @Override
+    String quickThinkingLevel() {
+        return properties.getMatchThinkingLevel();
+    }
+
+    @Override
+    int quickThinkingBudget() {
+        return properties.getMatchThinkingBudget();
+    }
+
     private String endpointFor(String model) {
         return properties.getBaseUrl() + "/models/" + model + ":generateContent";
     }

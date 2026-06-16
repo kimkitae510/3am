@@ -56,6 +56,21 @@ public class VertexAiLlmClient extends GoogleGenerateContentClient {
     }
 
     @Override
+    String quickEndpoint() {
+        return properties.matchEndpoint();
+    }
+
+    @Override
+    String quickThinkingLevel() {
+        return properties.getMatchThinkingLevel();
+    }
+
+    @Override
+    int quickThinkingBudget() {
+        return properties.getMatchThinkingBudget();
+    }
+
+    @Override
     void authorize(HttpRequest.Builder builder) {
         try {
             // 유효한 토큰이 있으면 no-op, 만료 시에만 재발급(약 1시간 주기)이라 요청마다 불러도 싸다.

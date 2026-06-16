@@ -49,4 +49,10 @@ public class GeminiProperties {
     private double inputPricePerMillion = 0;
     private double cachedInputPricePerMillion = 0;
     private double outputPricePerMillion = 0;
+
+    // 저가 판별 전용 모델. 비우면 채팅 모델을 그대로 쓴다 — 설정을 안 넣어도 돌아야 한다.
+    // 상담이 아니라 "이 말이 어느 갈래인가"만 가리는 자리라 강한 모델도 긴 추론도 값을 안 한다.
+    private String matchModel;
+    private int matchThinkingBudget = 0;
+    private String matchThinkingLevel = "low";
 }

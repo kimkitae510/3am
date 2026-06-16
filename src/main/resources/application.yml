@@ -77,6 +77,11 @@ llm:
     model: ${LLM_MODEL:gemini-2.5-flash}
     # 진단 전용 모델(선택). 비우면 model 사용 — vertex와 동일한 분리를 gemini 경로에도 지원.
     assessment-model: ${LLM_ASSESSMENT_MODEL:}
+    # 저가 판별 전용. 자유입력이 40개 칩 중 어디에 해당하는지만 가린다 — 상담이 아니라
+    # 갈래 판정이라 강한 모델도 긴 추론도 값을 안 한다. 비우면 채팅 모델을 그대로 쓴다.
+    match-model: ${LLM_MATCH_MODEL:}
+    match-thinking-budget: ${LLM_MATCH_THINKING_BUDGET:0}
+    match-thinking-level: ${LLM_MATCH_THINKING_LEVEL:low}
     base-url: https://generativelanguage.googleapis.com/v1beta
     # 채팅 응답 대기 상한. 초과 시 실패 처리 → 대화는 폴백 메시지 저장.
     # thinking을 켠 뒤 30초로는 정상 응답도 잘려서 50초로.
@@ -115,6 +120,11 @@ llm:
     model: ${LLM_MODEL:gemini-2.5-flash}
     # 진단 전용 모델(선택). 비우면 model 사용. 진단은 긴 루브릭이라 강한 모델 배정 가능.
     assessment-model: ${LLM_ASSESSMENT_MODEL:}
+    # 저가 판별 전용. 자유입력이 40개 칩 중 어디에 해당하는지만 가린다 — 상담이 아니라
+    # 갈래 판정이라 강한 모델도 긴 추론도 값을 안 한다. 비우면 채팅 모델을 그대로 쓴다.
+    match-model: ${LLM_MATCH_MODEL:}
+    match-thinking-budget: ${LLM_MATCH_THINKING_BUDGET:0}
+    match-thinking-level: ${LLM_MATCH_THINKING_LEVEL:low}
     timeout-seconds: 50              # gemini 경로와 같은 값 유지(위 주석 참고)
     assessment-timeout-seconds: 90
     thinking-budget: ${LLM_THINKING_BUDGET:2048}

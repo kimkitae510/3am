@@ -19,6 +19,13 @@ public class VertexAiProperties {
     // 분석은 긴 루브릭 일관 적용이 필요해 채팅보다 강한 모델을 배정할 수 있게 분리.
     private String assessmentModel;
 
+
+    // 저가 판별 전용 모델. 비우면 채팅 모델을 그대로 쓴다 — 설정을 안 넣어도 돌아야 한다.
+    // 상담이 아니라 "이 말이 어느 갈래인가"만 가리는 자리라 강한 모델도 긴 추론도 값을 안 한다.
+    private String matchModel;
+    private int matchThinkingBudget = 0;
+    private String matchThinkingLevel = "low";
+
     // 응답 전체 대기 상한. 초과 시 호출이 실패로 완료되고 폴백 메시지가 저장된다.
     private long timeoutSeconds = 50;
 
@@ -28,6 +35,10 @@ public class VertexAiProperties {
 
     public String assessmentEndpoint() {
         return endpointFor(assessmentModel == null || assessmentModel.isBlank() ? model : assessmentModel);
+    }
+
+    public String matchEndpoint() {
+        return endpointFor(matchModel == null || matchModel.isBlank() ? model : matchModel);
     }
 
     // 리전 엔드포인트는 호스트에 리전 접두사가 붙고, global 엔드포인트는 접두사가 없다.

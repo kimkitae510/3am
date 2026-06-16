@@ -17,6 +17,13 @@ public interface LlmClient {
     // 프롬프트에서 JSON 스키마를 지시하고, 구현체는 가능하면 JSON 모드를 켠다.
     CompletableFuture<String> generateJson(List<ChatMessage> messages);
 
+    // 저가 판별용 JSON 호출. 상담이 아니라 "이 말이 어느 갈래인가"만 가리는 자리라
+    // 구현체가 더 싼 모델과 낮은 추론을 배정할 수 있다. 기본은 generateJson과 동일.
+    // 추론 토큰이 곧 비용이라, 여기를 상담과 같은 세기로 두면 판별 한 번이 상담 절반값이 된다.
+    default CompletableFuture<String> generateJsonQuick(List<ChatMessage> messages) {
+        return generateJson(messages);
+    }
+
     // 정밀 판단용 JSON 호출(분석 리포트). 긴 루브릭을 일관 적용해야 해서 구현체가
     // 더 강한 모델을 배정할 수 있다. 기본은 generateJson과 동일(분리 설정이 없을 때).
     default CompletableFuture<String> generateJsonDeep(List<ChatMessage> messages) {
