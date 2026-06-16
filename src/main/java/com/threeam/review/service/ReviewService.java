@@ -20,7 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 // 분석 평가. 평가 대상은 항상 "그 사연의 최신 분석"이다 — 화면이 보여주는 결과가 최신
 // 분석이므로, 분석 id를 클라이언트에 노출하지 않고 storyId만 받아 서버가 대상을 정한다.
 // 점수는 업서트(마음이 바뀌면 다시 누른다), 후기도 언제든 고칠 수 있다.
-// 보상은 후기까지 완성했을 때 유저당 1회 — 점수 원탭만으로 나가면 탭 5번이 대화 2회가 된다.
+// 보상은 후기까지 완성했을 때 분석당 1회 — 점수 원탭만으로 나가면 탭 몇 번이 대화가 된다.
+// 분석당인 이유: 분석을 새로 받을 때마다 그 결과에 대한 후기는 새로 받을 값이 있다.
+// 반복 지급이 어뷰징이 되지 않는 건 분석 자체가 더 비싼 쿼터라서다 — 대화 1회를 얻자고
+// 분석 1회를 태우는 건 손해다.
 @Service
 @RequiredArgsConstructor
 public class ReviewService {
@@ -36,13 +39,14 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public ReviewStatusResponse status(Long userId, Long storyId) {
         Long assessmentId = latestAssessmentId(userId, storyId);
-        boolean rewardAvailable = !reviewRepository.existsByUserIdAndCommentIsNotNull(userId);
         if (assessmentId == null) {
-            return new ReviewStatusResponse(false, null, null, rewardAvailable);
+            // 평가할 분석이 없으면 보상을 안내할 자리도 없다.
+            return new ReviewStatusResponse(false, null, null, false);
         }
         return reviewRepository.findByAssessmentId(assessmentId)
-                .map(r -> new ReviewStatusResponse(true, r.getScore(), r.getComment(), rewardAvailable))
-                .orElseGet(() -> new ReviewStatusResponse(false, null, null, rewardAvailable));
+                .map(r -> new ReviewStatusResponse(true, r.getScore(), r.getComment(),
+                        r.getComment() == null))
+                .orElseGet(() -> new ReviewStatusResponse(false, null, null, true));
     }
 
     @Transactional
@@ -69,8 +73,9 @@ public class ReviewService {
         }
     }
 
-    // 후기(텍스트). 점수를 남긴 분석에만 붙는다. 보상은 "후기까지 완성한 첫 번째" 한 번뿐 —
-    // 판별은 갱신 전에 해야 이번에 붙이는 후기가 자기 자신을 이력으로 잡지 않는다.
+    // 후기(텍스트). 점수를 남긴 분석에만 붙는다. 보상은 이 분석에 후기가 처음 붙을 때 한 번 —
+    // 판별은 갱신 전에 해야 이번에 붙이는 후기가 자기 자신을 이력으로 잡는다. 고쳐 쓰는 것은
+    // 이미 후기가 있는 상태라 다시 나가지 않는다.
     @Transactional
     public ReviewSubmitResponse addComment(Long userId, Long storyId, ReviewCommentRequest request) {
         String comment = request.comment() == null ? "" : request.comment().trim();
@@ -80,9 +85,9 @@ public class ReviewService {
         Long assessmentId = requireLatestAssessmentId(userId, storyId);
         AssessmentReview review = reviewRepository.findByAssessmentId(assessmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_TARGET_NOT_FOUND));
-        boolean firstCompleted = !reviewRepository.existsByUserIdAndCommentIsNotNull(userId);
+        boolean firstForThisAssessment = review.getComment() == null;
         review.updateComment(comment);
-        if (!firstCompleted) {
+        if (!firstForThisAssessment) {
             return new ReviewSubmitResponse(0);
         }
         welcomeGiftService.grantReviewGift(userId);

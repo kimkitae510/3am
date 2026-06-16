@@ -110,8 +110,8 @@ export function ReviewBlock({
       <div className={styles.head}>분석 평가</div>
       <div className={styles.card}>
         <div className={styles.title}>이번 분석, 내 상황을 얼마나 제대로 짚었나요?</div>
-        {/* 보상은 후기 완성 시 유저당 1회 — 이미 받은 유저에게 띄우면 지급 없는 약속이 된다 */}
-        {rewardAvailable && <div className={styles.sub}>후기까지 남기면 대화 2회를 드려요</div>}
+        {/* 보상은 이 분석에 후기가 처음 붙을 때 1회 — 이미 남긴 분석에 띄우면 지급 없는 약속이 된다 */}
+        {rewardAvailable && <div className={styles.sub}>후기까지 남기면 대화 1회를 드려요</div>}
         <div className={styles.scale}>
           {SCALE.map((label, i) => (
             <button

@@ -24,7 +24,7 @@ public class UsageProperties {
     private int guestUpgradeGiftChat = 0;
 
     // 분석 평가 보상. 유저당 1회 — 첫 평가에만 나간다(평가 자체는 분석마다 남길 수 있다).
-    private int reviewGiftChat = 2;
+    private int reviewGiftChat = 1;
 
     // 생성 락의 자동 만료(TTL). LLM 호출이 실패로 락을 못 풀어도 이 시간이 지나면 풀린 것으로 본다.
     // 반드시 해당 종류의 LLM 타임아웃보다 커야 한다 — 짧으면 아직 진행 중인 생성 위로 두 번째

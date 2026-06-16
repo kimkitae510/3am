@@ -7,7 +7,7 @@ export interface ReviewStatus {
   reviewed: boolean;
   score: number | null;
   comment: string | null;
-  rewardAvailable: boolean; // false면 보상 문구를 띄우지 않는다(이미 받은 유저)
+  rewardAvailable: boolean; // false면 보상 문구를 띄우지 않는다(이 분석엔 이미 후기를 남겼다)
 }
 
 export async function getReviewStatus(storyId: number): Promise<ReviewStatus> {
