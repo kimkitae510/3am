@@ -107,9 +107,16 @@ public class TypeBandScorer {
         }
         // 결정적 점프(pull 1.0)는 요인에게 여유를 주지 않는다 — 그게 '결정적'의 뜻이다.
         int headroom = jump != null && jump.pull() >= 1.0 ? 0 : HEADROOM;
+        // 하향 점프는 아래로만 칸막이를 세운다. 점프를 발동시킨 사실(차단, 정리 요구)을
+        // 요인이 상대신호와 접점과 통보온도에서 각각 다시 세고, 그렇게 겹친 감점이 대역을
+        // 관통해 절대 하한에 박혔다(200일 무다툼 올차단 판이 3% — 상대 결혼과 같은 자리).
+        // 대역을 정한 사실이 대역 안에서 또 일하면 안 된다. 루브릭에 중복 계수 금지를
+        // 명문화해봤으나 같은 사실을 다른 문장으로 적으면 모델은 중복으로 보지 않는다.
+        // 위쪽은 그대로 연다 — 닫힌 판에서 진짜 유리한 관측이 나오면 그건 세야 한다.
+        int floorRoom = jump != null && !jump.up() ? 0 : headroom;
         // 새 연인 '정착'만 하한을 아예 안 본다. 상대가 다른 사람과 자리를 잡았다는 것은
         // 이별 사유가 무엇이었든 그 위에서 다시 읽히는 사실이라, 대역이 받쳐주면 안 된다.
-        int lo = settled ? ABS_MIN : band.lo() - headroom;
+        int lo = settled ? ABS_MIN : band.lo() - floorRoom;
         score = Math.max(lo, Math.min(band.hi() + headroom, score));
         return Math.max(ABS_MIN, Math.min(ABS_MAX, score));
     }

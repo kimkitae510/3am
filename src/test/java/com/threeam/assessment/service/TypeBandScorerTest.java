@@ -118,6 +118,29 @@ class TypeBandScorerTest {
         assertThat(married).isEqualTo(5); // pull 1.0 — 사유가 남지 않는다
     }
 
+    // 차단 한 건이 점프를 발동시키고 상대신호와 접점과 통보온도에서 또 세어지던 실측.
+    // 겹친 감점이 대역을 관통해 절대 하한 3에 박혔다 — 상대가 결혼한 판과 같은 자리다.
+    @Test
+    @DisplayName("하향 점프는 요인이 대역 하한을 뚫고 내려가는 것을 막는다")
+    void downwardJumpGivesNoFloorRoom() {
+        int score = scorer.apply(BreakupType.RESOLVED, JumpRule.PARTNER_CLOSED, List.of(
+                factor(FactorName.PARTNER_SIGNAL, FactorLevel.STRONG_UNFAVORABLE), // -10
+                factor(FactorName.CONTACT_PATH, FactorLevel.STRONG_UNFAVORABLE),   // -4
+                factor(FactorName.NOTICE_TONE, FactorLevel.UNFAVORABLE),           // -3
+                factor(FactorName.USER_CONDUCT, FactorLevel.UNFAVORABLE)));        // -4
+        assertThat(score).isEqualTo(8); // 대역 8~19의 중앙 13에서 -21, 하한 8에 멈춘다
+    }
+
+    // 위쪽은 그대로 연다 — 닫힌 판에서도 진짜 유리한 관측이 나오면 그건 세야 한다.
+    @Test
+    @DisplayName("하향 점프여도 유리한 요인은 대역 상한 위로 올라갈 수 있다")
+    void downwardJumpKeepsCeilingRoom() {
+        int score = scorer.apply(BreakupType.RESOLVED, JumpRule.PARTNER_CLOSED, List.of(
+                factor(FactorName.PARTNER_SIGNAL, FactorLevel.STRONG_FAVORABLE), // +10
+                factor(FactorName.CONTACT_PATH, FactorLevel.STRONG_FAVORABLE))); // +4
+        assertThat(score).isEqualTo(27); // 13 + 14, 상한 19+10 안
+    }
+
     // pull 1.0은 '결정적'이라는 뜻이라 요인에게 여유도 주지 않는다.
     @Test
     @DisplayName("상대결혼약혼은 유리한 요인이 아무리 쌓여도 대역 8을 못 넘는다")
