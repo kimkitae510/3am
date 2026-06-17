@@ -560,8 +560,43 @@
 /* 결과 공유 — 게이지 아래 중앙. 채팅 헤더 칩과 같은 토스 문법(회색 칩 + 라벤더 아이콘) */
 .shareRow {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   margin: 12px 0 2px;
+}
+
+/* 버튼 아래 한 줄. 경고가 아니라 안심시키는 줄이라 붉은 색을 쓰지 않고 가장 흐린 글자로
+   둔다 — 색으로 겁을 주면 공유를 안 하게 되는데, 알려주려는 건 끌 수 있다는 사실이다 */
+.shareNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* 권하는 동작이 아니라 퇴로다 — 알약을 씌우지 않고 글자만 두되, 밑줄로 누를 수 있음을
+   알린다(옆 문장과 같은 크기, 같은 색이라 밑줄이 없으면 문장의 일부로 읽힌다) */
+.shareRevoke {
+  flex-shrink: 0;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-size: 11.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.shareRevoke:disabled {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: default;
 }
 
 .shareBtn {

@@ -14,7 +14,7 @@ import {
 import { getUsage } from '../api/usage';
 import { addStoryFact, deleteStoryFact } from '../api/story';
 import { getSimilarCases, type SimilarCases } from '../api/match';
-import { createShare } from '../api/share';
+import { createShare, getActiveShare, revokeShare } from '../api/share';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import { useGoPayment } from '../utils/paymentOrigin';
@@ -192,6 +192,10 @@ export function AssessmentPage() {
   const [retracting, setRetracting] = useState(false); // 제안 번복 API 진행 중
   const [copied, setCopied] = useState(false); // 공유 시트가 없어 클립보드로 복사된 판의 피드백
   const [sharing, setSharing] = useState(false); // 공유 토큰 발급 중(연타 방지)
+  // 살아 있는 공유 링크가 있는지. 있으면 "공유 중" 줄과 취소 버튼을 그린다 —
+  // 끌 수 있다는 걸 화면이 말해줘야 유저가 마음 놓고 보낸다.
+  const [shared, setShared] = useState(false);
+  const [revoking, setRevoking] = useState(false);
   // 분석 생성이 실패했을 때 뜨는 재시도 패널. 스스로 사라지는 에러 배너와 달리, 유저가 누를
   // 때까지 남는다 — "다시 분석을 눌러 주세요"라고 시키는 대신 누를 것을 화면에 둔다.
   const [retryable, setRetryable] = useState(false);
@@ -234,6 +238,16 @@ export function AssessmentPage() {
     setFactInput('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result]);
+
+  // 살아 있는 공유 링크가 있는지 확인한다. 재입장했을 때도 "공유 중"과 취소가 보여야
+  // 유저가 언제든 끌 수 있다는 걸 안다 — 공유한 그 세션에서만 보이면 없는 것과 같다.
+  useEffect(() => {
+    if (result?.probability == null) return;
+    getActiveShare(storyId)
+      .then((token) => aliveRef.current && setShared(token != null))
+      .catch(() => {}); // 부가 표시라 실패하면 조용히 안 그린다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, storyId]);
 
   // 쿨다운 카운트다운. 매 초 setTimeout을 새로 거는 방식이라 interval이 어긋나 쌓이지 않고,
   // 0이 되면 재시도 버튼이 새로고침 없이 스스로 살아난다.
@@ -331,6 +345,7 @@ export function AssessmentPage() {
     setSharing(true);
     try {
       const { token } = await createShare(storyId);
+      setShared(true);
       const url = `${window.location.origin}/s/${token}`;
       const text = `재회 가능성 ${result.probability}% (${bandLabel(result.probability)}) — 새벽 세시 분석 리포트`;
       if (navigator.share) {
@@ -344,6 +359,21 @@ export function AssessmentPage() {
       // 공유 취소 또는 토큰 발급 실패 — 결과 화면에 에러를 띄울 일이 아니다
     } finally {
       if (aliveRef.current) setSharing(false);
+    }
+  }
+
+  // 공유 취소 — 이미 보낸 주소가 그 순간부터 안 열린다. 다시 공유하면 새 링크가 나가므로
+  // 껐던 주소는 되살아나지 않는다.
+  async function handleRevoke() {
+    if (revoking) return;
+    setRevoking(true);
+    try {
+      await revokeShare(storyId);
+      setShared(false);
+    } catch {
+      // 이미 꺼져 있거나 방이 사라진 판 — 결과 화면에 에러를 띄울 일이 아니다
+    } finally {
+      if (aliveRef.current) setRevoking(false);
     }
   }
 
@@ -757,6 +787,7 @@ export function AssessmentPage() {
   const asks: string[] = (result.unansweredQuestions?.length ?? 0) > 0
     ? result.unansweredQuestions!
     : missing.map((f) => FACTOR_ASK[f.name] ?? FACTOR_LABEL[f.name] ?? f.name);
+  const psych = psychRows(result.relationshipPsychology);
 
   return (
     <PhoneFrame>
@@ -797,7 +828,6 @@ export function AssessmentPage() {
             </div>
           ) : dating ? (
             <div className={styles.reunitedHero}>
-  const psych = psychRows(result.relationshipPsychology);
               <div className={styles.reunitedTitle}>지금은 만나는 중입니다</div>
               <div className={styles.reunitedSub}>
                 재회 확률은 이별을 전제로 한 분석이라
@@ -930,6 +960,25 @@ export function AssessmentPage() {
                 </svg>
                 {copied ? '링크를 복사했어요' : '공유하기'}
               </button>
+              {/* 링크를 아는 사람이면 누구나 열리는 주소라(로그인이 없다), 무엇이 보이고
+                  되돌릴 수단이 있다는 걸 보내기 전에 말해준다. 공유 페이지는 이 화면과 같은
+                  판독을 그리므로(근거 문장 포함) 그 사실을 여기서 밝힌다 — 잘라내 보여주면
+                  "왜 다 안 보이냐"가 되고, 밝히지 않으면 "이렇게까지 보일 줄 몰랐다"가 된다.
+                  공유 중일 때는 문구가 바뀌고 끄는 버튼이 붙는다. 취소를 버튼 아래 글자로
+                  두는 건 권하는 동작이 아니어서다(질문 카드의 건너뛰기와 같은 문법) */}
+              {shared ? (
+                <div className={styles.shareNote}>
+                  링크로 공유 중이에요
+                  <button className={styles.shareRevoke} onClick={handleRevoke} disabled={revoking}>
+                    {revoking ? '취소하는 중…' : '공유 취소'}
+                  </button>
+                </div>
+              ) : (
+                <div className={styles.shareNote}>
+                  링크를 받은 사람은 이 화면의 판단 근거까지 그대로 볼 수 있어요. 언제든 취소하면
+                  링크가 막혀요
+                </div>
+              )}
             </div>
           )}
 
