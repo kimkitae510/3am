@@ -7,8 +7,11 @@ import com.threeam.story.dto.MessageSendRequest;
 import com.threeam.story.dto.StoryCreateRequest;
 import com.threeam.story.dto.StoryFactCreateResponse;
 import com.threeam.story.dto.StoryFactRequest;
+import com.threeam.story.dto.StoryIntakeRequest;
+import com.threeam.story.dto.StoryIntakeResponse;
 import com.threeam.story.dto.StoryResponse;
 import com.threeam.story.service.StoryFactService;
+import com.threeam.story.service.StoryIntakeService;
 import com.threeam.story.service.StoryService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,6 +36,7 @@ public class StoryController {
 
     private final StoryService storyService;
     private final StoryFactService storyFactService;
+    private final StoryIntakeService storyIntakeService;
 
     @PostMapping
     public ResponseEntity<StoryResponse> create(@AuthenticationPrincipal Long userId,
@@ -80,6 +85,23 @@ public class StoryController {
             @PathVariable Long storyId,
             @RequestParam Long after) {
         return ResponseEntity.ok(storyService.getMessagesSince(userId, storyId, after));
+    }
+
+
+    // 첫 대화 전 기본 정보. submitted=false면 화면이 폼을 띄운다(아직 안 낸 사연).
+    @GetMapping("/{storyId}/intake")
+    public ResponseEntity<StoryIntakeResponse> getIntake(@AuthenticationPrincipal Long userId,
+                                                         @PathVariable Long storyId) {
+        return ResponseEntity.ok(storyIntakeService.get(userId, storyId));
+    }
+
+    // 부분 수정이 아니라 통째 교체라 PUT이다 — 건너뛴 칸과 지운 칸을 구분할 수 없어
+    // 화면이 늘 전체를 보낸다.
+    @PutMapping("/{storyId}/intake")
+    public ResponseEntity<StoryIntakeResponse> putIntake(@AuthenticationPrincipal Long userId,
+                                                         @PathVariable Long storyId,
+                                                         @Valid @RequestBody StoryIntakeRequest request) {
+        return ResponseEntity.ok(storyIntakeService.save(userId, storyId, request));
     }
 
     // 분석 화면의 "사실 직접 알려주기" — 채팅 없이 원장에 사실을 보태고 재분석 가드를 통과시킨다.
