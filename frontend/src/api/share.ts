@@ -1,17 +1,24 @@
 import { api } from './client';
+import type { RelationshipPsychology } from './assessment';
 
-// 공유 링크로 열리는 공개 분석 뷰. 근거 문장(evidence, rationale)은 서버가 아예 내려주지
-// 않는다 — 공개 페이지는 확률, 총평, 신호 이름/등급까지만 그린다.
+// 공유 링크로 열리는 공개 분석 뷰. 본인 화면과 같은 재료가 내려온다 — 빠지는 건 둘뿐이다:
+// 중립(판단 안 됨) 요인(남에겐 정보가 아니다)과 비슷한 사례(유저 것이 아니라 서비스 자산).
 export interface SharedFactorView {
   name: string; // "상대신호"
   level: '매우유리' | '유리' | '중립' | '불리' | '매우불리';
+  evidence: string;
+  rationale: string | null;
   stage: string | null; // 대체자 세분("정황"/"정착"). 그 외 null
 }
 
 export interface SharedAssessmentResponse {
   probability: number | null;
   breakupType: string | null;
+  typeEvidence: string | null;
   jumpRule: string | null;
+  relapseRisk: string | null;
+  relapseReason: string | null;
+  relationshipPsychology?: RelationshipPsychology | null;
   reason: string;
   factors: SharedFactorView[];
   createdAt: string | null;

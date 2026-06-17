@@ -1,7 +1,12 @@
 // 분석 결과를 화면 카드로 번역하는 사전들. 분석 페이지와 공유(공개) 페이지가 같은 값을
 // 쓰도록 한곳에 모은다 — 따로 두면 한쪽만 고쳐 두 화면의 등급이 어긋난다.
 
+import type { RelationshipPsychology } from '../api/assessment';
+
 export type ChipLevel = '매우유리' | '유리' | '중립' | '불리' | '매우불리';
+
+// 판단 근거가 없을 때 백엔드가 채우는 문자열. 사실 줄을 그릴지 가를 때 쓴다.
+export const NO_EVIDENCE = '근거 없음';
 
 // 요인 이름은 슬롯 이름을 거의 그대로 노출한다 — 통보온도, 관계자산, 대체자 같은
 // 조어가 이 서비스 유저층(타로류 감성)에 풀어 쓴 설명("헤어질 때 상대 태도")보다
@@ -47,6 +52,42 @@ export const TYPE_CHIP: Record<string, '매우유리' | '유리' | '불리' | '�
   환승형: '매우불리',
   신뢰붕괴형: '매우불리',
 };
+
+// 관계 심리 카드 세 줄(애착 경향, 관계 패턴, 핵심 욕구). 보류값(판단보류, 뚜렷하지않음)은
+// 행을 만들지 않는다 — "모르겠다"를 카드로 만들면 소음이다.
+export interface PsychRow {
+  name: string;
+  value: string;
+  description: string | null;
+}
+
+export function psychRows(psych: RelationshipPsychology | null | undefined): PsychRow[] {
+  if (!psych) return [];
+  const rows: PsychRow[] = [];
+  const attachment = psych.attachment;
+  const sides = [
+    attachment?.user && attachment.user.label !== '판단보류' ? `나 ${attachment.user.label}` : null,
+    attachment?.partner && attachment.partner.label !== '판단보류'
+      ? `상대 ${attachment.partner.label}`
+      : null,
+  ].filter((s): s is string => s != null);
+  if (attachment && sides.length > 0) {
+    rows.push({ name: '애착 경향', value: sides.join(', '), description: attachment.description });
+  }
+  const pattern = psych.interactionPattern;
+  if (pattern && pattern.label !== '뚜렷하지않음') {
+    rows.push({ name: '관계 패턴', value: pattern.label, description: pattern.description });
+  }
+  const needs = psych.needConflict;
+  if (needs?.left && needs.right) {
+    rows.push({
+      name: '핵심 욕구',
+      value: `${needs.left} ↔ ${needs.right}`,
+      description: needs.description,
+    });
+  }
+  return rows;
+}
 
 export const TYPE_READING: Record<string, string> = {
   충동형: '감정이 격해진 순간의 이별이라 되돌릴 여지가 큰 편임.',

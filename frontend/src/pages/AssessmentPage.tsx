@@ -19,7 +19,15 @@ import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
 import { useGoPayment } from '../utils/paymentOrigin';
 import { GAUGE_MAX, bandLabel } from '../utils/assessmentScale';
-import { FACTOR_LABEL, JUMP_CARD, STAGE_LEVEL, TYPE_CHIP, TYPE_READING } from '../utils/assessmentView';
+import {
+  FACTOR_LABEL,
+  JUMP_CARD,
+  NO_EVIDENCE,
+  STAGE_LEVEL,
+  TYPE_CHIP,
+  TYPE_READING,
+  psychRows,
+} from '../utils/assessmentView';
 import styles from './AssessmentPage.module.css';
 
 // 수치 계산 방식(범위, 단계 기준)은 화면에 공개하지 않는다 — "왜 80이 최대냐" 같은 질문만 만든다.
@@ -29,8 +37,8 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 // 요인별 점수는 화면에 숫자로 보여주지 않는다 — 숫자는 백엔드 상수라 정밀해 보이지만
 // 유저에겐 합산 산수 검증거리만 된다. 방향(유리/불리)은 색으로, 무게는 순서로 말한다
 // (백엔드가 무게 순으로 내려준다).
-// 근거 없는 요인(중립 + "근거 없음")은 판정 카드 대신 "알려주면 정확해져요" 안내로 바꾼다.
-const NO_EVIDENCE = '근거 없음';
+// 근거 없는 요인(중립 + "근거 없음")은 판정 카드 대신 "알려주면 정확해져요" 안내로 바꾼다
+// (NO_EVIDENCE는 공유 화면과 공용이라 utils/assessmentView에 있다).
 
 // 사례 메타 줄의 기간 표기: 8 → "8개월", 24 → "2년", 30 → "2년 6개월"
 function formatMonths(m: number): string {
@@ -789,6 +797,7 @@ export function AssessmentPage() {
             </div>
           ) : dating ? (
             <div className={styles.reunitedHero}>
+  const psych = psychRows(result.relationshipPsychology);
               <div className={styles.reunitedTitle}>지금은 만나는 중입니다</div>
               <div className={styles.reunitedSub}>
                 재회 확률은 이별을 전제로 한 분석이라
@@ -977,72 +986,27 @@ export function AssessmentPage() {
 
           {/* 관계 심리 — 확률과 무관한 이해용 층. 잠금 판정(사귀는 중, 재회 성공)에도
               보여준다: 확률이 아니라 관계 구조의 설명이라 어느 판에서도 유효하다.
-              보류값(판단보류, 뚜렷하지않음)은 행을 그리지 않는다 — "모르겠다"를 카드로
-              만들면 소음이다 */}
-          {(() => {
-            const psych = result.relationshipPsychology;
-            if (!psych) return null;
-            const sides = [
-              psych.attachment?.user && psych.attachment.user.label !== '판단보류'
-                ? `나 ${psych.attachment.user.label}`
-                : null,
-              psych.attachment?.partner && psych.attachment.partner.label !== '판단보류'
-                ? `상대 ${psych.attachment.partner.label}`
-                : null,
-            ].filter(Boolean);
-            const showAttachment = sides.length > 0;
-            const pattern = psych.interactionPattern;
-            const showPattern = !!pattern && pattern.label !== '뚜렷하지않음';
-            const needs = psych.needConflict;
-            const showNeeds = !!needs && !!needs.left && !!needs.right;
-            if (!showAttachment && !showPattern && !showNeeds) return null;
-            return (
-              <>
-                <SectionHead title="우리 관계는 왜 힘들었을까" />
-                <div className={styles.dedList}>
-                  {showAttachment && psych.attachment && (
-                    <div className={styles.dedItem}>
-                      <div className={styles.dedTop}>
-                        <div className={styles.dedSignal}>애착 경향</div>
-                        <span className={`${styles.weightLabel} ${styles.weightNeutral}`}>
-                          {sides.join(', ')}
-                        </span>
-                      </div>
-                      {psych.attachment.description && (
-                        <div className={styles.dedRationale}>{psych.attachment.description}</div>
-                      )}
+              어느 행을 그릴지(보류값 걸러내기)는 공유 화면과 공용 헬퍼가 정한다 */}
+          {psych.length > 0 && (
+            <>
+              <SectionHead title="우리 관계는 왜 힘들었을까" />
+              <div className={styles.dedList}>
+                {psych.map((row) => (
+                  <div className={styles.dedItem} key={row.name}>
+                    <div className={styles.dedTop}>
+                      <div className={styles.dedSignal}>{row.name}</div>
+                      <span className={`${styles.weightLabel} ${styles.weightNeutral}`}>
+                        {row.value}
+                      </span>
                     </div>
-                  )}
-                  {showPattern && pattern && (
-                    <div className={styles.dedItem}>
-                      <div className={styles.dedTop}>
-                        <div className={styles.dedSignal}>관계 패턴</div>
-                        <span className={`${styles.weightLabel} ${styles.weightNeutral}`}>
-                          {pattern.label}
-                        </span>
-                      </div>
-                      {pattern.description && (
-                        <div className={styles.dedRationale}>{pattern.description}</div>
-                      )}
-                    </div>
-                  )}
-                  {showNeeds && needs && (
-                    <div className={styles.dedItem}>
-                      <div className={styles.dedTop}>
-                        <div className={styles.dedSignal}>핵심 욕구</div>
-                        <span className={`${styles.weightLabel} ${styles.weightNeutral}`}>
-                          {needs.left} ↔ {needs.right}
-                        </span>
-                      </div>
-                      {needs.description && (
-                        <div className={styles.dedRationale}>{needs.description}</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
-            );
-          })()}
+                    {row.description && (
+                      <div className={styles.dedRationale}>{row.description}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* 유지 전망 — 성사와 별개 축. 관계 심리 다음 자리라 "구조가 안 바뀌면 반복된다"로
               서사가 이어진다. 데이터만 내려오고 화면에 없던 값을 이제 그린다 */}

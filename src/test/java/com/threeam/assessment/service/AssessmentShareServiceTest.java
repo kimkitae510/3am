@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.threeam.assessment.dto.RelationshipPsychology;
 import com.threeam.assessment.dto.ShareCreateResponse;
 import com.threeam.assessment.dto.SharedAssessmentResponse;
 import com.threeam.assessment.entity.Assessment;
@@ -15,6 +16,7 @@ import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.AssessmentShare;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.RelapseRisk;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.assessment.repository.AssessmentShareRepository;
@@ -22,6 +24,7 @@ import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.story.entity.Story;
 import com.threeam.story.repository.StoryRepository;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,6 +57,15 @@ class AssessmentShareServiceTest {
                 .storyId(STORY_ID)
                 .verdict(probability != null ? ReunionVerdict.POSSIBLE : ReunionVerdict.DATING)
                 .probability(probability)
+                .typeEvidence("유형 근거")
+                .relapseRisk(RelapseRisk.HIGH)
+                .relapseReason("재발 이유")
+                .relationshipPsychology(new RelationshipPsychology(
+                        new RelationshipPsychology.Attachment(
+                                new RelationshipPsychology.Style("불안형", "중간"),
+                                new RelationshipPsychology.Style("회피형", "중간"),
+                                "설명"),
+                        null, null))
                 .reason("총평")
                 .factor(AssessmentFactor.of(FactorName.PARTNER_SIGNAL, FactorLevel.FAVORABLE,
                         "연락이 먼저 왔다", "판독", null))
@@ -110,7 +122,7 @@ class AssessmentShareServiceTest {
         givenOwnedStory();
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
                 .willReturn(Optional.of(assessment(5L, 62)));
-        given(shareRepository.findByAssessmentId(5L))
+        given(shareRepository.findFirstByAssessmentIdAndRevokedAtIsNull(5L))
                 .willReturn(Optional.of(AssessmentShare.of(5L, STORY_ID, USER_ID, "existing-token")));
 
         ShareCreateResponse response = service.create(USER_ID, STORY_ID);
@@ -125,7 +137,7 @@ class AssessmentShareServiceTest {
         givenOwnedStory();
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
                 .willReturn(Optional.of(assessment(5L, 62)));
-        given(shareRepository.findByAssessmentId(5L)).willReturn(Optional.empty());
+        given(shareRepository.findFirstByAssessmentIdAndRevokedAtIsNull(5L)).willReturn(Optional.empty());
         given(shareRepository.save(any(AssessmentShare.class)))
                 .willAnswer(invocation -> invocation.getArgument(0));
 
@@ -157,8 +169,8 @@ class AssessmentShareServiceTest {
     }
 
     @Test
-    @DisplayName("공개 조회: 근거 문장은 빠지고 중립 요인도 걸러진다")
-    void getShared_limitedView() {
+    @DisplayName("공개 조회: 본인 화면과 같은 판독을 내린다 — 근거 문장과 해석층까지")
+    void getShared_sameReadingAsOwner() {
         given(shareRepository.findByToken("tok"))
                 .willReturn(Optional.of(AssessmentShare.of(5L, STORY_ID, USER_ID, "tok")));
         given(storyRepository.findByIdAndDeletedAtIsNull(STORY_ID))
@@ -169,9 +181,93 @@ class AssessmentShareServiceTest {
 
         assertThat(response.getProbability()).isEqualTo(62);
         assertThat(response.getReason()).isEqualTo("총평");
-        // 중립(근거 없음) 요인은 공개 뷰에서 제외 — 판정된 상대신호 하나만 남는다
+        assertThat(response.getTypeEvidence()).isEqualTo("유형 근거");
+        assertThat(response.getRelapseRisk()).isEqualTo("높음");
+        assertThat(response.getRelapseReason()).isEqualTo("재발 이유");
+        assertThat(response.getRelationshipPsychology()).isNotNull();
+        assertThat(response.getFactors().get(0).getEvidence()).isEqualTo("연락이 먼저 왔다");
+        assertThat(response.getFactors().get(0).getRationale()).isEqualTo("판독");
+    }
+
+    @Test
+    @DisplayName("공개 조회: 판단 안 된 중립 요인은 걸러진다 — 남에겐 정보가 아니다")
+    void getShared_dropsNeutralFactors() {
+        given(shareRepository.findByToken("tok"))
+                .willReturn(Optional.of(AssessmentShare.of(5L, STORY_ID, USER_ID, "tok")));
+        given(storyRepository.findByIdAndDeletedAtIsNull(STORY_ID))
+                .willReturn(Optional.of(mock(Story.class)));
+        given(assessmentRepository.findById(5L)).willReturn(Optional.of(assessment(5L, 62)));
+
+        SharedAssessmentResponse response = service.getShared("tok");
+
         assertThat(response.getFactors()).hasSize(1);
         assertThat(response.getFactors().get(0).getName()).isEqualTo(FactorName.PARTNER_SIGNAL.label());
         assertThat(response.getFactors().get(0).getLevel()).isEqualTo("유리");
+    }
+
+    @Test
+    @DisplayName("취소: 이 사연의 살아 있는 링크를 전부 끈다 — 옛 분석의 링크도 함께")
+    void revoke_killsEveryLiveLinkOfStory() {
+        givenOwnedStory();
+        AssessmentShare latest = AssessmentShare.of(5L, STORY_ID, USER_ID, "latest-token");
+        AssessmentShare older = AssessmentShare.of(4L, STORY_ID, USER_ID, "older-token");
+        given(shareRepository.findByStoryIdAndRevokedAtIsNull(STORY_ID))
+                .willReturn(List.of(latest, older));
+
+        service.revoke(USER_ID, STORY_ID);
+
+        assertThat(latest.isRevoked()).isTrue();
+        assertThat(older.isRevoked()).isTrue();
+    }
+
+    @Test
+    @DisplayName("취소: 남의 사연은 끄지 못한다")
+    void revoke_rejectsOtherUsersStory() {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(STORY_ID, USER_ID))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.revoke(USER_ID, STORY_ID))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.STORY_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("공개 조회: 취소된 토큰은 없는 것과 같다 — SH001")
+    void getShared_revokedToken() {
+        AssessmentShare revoked = AssessmentShare.of(5L, STORY_ID, USER_ID, "dead-token");
+        revoked.revoke();
+        given(shareRepository.findByToken("dead-token")).willReturn(Optional.of(revoked));
+
+        assertThatThrownBy(() -> service.getShared("dead-token"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.SHARE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("생성: 취소한 뒤 다시 공유하면 죽은 토큰이 아니라 새 토큰이 나간다")
+    void create_afterRevokeIssuesNewToken() {
+        givenOwnedStory();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(assessment(5L, 62)));
+        // 취소된 행은 무덤으로 남아 이 조회에 안 잡힌다
+        given(shareRepository.findFirstByAssessmentIdAndRevokedAtIsNull(5L)).willReturn(Optional.empty());
+        given(shareRepository.save(any(AssessmentShare.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        ShareCreateResponse response = service.create(USER_ID, STORY_ID);
+
+        assertThat(response.getToken()).matches("[A-Za-z0-9_-]{32}");
+        assertThat(response.getToken()).isNotEqualTo("dead-token");
+    }
+
+    @Test
+    @DisplayName("상태: 살아 있는 링크가 없으면 null을 돌려준다")
+    void activeToken_noneWhenNotShared() {
+        givenOwnedStory();
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
+                .willReturn(Optional.of(assessment(5L, 62)));
+        given(shareRepository.findFirstByAssessmentIdAndRevokedAtIsNull(5L)).willReturn(Optional.empty());
+
+        assertThat(service.activeToken(USER_ID, STORY_ID)).isNull();
     }
 }
