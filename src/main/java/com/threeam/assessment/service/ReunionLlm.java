@@ -48,7 +48,8 @@ public class ReunionLlm {
     // previousDigest: 직전 분석 요지(유형, 확률, 요인 판정) — 새 사실 없이 유형이 흔들리는 것을 막는다.
     public CompletableFuture<ReunionDiagnosis> diagnose(List<String> knownFactLines,
                                                         List<ChatMessage> conversation,
-                                                        String todayLine, String previousDigest) {
+                                                        String todayLine, String previousDigest,
+                                                        String intakeBlock) {
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(assessmentProperties.getRubric()));
         if (knownFactLines != null && !knownFactLines.isEmpty()) {
@@ -67,6 +68,10 @@ public class ReunionLlm {
         }
         if (previousDigest != null && !previousDigest.isBlank()) {
             prompt.add(ChatMessage.system(previousDigest));
+        }
+        // 폼으로 받은 기본 정보. 유저가 고른 값이라 대화에서 추론할 필요가 없는 자리다.
+        if (intakeBlock != null && !intakeBlock.isBlank()) {
+            prompt.add(ChatMessage.system(intakeBlock));
         }
         prompt.addAll(conversation);
         // 루브릭 깊숙한 규칙은 긴 프롬프트에서 자주 무시된다(v1 실측: 관점 뒤집힘, 이중 계상이

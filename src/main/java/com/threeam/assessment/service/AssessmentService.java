@@ -73,7 +73,7 @@ public class AssessmentService {
                         insufficientGuide(storyId, FAIL_RETRY_GUIDE).withRetryAfterSeconds(retryAfterSeconds));
             }
             return reunionLlm.diagnose(context.knownFactLines(), context.conversation(),
-                            context.todayLine(), context.previousDigest())
+                            context.todayLine(), context.previousDigest(), context.intakeBlock())
                     .thenApplyAsync(diagnosis -> {
                         AssessmentResponse response = persist(storyId, diagnosis);
                         // LLM 왕복이 정상 처리됐으니 실패 연속 카운트를 지운다(INSUFFICIENT도 실패가 아니라 판정).

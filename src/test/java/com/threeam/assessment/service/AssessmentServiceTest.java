@@ -78,11 +78,11 @@ class AssessmentServiceTest {
                     ChatMessage.assistant("언제부터 그런 말이 나왔어?"),
                     ChatMessage.user("한 달 전부터 지쳤다고 하더라"),
                     ChatMessage.assistant("연락은 지금 어때?"),
-                    ChatMessage.user("일주일째 읽씹이야")), "오늘 날짜: 2026-05-01", null);
+                    ChatMessage.user("일주일째 읽씹이야")), "오늘 날짜: 2026-05-01", null, null);
 
     private static final AssessmentContext SPARSE_CONTEXT =
             new AssessmentContext(List.of(), List.of(ChatMessage.assistant("어서 와, 무슨 일이야?")),
-                    "오늘 날짜: 2026-05-01", null);
+                    "오늘 날짜: 2026-05-01", null, null);
 
     private static final List<FactorItem> FACTORS = List.of(
             new FactorItem(FactorName.PARTNER_SIGNAL, FactorLevel.UNFAVORABLE, "일주일째 읽씹",
@@ -112,7 +112,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - POSSIBLE이면 LLM 판정(유형+요인)을 백엔드가 대역 계산해 확률을 낸다")
     void assess_possible() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(possible(false)));
         given(scorer.apply(eq(BreakupType.BURNOUT), isNull(), eq(JumpRule.NONE), anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
@@ -134,7 +134,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - 상대의 유효한 만남/재회 제안이 있으면 대역 계산 없이 확률 100으로 확정한다")
     void assess_activeOfferForcesFullProbability() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(possible(true)));
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
                 .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
@@ -153,7 +153,7 @@ class AssessmentServiceTest {
     void assess_datingLocksProbability() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         // LLM이 실수로 offer=true와 유형을 보냈어도 전부 무시돼야 한다(구조적 잠금)
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(new ReunionDiagnosis(
                         ReunionVerdict.DATING, true, BreakupType.FADED, null, "실수 판정", JumpRule.NONE,
                         FACTORS, RelapseRisk.LOW, null, List.of(), List.of(),
@@ -178,7 +178,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - REUNITED(재회 성공)면 확률 없이 저장하고 쿼터는 안 깎는다")
     void assess_reunitedSavesWithoutProbability() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(
                         locked(ReunionVerdict.REUNITED, "다시 만나게 됐네",
                                 List.of("두 사람이 다시 만나기로 함"))));
@@ -197,7 +197,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - INSUFFICIENT(근거 부족)면 저장하지 않고 가이드만 돌려준다")
     void assess_insufficient() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(insufficient()));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
@@ -214,7 +214,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - INSUFFICIENT 후 새 대화가 없으면 LLM 재호출 없이 안내만 돌려준다")
     void assess_insufficientRetryBlockedWithoutNewMessage() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(insufficient()));
         // 1차엔 아직 표시 없음(false) → LLM 판정, 2차엔 표시됨(true) → LLM 없이 거부.
         given(txService.isInsufficientRetryBlocked(10L)).willReturn(false, true);
@@ -224,7 +224,7 @@ class AssessmentServiceTest {
 
         assertThat(retry.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
         verify(reunionLlm, org.mockito.Mockito.times(1))
-                .diagnose(anyList(), anyList(), any(), any()); // 2차는 미호출
+                .diagnose(anyList(), anyList(), any(), any(), any()); // 2차는 미호출
         verify(usageLimiter, never()).record(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
@@ -232,7 +232,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - INSUFFICIENT 후라도 새 대화가 생기면 다시 LLM으로 진단한다")
     void assess_insufficientRetryAllowedWithNewMessage() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(insufficient()));
         // 새 대화가 계속 있으니 표시가 있어도 재시도가 막히지 않는다(항상 false).
         given(txService.isInsufficientRetryBlocked(10L)).willReturn(false);
@@ -240,7 +240,7 @@ class AssessmentServiceTest {
         assessmentService.assess(1L, 10L).join();
         assessmentService.assess(1L, 10L).join();
 
-        verify(reunionLlm, org.mockito.Mockito.times(2)).diagnose(anyList(), anyList(), any(), any());
+        verify(reunionLlm, org.mockito.Mockito.times(2)).diagnose(anyList(), anyList(), any(), any(), any());
     }
 
     @Test
@@ -255,7 +255,7 @@ class AssessmentServiceTest {
         assertThat(response.getReason()).contains("차감되지 않았습니다");
         // 화면이 카운트다운을 띄우려면 남은 초가 응답에 실려야 한다.
         assertThat(response.getRetryAfterSeconds()).isEqualTo(167);
-        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any()); // 무료 LLM 호출 루프 차단
+        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any(), any()); // 무료 LLM 호출 루프 차단
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
     }
 
@@ -263,7 +263,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - LLM 실패 시 실패 표시를 남기고 잠금을 해제한다(쿼터는 미차감)")
     void assess_marksFailureOnLlmError() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.failedFuture(new RuntimeException("응답 잘림")));
 
         assertThatThrownBy(() -> assessmentService.assess(1L, 10L).join())
@@ -278,7 +278,7 @@ class AssessmentServiceTest {
     @DisplayName("진단 - LLM 왕복이 정상 처리되면 실패 연속 카운트를 지운다(INSUFFICIENT 판정 포함)")
     void assess_clearsFailureOnCompletedRoundtrip() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(insufficient()));
 
         assessmentService.assess(1L, 10L).join();
@@ -296,7 +296,7 @@ class AssessmentServiceTest {
         assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.INSUFFICIENT);
         // 발화 없음 안내(사전 가드)는 근거 부족 안내(LLM 판정)와 문구가 다르다
         assertThat(response.getReason()).contains("이야기가 없습니다");
-        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any()); // LLM 비용 없음
+        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any(), any()); // LLM 비용 없음
         verify(usageLimiter, never()).record(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
     }
@@ -311,7 +311,7 @@ class AssessmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORY_NOT_FOUND);
 
-        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any());
+        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any(), any());
         // 후차감이라 성공 전에 실패하면 기록할 것이 없다. 잠금만 해제.
         verify(usageLimiter, never()).record(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
@@ -328,7 +328,7 @@ class AssessmentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENERATION_IN_PROGRESS);
 
         verify(usageLimiter, never()).check(any(), any(), org.mockito.ArgumentMatchers.anyInt());
-        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any());
+        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any(), any());
     }
 
     @Test
@@ -342,14 +342,14 @@ class AssessmentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
 
         verify(usageLimiter).releaseInFlight(UsageKind.ASSESSMENT, 1L);
-        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any());
+        verify(reunionLlm, never()).diagnose(anyList(), anyList(), any(), any(), any());
     }
 
     @Test
     @DisplayName("진단 - 완료(성공) 시 in-flight 잠금이 해제된다")
     void assess_releasesLockOnCompletion() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
-        given(reunionLlm.diagnose(anyList(), anyList(), any(), any()))
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(insufficient()));
 
         assessmentService.assess(1L, 10L).join();

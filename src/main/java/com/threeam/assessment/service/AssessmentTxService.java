@@ -20,8 +20,10 @@ import com.threeam.story.entity.Story;
 import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryFactRepository;
+import com.threeam.story.repository.StoryIntakeRepository;
 import com.threeam.story.repository.StoryRepository;
 import com.threeam.story.service.StoryFactService;
+import com.threeam.story.service.StoryIntakeService;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -53,6 +55,7 @@ public class AssessmentTxService {
     private final MessageRepository messageRepository;
     private final StoryFactRepository storyFactRepository;
     private final StoryFactService storyFactService;
+    private final StoryIntakeRepository storyIntakeRepository;
     private final AssessmentRepository assessmentRepository;
     private final MatchProfileService matchProfileService;
     private final TypeBandScorer scorer;
@@ -193,8 +196,11 @@ public class AssessmentTxService {
             throw new BusinessException(ErrorCode.ASSESSMENT_NO_MESSAGES);
         }
 
+        String intakeBlock = storyIntakeRepository.findByStoryId(storyId)
+                .map(StoryIntakeService::describe)
+                .orElse(null);
         return new AssessmentContext(factLines(storyId), conversation,
-                todayLine(), previousDigest(lastAssessment.orElse(null)));
+                todayLine(), previousDigest(lastAssessment.orElse(null)), intakeBlock);
     }
 
     // 루브릭 시간 규칙(5주/3개월, 소진형 1개월)의 기준점. 원장 기록일 추정에 맡기지 않고 명시한다.

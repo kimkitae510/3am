@@ -23,6 +23,7 @@ import com.threeam.story.entity.Story;
 import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryFactRepository;
+import com.threeam.story.repository.StoryIntakeRepository;
 import com.threeam.story.repository.StoryRepository;
 import com.threeam.story.service.StoryFactService;
 import java.time.LocalDateTime;
@@ -64,6 +65,9 @@ class AssessmentTxServiceTest {
 
     @Mock
     private TypeBandScorer scorer;
+
+    @Mock
+    private StoryIntakeRepository storyIntakeRepository;
 
     @InjectMocks
     private AssessmentTxService txService;

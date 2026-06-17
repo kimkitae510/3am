@@ -38,7 +38,7 @@ class ReunionLlmTest {
         given(llmClient.generateJsonDeep(anyList(), any()))
                 .willReturn(CompletableFuture.completedFuture(json));
         return new ReunionLlm(llmClient, objectMapper, new AssessmentProperties())
-                .diagnose(List.of(), List.of(), null, null).join();
+                .diagnose(List.of(), List.of(), null, null, null).join();
     }
 
     @Test
@@ -243,7 +243,7 @@ class ReunionLlmTest {
                 .willReturn(CompletableFuture.completedFuture("이건 JSON이 아니야"));
         ReunionLlm reunionLlm = new ReunionLlm(llmClient, objectMapper, new AssessmentProperties());
 
-        assertThatThrownBy(() -> reunionLlm.diagnose(List.of(), List.of(), null, null).join())
+        assertThatThrownBy(() -> reunionLlm.diagnose(List.of(), List.of(), null, null, null).join())
                 .isInstanceOf(CompletionException.class)
                 .hasCauseInstanceOf(LlmException.class);
         // 자동 재시도 금지 — 실패마다 진단 1회분이 2배 과금된다. 재시도는 유저 버튼 몫.
