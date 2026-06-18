@@ -2,6 +2,8 @@ package com.threeam.story.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -12,6 +14,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 // 사연 = 한 사람(전 연인)에 대한 상담 스레드 전체. 밑에 메시지들이 달리고, 재회 확률도 여기에 귀속된다.
 @Entity
@@ -74,6 +78,13 @@ public class Story {
     @Column
     private Long lastExtractedMessageId;
 
+    // 채팅이 스스로 낸 재회 방향(turn-2의 ---chat-meta---에서 뽑는다). 진단 확률과는 다른 층이라
+    // 진단이 없는 사연에서도 값이 있다. 추천 칩 셀렉터에 참고값으로 나간다.
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 20)
+    private ReunionDirection reunionDirection;
+
     @Builder
     private Story(Long userId, String title) {
         this.userId = userId;
@@ -87,6 +98,14 @@ public class Story {
 
     public void touch() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // 값을 못 읽은 턴은 건드리지 않는다 — turn-rest는 chat-meta를 안 내보내는 게 정상이라,
+    // null로 덮으면 재분석 턴마다 방향이 사라졌다 다시 생긴다.
+    public void updateReunionDirection(ReunionDirection direction) {
+        if (direction != null) {
+            this.reunionDirection = direction;
+        }
     }
 
     public void markRead() {
