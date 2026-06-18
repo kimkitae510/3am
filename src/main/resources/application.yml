@@ -236,6 +236,16 @@ management:
 match:
   case-file: ${MATCH_CASE_FILE:사례데이터.json}
 
+# 추천 질문 칩(서비스 자산, gitignore) — 시동 때 메모리로 로드. persona/rubric과 달리
+# spring.config.import로 안 읽는다: 모듈 키가 ACTION_NOW 같은 대문자에 밑줄이라
+# 완화 바인딩이 뭉갠다(ChipStore 주석 참고).
+chip:
+  menu-file: ${CHIP_MENU_FILE:chip-menu.yml}
+  modules-file: ${CHIP_MODULES_FILE:chip-modules.yml}
+  # 추천 칩 문구를 유저 상황에 맞게 다시 쓸지. 누르면 그대로 유저 말풍선이 되는 문장이라
+  # 실측에서 이상하면 즉시 끌 수 있게 뒀다. 끄면 카탈로그 원문이 그대로 뜬다.
+  rewrite-label: ${CHIP_REWRITE_LABEL:true}
+
 # 진단 공유 — /s/{token} OG 페이지가 절대 URL(og:url, og:image)을 만들 때 쓰는 서비스 주소.
 # 크롤러가 읽는 값이라 상대 경로로는 안 되고, 운영에선 https://3amchat.xyz 를 주입한다.
 share:
