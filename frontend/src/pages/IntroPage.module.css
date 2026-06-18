@@ -123,6 +123,32 @@
   gap: 10px;
 }
 
+/* 소개 화면의 시작 버튼 자리. 컴포저가 있던 자리를 그대로 물려받아, 처음 온 사람의 눈이
+   가던 곳이 안 바뀌게 한다 */
+.startBlock {
+  width: 100%;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 질문을 건너뛰는 길과 되돌아가는 길. 주된 길과 같은 무게로 세우면 어디로 가야 할지가 흐려진다 */
+.skipAsk {
+  border: none;
+  background: transparent;
+  padding: 4px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.skipAsk:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .input {
   width: 100%;
   resize: none;

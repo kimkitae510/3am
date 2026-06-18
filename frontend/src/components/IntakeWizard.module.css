@@ -1,0 +1,142 @@
+/* 홈 안에서만 쓰는 한 장짜리 질문 화면. 프레임을 꽉 채우고, 답할 것 하나만 남긴다 */
+.wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* 몇 개 남았는지 안 보이면 채팅 드립과 같아진다 — 끝이 안 보이는 질문은 폼보다 나쁘다 */
+.count {
+  color: var(--text-muted);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.ask {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.body {
+  width: 100%;
+  margin-top: 26px;
+  display: flex;
+  gap: 10px;
+}
+
+.numberBox {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 54px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.numberBox:focus-within {
+  border-color: var(--accent);
+}
+
+.numberLabel {
+  color: var(--text-muted);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.number {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  /* iOS는 16px 미만이면 탭할 때 화면을 확대한다 — 그 뒤로 레이아웃이 어긋난 채로 남는다 */
+  font-size: 16px;
+  font-family: inherit;
+  text-align: right;
+  outline: none;
+}
+
+/* 스핀 버튼은 폭만 먹고 손가락으로는 못 누른다 */
+.number::-webkit-outer-spin-button,
+.number::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.number[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.unit {
+  color: var(--text-muted);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.options {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.option {
+  flex: 1;
+  height: 54px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-sub);
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.optionOn {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.foot {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.next {
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: 16px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 15.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* 되돌아가는 길은 나아가는 길과 같은 무게로 세우지 않는다 */
+.back {
+  border: none;
+  background: transparent;
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
