@@ -1,6 +1,7 @@
 package com.threeam.story.repository;
 
 import com.threeam.story.entity.Message;
+import com.threeam.story.entity.MessageRole;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -30,6 +31,10 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     // 사실 추출 게이팅용: 워터마크 이후 아직 안 훑은 메시지가 몇 개인지(임계 미만이면 LLM 호출 자체를 건너뛴다).
     long countByStoryIdAndIdGreaterThan(Long storyId, Long id);
+
+    // 칩 추천 게이팅용: 지금까지 붙은 상담자 답변 수(2번째 답변부터 칩을 만든다).
+    // 대화 창 안만 세면 긴 사연에서 창 밖으로 밀려난 답변을 놓치므로 전체를 센다.
+    int countByStoryIdAndRole(Long storyId, MessageRole role);
 
     // 사실 추출용: 워터마크 이후 미추출 구간만 시간순으로. 밀린 양이 많을 때를 대비해 한 번에 가져올 개수를 제한한다.
     Slice<Message> findByStoryIdAndIdGreaterThanOrderByIdAsc(Long storyId, Long id, Pageable pageable);

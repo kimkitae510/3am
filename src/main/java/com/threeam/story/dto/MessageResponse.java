@@ -1,5 +1,7 @@
 package com.threeam.story.dto;
 
+import com.threeam.chip.dto.ChipView;
+import com.threeam.story.entity.ChatMeta;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
 import java.time.LocalDateTime;
@@ -22,19 +24,30 @@ public class MessageResponse {
     // 화면이 입력칸으로 그릴 질문들. 본문(content)에서는 빠지지만 저장된 원문에는 남는다 —
     // 지우면 다음 턴과 분석이 상담자가 무엇을 물었는지 모른다.
     private final List<String> questions;
+    // 이 답변 밑에 그릴 추천 질문. 마지막 답변에만 채워 보낸다 — 지난 답변에도 그리면
+    // 대화 곳곳에 눌리는 칩이 남아 어느 시점의 추천인지 알 수 없다.
+    private final List<ChipView> chips;
 
     private MessageResponse(Long id, MessageRole role, String content, LocalDateTime createdAt,
-                            boolean failed, List<String> questions) {
+                            boolean failed, List<String> questions, List<ChipView> chips) {
         this.id = id;
         this.role = role;
         this.content = content;
         this.createdAt = createdAt;
         this.failed = failed;
         this.questions = questions;
+        this.chips = chips;
     }
 
     public static MessageResponse from(Message message) {
-        String raw = message.getContent();
+        return from(message, List.of());
+    }
+
+    public static MessageResponse from(Message message, List<ChipView> chips) {
+        // 이제는 저장 전에 떼지만(MessageTxService), 그 코드가 생기기 전에 저장된 대화에는
+        // JSON이 본문에 박혀 있다. 기록은 고치지 않으므로 표시에서 가린다.
+        // 질문 분리보다 먼저 뗀다 — 뒤에 하면 마지막 질문에 JSON이 붙어 입력 카드로 나간다.
+        String raw = ChatMeta.strip(message.getContent());
         int at = raw == null ? -1 : raw.indexOf(QUESTION_MARKER);
         String body = at < 0 ? raw : raw.substring(0, at).stripTrailing();
         List<String> questions = at < 0
@@ -49,6 +62,7 @@ public class MessageResponse {
                 body,
                 message.getCreatedAt(),
                 message.isFallback(),
-                questions);
+                questions,
+                chips);
     }
 }
