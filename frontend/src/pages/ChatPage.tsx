@@ -1,10 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { HelpModal } from '../components/HelpModal';
 import { CHARACTER_AVATAR, CHARACTER_NAME, GREETING, CharacterProfile } from '../components/CharacterProfile';
 import { StoryDrawer } from '../components/StoryDrawer';
-import { QuestionSkip } from '../components/QuestionCard';
+import { QuestionActions } from '../components/QuestionCard';
+import { ChipCatalogSheet, ChipInputSheet, ChipRow } from '../components/ChipPanel';
+import type { ChipView } from '../api/chip';
 import {
   getMessages,
   getMessagesSince,
@@ -19,11 +21,18 @@ import { formatClock, formatDateDivider, isSameCalendarDate } from '../utils/dat
 import { useGoPayment } from '../utils/paymentOrigin';
 import styles from './ChatPage.module.css';
 
-const MAX_LENGTH = 3000; // 서버 검증(@Size)과 동일 값 — 긴 사연이 600자에서 끊겨 흐름이 깨졌다(실측)
+const MAX_LENGTH = 2000; // 서버 검증(@Size)과 동일 값 — 600자에서는 사연이 끊겼고(실측), 3000자는 한 턴에 담아 읽을 양을 넘었다
+// 질문 하나에 달 수 있는 답의 길이에 씌우는 뚜껑. 실제 상한은 질문 수로 나눈 예산이고
+// 이 값은 그 위에 얹는다 — 질문이 하나뿐이어도 답 한 칸에 사연만큼 쓰게 두지는 않는다.
+const ANSWER_MAX = 1000;
 // 이 길이를 넘으면 Enter는 전송이 아니라 줄바꿈이다. 사연을 쓰는 중에 문단을 나누려다
 // 반쯤 쓴 글이 날아가는 쪽이, 다 쓰고 버튼을 못 찾는 쪽보다 훨씬 비싸다(전송은 되돌릴 수 없고
 // 대화 1회가 차감된다). 그래서 애매하면 줄바꿈으로 기운다.
 const ENTER_SENDS_UNDER = 150;
+// 질문을 전부 건너뛴 턴에 대신 보내는 말. 안 보내면 서버 호출이 없어 상담자 답도 안 오고
+// 대화가 질문에서 끊긴다. 빈 값으로는 못 보낸다 — 서버가 @NotBlank다.
+// 건너뛰기를 누른 것 자체가 "지금은 못 답하겠다"는 말이라 그 뜻을 문장으로 옮긴다.
+const SKIPPED_ALL_MESSAGE = '지금은 답하기 어려워요';
 
 // 방의 첫 화면에 깔리는 상담자의 첫 마디. 저장하지 않고 화면에서만 만든다 — 기록이 아니라
 // 인사라서 대화 횟수도, LLM 호출도, 프롬프트 맥락도 건드리지 않는다.
@@ -46,6 +55,11 @@ const POLL_SLOW_INTERVAL = 5000;
 // 재입장 시 마지막 유저 메시지가 이보다 어리면 아직 답을 기다리는 판으로 본다.
 // 서버가 답이든 폴백이든 저장하고도 남는 시간 — 이보다 늙었으면 과거에 끝난(실패한) 방이다.
 const RESUME_WAIT_WINDOW = 180000;
+// 마지막 말풍선이 뜬 뒤 질문 카드가 나오기까지의 뜸. 예전엔 조각 공개가 끝나는 순간이
+// 곧 질문이 뜨는 순간이라, 마지막 줄을 읽기도 전에 답할 칸이 올라왔다. 상담자가 말을
+// 마치고 잠깐 기다리는 간격이다 — 조각 사이 간격(최대 2200)보다 짧게 둬서 말이 아직
+// 이어지는 중으로 읽히지 않게 한다.
+const ASK_DELAY = 1400;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // 장문 답변을 말풍선으로 쪼갠다 — 사람이 나눠 보내는 것처럼.
@@ -67,9 +81,20 @@ function splitParagraphs(text: string): string[] {
   return lines.length > 0 ? lines : [text];
 }
 
+// **로 감싼 구간만 굵게. 짝이 안 맞는 별표는 글자 그대로 둔다 — 모델 실수가 화면 깨짐이 되지 않게.
+function renderEmphasis(line: string): ReactNode {
+  const parts = line.split(/\*\*([^*]+)\*\*/g);
+  if (parts.length === 1) return line;
+  return parts.map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : p));
+}
+
 export function ChatPage() {
   const { storyId: storyIdParam } = useParams();
   const storyId = Number(storyIdParam);
+  // 분석 안내를 이 방에서 이미 지나쳤는지. 키 이름을 바꾼 건 뜻이 바뀌어서다 —
+  // 예전 diagHintShown은 "띄웠다", 지금은 "유저가 넘어갔다"라 옛 값을 그대로 읽으면
+  // 넘어간 적 없는 방까지 막힌다. 옛 키는 아무도 안 읽으니 그대로 둔다.
+  const diagHintKey = `diagHintDone:${storyId}`;
   const navigate = useNavigate();
   const location = useLocation();
   const goPayment = useGoPayment();
@@ -101,6 +126,19 @@ export function ChatPage() {
   // 상담자가 물은 것을 하나씩 받는다. 몇 번째를 묻는 중인지와, 지금까지 받아둔 답.
   const [askIndex, setAskIndex] = useState(0);
   const [askAnswers, setAskAnswers] = useState<string[]>([]);
+  // 답이 다 뜬 뒤에도 질문을 잠깐 붙들어 둔다. 조각 공개(reveal)와 따로 두는 이유는
+  // 조각이 없는 짧은 답(한 덩어리)에는 reveal 자체가 안 걸려서다 — 그 판에선 답과 질문이
+  // 같은 프레임에 떴다.
+  const [askHold, setAskHold] = useState(false);
+
+  // 추천 질문 칩. 눌러야 하는 것이 아니라 다음 상담으로 들어가는 지름길이라, 자유입력을
+  // 막지 않는다. INPUT 칩은 바로 보내지 않고 시트를 먼저 띄운다(누르자마자 label을 보내면
+  // 상담자가 "무슨 일이 있었나요?"를 되묻느라 한 턴이 통째로 날아간다).
+  const [chipInput, setChipInput] = useState<ChipView | null>(null);
+  const [chipCatalog, setChipCatalog] = useState(false);
+
+  // 기본 정보(나이, 성별, 기간)는 홈의 질문 단계에서 받는다. 여기서 안 받는 이유는 자리다 —
+  // 사연을 다 쓰고 보내는 순간에 폼이 떨어지면, 털어놓은 사람에게 접수증을 내미는 꼴이 된다.
 
   // 마지막 메시지에 질문이 실려 있으면 그게 지금 답할 것이다.
   const pendingQuestions = (() => {
@@ -109,13 +147,29 @@ export function ChatPage() {
   })();
 
   // 말풍선이 다 나오기 전에는 묻지 않는다 — 읽는 중에 질문이 끼면 말을 하다 만 것이 된다
-  const asking = pendingQuestions.length > 0 && askIndex < pendingQuestions.length && reveal == null;
+  const asking =
+    pendingQuestions.length > 0 && askIndex < pendingQuestions.length && reveal == null && !askHold;
+
+  // 지금 입력창에 허용되는 길이. 답들은 마지막에 하나로 이어 붙여 메시지 한 건으로 나가므로,
+  // 개당 상한을 고정값으로 두면 다 채운 사람만 마지막에 거절당한다 — 그것도 셋을 다 쓴 뒤에.
+  // 그래서 남은 예산(줄바꿈 몫을 뺀 MAX_LENGTH)을 질문 수로 나눠 잡는다. 하나면 1000자,
+  // 둘이면 900자, 셋이면 600자이고 넷을 물어도 알아서 줄어든다.
+  // 백 자 단위로 내리는 이유: 666 같은 수가 카운터에 뜨면 상한이 아니라 잔량으로 읽힌다.
+  const limit = asking
+    ? Math.min(
+        ANSWER_MAX,
+        Math.floor((MAX_LENGTH - (pendingQuestions.length - 1)) / pendingQuestions.length / 100) * 100,
+      )
+    : MAX_LENGTH;
 
   // 상담자가 물은 것을 진짜 메시지처럼 목록에 얹는다. 따로 그리면 프사, 이름, 꼬리,
   // 묶음 규칙을 두 곳에서 관리하게 되고 실제로 넷이 어긋났다(실측) — 같은 렌더를 태운다.
   // 묻는 중일 때만이 아니라 지나간 턴에도 그린다: 답을 보내고 나면 마지막 메시지가 유저
   // 것이 되는데, 그때 질문이 사라지면 대화에 답만 세 줄 남아 유저 혼자 말한 것이 된다.
   // id는 음수라 진짜 메시지와 안 겹치고, 시각도 이 값으로 가려낸다(아직 안 보낸 말이다).
+  // 질문 말풍선의 id 모음. 여기 있는 것은 앞 답변에 묶지 않고 프사와 이름을 새로 단다 —
+  // 앞은 읽어준 것이고 질문부터는 답해야 하는 자리라, 그 전환이 화면에 보여야 한다.
+  const askHeads = new Set<number>();
   const viewMessages = (() => {
     const out: MessageResponse[] = [];
     messages.forEach((m, mi) => {
@@ -123,13 +177,15 @@ export function ChatPage() {
       // 질문에 답한 유저 메시지는 한 덩어리로 저장돼 있다. 그 자리에 통째로 그리면
       // 답만 여러 줄 뭉쳐 보이니, 앞 질문과 줄 단위로 짝지어 되돌린다(전송 때 한 답이 한 줄).
       const prevQs = mi > 0 && messages[mi - 1].role !== 'USER' ? (messages[mi - 1].questions ?? []) : [];
-      if (m.role === 'USER' && prevQs.length > 1 && m.content.split('\n').length === prevQs.length) {
+      // 짝짓기와 같은 조건으로 걸러야 한다 — 여기만 둘 이상으로 잡았을 때, 질문이 하나인
+      // 턴은 아래에서 답 말풍선을 만들고 여기서는 원문도 남겨 같은 답이 두 번 그려졌다
+      if (m.role === 'USER' && prevQs.length > 0 && m.content.split('\n').length === prevQs.length) {
         return;
       }
       out.push(m);
       const isLast = mi === messages.length - 1;
       // 말풍선이 다 나오기 전에는 질문을 안 붙인다 — 읽는 중에 끼면 말을 하다 만 것이 된다
-      if (qs.length === 0 || (isLast && reveal != null)) return;
+      if (qs.length === 0 || (isLast && (reveal != null || askHold))) return;
       // 아직 묻는 중이면 받아둔 답, 이미 보냈으면 다음 유저 메시지를 줄로 갈라 짝짓는다
       const sent = messages[mi + 1];
       const answers =
@@ -140,8 +196,9 @@ export function ChatPage() {
             : [];
       const upto = isLast && asking ? askIndex : qs.length - 1;
       for (let i = 0; i <= upto; i++) {
-        // 번호는 붙이지 않는다 — 두세 개뿐이라 끝이 안 보이지도 않고, 상담자가
-        // "1번 질문입니다" 하고 묻는 꼴이 되어 대화가 절차로 읽힌다
+        // 몇 번째인지는 말풍선에 안 적는다 — 상담자가 "(1/3)"이라고 말하는 꼴이라
+        // 사람 말투가 서식으로 바뀐다. 진행은 아래 답변 줄이 숫자로만 표시한다
+        askHeads.add(-(mi * 100 + i * 2 + 1));
         out.push({
           id: -(mi * 100 + i * 2 + 1),
           role: 'ASSISTANT',
@@ -149,6 +206,7 @@ export function ChatPage() {
           createdAt: m.createdAt,
           failed: false,
           questions: [],
+          chips: [],
         });
         // 건너뛴 자리는 빈 줄이라 답 말풍선을 그리지 않는다 — "넘어갔습니다"를 띄우면
         // 화면이 안 답한 것을 지적하는 꼴이 된다. 비어 있는 것으로 충분하다.
@@ -160,6 +218,7 @@ export function ChatPage() {
             createdAt: (sent ?? m).createdAt,
             failed: false,
             questions: [],
+            chips: [],
           });
         }
       }
@@ -194,8 +253,17 @@ export function ChatPage() {
     setAskIndex(askIndex + 1);
     if (askIndex + 1 < pendingQuestions.length) return;
     // 건너뛴 자리는 빈 줄로 남긴다 — 지우면 줄 수가 어긋나 답이 엉뚱한 질문에 붙는다
-    const content = collected.some(Boolean) ? collected.join('\n') : '';
-    if (content) void handleSend(content);
+    void handleSend(collected.some(Boolean) ? collected.join('\n') : SKIPPED_ALL_MESSAGE);
+  }
+
+  // 한 칸 뒤로. 아직 아무것도 안 보낸 말이라 고쳐 쓸 수 있어야 한다 — 마지막 질문까지
+  // 모아뒀다 한 번에 보내는 구조라, 오타를 본 유저가 지금 할 수 있는 일이 없으면
+  // 대화 1회를 정정에 쓰게 된다. 그때 쓴 답은 입력창에 되살려 처음부터 다시 치지 않게 한다.
+  function undoAnswer() {
+    if (askIndex === 0) return;
+    setInput(askAnswers[askIndex - 1] ?? '');
+    setAskAnswers(askAnswers.slice(0, -1));
+    setAskIndex(askIndex - 1);
   }
 
   // 이름도 묶음의 첫 풍선 위에만. 프사와 같은 높이에서 시작해야 누구의 덩어리인지가 한눈에 잡힌다.
@@ -277,6 +345,7 @@ export function ChatPage() {
   async function loadInitial() {
     setLoadFailed(false);
     setError('');
+    setAskHold(false);
     setLoading(true);
     try {
       const page = await getMessages(storyId);
@@ -343,7 +412,7 @@ export function ChatPage() {
     if (el) el.scrollTop = el.scrollHeight;
   }
 
-  // 입력창을 내용만큼 키운다. textarea는 rows대로 높이가 고정이라 이게 없으면 3000자 상한을
+  // 입력창을 내용만큼 키운다. textarea는 rows대로 높이가 고정이라 이게 없으면 2000자 상한을
   // 한 줄짜리 칸에 밀어 넣게 된다 — 방금 쓴 문장이 안 보이니 고쳐 쓸 수도 없다.
   // 상한(CSS max-height)에 닿으면 그때부터 안에서 스크롤한다.
   // border-box라 scrollHeight에는 테두리가 빠져 있다. 그대로 넣으면 매 입력마다 2px씩 모자란다.
@@ -371,6 +440,15 @@ export function ChatPage() {
     }, ms);
   }
 
+  // 조각 공개가 끝나면(또는 애초에 조각이 없었으면) 그때부터 뜸을 재고 질문을 푼다.
+  // 도착 시점이 아니라 다 뜬 시점부터 재야, 긴 답일수록 더 오래 기다리는 게 아니라
+  // 어떤 답이든 마지막 줄 뒤에 같은 간격이 붙는다.
+  useEffect(() => {
+    if (!askHold || reveal != null) return;
+    const timer = window.setTimeout(() => setAskHold(false), ASK_DELAY);
+    return () => clearTimeout(timer);
+  }, [askHold, reveal]);
+
   // 쿨다운 카운트다운. 매 초 setTimeout을 새로 걸어 interval이 어긋나 쌓이지 않게 하고,
   // 0이 되면 입력창과 보내기 버튼이 새로고침 없이 스스로 살아난다.
   useEffect(() => {
@@ -379,26 +457,37 @@ export function ChatPage() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  // 완결 턴(답을 받은 턴) 2회가 쌓이면 분석 입구를 안내한다. 방당 1회 — 한 번 띄웠으면
-  // localStorage에 남겨 다시 안 띄우고, 이미 분석해 본 방도 건너뛴다. 분석 이력 조회(GET)는
-  // 조건이 갖춰진 순간에만 나가므로 평소 입장에는 요청이 늘지 않는다. 2회인 이유: 첫 인사가
+  // 완결 턴(답을 받은 턴) 2회가 쌓이면 분석 입구를 안내한다. 2회인 이유: 첫 인사가
   // 분석의 3축(사유, 시점, 연락)을 물어 첫 사연에 핵심이 담기고, 보강 1턴이면 분석할 최소
   // 재료가 된다 — 더 이르면 얇은 근거로 이용권 1회를 쓰게 만든다.
+  // 표시는 "띄운 순간"이 아니라 "유저가 넘어간 순간"에 남긴다(dismissDiagHint). 띄울 때 남기면
+  // 다른 방에 잠깐 갔다 오는 것만으로 사라진다 — 방을 나가면 이 화면이 죽으니 안내는 못 읽고
+  // 표시만 남는 꼴이다. 대신 아직 안 넘어간 방은 입장마다 이력 조회(GET)가 한 번 나간다.
+  // 이력이 있는 방은 그 자리에서 표시를 남겨 다음 입장부터 조회를 건너뛴다.
   useEffect(() => {
     if (showDiagHint) return;
     const replied = messages.filter((m) => m.role !== 'USER' && !m.failed).length;
     if (replied < 2) return;
-    const key = `diagHintShown:${storyId}`;
-    if (localStorage.getItem(key)) return;
+    if (localStorage.getItem(diagHintKey)) return;
     getAssessments(storyId)
       .then((all) => {
         if (!aliveRef.current) return;
-        localStorage.setItem(key, '1'); // 이력이 있어도 남긴다 — 다음 입장부터 조회 자체를 건너뛰게
         if (all.length === 0) setShowDiagHint(true);
+        else localStorage.setItem(diagHintKey, '1');
       })
       .catch(() => {}); // 부가 안내라 실패하면 조용히 안 띄운다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
+
+  // 안내를 내리고 이 방에서 다시 안 뜨게 못 박는다. 유저가 입구를 찾은 순간(버튼을 눌렀거나)
+  // 다음 말로 넘어간 순간에만 부른다.
+  // 떠 있을 때만 쓴다 — handleSend는 전송마다 이걸 부르므로, 안 떠 있어도 쓰면 유저의
+  // 첫 메시지가 표시를 남겨 안내가 영영 안 뜬다(조건이 갖춰지기도 전에 막힌다).
+  function dismissDiagHint() {
+    if (!showDiagHint) return;
+    localStorage.setItem(diagHintKey, '1');
+    setShowDiagHint(false);
+  }
 
   async function loadOlder() {
     if (cursor == null) return;
@@ -439,6 +528,7 @@ export function ChatPage() {
           refreshUsage(); // 답이 저장된 턴만 차감되므로(후차감) 이 시점에 갱신
           const lastReply = [...fresh].reverse().find((f) => f.role !== 'USER');
           if (lastReply) {
+            if ((lastReply.questions ?? []).length > 0) setAskHold(true);
             const segs = splitParagraphs(lastReply.content);
             if (segs.length > 1) {
               setReveal({ id: lastReply.id, shown: 1 });
@@ -453,19 +543,50 @@ export function ChatPage() {
     }
   }
 
-  // 길이는 회수와 무관하다 — 한 턴이 1회다. 남은 건 상한뿐이라 넘치면 전송만 막는다.
-  const blocked = input.length > MAX_LENGTH;
+  // 마지막 답변에 붙은 추천 질문. 상담자가 물은 것(asking)이 있으면 안 그린다 —
+  // 답할 질문과 물을 질문이 한 화면에 같이 있으면 무엇을 하라는 건지 알 수 없다.
+  const lastMessage = messages[messages.length - 1];
+  const suggestedChips =
+    lastMessage && lastMessage.role !== 'USER' && !lastMessage.failed && !asking
+      ? (lastMessage.chips ?? [])
+      : [];
+  // 입력창에 이미 쓰던 말이 있으면 안 그린다. 뒤늦게 뜬 칩이 타이핑 중인 사람의 손을 가로챈다.
+  const showChips =
+    suggestedChips.length > 0 && !waiting && reveal == null && input.trim().length === 0;
 
-  async function handleSend(preset?: string) {
-    const content = (preset ?? input).trim();
-    if (!content || waiting || cooldown > 0 || blocked) return;
+  // 칩을 눌렀을 때. DIRECT는 label이 그대로 유저 메시지가 되고, INPUT은 시트를 먼저 띄운다.
+  function pickChip(chip: ChipView) {
+    setChipCatalog(false);
+    if (chip.interaction === 'INPUT' && chip.inputPreset) {
+      setChipInput(chip);
+      return;
+    }
+    void handleSend(chip.label, chip.id);
+  }
+
+  // 길이는 회수와 무관하다 — 한 턴이 1회다. 남은 건 상한뿐이라 넘치면 전송만 막는다.
+  const blocked = input.length > limit;
+
+  // chipId는 추천 질문에서 온 말일 때만 실린다 — 서버가 그 칩의 전문 프롬프트로 답을 만든다.
+  async function handleSend(preset?: string, chipId?: string) {
+    // 질문 답 합본은 trim하지 않는다 — 빈 줄이 "그 질문엔 답하지 않았다"는 자리표라, 앞뒤가
+    // 잘리면 줄 수가 질문 수와 어긋난다. 그러면 화면이 답을 마지막 질문 아래에 통째로 붙이고
+    // (첫 답이 세 번째 자리로 간다), 모델도 몇 번째 질문의 답인지를 잘못 읽는다.
+    const content = preset ?? input.trim();
+    // 상한 검사는 입력창(blocked)이 아니라 실제로 나가는 글자로 한다 — 합본은 입력창을
+    // 거치지 않아, 여기서 안 재면 세 답을 합친 뒤 서버 검증에서만 거절당한다.
+    if (!content.trim() || waiting || cooldown > 0 || content.length > MAX_LENGTH) return;
     if (!preset) setInput('');
     setError('');
     setQuotaOver(false);
     setGuestBlocked(false);
     try {
-      const userMsg = await sendMessage(storyId, content);
+      const userMsg = await sendMessage(storyId, content, chipId);
       setMessages((prev) => [...prev, userMsg]);
+      // 유저가 다음 말을 시작했으면 안내는 할 일을 다 했다. 여기서 안 내리면 답을 기다리는
+      // 동안만 숨었다가 새 말풍선 아래로 다시 올라온다 — 한 번 뜨고 마는 줄이 턴마다 재등장한다.
+      // 보내기 성공에만 건다: 소진, 쿨다운으로 못 보낸 판은 유저가 넘어간 게 아니다.
+      dismissDiagHint();
       setWaiting(true);
       pollForReply(userMsg.id);
     } catch (e) {
@@ -562,10 +683,17 @@ export function ChatPage() {
             {/* 아이콘 단독은 뜻이 안 읽혀 기각됐던 이력 — 글자는 유지하고 아이콘을 곁들인다.
                 반원 게이지 축소판은 뜻이 안 살았고(실측), 펄스 라인이 '분석'과 바로 이어진다 */}
             <button className={styles.diagButton} onClick={() => navigate(`/stories/${storyId}/assessment`)}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <svg
+                className={styles.diagIcon}
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
                 <path
                   d="M3.5 12h4l2.5-6.5 4 13 2.5-6.5h4"
-                  stroke="#B89DD1"
+                  stroke="currentColor"
                   strokeWidth="1.8"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -575,21 +703,26 @@ export function ChatPage() {
             </button>
             {/* 이용권 진입점은 서랍 헤더가 상시로 맡고, 소진이 닥친 순간은 입력창 위 충전하기가
                 맡는다 — 채팅 헤더까지 넣으면 같은 곳으로 가는 문이 셋이 된다 */}
-            {/* 아이콘만으로는 서랍인 줄 모른다(삼선은 설정 메뉴로 읽혔다) — 분석과 같은
-                칩 문법으로 이름을 함께 쓴다. 그림은 보관함(입구 턱 있는 상자) — 이단 서랍장은
-                15px에서 획이 많아 뭉개졌다 */}
+            {/* 아이콘만으로는 서랍인 줄 모르니 분석과 같은 칩 문법으로 이름을 함께 쓴다.
+                그림은 삼선 — 토스를 비롯해 쓰는 앱마다 여는 문으로 굳어서 설정 메뉴로 오독될
+                일이 없다. 상자 그림은 15px에서 곡선이 뭉개졌고 여는 것이 상자도 아니었다 */}
+            {/* 게스트에겐 안 연다 — 서랍이 여는 것 중 게스트에게 쓸모 있는 게 없다. 체험
+                횟수는 계정 단위라 새 방을 파면 한 방도 못 끝낸 채 소진되고, 방은 하나뿐이라
+                목록도 볼 게 없다. 로그인 입구는 계정 연결 화면이 맡는다.
+                usage가 아직 안 왔으면 회원으로 친다 — 조회가 실패해도 회원의 서랍은 살아야 한다 */}
+            {!isGuest && (
             <button className={styles.drawerButton} onClick={() => setShowDrawer(true)}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path
-                  d="M4.5 10.5l1.8-4.4a1.6 1.6 0 011.5-1h8.4a1.6 1.6 0 011.5 1l1.8 4.4V17a1.9 1.9 0 01-1.9 1.9H6.4A1.9 1.9 0 014.5 17v-6.5z"
-                  stroke="#B89DD1"
-                  strokeWidth="1.8"
-                  strokeLinejoin="round"
+                  d="M4.5 6.8h15M4.5 12h15M4.5 17.2h15"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
                 />
-                <path d="M4.5 10.5h4.6l1 1.9h3.8l1-1.9h4.6" stroke="#B89DD1" strokeWidth="1.8" strokeLinejoin="round" />
               </svg>
               서랍
             </button>
+            )}
             {/* 물음표는 맨 끝 구석 — 칩 무리(분석, 서랍) 사이나 앞에 끼면 무리가 갈라져 보인다.
                 보조 아이콘은 가장자리가 자리다 */}
             <button className={styles.helpButton} onClick={() => setShowHelp(true)} aria-label="도움말">
@@ -674,10 +807,7 @@ export function ChatPage() {
                   !isSameCalendarDate(next.createdAt, m.createdAt);
                 // 어시스턴트 답은 문단 단위 말풍선으로. 유저 입력은 쓴 그대로 한 덩어리.
                 // 프사와 꼬리가 붙는 자리. 인사 말풍선이 위에 있으면 그쪽이 시현 묶음의 시작이다
-                // 질문의 첫 개는 앞 답변에 붙이지 않는다 — 앞은 읽어준 것이고 여기부터는
-                // 답해야 하는 자리라, 프사와 이름이 다시 붙어야 그 전환이 읽힌다
-                const startsAsk = m.id === -1 && prev != null && prev.id > 0;
-                const startsGroup = startsAsk
+                const startsGroup = askHeads.has(m.id)
                   ? true
                   : prev
                     ? prev.role !== m.role
@@ -714,7 +844,7 @@ export function ChatPage() {
                               문장마다 블록으로 나눠 사이를 띄운다 */}
                             {seg.split('\n').map((line, li) => (
                               <div className={styles.bubbleLine} key={li}>
-                                {line}
+                                {m.role === 'USER' ? line : renderEmphasis(line)}
                               </div>
                             ))}
                           </div>,
@@ -757,23 +887,44 @@ export function ChatPage() {
               )}
               {/* 물은 것은 하나씩. 답하면 다음 질문이 이어 나오고, 마지막에 모아 한 번에 보낸다.
                 받아둔 답도 말풍선으로 남겨야 한쪽만 말하는 화면이 되지 않는다 */}
-              {asking && <QuestionSkip onClick={() => answerAsk('')} />}
+              {asking && (
+                <QuestionActions
+                  step={askIndex + 1}
+                  total={pendingQuestions.length}
+                  onBack={askIndex > 0 ? undoAnswer : undefined}
+                  onSkip={() => answerAsk('')}
+                />
+              )}
+              {/* 다음 상담으로 들어가는 지름길. 질문 카드와 달리 답해야 하는 것이 아니라
+                  물을 수 있는 것이라 유저 말풍선 쪽에 둔다. 자유입력을 막지 않는다 */}
+              {showChips && (
+                <ChipRow
+                  chips={suggestedChips}
+                  onPick={pickChip}
+                  onBrowse={() => setChipCatalog(true)}
+                />
+              )}
               {/* 답이 다 도착한 숨 고르는 순간에만 — 타이핑 중에 끼어들면 대화를 가로챈다.
                   상담자 입으로 시키지 않고 화면의 시스템 줄이 맡는다(설명을 읽히는 순간
                   상담이 도구가 된다는 인사 원칙과 같은 이유) */}
               {showDiagHint && !waiting && reveal == null && (
-                <div className={styles.diagHintCard}>
-                  <div className={styles.diagHintTitle}>이제 분석할 수 있어요</div>
-                  <div className={styles.diagHintBody}>
-                    지금까지의 이야기로 재회 가능성을 계산해요
-                  </div>
-                  {/* 아이콘은 헤더 분석 칩과 같은 펄스 — 이 카드는 한 번 뜨고 사라지므로,
+                <div className={styles.diagHint}>
+                  {/* 구분선은 날짜 줄과 같은 표지 자리라 서술문이 안 어울린다 — 무엇이 나오는지만
+                      적는다. 확률 하나가 아니라는 것도 이 나열이 말한다.
+                      "충분하다" 류의 단정은 안 쓴다 — 진단이 근거부족으로 돌려보내는 판이 있다 */}
+                  <div className={styles.diagHintLine}>이별 유형, 재회 가능성, 비슷한 사례</div>
+                  {/* 아이콘은 헤더 분석 칩과 같은 펄스 — 이 줄은 한 번 뜨고 사라지므로,
                       누르는 동안 "저 위에 있는 그것"이라는 연결이 남아야 다음부터 헤더로 간다 */}
+                  {/* 누른 순간 못 박는다 — 입구를 찾은 사람에게 안내는 끝난 일이다.
+                      분석을 안 돌리고 돌아와도 헤더 칩이 그 자리에 있다 */}
                   <button
                     className={styles.diagHintBtn}
-                    onClick={() => navigate(`/stories/${storyId}/assessment`)}
+                    onClick={() => {
+                      dismissDiagHint();
+                      navigate(`/stories/${storyId}/assessment`);
+                    }}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path
                         d="M3.5 12h4l2.5-6.5 4 13 2.5-6.5h4"
                         stroke="currentColor"
@@ -910,17 +1061,19 @@ export function ChatPage() {
           </div>
         )}
         {/* 글자수는 상한이 가까울 때만 띄운다 — 길이가 회수를 바꾸지 않으니 평소엔 볼 이유가 없다.
-            넘긴 뒤에는 얼마나 줄여야 하는지가 유일하게 쓸모 있는 정보다 */}
-        {input.length > MAX_LENGTH - 300 && (
+            넘긴 뒤에는 얼마나 줄여야 하는지가 유일하게 쓸모 있는 정보다.
+            고정 여유분이 아니라 비율로 잡는다 — 답할 때 상한이 600자로 줄어드는데 300자를
+            빼면 답을 반쯤 쓰는 순간부터 카운터가 따라다닌다 */}
+        {input.length > limit * 0.85 && (
           <div className={styles.lengthHint}>
             {blocked && (
               <span className={`${styles.lengthCost} ${styles.lengthBlocked}`}>
-                <span className={styles.lengthCostNum}>{input.length - MAX_LENGTH}자</span>
+                <span className={styles.lengthCostNum}>{input.length - limit}자</span>
                 만큼 줄여야 보낼 수 있습니다
               </span>
             )}
             <span className={`${styles.lengthCount} ${blocked ? styles.lengthBlocked : ''}`}>
-              {input.length}/{MAX_LENGTH}
+              {input.length}/{limit}
             </span>
           </div>
         )}
@@ -976,22 +1129,48 @@ export function ChatPage() {
 
         {showDrawer && <StoryDrawer currentStoryId={storyId} onClose={() => setShowDrawer(false)} />}
 
+        {/* 새 사건은 내용이 있어야 답할 수 있다. 되묻기를 상담자 대신 화면이 먼저 하고
+            유저가 쓴 내용만 말풍선으로 들어간다 — 두 턴을 한 턴으로 줄인다 */}
+        {chipInput && (
+          <ChipInputSheet
+            chip={chipInput}
+            max={MAX_LENGTH}
+            onClose={() => setChipInput(null)}
+            onSubmit={(text) => {
+              const chip = chipInput;
+              setChipInput(null);
+              void handleSend(text, chip.id);
+            }}
+          />
+        )}
+
+        {chipCatalog && (
+          <ChipCatalogSheet storyId={storyId} onPick={pickChip} onClose={() => setChipCatalog(false)} />
+        )}
+
         {showHelp && (
           <HelpModal
             title="채팅 가이드"
             onClose={() => setShowHelp(false)}
+            /* 게스트에겐 서랍과 충전이 없다 — 없는 버튼을 가리키는 안내는 길을 잃게 만든다 */
             sections={[
               {
                 heading: '기억',
-                text: '이 방에서 나눈 대화로 이야기와 기억이 쌓이고, 분석이 정확해집니다. 기억은 방마다 따로 관리됩니다. 다른 사람 이야기를 하고 싶을 때는 물론, 지금 이야기를 접고 처음부터 새로 시작하고 싶을 때도 오른쪽 위 서랍에서 새 방을 만들어 주세요.',
+                text: isGuest
+                  ? '이 방에서 나눈 대화로 이야기와 기억이 쌓이고, 분석이 정확해집니다. 한 방에는 한 사람과의 이별 이야기만 담아 주세요. 여러 사람 이야기가 섞이면 분석이 부정확해집니다.'
+                  : '이 방에서 나눈 대화로 이야기와 기억이 쌓이고, 분석이 정확해집니다. 기억은 방마다 따로 관리됩니다. 다른 사람 이야기를 하고 싶을 때는 물론, 지금 이야기를 접고 처음부터 새로 시작하고 싶을 때도 오른쪽 위 서랍에서 새 방을 만들어 주세요.',
               },
               {
                 heading: '대화 횟수',
-                text: '메시지를 보내고 답을 받으면 대화 1회가 차감됩니다. 길이는 상관없어서 사연을 한 번에 길게 적어도 1회입니다(한 번에 3000자까지). 답을 받지 못한 대화는 차감되지 않습니다. 횟수는 기한 없이 남아 있고, 다 쓰면 위 카드 모양 버튼에서 충전할 수 있습니다.',
+                text: isGuest
+                  ? '메시지를 보내고 답을 받으면 대화 1회가 차감됩니다. 길이는 상관없어서 사연을 한 번에 길게 적어도 1회입니다(한 번에 2000자까지). 답을 받지 못한 대화는 차감되지 않습니다. 체험 횟수를 다 쓴 뒤에도 계정을 연결하면 지금까지의 대화를 그대로 이어갈 수 있습니다.'
+                  : '메시지를 보내고 답을 받으면 대화 1회가 차감됩니다. 길이는 상관없어서 사연을 한 번에 길게 적어도 1회입니다(한 번에 2000자까지). 답을 받지 못한 대화는 차감되지 않습니다. 횟수는 기한 없이 남아 있고, 다 쓰면 위 카드 모양 버튼에서 충전할 수 있습니다.',
               },
               {
                 heading: '분석',
-                text: '오른쪽 위 분석 버튼을 누르면 지금까지의 대화를 근거로 재회 가능성을 백분율로 계산합니다. 왜 그 숫자가 나왔는지 유리하게 본 요인과 불리하게 본 요인을 근거와 함께 보여주고, 비슷한 상황이었던 실제 사례도 함께 찾아드립니다.',
+                text: isGuest
+                  ? '계정을 연결하면 분석이 열립니다. 지금까지의 대화를 근거로 재회 가능성을 백분율로 계산하고, 왜 그 숫자가 나왔는지 유리하게 본 요인과 불리하게 본 요인을 근거와 함께 보여줍니다. 비슷한 상황이었던 실제 사례도 함께 찾아드립니다.'
+                  : '오른쪽 위 분석 버튼을 누르면 지금까지의 대화를 근거로 재회 가능성을 백분율로 계산합니다. 왜 그 숫자가 나왔는지 유리하게 본 요인과 불리하게 본 요인을 근거와 함께 보여주고, 비슷한 상황이었던 실제 사례도 함께 찾아드립니다.',
               },
               {
                 heading: '분석이 정확해지려면',

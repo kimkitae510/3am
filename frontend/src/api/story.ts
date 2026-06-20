@@ -1,4 +1,5 @@
 import { api } from './client';
+import type { ChipView } from './chip';
 
 export interface StoryResponse {
   id: number;
@@ -35,6 +36,9 @@ export interface MessageResponse {
   failed: boolean;
   // 말풍선 대신 입력 카드로 그릴 질문들. 서버가 본문에서 떼어 보낸다.
   questions: string[];
+  // 이 답변 밑에 그릴 추천 질문. 상담 답변과 같은 호출에서 함께 나온다.
+  // 마지막 답변에만 채워져 온다 — 지난 답변에도 그리면 어느 시점의 추천인지 알 수 없다.
+  chips: ChipView[];
 }
 
 export interface MessagePageResponse {
@@ -56,8 +60,17 @@ export async function getMessages(
 }
 
 // 폴링 방식: 유저 메시지만 저장하고 즉시 반환(202). 어시스턴트 답은 이후 since로 받아온다.
-export async function sendMessage(storyId: number, content: string): Promise<MessageResponse> {
-  const { data } = await api.post<MessageResponse>(`/api/stories/${storyId}/messages`, { content });
+// chipId는 추천 질문에서 온 말일 때만. 서버가 그 칩의 전문 프롬프트로 답을 만든다 —
+// 없으면 평소 자유 상담이라, 칩은 질문 범위를 제한하는 장치가 아니라 지름길이다.
+export async function sendMessage(
+  storyId: number,
+  content: string,
+  chipId?: string,
+): Promise<MessageResponse> {
+  const { data } = await api.post<MessageResponse>(`/api/stories/${storyId}/messages`, {
+    content,
+    chipId,
+  });
   return data;
 }
 
