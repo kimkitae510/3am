@@ -83,7 +83,17 @@
   flex-shrink: 0;
 }
 
-/* 서랍 입구 — 분석과 같은 칩 문법(라벤더 아이콘 + 흰 글자). 아이콘 단독은 뜻이 안 읽힌
+/* 헤더에 같은 회색 칩이 둘이라 무게가 같았다 — 이 화면에서 제일 중요한 출구가 서랍과 나란히
+   묻힌다. 색은 아이콘에만 준다(위 규칙 그대로). 서랍은 흰 아이콘으로 남겨 대비를 만든다.
+   composes로 회색 칩을 물려받는 구조라 svg 색은 클래스로 따로 건다 — 선택자 순서에 기대면
+   나중에 규칙이 하나 끼는 순간 서랍까지 라벤더가 된다.
+   안내 줄 버튼(diagHintBtn)의 아이콘도 같은 라벤더다. 그 줄은 한 번 뜨고 사라지므로
+   두 아이콘이 같은 색이어야 "저 위에 있는 그것"이라는 연결이 남는다 */
+.diagIcon {
+  color: var(--accent);
+}
+
+/* 서랍 입구 — 분석과 같은 칩 문법(아이콘은 글자와 같은 흰색). 아이콘 단독은 뜻이 안 읽힌
    이력이 있어 이름을 함께 쓴다 */
 .drawerButton {
   composes: diagButton;
@@ -108,48 +118,63 @@
   margin-bottom: 6px;
 }
 
-/* 분석 입구 안내 — 대화 흐름 밖의 시스템 줄. 라벤더 틴트 알약은 이 화면에 없던 문법이라
-   겉돌았다 — 헤더 칩, 토스트와 같은 어두운 칩 + 라벤더 아이콘 문법으로 맞추고,
-   눌린다는 것은 끝의 꺾쇠가 말한다 */
-/* 분석 입구 — 대화 흐름 안의 카드. 예전엔 목록 끝의 얇은 회색 한 줄이었는데 시스템 안내처럼
-   읽혀 그냥 지나쳤다("분석을 어떻게 받는지 모르겠다" 실측). 방금 읽은 답변 다음 자리가
-   시선이 이미 가 있는 곳이다. 노출 조건은 그대로 — 방당 1회, 분석 이력이 없을 때만 */
-.diagHintCard {
-  margin: 12px 0 4px;
-  padding: 14px 16px 15px;
-  border-radius: 14px;
-  background: var(--card);
-  border: 1px solid var(--border);
+/* 분석 입구 — 방금 읽은 답변 다음 자리에 두는 건 그대로(시선이 이미 가 있는 곳). 다만
+   테두리 두른 상자 + 폭을 다 먹는 라벤더 버튼은 말풍선 리듬을 끊고 배너로 읽혔다. 배경도
+   상담자 풍선과 같은 --card라 모서리만 다른 풍선처럼 보였다.
+   날짜 구분선과 같은 문법으로 내려앉히고, 누를 것은 알약 하나만 남긴다.
+   노출 조건은 그대로 — 방당 1회, 분석 이력이 없을 때만 */
+.diagHint {
+  margin: 18px 0 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: dh-in 0.3s ease-out;
 }
 
-.diagHintTitle {
-  color: var(--text);
-  font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-}
-
-.diagHintBody {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-size: 12.5px;
-}
-
-.diagHintBtn {
+/* 가운데 글, 좌우로 뻗는 실선 — 이 줄이 대화가 아니라 화면의 말이라는 표시 */
+.diagHintLine {
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
-  width: 100%;
-  margin-top: 12px;
-  padding: 11px 0;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.diagHintLine::before,
+.diagHintLine::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* 헤더 분석 칩과 같은 중립 칩 문법 — 색은 아이콘에만. 알약인 건 대화 흐름 밖이라는 표시 */
+.diagHintBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
   border: none;
-  border-radius: 12px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 13.5px;
-  font-weight: 700;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
   cursor: pointer;
+}
+
+.diagHintBtn svg {
+  color: var(--accent);
+}
+
+@keyframes dh-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
 /* 빈 대화 상태 — 분석 상태 화면과 같은 타이포 위계(제목 + 흐린 본문) */
