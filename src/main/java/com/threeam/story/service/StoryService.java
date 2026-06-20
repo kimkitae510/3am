@@ -3,6 +3,10 @@ package com.threeam.story.service;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.global.exception.custom.RetryAfterException;
+import com.threeam.assessment.repository.AssessmentRepository;
+import com.threeam.chip.ChipMatcher;
+import com.threeam.chip.ChipStore;
+import com.threeam.chip.dto.ChipView;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
 import com.threeam.story.dto.MessagePageResponse;
@@ -23,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +50,9 @@ public class StoryService {
     private final MessageRepository messageRepository;
     private final MessageTxService messageTxService;
     private final StoryFactExtractor factExtractor;
+    private final ChipStore chipStore;
+    private final ChipMatcher chipMatcher;
+    private final AssessmentRepository assessmentRepository;
     // 답변을 고치지는 않고, 글자로 판정되는 규칙 위반만 세어 남긴다(ReplyLinter 주석 참고).
     private final ReplyLinter replyLinter;
     private final LlmClient llmClient;
@@ -106,10 +114,13 @@ public class StoryService {
                 throw new RetryAfterException(ErrorCode.CHAT_RETRY_COOLDOWN, retryAfterSeconds);
             }
 
-            MessageTxService.PreparedSend prepared =
-                    messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, request.getContent());
+            MessageTxService.PreparedSend prepared = messageTxService.appendUserMessageAndBuildPrompt(
+                    userId, storyId, request.getContent(), request.getChipId());
 
-            generateInBackground(userId, storyId, prepared.prompt());
+            // 칩을 눌렀으면 모듈이 이미 정해져 있어 판별을 건너뛴다. 자유입력이면 저가 호출로
+            // 어느 갈래인지 먼저 가린 뒤 프롬프트를 만든다 — 같은 질문에 답의 깊이가 갈리지 않게.
+            matchThenGenerate(userId, storyId, prepared.userMessageId(),
+                    request.getChipId() == null || request.getChipId().isBlank());
 
             return prepared.userMessage();
         } catch (RuntimeException e) {
@@ -135,9 +146,11 @@ public class StoryService {
             }
 
             // 폴백 삭제는 검사를 다 통과한 뒤다 — 거절당한 유저에게서 재시도 버튼을 뺏지 않는다.
+            // 재시도는 판별을 다시 하지 않는다 — 유저 메시지가 그대로라 결과도 같고,
+            // 이미 행에 찍혀 있어 프롬프트 재조립이 그 값을 그대로 집는다.
             MessageTxService.PreparedRetry prepared = messageTxService.prepareRetry(userId, storyId);
 
-            generateInBackground(userId, storyId, prepared.prompt());
+            generateInBackground(userId, storyId, CompletableFuture.completedFuture(null));
 
             return new MessageRetryResponse(prepared.pollAfterId());
         } catch (RuntimeException e) {
@@ -146,10 +159,20 @@ public class StoryService {
         }
     }
 
+    // 자유입력이면 판별 → 프롬프트 조립 → 생성. 칩 클릭이면 판별을 건너뛴다.
+    // 유저는 이미 202를 받고 "..."을 보고 있으므로, 판별에 드는 1~2초는 답변 도착만 늦춘다.
+    private void matchThenGenerate(Long userId, Long storyId, Long userMessageId, boolean needsMatch) {
+        CompletableFuture<Void> matched = needsMatch
+                ? chipMatcher.matchAsync(storyId, userMessageId)   // 안에서 삼킨다. 항상 완료된다
+                : CompletableFuture.completedFuture(null);
+        generateInBackground(userId, storyId, matched);
+    }
+
     // fire-and-forget: 응답을 기다리지 않는다. 완료되면 어시스턴트 메시지로 저장, 실패하면 폴백 저장.
     // handle로 LLM 단계 예외와 저장 단계 예외를 분리한다(저장 실패를 'LLM 실패'로 오인 기록하지 않게).
-    private void generateInBackground(Long userId, Long storyId, List<ChatMessage> prompt) {
-        llmClient.generate(prompt)
+    private void generateInBackground(Long userId, Long storyId, CompletableFuture<Void> ready) {
+        ready.thenComposeAsync(ignored ->
+                        llmClient.generate(messageTxService.promptFor(storyId)), llmCallbackExecutor)
                 .handleAsync((reply, ex) -> {
                     if (ex != null) {
                         log.error("LLM 응답 생성 실패 storyId={} userId={}", storyId, userId, ex);
@@ -256,10 +279,8 @@ public class StoryService {
         if (!messageRepository.existsByStoryIdAndIdGreaterThan(storyId, afterId)) {
             healDanglingTurn(userId, storyId);
         }
-        List<MessageResponse> fresh = messageRepository
-                .findByStoryIdAndIdGreaterThanOrderByIdAsc(storyId, afterId).stream()
-                .map(MessageResponse::from)
-                .toList();
+        List<MessageResponse> fresh = withChipsOnLast(
+                messageRepository.findByStoryIdAndIdGreaterThanOrderByIdAsc(storyId, afterId));
         // 답을 화면에서 받아봤으니 읽음 처리 — 목록 안읽음 배지의 기준 시각.
         if (!fresh.isEmpty()) {
             story.markRead();
@@ -285,14 +306,47 @@ public class StoryService {
 
         // 조회는 최신→과거(id desc)로 오지만, 화면 표시용으로 과거→현재로 뒤집는다.
         List<Message> content = slice.getContent();
-        List<MessageResponse> messages = new ArrayList<>();
+        List<Message> ordered = new ArrayList<>();
         for (int i = content.size() - 1; i >= 0; i--) {
-            messages.add(MessageResponse.from(content.get(i)));
+            ordered.add(content.get(i));
         }
+        // 칩은 최신 페이지의 마지막 답변에만 붙는다. 과거 페이지(cursor 있음)의 끝은 화면
+        // 중간이라, 거기 칩을 그리면 스크롤 도중에 지난 추천이 되살아난다.
+        List<MessageResponse> messages = cursor == null
+                ? withChipsOnLast(ordered)
+                : ordered.stream().map(MessageResponse::from).toList();
         // 다음 커서 = 이번 배치에서 가장 오래된(가장 작은) id. 클라는 이보다 과거를 이어서 요청한다.
         Long nextCursor = content.isEmpty() ? null : content.get(content.size() - 1).getId();
 
         return new MessagePageResponse(messages, nextCursor, slice.hasNext());
+    }
+
+    // 추천 질문은 목록의 마지막 답변에만 실어 내린다. 지난 답변까지 칩을 그리면 대화 곳곳에
+    // 눌리는 버튼이 남아, 유저가 어느 시점의 추천을 누르는지도 모르는 채 그때 맥락으로 상담이 열린다.
+    private List<MessageResponse> withChipsOnLast(List<Message> ordered) {
+        if (ordered.isEmpty()) {
+            return List.of();
+        }
+        int last = ordered.size() - 1;
+        List<MessageResponse> responses = new ArrayList<>();
+        for (int i = 0; i < ordered.size(); i++) {
+            Message message = ordered.get(i);
+            responses.add(i == last
+                    ? MessageResponse.from(message, chipStore.views(message.getSuggestedChips()))
+                    : MessageResponse.from(message));
+        }
+        return responses;
+    }
+
+
+    // "다른 질문 보기"의 전체 목록. 사연 기준으로 거른다 — 추천 3개만 막고 여기를 열어두면
+    // 진단을 안 받은 유저가 목록에서 진단 설명 칩을 골라 읽을 데이터 없이 결과를 설명하게 된다.
+    public List<ChipView> getChips(Long userId, Long storyId) {
+        findOwned(storyId, userId);
+        return chipStore.allViews(assessmentRepository
+                .findFirstByStoryIdOrderByCreatedAtDesc(storyId)
+                .map(a -> a.getProbability())
+                .orElse(null));
     }
 
     // 소프트 딜리트: 대화, 기억, 분석은 남길 기록이라 물리 삭제하지 않고 사연에 삭제 시각만 찍는다.

@@ -6,9 +6,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.threeam.chip.ChipMatcher;
+import com.threeam.chip.ChipStore;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.global.exception.custom.RetryAfterException;
@@ -31,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -82,8 +87,24 @@ class StoryServiceTest {
         }
     }
 
+    @Mock
+    private ChipStore chipStore;
+
+    // 자유입력 판별. 기본 스텁이 null이라 명시적으로 완료된 future를 준다 —
+    // 이게 없으면 상담 호출이 매달린 체인이 시작되지 않는다.
+    @Mock
+    private ChipMatcher chipMatcher;
+
     @InjectMocks
     private StoryService storyService;
+
+    // 판별은 자유입력 턴에만 도는 부가 단계라, 여기 테스트들은 "이미 끝난 것"으로 두고 지나간다.
+    // 목 기본값(null)을 그대로 두면 상담 호출이 매달린 체인 자체가 시작되지 않는다.
+    @BeforeEach
+    void chipMatchDone() {
+        lenient().when(chipMatcher.matchAsync(anyLong(), anyLong()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+    }
 
     @Test
     @DisplayName("사연 생성 - 제목을 지정하면 그대로 저장한다")
@@ -140,8 +161,8 @@ class StoryServiceTest {
     @DisplayName("메시지 전송 - 유저 메시지를 즉시 반환하고, 어시스턴트 답은 백그라운드로 저장한다")
     void sendMessage_success() {
         MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, "오늘 너무 힘들어"));
-        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 너무 힘들어"))
-                .willReturn(new MessageTxService.PreparedSend(userMessage, List.of()));
+        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 너무 힘들어", null))
+                .willReturn(new MessageTxService.PreparedSend(userMessage, 1L));
         given(llmClient.generate(anyList()))
                 .willReturn(CompletableFuture.completedFuture("괜찮아요, 여기 있어요."));
         given(messageTxService.appendAssistantReply(10L, "괜찮아요, 여기 있어요."))
@@ -168,8 +189,8 @@ class StoryServiceTest {
     void sendMessage_lengthDoesNotChangeUnits() {
         String longContent = "가".repeat(2800);
         MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, longContent));
-        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, longContent))
-                .willReturn(new MessageTxService.PreparedSend(userMessage, List.of()));
+        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, longContent, null))
+                .willReturn(new MessageTxService.PreparedSend(userMessage, 1L));
         given(llmClient.generate(anyList()))
                 .willReturn(CompletableFuture.completedFuture("들었어."));
         given(messageTxService.appendAssistantReply(10L, "들었어."))
@@ -184,7 +205,7 @@ class StoryServiceTest {
     @Test
     @DisplayName("메시지 전송 - 없거나 남의 사연이면 STORY_NOT_FOUND, LLM 호출도 쿼터 기록도 없다")
     void sendMessage_notFound() {
-        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi"))
+        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi", null))
                 .willThrow(new BusinessException(ErrorCode.STORY_NOT_FOUND));
 
         assertThatThrownBy(() -> storyService.sendMessage(1L, 10L, sendRequest("hi")))
@@ -209,7 +230,7 @@ class StoryServiceTest {
 
         // 접수 자체가 거부됐으니 한도 검사도, 메시지 저장도, LLM 호출도 없다
         verify(usageLimiter, never()).check(any(), any(), org.mockito.ArgumentMatchers.anyInt());
-        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any());
+        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any(), any());
         verify(llmClient, never()).generate(anyList());
     }
 
@@ -224,7 +245,7 @@ class StoryServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.QUOTA_EXCEEDED);
 
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
-        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any());
+        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any(), any());
         verify(llmClient, never()).generate(anyList());
     }
 
@@ -232,8 +253,8 @@ class StoryServiceTest {
     @DisplayName("메시지 전송 - LLM 실패로 폴백을 저장한 경우에도 잠금은 해제된다")
     void sendMessage_llmFailureReleasesLock() {
         MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, "hi"));
-        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi"))
-                .willReturn(new MessageTxService.PreparedSend(userMessage, List.of()));
+        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi", null))
+                .willReturn(new MessageTxService.PreparedSend(userMessage, 1L));
         given(llmClient.generate(anyList()))
                 .willReturn(CompletableFuture.failedFuture(new RuntimeException("LLM down")));
 
@@ -254,8 +275,8 @@ class StoryServiceTest {
     @DisplayName("메시지 전송 - 답이 저장되면 연속 실패 카운트를 지운다")
     void sendMessage_successClearsFailStreak() {
         MessageResponse userMessage = MessageResponse.from(message(1L, MessageRole.USER, "hi"));
-        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi"))
-                .willReturn(new MessageTxService.PreparedSend(userMessage, List.of()));
+        given(messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi", null))
+                .willReturn(new MessageTxService.PreparedSend(userMessage, 1L));
         given(llmClient.generate(anyList())).willReturn(CompletableFuture.completedFuture("들었어"));
         given(messageTxService.appendAssistantReply(10L, "들었어"))
                 .willReturn(MessageResponse.from(message(2L, MessageRole.ASSISTANT, "들었어")));
@@ -277,7 +298,7 @@ class StoryServiceTest {
                 .hasFieldOrPropertyWithValue("retryAfterSeconds", 42);
 
         // 유저 메시지도 저장하지 않는다 — 답이 붙지 않을 말풍선만 남으면 폴링이 헛돈다
-        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any());
+        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any(), any());
         verify(llmClient, never()).generate(anyList());
         verify(usageLimiter).releaseInFlight(UsageKind.CHAT, 1L);
     }
@@ -309,7 +330,7 @@ class StoryServiceTest {
         // 폴백을 지웠으니 클라가 들고 있던 id는 없는 행이다 — 폴링 기준을 새로 준다
         assertThat(response.getPollAfterId()).isEqualTo(7L);
         // 같은 말을 다시 저장하지 않는다(중복 말풍선, 중복 사실 추출 방지)
-        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any());
+        verify(messageTxService, never()).appendUserMessageAndBuildPrompt(any(), any(), any(), any());
         verify(messageTxService).appendAssistantReply(10L, "들었어");
         // 재시도라고 회수를 더 받지도, 깎아주지도 않는다
         verify(usageLimiter).record(UsageKind.CHAT, 1L, 1);

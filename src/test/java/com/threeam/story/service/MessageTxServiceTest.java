@@ -9,12 +9,18 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.threeam.chip.ChipDefinition;
+import com.threeam.chip.DiagnosisContext;
+import com.threeam.chip.ChipInteraction;
+import com.threeam.chip.ChipStore;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.BreakupType;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.RelapseRisk;
 import com.threeam.assessment.entity.ReunionVerdict;
+import com.threeam.assessment.entity.WatchPoint;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
@@ -24,10 +30,12 @@ import com.threeam.llm.LlmRole;
 import com.threeam.story.dto.MessageResponse;
 import com.threeam.story.entity.Message;
 import com.threeam.story.entity.MessageRole;
+import com.threeam.story.entity.ReunionDirection;
 import com.threeam.story.entity.Story;
 import com.threeam.story.entity.StoryFact;
 import com.threeam.story.repository.MessageRepository;
 import com.threeam.story.repository.StoryFactRepository;
+import com.threeam.story.repository.StoryIntakeRepository;
 import com.threeam.story.repository.StoryMemoryRepository;
 import com.threeam.story.repository.StoryRepository;
 import java.util.List;
@@ -35,6 +43,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -53,14 +62,18 @@ class MessageTxServiceTest {
     private ChatPersonaProperties personaProperties = personaProperties();
 
     private static final String FINAL_CHECK = "출력 직전 점검 자리표시자";
+    private static final String TURN1_CHECK = "첫 답변 점검 자리표시자";
     private static final String QUESTION = "질문 원칙 자리표시자";
     private static final String ANALYSIS = "분석 규칙 자리표시자";
+    private static final String PSYCHOLOGY = "관계심리 어휘 자리표시자";
 
     private static ChatPersonaProperties personaProperties() {
         ChatPersonaProperties properties = new ChatPersonaProperties();
         properties.setFinalCheck(FINAL_CHECK);
+        properties.setTurn1Check(TURN1_CHECK);
         properties.setQuestion(QUESTION);
         properties.setAnalysis(ANALYSIS);
+        properties.setRelationshipPsychology(PSYCHOLOGY);
         properties.setAssessmentGuide("이 값과 어긋나게 말하지 마라");
         return properties;
     }
@@ -79,6 +92,13 @@ class MessageTxServiceTest {
 
     @Mock
     private AssessmentRepository assessmentRepository;
+
+    @Mock
+    private StoryIntakeRepository storyIntakeRepository;
+
+    // 기본 스텁이 find()에 null을 주므로 여기 테스트들은 전부 칩 없는 턴으로 돈다.
+    @Mock
+    private ChipStore chipStore;
 
     @InjectMocks
     private MessageTxService messageTxService;
@@ -124,6 +144,7 @@ class MessageTxServiceTest {
 
     // 결과 라벨(유형, 요인 이름)을 실었더니 그 단어가 그대로 대화에 새어나왔고("소진형 상태거든"),
     // 확률만 실었더니 새 사실이 나와도 낡은 값에 묶였다(둘 다 실측). 재료로 싣되 내부 어휘는 뺀다.
+    // 자유입력이라 평소엔 분석이 안 실리지만, 유저가 확률을 직접 물으면 그 턴만 전부 싣는다.
     @Test
     @DisplayName("프롬프트 조립 - 진단은 확률과 사실로만 실리고 내부 라벨은 안 실린다")
     void buildPrompt_carriesAssessmentAsMaterial() {
@@ -131,7 +152,7 @@ class MessageTxServiceTest {
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 잠이 안 와")),
+                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "확률이 왜 이렇게 나왔어")),
                         PageRequest.of(0, 20), false));
         Assessment assessment = Assessment.builder()
                 .storyId(10L)
@@ -148,7 +169,7 @@ class MessageTxServiceTest {
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
                 .willReturn(Optional.of(assessment));
 
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 잠이 안 와").prompt();
+        List<ChatMessage> prompt = sendAndBuild(1L, 10L, "확률이 왜 이렇게 나왔어", null);
 
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
@@ -160,14 +181,17 @@ class MessageTxServiceTest {
                         || c.contains("상대신호") || c.contains("근거 없음"));
     }
 
+    // 관계 심리는 RELATIONSHIP 정책이 열리는 자리(재회 후 관계 전망)에서만 실린다.
     @Test
     @DisplayName("프롬프트 조립 - 관계 심리 라벨은 실린다(유저에게 말하는 어휘 — 채팅이 딴 이름을 짓지 않게)")
     void buildPrompt_carriesRelationshipPsychologyLabels() {
         Story story = story(10L);
+        stubChip("OUTLOOK_REPEAT", "RELATIONSHIP_OUTLOOK", DiagnosisContext.RELATIONSHIP);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "요즘 어때")),
+                .willReturn(new SliceImpl<>(List.of(
+                        Message.user(story, "다시 만나면 같은 문제가 반복될까요?", "OUTLOOK_REPEAT")),
                         PageRequest.of(0, 20), false));
         Assessment assessment = Assessment.builder()
                 .storyId(10L)
@@ -188,13 +212,16 @@ class MessageTxServiceTest {
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
                 .willReturn(Optional.of(assessment));
 
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "요즘 어때").prompt();
+        List<ChatMessage> prompt = sendAndBuild(
+                1L, 10L, "다시 만나면 같은 문제가 반복될까요?", "OUTLOOK_REPEAT");
 
         assertThat(prompt).filteredOn(m -> m.role() == LlmRole.SYSTEM)
                 .extracting(ChatMessage::content)
                 // 라벨은 실리고 설명 문장은 안 실린다(지난 서사 반복 방지)
                 .anyMatch(c -> c.contains("추구-회피") && c.contains("불안형") && c.contains("회피형"))
-                .noneMatch(c -> c.contains("설명은 프롬프트에 안 실린다"));
+                .noneMatch(c -> c.contains("설명은 프롬프트에 안 실린다"))
+                // 재회 뒤 관계를 보는 자리라 확률은 안 실린다 — 숫자가 있으면 그 숫자를 지키는 답이 된다
+                .noneMatch(c -> c.contains("35%"));
     }
 
     @Test
@@ -208,26 +235,29 @@ class MessageTxServiceTest {
                 .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "사연이야")),
                         PageRequest.of(0, 20), false));
 
-        List<ChatMessage> first = messageTxService
-                .appendUserMessageAndBuildPrompt(1L, 10L, "사연이야").prompt();
+        List<ChatMessage> first = sendAndBuild(1L, 10L, "사연이야", null);
 
-        assertThat(first).extracting(ChatMessage::content).contains(QUESTION);
         // 1회차는 묻기만 한다 — 분석 규칙이 실리면 지시로 미뤄도 결국 분석한다(실측)
         assertThat(first).extracting(ChatMessage::content).doesNotContain(ANALYSIS);
+        // 질문 선정 기준은 turn-1이 QUESTION 지침에 위임하므로 첫 턴에 같이 실린다
+        assertThat(first).extracting(ChatMessage::content).contains(QUESTION);
+        // 관계심리는 개념을 어떻게 다룰지의 어휘 규칙이라 첫 턴에도 실린다
+        assertThat(first).extracting(ChatMessage::content).contains(PSYCHOLOGY);
+        // 공용 점검은 분석이 끝난 답을 전제로 물어 첫 턴과 부딪힌다 — 첫 턴만 전용 판
+        assertThat(first).extracting(ChatMessage::content).contains(TURN1_CHECK).doesNotContain(FINAL_CHECK);
 
-        // 어시스턴트 답이 이미 있는 대화 = 이후 턴. 매 턴 실으면 "질문은 꼭 해라" 압박이
-        // 재점화돼 물을 게 없는 턴에도 질문을 짜낸다(실측) — 이후 턴 규칙은 본문이 맡는다.
+        // 어시스턴트 답이 이미 있는 대화 = 이후 턴.
         given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(
                         message(MessageRole.USER, "그리고 이것도 있어"),
                         message(MessageRole.ASSISTANT, "지난 답변"),
                         message(MessageRole.USER, "사연이야")), PageRequest.of(0, 20), false));
 
-        List<ChatMessage> later = messageTxService
-                .appendUserMessageAndBuildPrompt(1L, 10L, "그리고 이것도 있어").prompt();
+        List<ChatMessage> later = sendAndBuild(1L, 10L, "그리고 이것도 있어", null);
 
         assertThat(later).extracting(ChatMessage::content).doesNotContain(QUESTION);
         assertThat(later).extracting(ChatMessage::content).contains(ANALYSIS);
+        assertThat(later).extracting(ChatMessage::content).contains(PSYCHOLOGY);
         assertThat(later).extracting(ChatMessage::content).contains(FINAL_CHECK); // 점검은 매 턴 유지
     }
 
@@ -241,12 +271,12 @@ class MessageTxServiceTest {
                 .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 힘들어")),
                         PageRequest.of(0, 20), false));
 
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 힘들어").prompt();
+        List<ChatMessage> prompt = sendAndBuild(1L, 10L, "오늘 힘들어", null);
 
         // 앞에 두면 리마인더와 같은 자리가 되어 묻힌다 — 마지막으로 읽히는 지시라는 게 이 블록의 전부다.
         ChatMessage last = prompt.get(prompt.size() - 1);
         assertThat(last.role()).isEqualTo(LlmRole.SYSTEM);
-        assertThat(last.content()).isEqualTo(FINAL_CHECK);
+        assertThat(last.content()).isEqualTo(TURN1_CHECK); // 첫 답변 턴이라 전용 점검
     }
 
     @Test
@@ -259,12 +289,12 @@ class MessageTxServiceTest {
                 .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "오늘 힘들어")),
                         PageRequest.of(0, 20), false));
 
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "오늘 힘들어").prompt();
+        List<ChatMessage> prompt = sendAndBuild(1L, 10L, "오늘 힘들어", null);
 
         assertThat(prompt.get(0).role()).isEqualTo(LlmRole.SYSTEM); // 맨 앞은 페르소나
-        // 페르소나 + 유저 + 질문 원칙(첫 답변 턴) + 출력 직전 점검(맨 끝).
+        // 페르소나 + 유저 + 관계심리, 질문 원칙(첫 답변 턴) + 출력 직전 점검(맨 끝).
         assertThat(prompt).extracting(ChatMessage::role)
-                .containsExactly(LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM, LlmRole.SYSTEM);
+                .containsExactly(LlmRole.SYSTEM, LlmRole.USER, LlmRole.SYSTEM, LlmRole.SYSTEM, LlmRole.SYSTEM);
         verify(messageRepository).save(any(Message.class)); // 유저 메시지 저장됨
     }
 
@@ -282,7 +312,7 @@ class MessageTxServiceTest {
         given(storyFactRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
                 .willReturn(List.of(fact));
 
-        List<ChatMessage> prompt = messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "안녕").prompt();
+        List<ChatMessage> prompt = sendAndBuild(1L, 10L, "안녕", null);
 
         // 인덱스가 아니라 내용으로 찾는다 — 프롬프트 순서는 캐시 때문에 바뀔 수 있고,
         // 이 테스트가 검증할 것은 자리가 아니라 "원장이 실렸는가"다.
@@ -299,11 +329,9 @@ class MessageTxServiceTest {
         ReflectionTestUtils.setField(story, "id", 10L);
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
-        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "긴 얘기")), PageRequest.of(0, 20), false));
 
         messageTxService.appendUserMessageAndBuildPrompt(1L, 10L,
-                "3년 만난 남자친구랑 2주 전에 헤어졌어. 걔가 먼저 헤어지자고 했어.");
+                "3년 만난 남자친구랑 2주 전에 헤어졌어. 걔가 먼저 헤어지자고 했어.", null);
 
         // 공백 정리 후 앞 20자 + 말줄임
         assertThat(story.getTitle()).isEqualTo("3년 만난 남자친구랑 2주 전에 헤어…");
@@ -315,10 +343,8 @@ class MessageTxServiceTest {
         Story story = story(10L);   // 제목 "사연"
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
         given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
-        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(message(MessageRole.USER, "안녕")), PageRequest.of(0, 20), false));
 
-        messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "안녕");
+        messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "안녕", null);
 
         assertThat(story.getTitle()).isEqualTo("사연");
     }
@@ -328,7 +354,7 @@ class MessageTxServiceTest {
     void appendUser_notFound() {
         given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi"))
+        assertThatThrownBy(() -> messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "hi", null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORY_NOT_FOUND);
 
@@ -350,7 +376,7 @@ class MessageTxServiceTest {
     }
 
     @Test
-    @DisplayName("어시스턴트 응답 저장 - 마크다운 기호는 저장 전에 걷어낸다(화면이 렌더링하지 않아 그대로 노출됨)")
+    @DisplayName("어시스턴트 응답 저장 - 마크다운 기호는 저장 전에 걷어낸다(흘린 굵기가 무작위로 렌더링되지 않게)")
     void appendAssistant_stripsMarkdownMarks() {
         Story story = story(10L);
         given(storyRepository.findById(10L)).willReturn(Optional.of(story));
@@ -364,6 +390,31 @@ class MessageTxServiceTest {
                 "분석\n의사소통과 정서적 기대의 충돌이 반복된 것으로 보입니다. 별표 하나 *는 남습니다.");
     }
 
+    // turn-2가 답변 끝에 붙이는 내부 메타데이터. 읽어서 사연에 옮기고 본문에서는 뗀다 —
+    // 안 떼면 JSON이 그대로 말풍선에 찍히고 다음 턴 프롬프트에도 실린다.
+    @Test
+    @DisplayName("어시스턴트 응답 저장 - chat-meta는 사연에 옮기고 본문에서 뗀다")
+    void appendAssistant_extractsChatMeta() {
+        Story story = story(10L);
+        given(storyRepository.findById(10L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+
+        MessageResponse response = messageTxService.appendAssistantReply(10L,
+                "상대는 아직 관계를 다시 잇겠다는 행동을 하지 않고 있습니다.\n\n"
+                        + "---chat-meta---\n{\"reunionDirection\":\"NEGATIVE\"}");
+
+        assertThat(response.getContent())
+                .isEqualTo("상대는 아직 관계를 다시 잇겠다는 행동을 하지 않고 있습니다.")
+                .doesNotContain("reunionDirection");
+        assertThat(story.getReunionDirection()).isEqualTo(ReunionDirection.NEGATIVE);
+    }
+
+    // 저장과 프롬프트 조립이 갈라졌다 — 그 사이에 자유입력 판별이 낀다(ChipMatcher).
+    private List<ChatMessage> sendAndBuild(Long userId, Long storyId, String content, String chipId) {
+        messageTxService.appendUserMessageAndBuildPrompt(userId, storyId, content, chipId);
+        return messageTxService.promptFor(storyId);
+    }
+
     private Story story(Long id) {
         Story story = Story.builder().userId(1L).title("사연").build();
         ReflectionTestUtils.setField(story, "id", id);
@@ -372,5 +423,211 @@ class MessageTxServiceTest {
 
     private Message message(MessageRole role, String content) {
         return Message.builder().role(role).content(content).build();
+    }
+
+    // ── 추천 질문 칩 ────────────────────────────────────────────────
+
+    private static final String CHIP_COMMON = "칩 공용 자리표시자";
+    private static final String CHIP_MODULE = "연락 모듈 자리표시자";
+    private static final String CHIP_MICRO = "CONTACT_NOW 마이크로 자리표시자";
+
+    private ChipDefinition stubChip() {
+        return stubChip("CONTACT_NOW", "CONTACT", DiagnosisContext.NONE);
+    }
+
+    private ChipDefinition stubChip(String id, String module, DiagnosisContext context) {
+        ChipDefinition chip = new ChipDefinition(id, id + " 라벨", module,
+                id + " 설명", "", ChipInteraction.DIRECT, null);
+        given(chipStore.find(id)).willReturn(chip);
+        given(chipStore.commonPrompt()).willReturn(CHIP_COMMON);
+        given(chipStore.modulePrompt(chip)).willReturn(CHIP_MODULE);
+        given(chipStore.microPrompt(chip)).willReturn(CHIP_MICRO);
+        given(chipStore.diagnosisContext(chip)).willReturn(context);
+        return chip;
+    }
+
+    private Assessment fullAssessment() {
+        Assessment assessment = Assessment.builder()
+                .storyId(10L)
+                .verdict(ReunionVerdict.POSSIBLE)
+                .probability(30)
+                .breakupType(BreakupType.BURNOUT)
+                .factor(AssessmentFactor.of(FactorName.REPLACEMENT, FactorLevel.STRONG_UNFAVORABLE,
+                        "상대에게 새 연인이 정착함", null, null))
+                .relapseRisk(RelapseRisk.HIGH)
+                .relapseReason("같은 갈등이 그대로다")
+                .watchPoint(WatchPoint.of("상대가 먼저 연락함", "판단을 다시 본다"))
+                .reason("총평")
+                .build();
+        ReflectionTestUtils.setField(assessment, "createdAt", java.time.LocalDateTime.now());
+        given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(10L))
+                .willReturn(Optional.of(assessment));
+        return assessment;
+    }
+
+    private List<ChatMessage> chipTurn(Story story, String chipId) {
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(Message.user(story, "물어볼게요", chipId)),
+                        PageRequest.of(0, 20), false));
+        return sendAndBuild(1L, 10L, "물어볼게요", chipId);
+    }
+
+    // 확률이 한 번 나오면 매 턴 그 숫자가 너무 강한 기준점이 되어, 새로 판단해야 하는 질문까지
+    // 기존 결론을 유지해 설명하는 쪽으로 흐른다. 그래서 기본은 안 싣는다.
+    @Test
+    @DisplayName("진단 주입 - NONE 모듈은 분석을 읽지도 않는다")
+    void diagnosisContext_noneLoadsNothing() {
+        Story story = story(10L);
+        stubChip("CONTACT_NOW", "CONTACT", DiagnosisContext.NONE);
+
+        assertThat(chipTurn(story, "CONTACT_NOW")).extracting(ChatMessage::content)
+                .noneMatch(c -> c.contains("최근 진단에서"));
+        // 안 싣는 데서 그치지 않고 조회 자체를 건너뛴다 — 안 쓸 값을 매 턴 읽을 이유가 없다
+        verify(assessmentRepository, never()).findFirstByStoryIdOrderByCreatedAtDesc(anyLong());
+    }
+
+    // 무엇이 바뀌면 판단이 바뀌는지를 다루는 자리. 확률 숫자는 굳이 필요 없다.
+    @Test
+    @DisplayName("진단 주입 - FACTORS_WATCH는 요인과 관찰 지점만 싣고 확률은 뺀다")
+    void diagnosisContext_factorsWatch() {
+        Story story = story(10L);
+        stubChip("REUNION_CHANGE", "REUNION_CONDITION", DiagnosisContext.FACTORS_WATCH);
+        fullAssessment();
+
+        assertThat(chipTurn(story, "REUNION_CHANGE")).extracting(ChatMessage::content)
+                .anyMatch(c -> c.contains("상대에게 새 연인이 정착함") && c.contains("상대가 먼저 연락함"))
+                .noneMatch(c -> c.contains("30%"))
+                .noneMatch(c -> c.contains("재발 위험"));
+    }
+
+    @Test
+    @DisplayName("진단 주입 - RELATIONSHIP은 재발 위험만 싣고 요인은 뺀다")
+    void diagnosisContext_relationship() {
+        Story story = story(10L);
+        stubChip("OUTLOOK_CAN_WORK", "RELATIONSHIP_OUTLOOK", DiagnosisContext.RELATIONSHIP);
+        fullAssessment();
+
+        assertThat(chipTurn(story, "OUTLOOK_CAN_WORK")).extracting(ChatMessage::content)
+                .anyMatch(c -> c.contains("재발 위험") && c.contains("같은 갈등이 그대로다"))
+                .noneMatch(c -> c.contains("30%"))
+                .noneMatch(c -> c.contains("상대에게 새 연인이 정착함"));
+    }
+
+    @Test
+    @DisplayName("진단 주입 - FULL은 확률부터 관찰 지점까지 전부 싣는다")
+    void diagnosisContext_full() {
+        Story story = story(10L);
+        stubChip("DIAG_LOW", "DIAGNOSIS_EXPLAIN", DiagnosisContext.FULL);
+        fullAssessment();
+
+        assertThat(chipTurn(story, "DIAG_LOW")).extracting(ChatMessage::content)
+                .anyMatch(c -> c.contains("30%") && c.contains("상대에게 새 연인이 정착함")
+                        && c.contains("재발 위험") && c.contains("상대가 먼저 연락함"));
+    }
+
+    // 새 사건은 기존 결론에 끌리지 않고 그 행동 자체가 얼마나 큰 변화인지부터 깨끗하게 본다.
+    @Test
+    @DisplayName("진단 주입 - 자유입력은 기본으로 안 싣는다")
+    void diagnosisContext_freeInputLoadsNothing() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(
+                        message(MessageRole.USER, "걔 친구가 제 스토리를 봤어요")),
+                        PageRequest.of(0, 20), false));
+
+        List<ChatMessage> prompt = sendAndBuild(1L, 10L, "걔 친구가 제 스토리를 봤어요", null);
+
+        assertThat(prompt).extracting(ChatMessage::content).noneMatch(c -> c.contains("최근 진단에서"));
+        verify(assessmentRepository, never()).findFirstByStoryIdOrderByCreatedAtDesc(anyLong());
+    }
+
+    // 행동 상담은 칩 쪽(ACTION 모듈)으로 분리했으므로 회차 묶음의 action까지 같이 실으면
+    // 같은 일을 두 벌로 시킨다. 더하는 게 아니라 대신하는 것이 이 분기의 전부다.
+    @Test
+    @DisplayName("칩 턴 - 회차 규칙 묶음 대신 공용, 모듈, 마이크로 프롬프트가 실린다")
+    void buildPrompt_chipTurnReplacesSectionBundle() {
+        Story story = story(10L);
+        stubChip();
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(
+                        Message.user(story, "지금 연락해도 될까요?", "CONTACT_NOW"),
+                        message(MessageRole.ASSISTANT, "지난 답변"),
+                        message(MessageRole.USER, "사연이야")), PageRequest.of(0, 20), false));
+
+        List<ChatMessage> prompt = sendAndBuild(
+                1L, 10L, "지금 연락해도 될까요?", "CONTACT_NOW");
+
+        assertThat(prompt).extracting(ChatMessage::content)
+                .contains(CHIP_COMMON, CHIP_MODULE, CHIP_MICRO)
+                .contains(FINAL_CHECK)          // 출력 직전 점검은 칩 턴에도 맨 끝에 남는다
+                .doesNotContain(ANALYSIS)       // 회차 묶음은 통째로 빠진다
+                .doesNotContain(QUESTION);      // 유저가 고른 질문에 답하는 턴이라 되묻기를 안 시킨다
+    }
+
+    // 재시도는 유저 메시지를 그대로 두고 프롬프트만 다시 조립한다. chipId가 요청에만 있고
+    // 행에 없으면 재시도한 답변만 전문 모듈 없이 나온다.
+    @Test
+    @DisplayName("칩 턴 - 재시도해도 저장된 chipId로 같은 모듈이 다시 실린다")
+    void prepareRetry_keepsChipModule() {
+        Story story = story(10L);
+        stubChip();
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        Message userMessage = Message.user(story, "지금 연락해도 될까요?", "CONTACT_NOW");
+        ReflectionTestUtils.setField(userMessage, "id", 7L);
+        Message fallback = Message.fallback(story);
+        ReflectionTestUtils.setField(fallback, "id", 8L);
+        // 첫 조회는 재시도 가능 판정(최신 2개), 그다음이 프롬프트 재조립용 대화 창이다.
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(fallback, userMessage), PageRequest.of(0, 2), false))
+                .willReturn(new SliceImpl<>(List.of(userMessage), PageRequest.of(0, 20), false));
+
+        MessageTxService.PreparedRetry prepared = messageTxService.prepareRetry(1L, 10L);
+
+        assertThat(prepared.prompt()).extracting(ChatMessage::content)
+                .contains(CHIP_COMMON, CHIP_MODULE, CHIP_MICRO);
+    }
+
+    // 칩은 질문 범위를 제한하는 장치가 아니라 전문 프롬프트로 가는 지름길이다.
+    @Test
+    @DisplayName("자유입력 - chipId가 없으면 기존 회차 규칙 그대로 돈다")
+    void buildPrompt_freeInputKeepsTurnSections() {
+        Story story = story(10L);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+        given(messageRepository.findByStoryIdOrderByIdDesc(eq(10L), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(
+                        message(MessageRole.USER, "걔 친구가 제 스토리를 봤어요"),
+                        message(MessageRole.ASSISTANT, "지난 답변"),
+                        message(MessageRole.USER, "사연이야")), PageRequest.of(0, 20), false));
+
+        List<ChatMessage> prompt = sendAndBuild(
+                1L, 10L, "걔 친구가 제 스토리를 봤어요", null);
+
+        assertThat(prompt).extracting(ChatMessage::content)
+                .contains(ANALYSIS)
+                .doesNotContain(CHIP_COMMON);
+    }
+
+    // 칩을 지운 뒤에도 열려 있던 화면에서 뒤늦게 올 수 있다. 기록만 오염되고 프롬프트에는
+    // 어차피 안 실리므로 저장 단계에서 떨군다.
+    @Test
+    @DisplayName("카탈로그에 없는 chipId는 저장하지 않고 자유입력으로 다룬다")
+    void unknownChipIdIsDropped() {
+        Story story = story(10L);
+        given(chipStore.find("사라진칩")).willReturn(null);
+        given(storyRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).willReturn(Optional.of(story));
+        given(messageRepository.save(any(Message.class))).willAnswer(inv -> inv.getArgument(0));
+
+        messageTxService.appendUserMessageAndBuildPrompt(1L, 10L, "안녕", "사라진칩");
+
+        ArgumentCaptor<Message> saved = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(saved.capture());
+        assertThat(saved.getValue().getChipId()).isNull();
     }
 }
