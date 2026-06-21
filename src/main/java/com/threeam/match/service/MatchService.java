@@ -21,8 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MatchService {
 
-    // 데이터가 169건이라 뒤로 갈수록 유사도가 급히 떨어진다. 억지로 채운 세 번째 사례가
-    // "이건 내 얘기가 아닌데"가 되면 앞의 둘까지 못 믿게 되므로 두 건만 보여준다.
+    // 뒤로 갈수록 유사도가 급히 떨어진다. 억지로 채운 세 번째 사례가 "이건 내 얘기가
+    // 아닌데"가 되면 앞의 둘까지 못 믿게 되므로 두 건만 보여준다.
     private static final int TOP_N = 2;
 
     private final StoryRepository storyRepository;
@@ -40,8 +40,6 @@ public class MatchService {
             return SimilarCasesResponse.noProfile();
         }
 
-        // 결과가 성공 사례로 기울지 않게 손대지 않는다 — 재회하러 온 사람에게 성공담을 끼워 넣는 건
-        // 헛된 희망을 파는 것이고, 이 서비스가 확률에서부터 거부해 온 방식이다.
         // 동점은 id로 갈라 매번 같은 순서를 보장한다(새로고침마다 사례가 바뀌면 신뢰가 깎인다).
         List<SimilarCaseResponse> matched = caseStore.all().stream()
                 .map(target -> new Scored(target, scorer.score(profile, target)))
@@ -50,7 +48,7 @@ public class MatchService {
                         .thenComparing(s -> s.target.getId()))
                 .limit(TOP_N)
                 .map(scored -> SimilarCaseResponse.from(scored.target,
-                        matchedOn(profile, scored.target)))
+                        scorer.matchedTags(profile, scored.target)))
                 .toList();
 
         return SimilarCasesResponse.of(matched);
@@ -59,9 +57,4 @@ public class MatchService {
     private record Scored(ReunionCase target, int score) {
     }
 
-    // "왜 이 사례가 나왔는지" 한 줄 재료. 라벨 나열만 내려주고 문장은 화면이 만든다.
-    private String matchedOn(StoryMatchProfile profile, ReunionCase target) {
-        List<String> aspects = scorer.matchedAspects(profile, target);
-        return aspects.isEmpty() ? null : String.join(", ", aspects);
-    }
 }

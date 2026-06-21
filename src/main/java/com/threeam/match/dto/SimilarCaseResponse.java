@@ -14,14 +14,15 @@ public record SimilarCaseResponse(
         List<String> subReasons,
         String dumper,
         String contactState,
-        String outcome,          // 성공 / 실패 / 성공후재이별
+        String outcome,          // 성공 / 실패
         String periodLabel,      // "재회 네 달째" 같은 시점 프로즈
-        String reunionRecord,
-        Integer datingMonths,        // 만난 기간(개월) — 카드 메타 줄용, 미상이면 null
+        Integer datingMonths,        // 만난 기간(개월) — 미상이면 null
         Integer monthsSinceBreakup,  // 이별 후 경과(개월)
-        String matchedOn) {          // 왜 이 사례가 나왔는지: "이별 사유, 지금 연락 상태" (없으면 null)
+        // 나와 겹친 지점의 태그. 겹친 축만 담기므로 여기 실리는 값은 전부 유저가 이미 말한 것이다.
+        // 값을 못 띄우는 축은 축 이름으로 내려온다(CaseScorer.matchedTags).
+        List<String> matchedTags) {
 
-    public static SimilarCaseResponse from(ReunionCase source, String matchedOn) {
+    public static SimilarCaseResponse from(ReunionCase source, List<String> matchedTags) {
         return new SimilarCaseResponse(
                 source.getId(),
                 source.getStory(),
@@ -33,9 +34,8 @@ public record SimilarCaseResponse(
                 source.getContactState(),
                 source.getOutcome(),
                 source.getPeriodLabel(),
-                source.getReunionRecord(),
                 source.getDatingMonths(),
                 source.getMonthsSinceBreakup(),
-                matchedOn);
+                matchedTags);
     }
 }

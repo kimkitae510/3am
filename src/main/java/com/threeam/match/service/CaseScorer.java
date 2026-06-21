@@ -37,6 +37,9 @@ public class CaseScorer {
     private static final int FAULT = 10;
 
     // T3 상황 — 지금 어떤 상태인가
+    // 연락 상태는 실패 사례에서만 점수가 된다. 재회한 사례는 결과가 곧 연락중이라 값이
+    // 전부 같고(성공 191건 전량), 그 축으로 성공 사례끼리 가릴 게 없다. 그런데도 채점하면
+    // 무연락, 차단인 유저에게 모든 성공 사례가 12점씩 밀려 나가는 편향만 남는다.
     private static final int CONTACT_STATE = 12;
     private static final int REPEAT_BREAKUP = 8;
     // 상대에게 새 사람이 있는 판은 없는 판과 게임이 다르다 — 사유가 같아도 넘어야 할
@@ -154,7 +157,9 @@ public class CaseScorer {
 
     private int tierThree(StoryMatchProfile profile, ReunionCase target) {
         int score = 0;
-        score += same(profile.getContactState(), target.getContactState()) ? CONTACT_STATE : 0;
+        if (scoresContact(target) && same(profile.getContactState(), target.getContactState())) {
+            score += CONTACT_STATE;
+        }
         // 온오프를 겪은 사이끼리만 인정한다 — 둘 다 아닌 건 대다수라 변별력이 없다.
         if (Boolean.TRUE.equals(profile.getRepeatBreakup())
                 && Boolean.TRUE.equals(target.getRepeatBreakup())) {
@@ -202,52 +207,89 @@ public class CaseScorer {
         return mine != null && !mine.isBlank() && Objects.equals(mine, theirs);
     }
 
-    // 이 사례가 왜 뽑혔는지의 서술 라벨(무게 순, 최대 3개). 분류명(태그)은 노출하지 않는다 —
-    // 태그를 화면에서 걷어낸 뒤 "왜 이 사례지?"가 비어 있던 자리를 채우는 근거 문장 재료다.
-    public List<String> matchedAspects(StoryMatchProfile profile, ReunionCase target) {
-        List<String> aspects = new java.util.ArrayList<>();
+    // 재회한 사례의 연락 상태는 결과가 정해준 값이라 겹쳐도 닮은 지점이 아니다.
+    // 화면 태그도 같은 이유로 안 붙인다 — 무연락인 유저의 카드에 "연락 중이 같음"이 뜬다.
+    private boolean scoresContact(ReunionCase target) {
+        return !"성공".equals(target.getOutcome());
+    }
+
+    // 이 사례가 왜 뽑혔는지를 화면에 그대로 실을 태그(무게 순, 최대 4개).
+    //
+    // 겹친 축만 태그가 된다 — 그래서 화면에 뜨는 값은 전부 유저가 이미 자기 입으로 말한 것이고,
+    // 서비스가 유저에게 새 이름표를 붙이는 일이 없다. 안 겹친 사례의 값은 애초에 안 나간다.
+    //
+    // 값을 띄울 수 있는 항목은 값으로, 아닌 것은 축 이름으로 떨어진다(MatchTaxonomy.displayTag).
+    // 통보 주체는 값을 아예 안 띄운다 — 차인 쪽에게 "차임"이라는 이름표가 남의 카드에 박혀 보이고,
+    // 나떠밀림은 화면에 쓸 말이 없다.
+    //
+    // 4개까지만: 카드 하나가 태그밭이 되면 무엇이 진짜 겹침인지가 흐려지고, 뒤로 갈수록
+    // 무게가 낮은 축이라 다섯 번째부터는 "닮았다"의 근거가 아니라 장식이다.
+    public List<String> matchedTags(StoryMatchProfile profile, ReunionCase target) {
+        List<String> tags = new java.util.ArrayList<>();
         List<String> mine = profile.subReasonList();
         List<String> theirs = target.subReasonList();
-        boolean primaryish = false;
-        boolean secondary = false;
+        String primaryTag = null;
+        String secondaryTag = null;
         for (int i = 0; i < mine.size(); i++) {
             int j = theirs.indexOf(mine.get(i));
             if (j < 0) {
                 continue;
             }
             if (i == 0 || j == 0) {
-                primaryish = true;
-            } else {
-                secondary = true;
+                if (primaryTag == null) {
+                    primaryTag = mine.get(i);
+                }
+            } else if (secondaryTag == null) {
+                secondaryTag = mine.get(i);
             }
         }
-        if (primaryish) {
-            aspects.add("이별의 결정적 계기");
+        if (primaryTag != null) {
+            tags.add(labelled(primaryTag, "이별의 결정적 계기"));
         }
         if (same(profile.getReason(), target.getReason())) {
-            aspects.add("이별 사유");
+            tags.add(labelled(profile.getReason(), "이별 사유"));
         }
-        if (!primaryish && secondary) {
-            aspects.add("이별의 배경 사정");
+        if (primaryTag == null && secondaryTag != null) {
+            tags.add(labelled(secondaryTag, "이별의 배경 사정"));
         }
         if (!"미상".equals(profile.getDumper()) && same(profile.getDumper(), target.getDumper())) {
-            aspects.add("헤어지자고 한 쪽");
+            tags.add("헤어지자고 한 쪽");
         } else if (kindred(profile.getDumper(), target.getDumper())) {
-            aspects.add("이별을 원한 쪽");
+            tags.add("이별을 원한 쪽");
         }
-        if (same(profile.getContactState(), target.getContactState())) {
-            aspects.add("지금 연락 상태");
+        if (scoresContact(target) && same(profile.getContactState(), target.getContactState())) {
+            tags.add(labelled(profile.getContactState(), "지금 연락 상태"));
+        }
+        // 둘 다 false인 일치는 안 센다 — 새 사람이 없는 건 대부분의 판이라 닮은 지점이 아니다
+        if (Boolean.TRUE.equals(profile.getPartnerHasNew())
+                && Boolean.TRUE.equals(target.getPartnerHasNew())) {
+            tags.add("상대에게 새 사람");
         }
         if (Boolean.TRUE.equals(profile.getRepeatBreakup())
                 && Boolean.TRUE.equals(target.getRepeatBreakup())) {
-            aspects.add("반복된 이별과 재회 이력");
+            tags.add("재회 이력");
         }
         if (sameBucket(profile.getMonthsSinceBreakup(), target.getMonthsSinceBreakup(), PERIOD_BUCKETS)) {
-            aspects.add("이별 후 경과");
+            tags.add("이별 후 경과");
         }
+        // 사례 쪽 값을 쓴다 — 같은 버킷이어도 숫자는 다르고, 유저가 보는 것은 이 사례의 기간이다
         if (sameBucket(profile.getDatingMonths(), target.getDatingMonths(), DATING_BUCKETS)) {
-            aspects.add("만난 기간");
+            tags.add(months(target.getDatingMonths()) + " 만남");
         }
-        return aspects.size() > 3 ? aspects.subList(0, 3) : aspects;
+        return tags.size() > 4 ? tags.subList(0, 4) : tags;
+    }
+
+    private String labelled(String value, String axisName) {
+        String display = MatchTaxonomy.displayTag(value);
+        return display != null ? display : axisName;
+    }
+
+    private String months(int m) {
+        if (m < 12) {
+            return m + "개월";
+        }
+        int years = m / 12;
+        int rest = m % 12;
+        return rest == 0 ? years + "년" : years + "년 " + rest + "개월";
     }
 }

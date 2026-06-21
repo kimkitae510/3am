@@ -109,4 +109,69 @@ public final class MatchTaxonomy {
     public static boolean isSubReason(String value) {
         return value != null && SUB_REASONS.contains(value);
     }
+
+    // 사례 카드의 겹침 태그로 값까지 띄울 수 있는 항목과 그 표기. 여기 없는 값은 축 이름으로 떨어진다.
+    //
+    // allowlist인 이유: 이 사전은 오판 실측으로 계속 자라는데, denylist였다면 새로 넣은 태그가
+    // 조용히 화면으로 샌다. 빠뜨렸을 때 안 뜨는 쪽이 잘못 뜨는 쪽보다 싸다.
+    //
+    // 빠진 것 — 과실 행동 풀 전부, 외도와 환승이별 갈래, 애정식음, 질병과 성격 결함으로 읽히는 값.
+    // 겹칠 때만 뜨니 유저가 이미 겪은 일이긴 하나, 남의 카드에 붙은 이름표로 보는 것은 다른 무게다.
+    // 값을 못 보여도 겹쳤다는 신호는 축 이름이 그대로 전한다.
+    private static final Map<String, String> DISPLAY_TAG = Map.ofEntries(
+            Map.entry("권태기", "권태기"),
+            Map.entry("성격차이", "성격 차이"),
+            Map.entry("가치관차이", "가치관 차이"),
+            Map.entry("장거리", "장거리"),
+            Map.entry("외부상황", "외부 상황"),
+            Map.entry("잦은싸움", "잦은 다툼"),
+
+            Map.entry("장기연애권태", "장기 연애 권태"),
+            Map.entry("매너리즘반복일상", "반복되는 일상"),
+
+            Map.entry("거리지침", "거리에 지침"),
+            Map.entry("유학워홀", "유학, 워홀"),
+            Map.entry("발령이직", "발령, 이직"),
+            Map.entry("교환학생", "교환학생"),
+            Map.entry("시차", "시차"),
+            Map.entry("만남횟수부족", "만남이 드묾"),
+
+            Map.entry("취업취준", "취업 준비"),
+            Map.entry("부모반대", "부모 반대"),
+            Map.entry("사내연애소문", "사내 연애"),
+            Map.entry("군대", "군대"),
+            Map.entry("시험", "시험"),
+            Map.entry("사업", "사업"),
+            Map.entry("경제적어려움", "경제적 어려움"),
+            Map.entry("가족문제", "가족 문제"),
+
+            Map.entry("결혼타이밍", "결혼 시기"),
+            Map.entry("돈소비경제관", "소비 관념"),
+            Map.entry("종교", "종교"),
+            Map.entry("일커리어", "일과 커리어"),
+            Map.entry("자녀계획", "자녀 계획"),
+            Map.entry("거주지역", "거주 지역"),
+            Map.entry("결혼준비파혼", "결혼 준비"),
+
+            Map.entry("계획즉흥", "계획과 즉흥"),
+            Map.entry("데이트성향", "데이트 성향"),
+            Map.entry("연락빈도차이", "연락 빈도"),
+            Map.entry("개인시간", "개인 시간"),
+            Map.entry("스킨십속도", "스킨십 속도"),
+            Map.entry("관계정의", "관계 정의"),
+
+            Map.entry("잠수이별연락두절", "잠수 이별"),
+            Map.entry("자연소멸", "자연 소멸"),
+            Map.entry("이유안알려줌", "이유 안 알려줌"),
+
+            Map.entry("무연락", "연락 없음"),
+            Map.entry("차단", "차단"),
+            Map.entry("읽씹", "읽씹"),
+            Map.entry("상대가연락", "상대가 연락"),
+            Map.entry("연락중", "연락 중"));
+
+    // 값을 띄울 수 있으면 그 표기, 아니면 null(부르는 쪽이 축 이름으로 떨어뜨린다).
+    public static String displayTag(String value) {
+        return value == null ? null : DISPLAY_TAG.get(value);
+    }
 }

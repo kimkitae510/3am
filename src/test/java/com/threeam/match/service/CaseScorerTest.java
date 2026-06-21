@@ -116,7 +116,7 @@ class CaseScorerTest {
 
         assertThat(partnerScore).isGreaterThan(silentScore);
         assertThat(exactScore).isGreaterThan(partnerScore);
-        assertThat(scorer.matchedAspects(mine, partner)).contains("이별을 원한 쪽");
+        assertThat(scorer.matchedTags(mine, partner)).contains("이별을 원한 쪽");
     }
 
     @Test
@@ -141,10 +141,11 @@ class CaseScorerTest {
 
         // 대분류가 갈렸어도 소개팅앱이 외도를 가리켜 교차 점수를 받고, 범용 태그로 이긴 사례를 넘는다.
         assertThat(scorer.score(mine, dating)).isGreaterThan(scorer.score(mine, money));
-        // 라벨은 정확 일치에만 붙인다(최대 3개라 자리도 없다) — 교차는 점수로만 반영된다.
-        assertThat(scorer.matchedAspects(mine, dating))
-                .contains("이별의 결정적 계기", "헤어지자고 한 쪽", "지금 연락 상태")
-                .doesNotContain("이별 사유");
+        // 태그는 정확 일치에만 붙인다 — 교차는 점수로만 반영된다.
+        // 거짓말신뢰는 과실 행동 풀이라 값을 안 띄우고 축 이름으로 떨어지고, 차단은 값 그대로 뜬다.
+        assertThat(scorer.matchedTags(mine, dating))
+                .contains("이별의 결정적 계기", "헤어지자고 한 쪽", "차단")
+                .doesNotContain("이별 사유", "거짓말신뢰");
     }
 
     @Test
@@ -215,5 +216,27 @@ class CaseScorerTest {
         ReunionCase target = reunionCase("본인과실", "술버릇");
 
         assertThat(scorer.score(mine, target)).isEqualTo(scorer.score(plain, target));
+    }
+
+    // 재회한 사례는 결과가 연락 상태를 정해버려 값이 전부 연락중이다. 그걸 채점하면
+    // 무연락, 차단인 유저에게 성공 사례가 통째로 밀리기만 하고 가려지는 건 없다.
+    @Test
+    @DisplayName("성공 사례의 연락 상태는 겹쳐도 점수와 태그에 안 실린다")
+    void contactStateIgnoredForReunitedCase() {
+        StoryMatchProfile mine = StoryMatchProfile.builder()
+                .storyId(1L).reason("본인과실").subReasons("술버릇")
+                .contactState("연락중").build();
+
+        ReunionCase reunited = reunionCase("본인과실", "술버릇");
+        ReflectionTestUtils.setField(reunited, "contactState", "연락중");
+        ReflectionTestUtils.setField(reunited, "outcome", "성공");
+
+        ReunionCase failed = reunionCase("본인과실", "술버릇");
+        ReflectionTestUtils.setField(failed, "contactState", "연락중");
+        ReflectionTestUtils.setField(failed, "outcome", "실패");
+
+        assertThat(scorer.score(mine, reunited)).isLessThan(scorer.score(mine, failed));
+        assertThat(scorer.matchedTags(mine, reunited)).doesNotContain("연락 중");
+        assertThat(scorer.matchedTags(mine, failed)).contains("연락 중");
     }
 }
