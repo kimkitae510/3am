@@ -178,6 +178,7 @@ usage:
   # 예전 키(in-flight-ttl-seconds)는 UsageProperties에 대응 필드가 없어 값이 무시되고 있었다.
   chat-lock-ttl-seconds: 60          # 채팅 LLM 상한 50초
   assessment-lock-ttl-seconds: 100   # 진단 LLM 상한 90초
+  match-lock-ttl-seconds: 100        # 유료 사례 매칭 — 후보 열넷의 본문을 읽어 진단과 같은 무게
 
   # 연속 실패 가드. 실패는 후차감(미차감)이라 막지 않으면 무한 무료 LLM 호출이 된다.
   # 채팅은 진단(2회/3분)보다 느슨하게 — 턴이 짧고 잦아 2회는 일시 장애에 쉽게 걸리고,

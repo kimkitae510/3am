@@ -71,6 +71,10 @@ public enum ErrorCode {
     // 분석 기록이 없거나 잠금 판정(사귀는 중, 재회 성공)이라 공유할 확률 화면이 없는 경우
     SHARE_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "SH002", "공유할 분석 결과가 없습니다."),
 
+    // 사례 매칭
+    // 유료 매칭은 진단 결과에 묶여 저장되므로 진단이 한 번은 있어야 돌릴 수 있다.
+    MATCH_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "M001", "먼저 분석을 받아야 비슷한 사례를 찾을 수 있습니다."),
+
     // 분석 평가
     REVIEW_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "평가할 분석이 없습니다."),
     // R002(중복 평가)는 결번 — 점수가 업서트로 바뀌며 중복이라는 개념 자체가 사라졌다.

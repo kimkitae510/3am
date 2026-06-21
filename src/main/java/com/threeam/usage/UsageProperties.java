@@ -33,17 +33,30 @@ public class UsageProperties {
     // 이 값이 실제로 쓰이는 건 프로세스 강제 종료나 콜백 유실뿐이다.
     private long chatLockTtlSeconds = 60;
     private long assessmentLockTtlSeconds = 100;
+    // 유료 매칭. 후보 열넷의 본문을 읽는 호출이라 분석과 같은 무게로 잡는다.
+    private long matchLockTtlSeconds = 100;
 
     // 채팅 연속 실패 가드. 분석(2회/3분)보다 느슨하다 — 채팅은 턴이 짧고 잦아 2회면 일시 장애에
     // 걸리고, 대화 리듬이라 3분은 이탈로 이어진다. 1분이면 분당 1회로 캡돼 비용 방어엔 충분하다.
     private int chatFailStreakLimit = 3;
     private long chatFailCooldownSeconds = 60;
 
+    // 종류가 셋이 되면서 삼항으로는 못 가른다 — 새 종류를 추가할 때 switch가 빠진 가지를
+    // 컴파일 단계에서 알려주도록 enhanced switch로 둔다(삼항이면 조용히 분석 값을 쓴다).
     public long lockTtlSeconds(UsageKind kind) {
-        return kind == UsageKind.CHAT ? chatLockTtlSeconds : assessmentLockTtlSeconds;
+        return switch (kind) {
+            case CHAT -> chatLockTtlSeconds;
+            case ASSESSMENT -> assessmentLockTtlSeconds;
+            case MATCH -> matchLockTtlSeconds;
+        };
     }
 
+    // 매칭은 가입 선물이 없다 — 유료 분석을 풀 때 함께 지급한다.
     public int signupGift(UsageKind kind) {
-        return kind == UsageKind.CHAT ? signupGiftChat : signupGiftAssessment;
+        return switch (kind) {
+            case CHAT -> signupGiftChat;
+            case ASSESSMENT -> signupGiftAssessment;
+            case MATCH -> 0;
+        };
     }
 }
