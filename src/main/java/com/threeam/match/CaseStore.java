@@ -62,4 +62,13 @@ public class CaseStore {
     public List<ReunionCase> all() {
         return cases;
     }
+
+    // id는 로드 시 배열 순서로 부여하므로 인덱스와 같다. 저장된 선택을 다시 그릴 때 쓴다 —
+    // 사례를 중간에 끼워 넣으면 옛 선택이 다른 사례를 가리키므로 추가는 맨 뒤에만 한다(load 참고).
+    public ReunionCase byId(Long id) {
+        if (id == null || id < 0 || id >= cases.size()) {
+            return null;
+        }
+        return cases.get(id.intValue());
+    }
 }
