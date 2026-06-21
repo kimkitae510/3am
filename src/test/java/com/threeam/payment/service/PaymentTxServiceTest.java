@@ -84,12 +84,13 @@ class PaymentTxServiceTest {
         assertThat(inProgress.getStatus()).isEqualTo(PaymentStatus.DONE);
         assertThat(inProgress.getMethod()).isEqualTo("카드");
         ArgumentCaptor<Entitlement> captor = ArgumentCaptor.forClass(Entitlement.class);
-        verify(entitlementRepository, times(2)).save(captor.capture());
+        verify(entitlementRepository, times(3)).save(captor.capture());
         assertThat(captor.getAllValues())
                 .extracting(Entitlement::getKind, Entitlement::getTotalCount, Entitlement::getPaymentId)
                 .containsExactlyInAnyOrder(
                         org.assertj.core.groups.Tuple.tuple(UsageKind.CHAT, 5, 100L),
-                        org.assertj.core.groups.Tuple.tuple(UsageKind.ASSESSMENT, 1, 100L));
+                        org.assertj.core.groups.Tuple.tuple(UsageKind.ASSESSMENT, 1, 100L),
+                        org.assertj.core.groups.Tuple.tuple(UsageKind.MATCH, 1, 100L));
     }
 
     @Test
@@ -105,7 +106,7 @@ class PaymentTxServiceTest {
         service.applyPgResult("order-1", done);
 
         assertThat(expired.getStatus()).isEqualTo(PaymentStatus.DONE);
-        verify(entitlementRepository, times(2)).save(any());
+        verify(entitlementRepository, times(3)).save(any());
     }
 
     @Test
@@ -146,8 +147,9 @@ class PaymentTxServiceTest {
         service.applyPgResult("order-1", PgPaymentResult.of("pay-1", "order-1", PgStatus.DONE));
 
         ArgumentCaptor<Entitlement> captor = ArgumentCaptor.forClass(Entitlement.class);
-        verify(entitlementRepository, times(1)).save(captor.capture());
-        assertThat(captor.getValue().getKind()).isEqualTo(UsageKind.ASSESSMENT);
+        verify(entitlementRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues()).extracting(Entitlement::getKind)
+                .containsExactlyInAnyOrder(UsageKind.ASSESSMENT, UsageKind.MATCH);
     }
 
     @Test
@@ -157,7 +159,8 @@ class PaymentTxServiceTest {
         given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(done));
         given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of(
                 entitlement(55L, UsageKind.CHAT, 20),
-                entitlement(56L, UsageKind.ASSESSMENT, 3)));
+                entitlement(56L, UsageKind.ASSESSMENT, 3),
+                entitlement(57L, UsageKind.MATCH, 1)));
 
         service.applyPgResult("order-1", PgPaymentResult.of("pay-1", "order-1", PgStatus.DONE));
 
@@ -186,7 +189,8 @@ class PaymentTxServiceTest {
         given(paymentRepository.findByOrderIdForUpdate("order-1")).willReturn(Optional.of(requested));
         given(entitlementRepository.findByPaymentId(100L)).willReturn(List.of(
                 entitlement(55L, UsageKind.CHAT, 20),
-                entitlement(56L, UsageKind.ASSESSMENT, 3)));
+                entitlement(56L, UsageKind.ASSESSMENT, 3),
+                entitlement(57L, UsageKind.MATCH, 1)));
 
         PgPaymentResult canceled = new PgPaymentResult("pay-1", "order-1", PgStatus.PARTIAL_CANCELED,
                 "카드", null, null, 1300, null);

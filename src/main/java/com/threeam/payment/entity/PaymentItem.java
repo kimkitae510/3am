@@ -20,9 +20,12 @@ public enum PaymentItem {
     // 분석 1회 82~122원(사연 복잡도에 따라 추론량이 3배까지 뛴다). 원가 약 370원.
     // 재분석 가드가 새 대화나 새 사실을 요구해서 분석을 여러 번 보려면 채팅이 먼저 필요하다 —
     // 그래서 분석보다 채팅을 여러 회 준다.
-    BUNDLE_STANDARD("대화 5회 + 분석 1회", 2900, List.of(
+    // 매칭은 1회만 준다 — 분석 1회에 묶이는 기능이라 그 이상은 쓸 데가 없다
+    // (같은 분석을 다시 눌러도 저장분이 나가고 쿼터를 안 쓴다).
+    BUNDLE_STANDARD("대화 5회 + 분석 1회 + 사례 매칭 1회", 2900, List.of(
             new Grant(UsageKind.CHAT, 5),
-            new Grant(UsageKind.ASSESSMENT, 1)));
+            new Grant(UsageKind.ASSESSMENT, 1),
+            new Grant(UsageKind.MATCH, 1)));
 
     private final String displayName;
     private final int amount;
