@@ -128,7 +128,8 @@
   align-items: center;
 }
 
-/* 채팅 헤더 분석 버튼과 같은 문법 — 중립 회색 칩 + 흰 글자, 색은 아이콘에만 */
+/* 채팅 헤더 분석 버튼과 같은 문법 — 중립 회색 칩 + 흰 글자.
+   아이콘 색은 currentColor라 글자와 항상 같이 간다(라벤더 획 하나가 칩 안에서 튀었다) */
 .payButton {
   display: inline-flex;
   align-items: center;

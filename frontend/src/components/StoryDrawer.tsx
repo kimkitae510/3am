@@ -176,10 +176,10 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
             {usage && !usage.guest && (
               <button className={styles.payButton} onClick={goPayment}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <rect x="3.5" y="6" width="17" height="12.5" rx="2.5" stroke="#B89DD1" strokeWidth="1.7" />
-                  <path d="M3.5 10.2h17" stroke="#B89DD1" strokeWidth="1.7" />
+                  <rect x="3.5" y="6" width="17" height="12.5" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
+                  <path d="M3.5 10.2h17" stroke="currentColor" strokeWidth="1.7" />
                 </svg>
-                이용권
+                결제
               </button>
             )}
             <button className={styles.iconButton} onClick={() => setShowHelp(true)} aria-label="도움말">
@@ -240,7 +240,8 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
                     </div>
                     {(s.lastMessage || s.unread) && (
                       <div className={styles.itemBottom}>
-                        <span className={styles.itemSub}>{s.lastMessage}</span>
+                        {/* 답변의 굵기 마커(**)는 목록 미리보기에선 렌더링 없이 걷어낸다 */}
+                        <span className={styles.itemSub}>{s.lastMessage?.replace(/\*\*/g, '')}</span>
                         {s.unread && <span className={styles.unreadBadge}>NEW</span>}
                       </div>
                     )}
@@ -251,12 +252,17 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
           </div>
         )}
 
+        {/* 채팅 헤더가 게스트에게 서랍을 안 열지만, usage가 도착하기 전 잠깐 열릴 수 있다.
+            그 창에서 방을 하나 더 파면 계정 단위인 체험 횟수가 두 방으로 갈려 어느 쪽도
+            끝을 못 본다 — 여기서 한 번 더 막는다 */}
+        {!usage?.guest && (
         <button className={styles.newButton} onClick={handleNew} disabled={creating}>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="#1a1a1d" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
           {creating ? '시작하는 중…' : '새 이야기'}
         </button>
+        )}
 
         {/* 랜딩을 없애면 재방문 회원이 로그인 입구를 못 찾는다 — 다른 기기에서 온 사람에게는
             자기 대화가 통째로 사라진 것처럼 보인다. 그래서 서랍 하단에 상시로 둔다 */}
@@ -285,7 +291,7 @@ export function StoryDrawer({ currentStoryId, onClose }: { currentStoryId?: numb
               },
               {
                 heading: '이용권',
-                text: '대화와 분석은 이용권에서 1회씩 차감됩니다. 대화는 길이와 무관하게 한 번 주고받을 때마다 1회입니다. 남은 횟수는 기한 없이 유지되며, 위 이용권 버튼에서 잔여 확인과 충전을 할 수 있습니다.',
+                text: '대화와 분석은 이용권에서 1회씩 차감됩니다. 대화는 길이와 무관하게 한 번 주고받을 때마다 1회입니다. 남은 횟수는 기한 없이 유지되며, 위 결제 버튼에서 잔여 확인과 충전을 할 수 있습니다.',
               },
             ]}
           />
