@@ -408,6 +408,18 @@
   margin-top: 36px;
 }
 
+/* 이미 회원인 사람이 게스트로 시작해버린 경우의 복귀 안내. 버튼을 따로 두지 않는다 —
+   누를 곳은 위 소셜 그대로고 서버가 알아서 전환 확인으로 보낸다. 버튼이 둘이면
+   '연결'과 '로그인' 중 무엇을 눌러야 하는지를 유저가 판정해야 한다 */
+.linkBack {
+  margin: 22px 34px 0;
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 12.5px;
+  line-height: 1.6;
+  opacity: 0.85;
+}
+
 .backTop {
   position: absolute;
   top: 10px;

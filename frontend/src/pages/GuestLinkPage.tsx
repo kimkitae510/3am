@@ -139,6 +139,13 @@ export function GuestLinkPage() {
           </button>
         </div>
 
+        {/* 랜딩이 토큰을 든 사람을 대화로 바로 보내므로, 게스트가 된 뒤엔 랜딩의 소셜 로그인에
+            다시 닿을 수 없다. 이미 회원인데 게스트로 시작해버린 사람에게는 이 화면이 자기
+            계정으로 돌아가는 유일한 문인데, 제목이 "계정 연결하기"라 자기 문인 줄 모른다 */}
+        <div className={styles.linkBack}>
+          이미 3am 계정이 있으시다면 그 소셜을 눌러 주세요. 연결 대신 원래 계정으로 로그인됩니다.
+        </div>
+
         <div className={`${styles.error} ${styles.landError}`}>{error}</div>
 
         {consentFor && (
