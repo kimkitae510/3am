@@ -29,6 +29,7 @@ class ReplyLinterTest {
     void catchesFormatting() {
         assertThat(linter.violatedRules("- 첫째로 이건")).contains("불릿");
         assertThat(linter.violatedRules("이별·재회 얘기")).contains("불릿");
+        assertThat(linter.violatedRules("# 지금 상황 정리")).contains("마크다운");
         assertThat(linter.violatedRules("**중요한 건**")).contains("마크다운");
     }
 
