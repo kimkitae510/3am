@@ -945,14 +945,6 @@
   letter-spacing: 0.1px;
 }
 
-/* 왜 이 사례가 나왔는지 — 분류명 없이 서술 라벨만. 근거 줄이라 보라 기는 남기되
-   본문과 색으로 경쟁하지 않게 낮춘다 */
-.caseMatched {
-  margin-top: 2px;
-  color: rgba(184, 157, 209, 0.72);
-  font-size: 11px;
-}
-
 .caseBadge {
   color: var(--text-sub);
   font-size: 11px;
@@ -965,11 +957,14 @@
   margin-top: 9px;
 }
 
+/* 겹친 지점이라는 뜻이 살아야 해서 무채색이 아니라 보라 기를 남긴다 — 회색이면 성별, 나이와
+   같은 메타데이터로 읽혀 "나와 같은 자리"라는 신호가 죽는다. 다만 본문과 색으로 경쟁하지
+   않게 낮춘다. 뜻풀이는 섹션 머리에서 한 번만 한다(카드마다 붙이면 소음) */
 .caseTag {
   padding: 2px 8px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #b0b0b8;
+  background: rgba(184, 157, 209, 0.09);
+  color: rgba(184, 157, 209, 0.82);
   font-size: 11px;
 }
 
@@ -999,6 +994,64 @@
   color: #b89dd1;
   font-size: 11.5px;
   cursor: pointer;
+}
+
+/* 카드를 가로질러 읽는 한 줄. 카드보다 위에 두고 배경을 깔아 "이 묶음에 대한 말"임을
+   드러낸다 — 카드 사이에 끼면 어느 사례의 설명인지 못 읽는다 */
+.caseSummary {
+  margin: 2px 2px 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+/* 사례 본문과 해설을 가르는 줄. 본문은 남의 기록이고 이 두 줄은 서비스가 붙인 읽기라
+   경계가 없으면 해설이 사례의 일부로 읽힌다 */
+.caseReading {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.caseReadingRow {
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.caseReadingLabel {
+  color: var(--text);
+  font-weight: 600;
+  margin-right: 5px;
+}
+
+.caseRunWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.caseRunBtn {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.caseRunBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .caseEmpty {

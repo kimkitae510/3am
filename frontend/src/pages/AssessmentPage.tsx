@@ -11,9 +11,9 @@ import {
   type AssessmentResponse,
   type FactorView,
 } from '../api/assessment';
+import { getPickedCases, pickCases, type PickedCases } from '../api/match';
 import { getUsage } from '../api/usage';
 import { addStoryFact, deleteStoryFact } from '../api/story';
-import { getSimilarCases, type SimilarCases } from '../api/match';
 import { createShare, getActiveShare, revokeShare } from '../api/share';
 import { extractErrorCode, extractErrorMessage } from '../api/client';
 import { formatListTime } from '../utils/datetime';
@@ -41,13 +41,6 @@ const ARC_LEN = Math.PI * 120; // 반원 게이지 길이
 // (NO_EVIDENCE는 공유 화면과 공용이라 utils/assessmentView에 있다).
 
 // 사례 메타 줄의 기간 표기: 8 → "8개월", 24 → "2년", 30 → "2년 6개월"
-function formatMonths(m: number): string {
-  if (m < 12) return `${m}개월`;
-  const y = Math.floor(m / 12);
-  const r = m % 12;
-  return r === 0 ? `${y}년` : `${y}년 ${r}개월`;
-}
-
 // 답변 칸 상한. 원장 한 줄이 200자인데 질문을 앞에 붙여 저장하므로, 남는 47자 안에서
 // 질문을 줄인다 — 상한이 질문마다 달라지면 유저가 읽을 수 없는 숫자가 된다.
 const ANSWER_MAX = 150;
@@ -175,8 +168,9 @@ export function AssessmentPage() {
   // 에러 배너 대신 "먼저 대화하기" 안내 화면으로 갈아탄다.
   const [noMessages, setNoMessages] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  // 비슷한 사례. 분석이 뽑아둔 분류로 찾으므로 LLM 호출도 차감도 없다 — 실패해도 조용히 접는다.
-  const [similar, setSimilar] = useState<SimilarCases | null>(null);
+  // 사례 매칭. 진단이 뽑아둔 분류로 후보를 추리고 LLM이 본문을 읽어 고른다.
+  const [picked, setPicked] = useState<PickedCases | null>(null);
+  const [picking, setPicking] = useState(false);
   // 본문이 길어 기본은 접어두고, 펼친 것만 전문을 보여준다.
   const [openCase, setOpenCase] = useState<number | null>(null);
   // 질문에 답하는 칸의 입력값. 펼친 질문 하나만 쓰므로 상태도 하나면 된다.
@@ -407,8 +401,8 @@ export function AssessmentPage() {
           // 새 결과로 갈아끼우기 전, 화면에 있던 확률이 이번 결과의 비교 기준이 된다.
           setPrevProb(result?.probability ?? null);
           setResult(res);
-          // 이번 분석이 분류를 새로 뽑았을 수 있으니 사례도 다시 찾는다.
-          refreshSimilar();
+          // 새 진단이라 매칭도 새로 돌려야 한다 — 저장은 진단 1건에 한 벌씩 묶인다.
+          refreshPicked();
         }
         refreshUsage(); // 후차감이라 성공 시점에 갱신
       }
@@ -438,18 +432,34 @@ export function AssessmentPage() {
     }
   }
 
-  // 사례 조회는 조회 한 번이라 분석과 달리 자유롭게 부른다. 실패는 삼킨다 —
+  // 조회는 차감이 없다 — 이미 돌린 결과가 있으면 그대로 온다. 실패는 삼킨다:
   // 부속 정보라 못 불러왔다고 분석 화면에 에러를 띄울 일이 아니다.
-  function refreshSimilar() {
-    getSimilarCases(storyId)
-      .then((res) => aliveRef.current && setSimilar(res))
+  function refreshPicked() {
+    getPickedCases(storyId)
+      .then((res) => aliveRef.current && setPicked(res))
       .catch(() => {});
+  }
+
+  async function runPick() {
+    setPicking(true);
+    setError('');
+    try {
+      const res = await pickCases(storyId);
+      if (aliveRef.current) setPicked(res);
+    } catch (e) {
+      if (aliveRef.current) {
+        setError(extractErrorMessage(e, '사례를 찾지 못했습니다. 잠시 후 다시 시도해 주세요.'));
+      }
+    } finally {
+      if (aliveRef.current) setPicking(false);
+      refreshUsage();
+    }
   }
 
   useEffect(() => {
     aliveRef.current = true;
     refreshUsage();
-    refreshSimilar();
+    refreshPicked();
     // 나갔다 온 사이에도 분석이 돌고 있으면 그 호출에 다시 붙는다 — 새 POST 없이
     // 진행 중 표시가 복원되고, 끝나는 순간 결과가 그대로 이 화면에 실린다.
     if (inflightRun && inflightRun.storyId === storyId) {
@@ -1086,74 +1096,106 @@ export function AssessmentPage() {
             </>
           )}
 
-          {/* 비슷한 사례 — 분석이 뽑은 분류로 찾은 참조 사례. 유사도 순 그대로 보여준다:
-              성공담을 골라 끼우면 헛된 희망을 파는 것이라, 확률에서 지켜온 원칙과 어긋난다.
-              그래서 "너도 이렇게 된다"가 아니라 "비슷한 상황이 이랬다"로 읽히게 문구를 잡는다 */}
-          {similar && similar.cases.length > 0 && (
+          {/* 비슷한 사례 — 확률 대역이 구성의 상한을 정하고(낮으면 재회한 사례 1 + 못 한 사례 1,
+              높으면 재회한 사례 2) 실제 장수는 고른 쪽이 정한다. 결과에 색을 입히지 않는 원칙은
+              그대로다: 초록은 좋음, 회색은 나쁨으로 읽혀 남의 결말에 등급이 붙는다 */}
+          {result && picked && (
             <>
               <SectionHead title="비슷한 사례" />
-              <div className={styles.caseNote}>실제 사례들을 요약한 글입니다.</div>
-              <div className={styles.caseList}>
-                {similar.cases.map((c) => {
-                  const open = openCase === c.id;
-                  return (
-                    <div className={styles.caseItem} key={c.id}>
-                      {/* 결과에 색을 입히지 않는다 — 초록은 좋음, 회색은 나쁨으로 읽혀
-                          남의 결말에 등급이 붙고, 유저는 초록만 훑게 된다. 성공담을 골라
-                          보여주지 않는다는 이 섹션의 원칙과 정면으로 어긋난다 */}
-                      <div className={styles.caseOutcome}>
-                        {c.outcome === '성공'
-                          ? '재회 성공'
-                          : c.outcome === '실패'
-                            ? '재회 실패'
-                            : c.outcome === '성공후재이별'
-                              ? '재회 후 재이별'
-                              : '진행 중'}
-                      </div>
-                      {/* 기록 보관소 문법의 메타 줄 — 서비스가 붙인 건조한 필드가 요약 프레임의
-                          신빙성을 받친다. 미상도 표기(기록엔 빈칸이 있는 게 정상).
-                          이별 경과는 안 싣는다 — 시점은 본문 서두가 프로즈로 말한다 */}
-                      <div className={styles.caseMeta}>
-                        {[
-                          c.gender ?? '성별 미상',
-                          c.ageGroup ?? '나이 미상',
-                          c.datingMonths != null ? `${formatMonths(c.datingMonths)} 만남` : '기간 미상',
-                        ].join(' / ')}
-                      </div>
-                      {c.matchedOn && (
-                        <div className={styles.caseMatched}>닮은 지점: {c.matchedOn}</div>
-                      )}
-                      <div className={open ? styles.caseStory : styles.caseStoryClamped}>
-                        {c.story}
-                      </div>
-                      <button
-                        className={styles.caseMore}
-                        onClick={() => setOpenCase(open ? null : c.id)}
-                      >
-                        {open ? '접기' : '더 보기'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
 
-          {/* 사례가 없을 때도 섹션 머리를 달고 이유를 갈라 말한다 — 머리 없이 문장만 있으면
-              어느 섹션의 말인지 못 읽는다(실측). 분석 기록이 없는 첫 화면에선 굳이 띄우지 않는다 */}
-          {(similar?.emptyReason === 'NO_PROFILE' || similar?.emptyReason === 'NO_MATCH') && (
-            <>
-              <SectionHead title="비슷한 사례" />
-              <div className={styles.caseEmpty}>
-                {similar?.emptyReason === 'NO_PROFILE'
-                  ? '어쩌다 헤어졌는지 대화에서 더 들려주면 비슷한 사례를 찾아드려요.'
-                  : '아직 닮은 사례를 찾지 못했습니다.'}
-              </div>
+              {picked.locked && (
+                <div className={styles.caseRunWrap}>
+                  <div className={styles.caseEmpty}>
+                    이별 사유와 상황이 닮은 사례를 찾아 드립니다. 어떤 점이 겹치는지와, 그 사례가
+                    왜 그렇게 됐는지도 함께 읽어 드려요.
+                  </div>
+                  <button className={styles.caseRunBtn} onClick={runPick} disabled={picking}>
+                    {picking ? '사례를 찾는 중…' : '비슷한 사례 찾기'}
+                  </button>
+                </div>
+              )}
+
+              {!picked.locked && picked.cases.length > 0 && (
+                <>
+                  {/* 카드를 가로질러 읽는 한 줄. 카드가 한 장이거나 해설을 못 붙인 판에선 안 온다 */}
+                  {picked.summary && <div className={styles.caseSummary}>{picked.summary}</div>}
+                  {/* 목록 앞의 프레임은 한 줄로 끝낸다 — 남의 이야기에 닿기 전 자리라 길수록
+                      본문이 밀린다. 태그 뜻풀이는 뺐다: 카드마다 "겹치는 지점" 해설이 붙어 있어
+                      같은 말을 두 번 하는 셈이었다 */}
+                  <div className={styles.caseNote}>실제 사례들을 요약한 글입니다.</div>
+                  <div className={styles.caseList}>
+                    {picked.cases.map((c) => {
+                      const open = openCase === c.id;
+                      return (
+                        <div className={styles.caseItem} key={c.id}>
+                          <div className={styles.caseOutcome}>
+                            {c.outcome === '성공' ? '재회 성공' : '재회 실패'}
+                          </div>
+                          {/* 기록 보관소 문법의 메타 줄 — 미상도 표기한다(기록엔 빈칸이 정상).
+                              만난 기간은 안 싣는다: 겹치면 아래 태그가 값으로 띄우고, 안 겹치는데
+                              떠 있으면 3개월 만난 사람이 3년 사례를 보며 자기 연애를 저울질한다 */}
+                          <div className={styles.caseMeta}>
+                            {[c.gender ?? '성별 미상', c.ageGroup ?? '나이 미상'].join(' / ')}
+                          </div>
+                          {/* 겹친 지점만 태그가 된다 — 뜨는 값은 전부 유저가 이미 말한 것이다.
+                              결말 라벨과 맞닿으면 태그가 결말의 원인으로 읽혀 예언이 되므로
+                              본문 바로 위에 둔다 */}
+                          {c.matchedTags.length > 0 && (
+                            <div className={styles.caseTags}>
+                              {c.matchedTags.map((t) => (
+                                <span className={styles.caseTag} key={t}>
+                                  #{t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className={open ? styles.caseStory : styles.caseStoryClamped}>
+                            {c.story}
+                          </div>
+                          {/* 사례 본문과 해설 사이에 선을 긋는다 — 경계가 없으면 서비스가 붙인
+                              읽기가 남의 기록의 일부로 읽힌다 */}
+                          {(c.similarity || c.reading) && (
+                            <div className={styles.caseReading}>
+                              {c.similarity && (
+                                <div className={styles.caseReadingRow}>
+                                  <span className={styles.caseReadingLabel}>겹치는 지점</span>
+                                  {c.similarity}
+                                </div>
+                              )}
+                              {c.reading && (
+                                <div className={styles.caseReadingRow}>
+                                  <span className={styles.caseReadingLabel}>이 사례를 읽자면</span>
+                                  {c.reading}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <button
+                            className={styles.caseMore}
+                            onClick={() => setOpenCase(open ? null : c.id)}
+                          >
+                            {open ? '접기' : '더 보기'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* 이유를 갈라 말한다 — "대화를 더 해달라"와 "데이터가 아직 부족하다"는 다른 말이다 */}
+              {!picked.locked && picked.cases.length === 0 && (
+                <div className={styles.caseEmpty}>
+                  {picked.emptyReason === 'NO_PROFILE'
+                    ? '어쩌다 헤어졌는지 대화에서 더 들려주면 비슷한 사례를 찾아드려요.'
+                    : '아직 닮은 사례를 찾지 못했습니다.'}
+                </div>
+              )}
             </>
           )}
 
           {/* 근거가 없어 중립으로 남은 요인 — 채워달라는 요청으로 뒤집어 다음 대화를 유도한다.
-              채팅에서 말하면 다음 분석에 반영된다. 맨 아래 배치 — 판독(요인, 사례)이 먼저,
+              채팅에서 말하면 다음 분석에 반영된다. 맨 아래 배치 — 판독이 먼저,
               다음 분석을 위한 요청은 마지막이 자연스러운 독서 순서다 */
           }
           {/* 폼에 적으면 원장에 쌓이고 그것만으로 재분석 가드가 열린다(대화 횟수 차감 없음) */}
@@ -1297,10 +1339,6 @@ export function AssessmentPage() {
               {
                 heading: '더 알려주시면 정확해져요',
                 text: '맨 아래 카드입니다. 아직 근거가 없어 판단하지 못한 항목을 모아 둔 곳으로, 알려주시면 다음 분석에서 그 판정이 채워집니다. 대화에서 말해도 되고, 그 카드의 입력칸에 한 줄로 적어두셔도 반영됩니다. 적는 것은 대화 횟수가 차감되지 않습니다.',
-              },
-              {
-                heading: '비슷한 사례',
-                text: '이별 사유와 상황이 닮은 사례를 찾아 보여 드립니다. 이별을 부른 계기가 얼마나 겹치는지를 가장 크게 보고, 통보한 쪽과 지금 연락 상태, 이별 후 지난 기간을 함께 견줍니다. 결과가 좋은 사례를 골라 보여 드리지는 않습니다. 남의 결말이 내 결말을 예고하지 않기 때문입니다. 사례 보기는 횟수가 차감되지 않습니다.',
               },
               {
                 heading: '분석 횟수',
