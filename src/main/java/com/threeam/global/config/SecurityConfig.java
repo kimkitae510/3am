@@ -1,6 +1,7 @@
 package com.threeam.global.config;
 
 import com.threeam.assessment.AssessmentProperties;
+import com.threeam.assessment.ReadingProperties;
 import com.threeam.auth.oauth.OAuthProperties;
 import com.threeam.llm.ChatPersonaProperties;
 import com.threeam.llm.FactExtractionProperties;
@@ -40,8 +41,8 @@ import java.util.List;
 @EnableWebSecurity
 @EnableConfigurationProperties({JwtProperties.class, GeminiProperties.class, VertexAiProperties.class,
         ChatPersonaProperties.class, FactExtractionProperties.class,
-        AssessmentProperties.class, UsageProperties.class, MatchProperties.class,
-        PaymentProperties.class, MailProperties.class, OAuthProperties.class})
+        AssessmentProperties.class, ReadingProperties.class, UsageProperties.class,
+        MatchProperties.class, PaymentProperties.class, MailProperties.class, OAuthProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 

@@ -1,6 +1,7 @@
 package com.threeam.llm;
 
 import com.threeam.assessment.AssessmentProperties;
+import com.threeam.assessment.ReadingProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ public class PromptFilesCheck {
     private final ChatPersonaProperties chatProperties;
     private final FactExtractionProperties extractionProperties;
     private final AssessmentProperties assessmentProperties;
+    private final ReadingProperties readingProperties;
 
     @PostConstruct
     public void warnOnMissingPrompts() {
@@ -26,6 +28,7 @@ public class PromptFilesCheck {
         warnIfPlaceholder("persona.yml", "llm.chat.persona", chatProperties.getPersona());
         warnIfPlaceholder("extractor.yml", "llm.extraction.prompt", extractionProperties.getPrompt());
         warnIfPlaceholder("rubric.yml", "llm.assessment.rubric", assessmentProperties.getRubric());
+        warnIfPlaceholder("reading.yml", "llm.reading.guide", readingProperties.getGuide());
     }
 
     // 실문구로 보기엔 너무 짧은 길이. 자리표시자 기본값은 전부 이 아래다.

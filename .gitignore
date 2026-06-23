@@ -24,6 +24,7 @@ persona*.yml
 reminder.yml
 extractor.yml
 rubric*.yml
+reading*.yml
 chip-*.yml
 
 ### AI 작업 안내 / 로컬 전용 문서 (커밋 제외) ###
