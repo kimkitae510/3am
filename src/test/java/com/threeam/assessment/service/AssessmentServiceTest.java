@@ -22,8 +22,11 @@ import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.RelapseRisk;
 import com.threeam.assessment.entity.ReunionVerdict;
+import com.threeam.assessment.dto.ReadingDraft;
+import com.threeam.assessment.repository.AssessmentReadingRepository;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
+import com.threeam.llm.LlmException;
 import com.threeam.global.exception.custom.BusinessException;
 import com.threeam.llm.ChatMessage;
 import com.threeam.usage.UsageKind;
@@ -49,10 +52,16 @@ class AssessmentServiceTest {
     private ReunionLlm reunionLlm;
 
     @Mock
+    private ReadingLlm readingLlm;
+
+    @Mock
     private TypeBandScorer scorer;
 
     @Mock
     private AssessmentRepository assessmentRepository;
+
+    @Mock
+    private AssessmentReadingRepository readingRepository;
 
     @Mock
     private UsageLimiter usageLimiter;
@@ -108,15 +117,31 @@ class AssessmentServiceTest {
         return locked(ReunionVerdict.INSUFFICIENT, "조금 더 들려줄래요?", List.of());
     }
 
+    // 판독 스텁 재료 — 내용은 뷰 조립 테스트(AssessmentReadingViewTest)에서 검증하고
+    // 여기선 흐름(부착 여부)만 본다.
+    private static final ReadingDraft DRAFT = new ReadingDraft("총평", "재구성",
+            new ReadingDraft.Section("DETACHED", "답", "서술"),
+            new ReadingDraft.Section("MODERATE", "답", "서술"),
+            new ReadingDraft.Section("PRESENT", "답", "서술"),
+            new ReadingDraft.Reselect("CONDITIONAL", "답", "닫힘", "열림", "경로"),
+            List.of(), "국면", java.util.Map.of("narrative", "제목"));
+
+    private static final AssessmentResponse.Reading READING_VIEW =
+            new AssessmentResponse.Reading("총평", "재구성", null, null, null, null,
+                    List.of(), "국면", java.util.Map.of(), null, null);
+
     @Test
-    @DisplayName("진단 - POSSIBLE이면 LLM 판정(유형+요인)을 백엔드가 대역 계산해 확률을 낸다")
+    @DisplayName("진단 - POSSIBLE이면 대역 계산으로 확률을 내고, 정밀 판독(2호출)을 붙여 돌려준다")
     void assess_possible() {
         given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
         given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(possible(false)));
         given(scorer.apply(eq(BreakupType.BURNOUT), isNull(), eq(JumpRule.NONE), anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
-                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
+                .willAnswer(inv -> inv.getArgument(1));
+        given(readingLlm.read(any(), any(Assessment.class)))
+                .willReturn(CompletableFuture.completedFuture(DRAFT));
+        given(txService.saveReading(eq(10L), any(), eq(DRAFT))).willReturn(READING_VIEW);
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
@@ -128,6 +153,29 @@ class AssessmentServiceTest {
         assertThat(response.getFactors().get(0).getRationale()).isEqualTo("무반응이 이어지는 방향");
         assertThat(response.getRelapseRisk()).isEqualTo("높음");
         assertThat(response.getWatchFor()).hasSize(1);
+        assertThat(response.getReading()).isSameAs(READING_VIEW);
+    }
+
+    @Test
+    @DisplayName("진단 - 판독(2호출)이 실패해도 판정은 그대로 내려간다(판독만 없음)")
+    void assess_readingFailureKeepsVerdict() {
+        given(txService.loadContext(1L, 10L)).willReturn(CONTEXT);
+        given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
+                .willReturn(CompletableFuture.completedFuture(possible(false)));
+        given(scorer.apply(eq(BreakupType.BURNOUT), isNull(), eq(JumpRule.NONE), anyList())).willReturn(20);
+        given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
+                .willAnswer(inv -> inv.getArgument(1));
+        given(readingLlm.read(any(), any(Assessment.class)))
+                .willReturn(CompletableFuture.failedFuture(new LlmException()));
+
+        AssessmentResponse response = assessmentService.assess(1L, 10L).join();
+
+        assertThat(response.getVerdict()).isEqualTo(ReunionVerdict.POSSIBLE);
+        assertThat(response.getProbability()).isEqualTo(20);
+        assertThat(response.getReading()).isNull();
+        // 판정은 정상 제공됐으니 쿼터는 깎이고, 실패 표시는 남지 않는다.
+        verify(usageLimiter).record(UsageKind.ASSESSMENT, 1L, 1);
+        verify(txService, never()).markAssessFailed(10L);
     }
 
     @Test
@@ -137,7 +185,7 @@ class AssessmentServiceTest {
         given(reunionLlm.diagnose(anyList(), anyList(), any(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(possible(true)));
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
-                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
+                .willAnswer(inv -> inv.getArgument(1));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
@@ -161,7 +209,7 @@ class AssessmentServiceTest {
                         "아직 헤어진 상태가 아니면 재회 확률은 의미가 없습니다",
                         List.of("유저와 상대는 아직 사귀는 중"))));
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
-                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
+                .willAnswer(inv -> inv.getArgument(1));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
@@ -183,7 +231,7 @@ class AssessmentServiceTest {
                         locked(ReunionVerdict.REUNITED, "다시 만나게 됐네",
                                 List.of("두 사람이 다시 만나기로 함"))));
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
-                .willAnswer(inv -> AssessmentResponse.from(inv.getArgument(1)));
+                .willAnswer(inv -> inv.getArgument(1));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
 
