@@ -5,13 +5,17 @@ import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
+import com.threeam.assessment.entity.AssessmentReading;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.entity.WatchPoint;
+import com.threeam.assessment.repository.AssessmentReadingRepository;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.llm.LlmRole;
 import com.threeam.usage.UsageKind;
 import com.threeam.usage.UsageLimiter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -32,8 +36,10 @@ public class AssessmentService {
 
     private final AssessmentTxService txService;
     private final ReunionLlm reunionLlm;
+    private final ReadingLlm readingLlm;
     private final TypeBandScorer scorer;
     private final AssessmentRepository assessmentRepository;
+    private final AssessmentReadingRepository readingRepository;
     private final UsageLimiter usageLimiter;
     // 분석 저장을 HttpClient 스레드가 아니라 우리 풀에서 돌린다(LlmCallbackConfig 참고).
     private final Executor llmCallbackExecutor;
@@ -74,8 +80,8 @@ public class AssessmentService {
             }
             return reunionLlm.diagnose(context.knownFactLines(), context.conversation(),
                             context.todayLine(), context.previousDigest(), context.intakeBlock())
-                    .thenApplyAsync(diagnosis -> {
-                        AssessmentResponse response = persist(storyId, diagnosis);
+                    .thenComposeAsync(diagnosis -> {
+                        PersistResult result = persist(storyId, diagnosis);
                         // LLM 왕복이 정상 처리됐으니 실패 연속 카운트를 지운다(INSUFFICIENT도 실패가 아니라 판정).
                         clearAssessFailQuietly(storyId);
                         if (diagnosis.verdict() == ReunionVerdict.INSUFFICIENT) {
@@ -93,7 +99,7 @@ public class AssessmentService {
                             txService.clearInsufficient(storyId);
                             recordUsageQuietly(userId);
                         }
-                        return response;
+                        return readIfEligible(storyId, diagnosis, result, context);
                     }, llmCallbackExecutor)
                     .whenComplete((ignored, ex) -> {
                         // 분석 실패(LLM 장애, 저장 실패)를 storyId, userId와 함께 남긴다 —
@@ -149,13 +155,66 @@ public class AssessmentService {
         return txService.retractOffer(userId, storyId);
     }
 
+    // 판정 저장 결과. saved가 null이면 저장 안 된 임시 응답(INSUFFICIENT)이다.
+    private record PersistResult(Assessment saved, AssessmentResponse response) {
+    }
+
+    // 판독(2호출)은 확률이 있는 일반 판정에만 붙는다. 잠금 판정과 근거부족은 서술할 판이 없고,
+    // 제안 확정(100)은 계산이 아니라 확정 표시라 "왜 이 확률인지"가 성립하지 않는다.
+    // 판독 실패는 삼킨다 — 판정은 이미 저장, 과금됐고 화면은 판정만으로 성립한다.
+    // 실패 시 재시도 창구는 아직 없다(재분석이 곧 재시도) — 반복되면 그때 붙인다.
+    private CompletableFuture<AssessmentResponse> readIfEligible(Long storyId,
+                                                                 ReunionDiagnosis diagnosis,
+                                                                 PersistResult result,
+                                                                 AssessmentContext context) {
+        Assessment saved = result.saved();
+        boolean eligible = saved != null && saved.getVerdict() == ReunionVerdict.POSSIBLE
+                && saved.getProbability() != null && !diagnosis.activeReunionOffer();
+        if (!eligible) {
+            return CompletableFuture.completedFuture(result.response());
+        }
+        return readingLlm.read(context, saved)
+                .thenApplyAsync(draft -> {
+                    try {
+                        return result.response()
+                                .withReading(txService.saveReading(storyId, saved.getId(), draft));
+                    } catch (RuntimeException e) {
+                        log.error("판독 저장 실패 storyId={} — 판정만 반환", storyId, e);
+                        return result.response();
+                    }
+                }, llmCallbackExecutor)
+                .exceptionally(ex -> {
+                    log.error("판독 생성 실패 storyId={} — 판정만 반환", storyId, ex);
+                    return result.response();
+                });
+    }
+
     // 감점 목록(@ElementCollection, LAZY)을 매핑에서 읽으므로 트랜잭션 안이어야 한다.
     // (open-in-view: false — 트랜잭션 밖에서 접근하면 LazyInitializationException → 500)
     @Transactional(readOnly = true)
     public List<AssessmentResponse> getHistory(Long userId, Long storyId) {
         txService.loadOwnership(userId, storyId);
-        return assessmentRepository.findByStoryIdOrderByCreatedAtDesc(storyId).stream()
-                .map(AssessmentResponse::from)
+        List<Assessment> assessments = assessmentRepository.findByStoryIdOrderByCreatedAtDesc(storyId);
+        if (assessments.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Assessment> byId = new HashMap<>();
+        assessments.forEach(a -> byId.put(a.getId(), a));
+        // 판독은 일부 판정에만 있다 — 있는 것만 붙이고, 델타 기준(base)은 같은 목록에서 찾는다.
+        Map<Long, AssessmentReading> readings = new HashMap<>();
+        readingRepository.findByAssessmentIdIn(byId.keySet())
+                .forEach(r -> readings.put(r.getAssessmentId(), r));
+        return assessments.stream()
+                .map(a -> {
+                    AssessmentResponse response = AssessmentResponse.from(a);
+                    AssessmentReading reading = readings.get(a.getId());
+                    if (reading != null) {
+                        Assessment base = reading.getBaseAssessmentId() != null
+                                ? byId.get(reading.getBaseAssessmentId()) : null;
+                        response.withReading(AssessmentResponse.Reading.from(reading, a, base));
+                    }
+                    return response;
+                })
                 .toList();
     }
 
@@ -192,7 +251,7 @@ public class AssessmentService {
                 .build());
     }
 
-    private AssessmentResponse persist(Long storyId, ReunionDiagnosis diagnosis) {
+    private PersistResult persist(Long storyId, ReunionDiagnosis diagnosis) {
         // 근거 부족은 분석이 아니라 "대화를 더 해달라"는 안내다. 히스토리(확률 추이)를 오염시키지 않도록 저장하지 않고,
         // reason에 담긴 가이드만 임시 응답으로 돌려준다.
         // save()에 분석 저장과 요약 갱신, 원장 적재가 함께 묶여 있어 이 분기에선 newFacts도 같이 버려진다.
@@ -208,7 +267,7 @@ public class AssessmentService {
                     .verdict(ReunionVerdict.INSUFFICIENT)
                     .reason(guide)
                     .build();
-            return AssessmentResponse.from(transientResult);
+            return new PersistResult(null, AssessmentResponse.from(transientResult));
         }
 
         // 잠금 판정(DATING, REUNITED) — 확률 계산을 구조적으로 건너뛴다.
@@ -228,8 +287,9 @@ public class AssessmentService {
                     .relationshipPsychology(diagnosis.relationshipPsychology())
                     .reason(reason)
                     .build();
-            return txService.save(storyId, assessment, diagnosis.newFacts(),
+            Assessment saved = txService.save(storyId, assessment, diagnosis.newFacts(),
                     diagnosis.matchProfile());
+            return new PersistResult(saved, AssessmentResponse.from(saved));
         }
 
         List<AssessmentFactor> factors = diagnosis.factors().stream()
@@ -262,8 +322,9 @@ public class AssessmentService {
         diagnosis.watchFor().forEach(w -> builder.watchPoint(WatchPoint.of(w.point(), w.effect())));
         diagnosis.unansweredQuestions().forEach(builder::unansweredQuestion);
 
-        return txService.save(storyId, builder.build(), diagnosis.newFacts(),
+        Assessment saved = txService.save(storyId, builder.build(), diagnosis.newFacts(),
                 diagnosis.matchProfile());
+        return new PersistResult(saved, AssessmentResponse.from(saved));
     }
 
     private String blankToNull(String value) {

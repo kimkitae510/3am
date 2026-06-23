@@ -1,9 +1,17 @@
 package com.threeam.assessment.dto;
 
 import com.threeam.assessment.entity.Assessment;
+import com.threeam.assessment.entity.AssessmentFactor;
+import com.threeam.assessment.entity.AssessmentReading;
+import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.ReadingEvidence;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import lombok.Getter;
 
 // 분석 응답(v2). 유형과 요인 판정은 화면 표기용 한국어 라벨로 내린다 —
@@ -32,6 +40,10 @@ public class AssessmentResponse {
     // 시각이 아니라 남은 초를 주는 이유: 클라이언트 시계가 틀어져 있어도 카운트다운이 어긋나지 않는다.
     private final Integer retryAfterSeconds;
 
+    // 정밀 판독(2호출). 판정만 있고 판독 생성이 실패했거나 아직 없는 판정은 null —
+    // 화면은 판정부만 보여준다.
+    private Reading reading;
+
     private AssessmentResponse(ReunionVerdict verdict, Integer probability, String breakupType,
                                String typeEvidence, String jumpRule, String relapseRisk,
                                String relapseReason, RelationshipPsychology relationshipPsychology,
@@ -58,6 +70,12 @@ public class AssessmentResponse {
         return new AssessmentResponse(verdict, probability, breakupType, typeEvidence, jumpRule,
                 relapseRisk, relapseReason, relationshipPsychology, reason, factors, watchFor,
                 unansweredQuestions, createdAt, seconds);
+    }
+
+    // 판독은 판정 저장 뒤에 붙는다(2호출이 나중에 끝난다) — 세터 대신 부착 창구 하나만 연다.
+    public AssessmentResponse withReading(Reading reading) {
+        this.reading = reading;
+        return this;
     }
 
     public static AssessmentResponse from(Assessment assessment) {
@@ -116,6 +134,87 @@ public class AssessmentResponse {
         private WatchView(String point, String effect) {
             this.point = point;
             this.effect = effect;
+        }
+    }
+
+    // 정밀 판독 뷰. 책 모드(0 총평 → 1 사건 재구성 → 2 상대의 지금 → 3 결심과 남은 마음 →
+    // 4 재선택 → 5 국면)의 재료 전부. state는 내부 값이지만 함께 내린다(화면 비노출, 디버깅용).
+    public record Reading(
+            String overall,
+            String narrative,
+            Section now,
+            Section resolve,
+            Section remain,
+            Reselect reselect,
+            List<Evidence> evidence,
+            String phase,
+            Map<String, String> chapterTitles,
+            Delta delta,
+            LocalDateTime createdAt) {
+
+        public record Section(String state, String answer, String reading) {
+        }
+
+        public record Reselect(String state, String answer, String closed, String open,
+                               String route) {
+        }
+
+        public record Evidence(String question, String source, String name, String direction,
+                               String fact, String interpretation) {
+        }
+
+        // 문진(사실 보강) 재판정의 변동내역. LLM 서술이 아니라 두 판정의 결정론 diff다 —
+        // 같은 재료면 같은 델타라 저장하지 않고 조회 때 계산한다.
+        public record Delta(Integer probabilityFrom, Integer probabilityTo,
+                            List<FactorDelta> factors) {
+        }
+
+        public record FactorDelta(String name, String from, String to) {
+        }
+
+        public static Reading from(AssessmentReading reading, Assessment current, Assessment base) {
+            List<Evidence> evidence = reading.getEvidence().stream()
+                    .map(e -> new Evidence(e.getQuestion(), e.getSource(), e.getName(),
+                            e.getDirection(), e.getFact(), e.getInterpretation()))
+                    .toList();
+            return new Reading(
+                    reading.getOverall(),
+                    reading.getNarrative(),
+                    new Section(reading.getNowState(), reading.getNowAnswer(),
+                            reading.getNowReading()),
+                    new Section(reading.getResolveState(), reading.getResolveAnswer(),
+                            reading.getResolveReading()),
+                    new Section(reading.getRemainState(), reading.getRemainAnswer(),
+                            reading.getRemainReading()),
+                    new Reselect(reading.getReselectState(), reading.getReselectAnswer(),
+                            reading.getReselectClosed(), reading.getReselectOpen(),
+                            reading.getReselectRoute()),
+                    evidence,
+                    reading.getPhase(),
+                    reading.getChapterTitles(),
+                    delta(current, base),
+                    reading.getCreatedAt());
+        }
+
+        // 변동내역 — 직전 판정(base) 대비 확률과 요인 레벨의 변화만 추린다.
+        // 아무것도 안 변했으면 null이 아니라 빈 목록을 내린다("가늠이 이미 정확했다"도 정보다).
+        private static Delta delta(Assessment current, Assessment base) {
+            if (base == null || base.getProbability() == null || current.getProbability() == null) {
+                return null;
+            }
+            Map<FactorName, String> baseLevels = new EnumMap<>(FactorName.class);
+            for (AssessmentFactor factor : base.getFactors()) {
+                baseLevels.put(factor.getName(), factor.getLevel().label());
+            }
+            List<FactorDelta> changed = new ArrayList<>();
+            for (AssessmentFactor factor : current.getFactors()) {
+                String from = baseLevels.get(factor.getName());
+                String to = factor.getLevel().label();
+                if (from != null && !Objects.equals(from, to)) {
+                    changed.add(new FactorDelta(factor.getName().label(), from, to));
+                }
+            }
+            return new Delta(base.getProbability(), current.getProbability(), changed);
         }
     }
 }

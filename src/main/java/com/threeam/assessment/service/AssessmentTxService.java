@@ -2,12 +2,16 @@ package com.threeam.assessment.service;
 
 import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
+import com.threeam.assessment.dto.ReadingDraft;
 import com.threeam.assessment.dto.RelationshipPsychology;
 import com.threeam.assessment.dto.ReunionDiagnosis.MatchProfileItem;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
+import com.threeam.assessment.entity.AssessmentReading;
 import com.threeam.assessment.entity.JumpRule;
+import com.threeam.assessment.entity.ReadingEvidence;
 import com.threeam.assessment.entity.ReunionVerdict;
+import com.threeam.assessment.repository.AssessmentReadingRepository;
 import com.threeam.assessment.repository.AssessmentRepository;
 import com.threeam.global.exception.ErrorCode;
 import com.threeam.global.exception.custom.BusinessException;
@@ -57,6 +61,7 @@ public class AssessmentTxService {
     private final StoryFactService storyFactService;
     private final StoryIntakeRepository storyIntakeRepository;
     private final AssessmentRepository assessmentRepository;
+    private final AssessmentReadingRepository readingRepository;
     private final MatchProfileService matchProfileService;
     private final TypeBandScorer scorer;
 
@@ -283,13 +288,58 @@ public class AssessmentTxService {
 
     // tx2: 분석 결과 저장 + 새 사실 원장 append + 매칭 프로필 갱신.
     // 기억 요약은 여기서 건드리지 않는다 — 채팅 사실 추출이 전담한다(주인 단일화, v2).
+    // 저장 엔티티를 돌려준다 — 판독(2호출)이 판정 id와 요인을 입력으로 쓴다.
     @Transactional
-    public AssessmentResponse save(Long storyId, Assessment assessment,
-                                   List<String> newFacts, MatchProfileItem matchProfile) {
+    public Assessment save(Long storyId, Assessment assessment,
+                           List<String> newFacts, MatchProfileItem matchProfile) {
         Assessment saved = assessmentRepository.save(assessment);
         storyFactService.appendFacts(storyId, saved.getId(), newFacts);
         matchProfileService.append(storyId, matchProfile);
-        return AssessmentResponse.from(saved);
+        return saved;
+    }
+
+    // tx3: 정밀 판독 저장 + 뷰 조립. 판정과 별도 트랜잭션 — 판독 2호출이 실패해도
+    // 판정은 이미 커밋돼 있고, 화면은 판정만으로도 성립한다.
+    // base(직전 확률 판정)는 변동내역의 비교 기준 — 저장은 참조 id만 하고 델타는 조회 때 계산한다.
+    @Transactional
+    public AssessmentResponse.Reading saveReading(Long storyId, Long assessmentId,
+                                                  ReadingDraft draft) {
+        // 직전 트랜잭션에서 막 저장한 판정이라 없을 수 없다 — 없다면 코드 결함이니 그대로 터뜨려
+        // 호출부(판독 실패 삼킴)의 로그로 남긴다.
+        Assessment current = assessmentRepository.findById(assessmentId)
+                .orElseThrow(() -> new IllegalStateException("판정 없음 assessmentId=" + assessmentId));
+        Assessment base = assessmentRepository
+                .findFirstByStoryIdAndIdLessThanAndProbabilityIsNotNullOrderByIdDesc(
+                        storyId, assessmentId)
+                .orElse(null);
+        List<ReadingEvidence> evidence = draft.evidence().stream()
+                .map(e -> ReadingEvidence.of(e.question(), e.source(), e.name(), e.direction(),
+                        e.fact(), e.interpretation()))
+                .toList();
+        AssessmentReading reading = readingRepository.save(AssessmentReading.builder()
+                .assessmentId(assessmentId)
+                .baseAssessmentId(base != null ? base.getId() : null)
+                .overall(draft.overall())
+                .narrative(draft.narrative())
+                .nowState(draft.now().state())
+                .nowAnswer(draft.now().answer())
+                .nowReading(draft.now().reading())
+                .resolveState(draft.resolve().state())
+                .resolveAnswer(draft.resolve().answer())
+                .resolveReading(draft.resolve().reading())
+                .remainState(draft.remain().state())
+                .remainAnswer(draft.remain().answer())
+                .remainReading(draft.remain().reading())
+                .reselectState(draft.reselect().state())
+                .reselectAnswer(draft.reselect().answer())
+                .reselectClosed(draft.reselect().closed())
+                .reselectOpen(draft.reselect().open())
+                .reselectRoute(draft.reselect().route())
+                .phase(draft.phase())
+                .chapterTitles(draft.chapterTitles())
+                .evidence(evidence)
+                .build());
+        return AssessmentResponse.Reading.from(reading, current, base);
     }
 
     // 유저가 "사귀는 중" 판정을 번복할 때 원장에 남기는 문장.
