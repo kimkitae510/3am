@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PhoneFrame } from '../components/PhoneFrame';
 import { HelpModal } from '../components/HelpModal';
+import { ReadingBook } from '../components/ReadingBook';
 import { ReviewBlock } from '../components/ReviewBlock';
 import {
   confirmBreakup,
@@ -195,6 +196,9 @@ export function AssessmentPage() {
   const [retryable, setRetryable] = useState(false);
   // 연속 실패 쿨다운의 남은 초(서버가 내려준 값에서 시작). 0이면 즉시 재시도 가능.
   const [cooldown, setCooldown] = useState(0);
+  // 판독 책 모드 — 방금 새로 만든 판독(첫 독서)만 장 넘김으로 연다. 재진입(저장분 조회)은
+  // 전체 스크롤. 완독 여부는 저장하지 않는다 — 세션이 끝나면 그냥 스크롤로 열리는 것으로 충분.
+  const [bookOpen, setBookOpen] = useState(false);
   const aliveRef = useRef(true);
 
   // 에러 배너(쿼터 소진, 재분석 거부 등)가 화면에 계속 남지 않게 잠시 뒤 스스로 사라진다.
@@ -401,6 +405,8 @@ export function AssessmentPage() {
           // 새 결과로 갈아끼우기 전, 화면에 있던 확률이 이번 결과의 비교 기준이 된다.
           setPrevProb(result?.probability ?? null);
           setResult(res);
+          // 새 판독의 첫 독서만 책 모드 — 순서대로 읽는 경험은 갓 나온 판독에만 의미가 있다.
+          setBookOpen(!!res.reading);
           // 새 진단이라 매칭도 새로 돌려야 한다 — 저장은 진단 1건에 한 벌씩 묶인다.
           refreshPicked();
         }
@@ -798,6 +804,11 @@ export function AssessmentPage() {
     ? result.unansweredQuestions!
     : missing.map((f) => FACTOR_ASK[f.name] ?? FACTOR_LABEL[f.name] ?? f.name);
   const psych = psychRows(result.relationshipPsychology);
+  // 정밀 판독 — 확률 있는 일반 판정에만 붙는다(백엔드가 그렇게만 생성).
+  const reading = !locked && prob < 100 ? (result.reading ?? null) : null;
+  // 책 모드 동안엔 아래 판정부(요인 카드, 심리, 사례 등)를 감춰 독서에 집중시킨다.
+  // 나가면(전체 보기, 완독) 판독 전문이 펼쳐지고 판정부도 되살아난다.
+  const bookFocus = bookOpen && reading != null;
 
   return (
     <PhoneFrame>
@@ -949,7 +960,7 @@ export function AssessmentPage() {
 
           {/* 공유는 확률 결과에서만 — 잠금 판정(사귀는 중, 재회 성공)은 남에게 보일 내용이
               아니다 */}
-          {!locked && result.probability != null && (
+          {!locked && !bookFocus && result.probability != null && (
             <div className={styles.shareRow}>
               <button className={styles.shareBtn} onClick={handleShare} disabled={sharing}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -992,8 +1003,21 @@ export function AssessmentPage() {
             </div>
           )}
 
-          {/* 확률 화면에도 총평을 싣는다 — 요인 조각들만으론 서사가 없어 숫자가 건조하게 남는다 */}
-          {!locked && result.reason && (
+          {/* 정밀 판독 — 첫 독서는 장 넘김, 이후엔 전 장이 세로로 펼쳐진다.
+              key는 판독이 바뀌면(재분석) 장 위치를 처음으로 되돌리기 위한 것 */}
+          {reading && (
+            <ReadingBook
+              key={result.createdAt ?? 'reading'}
+              reading={reading}
+              book={bookFocus}
+              onExitBook={() => setBookOpen(false)}
+              onToChat={toChat}
+            />
+          )}
+
+          {/* 확률 화면에도 총평을 싣는다 — 요인 조각들만으론 서사가 없어 숫자가 건조하게 남는다.
+              판독이 있으면 안 그린다: 판독의 총평(0장)이 이 자리를 대체한다 */}
+          {!locked && !reading && result.reason && (
             <div className={styles.reasonCard}>
               <div className={styles.reasonLabel}>총평</div>
               {result.reason}
@@ -1003,7 +1027,7 @@ export function AssessmentPage() {
           {/* 요인 카드: 제목 / 사실 / 판독 이유(어두운 박스). 무게는 내려온 순서가 말한다.
               제안 확정(100%)일 땐 숨긴다 — 수락만 남은 상태에 판정 셈이 떠 있으면 어색하다
               (재회 성공 화면과 같은 원칙, 판정은 번복 대비로 저장만 유지) */}
-          {!locked && prob < 100 && unfavorable.length > 0 && (
+          {!locked && !bookFocus && prob < 100 && unfavorable.length > 0 && (
             <>
               <SectionHead title="가능성을 낮춘 신호" count={unfavorable.length} countClass={styles.weightMinus} />
               <div className={styles.dedList}>
@@ -1023,7 +1047,7 @@ export function AssessmentPage() {
             </>
           )}
 
-          {!locked && prob < 100 && favorable.length > 0 && (
+          {!locked && !bookFocus && prob < 100 && favorable.length > 0 && (
             <>
               <SectionHead title="가능성을 올린 신호" count={favorable.length} countClass={styles.weightPlus} />
               <div className={styles.dedList}>
@@ -1046,7 +1070,7 @@ export function AssessmentPage() {
           {/* 관계 심리 — 확률과 무관한 이해용 층. 잠금 판정(사귀는 중, 재회 성공)에도
               보여준다: 확률이 아니라 관계 구조의 설명이라 어느 판에서도 유효하다.
               어느 행을 그릴지(보류값 걸러내기)는 공유 화면과 공용 헬퍼가 정한다 */}
-          {psych.length > 0 && (
+          {!bookFocus && psych.length > 0 && (
             <>
               <SectionHead title="우리 관계는 왜 힘들었을까" />
               <div className={styles.dedList}>
@@ -1069,7 +1093,7 @@ export function AssessmentPage() {
 
           {/* 유지 전망 — 성사와 별개 축. 관계 심리 다음 자리라 "구조가 안 바뀌면 반복된다"로
               서사가 이어진다. 데이터만 내려오고 화면에 없던 값을 이제 그린다 */}
-          {!locked && prob < 100 && result.relapseRisk && (
+          {!locked && !bookFocus && prob < 100 && result.relapseRisk && (
             <>
               <SectionHead title="다시 만나면 같은 문제가 반복될까" />
               <div className={styles.dedList}>
@@ -1099,7 +1123,7 @@ export function AssessmentPage() {
           {/* 비슷한 사례 — 확률 대역이 구성의 상한을 정하고(낮으면 재회한 사례 1 + 못 한 사례 1,
               높으면 재회한 사례 2) 실제 장수는 고른 쪽이 정한다. 결과에 색을 입히지 않는 원칙은
               그대로다: 초록은 좋음, 회색은 나쁨으로 읽혀 남의 결말에 등급이 붙는다 */}
-          {result && picked && (
+          {!bookFocus && result && picked && (
             <>
               <SectionHead title="비슷한 사례" />
 
@@ -1199,7 +1223,7 @@ export function AssessmentPage() {
               다음 분석을 위한 요청은 마지막이 자연스러운 독서 순서다 */
           }
           {/* 폼에 적으면 원장에 쌓이고 그것만으로 재분석 가드가 열린다(대화 횟수 차감 없음) */}
-          {!locked && (
+          {!locked && !bookFocus && (
             <>
               {/* "앞으로 지켜볼 것"은 내렸다 — 상대가 먼저 연락하면 유리하다는 건 유저가 이미
                   아는 얘기라 자리값을 못 했고, 그 일이 실제로 생기면 대화에서 말하게 되어
@@ -1279,11 +1303,16 @@ export function AssessmentPage() {
 
           {/* 분석 평가 — 판독을 다 읽은 뒤가 평가할 수 있는 시점이라 맨 아래.
               잠금 판정(DATING 등)도 평가 대상이다: 오판이면 그게 골든셋 재료다 */}
-          <ReviewBlock storyId={storyId} resultKey={result.createdAt ?? ''} onRewarded={refreshUsage} />
+          {!bookFocus && (
+            <ReviewBlock storyId={storyId} resultKey={result.createdAt ?? ''} onRewarded={refreshUsage} />
+          )}
 
         </div>
 
-        {/* 잔여 줄은 body(스크롤) 밖에 둬서 스크롤과 무관하게 하단에 고정한다 — 채팅처럼 항상 보이게 */}
+        {/* 잔여 줄은 body(스크롤) 밖에 둬서 스크롤과 무관하게 하단에 고정한다 — 채팅처럼 항상 보이게.
+            책 모드 동안엔 하단 줄과 재분석 버튼도 감춘다 — 독서 중의 유일한 동선은 다음 장이다 */}
+        {!bookFocus && (
+        <>
         <div className={styles.hintRow}>
           <div className={styles.hintCount}>
             {/* 무료/이용권 각각 보여주되 숫자만 밝게(채팅 잔여 줄과 같은 문법) */}
@@ -1314,6 +1343,8 @@ export function AssessmentPage() {
             다시 분석 (1회 차감)
           </button>
         </div>
+        </>
+        )}
 
         {showHelp && (
           <HelpModal
