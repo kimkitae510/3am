@@ -37,6 +37,46 @@ export interface RelationshipPsychology {
   needConflict: { left: string | null; right: string | null; description: string | null } | null;
 }
 
+// 정밀 판독(2호출)의 한 질문 답. state는 내부 값이라 화면에 그리지 않는다(answer가 문장 담당).
+export interface ReadingSection {
+  state: string;
+  answer: string;
+  reading: string;
+}
+
+// 판독 증거 한 줄. source '요인'은 채점된 7슬롯의 재소환, '추가신호'는 채점 틀 밖 발견(확률 무관).
+export interface ReadingEvidence {
+  question: '상대의지금' | '결심강도' | '남은마음' | '재선택';
+  source: '요인' | '추가신호';
+  name: string;
+  direction: '유리' | '불리';
+  fact: string;
+  interpretation: string;
+}
+
+// 문진(사실 보강) 재판정의 변동내역 — 직전 확률 판정 대비 결정론 diff. 첫 판정은 null.
+export interface ReadingDelta {
+  probabilityFrom: number;
+  probabilityTo: number;
+  factors: { name: string; from: string; to: string }[];
+}
+
+// 정밀 판독 — 책 모드(총평 → 사건 재구성 → 네 질문 → 국면)의 재료 전부.
+export interface ReadingView {
+  overall: string;
+  narrative: string;
+  now: ReadingSection;
+  resolve: ReadingSection;
+  remain: ReadingSection;
+  reselect: ReadingSection & { closed: string; open: string; route: string };
+  evidence: ReadingEvidence[];
+  phase: string;
+  // 케이스별 장 제목(narrative/now/resolveRemain/reselect). 없는 키는 고정 제목으로 폴백.
+  chapterTitles: Record<string, string> | null;
+  delta: ReadingDelta | null;
+  createdAt: string | null;
+}
+
 export interface AssessmentResponse {
   verdict: Verdict;
   probability: number | null; // 잠금 판정이면 null
@@ -56,6 +96,8 @@ export interface AssessmentResponse {
   // 연속 실패 쿨다운으로 막힌 응답에만 채워진다. 남은 초(시각이 아니라)라서
   // 기기 시계가 틀어져 있어도 카운트다운이 어긋나지 않는다.
   retryAfterSeconds?: number | null;
+  // 정밀 판독. 확률 있는 일반 판정에만 붙고, 판독 생성이 실패한 판정은 null(판정부만 그린다).
+  reading?: ReadingView | null;
 }
 
 // 지금 대화를 근거로 새 분석을 실행한다(POST). INSUFFICIENT면 저장되지 않는다.
