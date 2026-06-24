@@ -1,0 +1,269 @@
+/* 정밀 판독 책 뷰어. 진단 화면의 카드 문법(var(--card), var(--border))을 그대로 쓴다 —
+   판독만 다른 앱처럼 보이면 안 된다. 장식은 진행도 숫자와 제목 크기뿐. */
+
+.bookWrap {
+  margin: 14px 4px 0;
+  padding: 18px 16px 16px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.bookBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.progress {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.skipLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.bookTitle {
+  margin-top: 12px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.4;
+}
+
+.bookBody {
+  margin-top: 12px;
+  /* 장 안은 짧은 세로 스크롤 — 문단마다 버튼을 두면 다음 다음 다음이 된다 */
+  overflow-y: auto;
+}
+
+/* 총평 — 판결문 서두. 본문보다 반 단계 크게, 읽는 속도를 늦춘다 */
+.overall {
+  color: var(--text);
+  font-size: 14.5px;
+  line-height: 1.75;
+}
+
+/* 답 한 줄 — 이 장의 결론. 먼저 오고, 굵다 */
+.answer {
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.reading {
+  margin-top: 9px;
+  color: #b0b0b8;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* 한 장 안의 두 질문(결심/남은 마음)을 가르는 소제목 */
+.subHead {
+  margin-top: 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.subHead:first-child {
+  margin-top: 0;
+}
+
+.subHead + .answer {
+  margin-top: 6px;
+}
+
+/* 증거 목록 — 요인 카드보다 한 단계 얇게(장 안의 부속이지 주인공이 아니다) */
+.evList {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.evItem {
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+.evTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.evName {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 추가신호 — 채점 틀 밖 발견 표시. 색이 아니라 글자로 말한다 */
+.evExtra {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.evPlus {
+  flex-shrink: 0;
+  color: #b89dd1;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.evMinus {
+  flex-shrink: 0;
+  color: #d88b9f;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.evFact {
+  margin-top: 7px;
+  color: #b0b0b8;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.evReading {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #b0b0b8;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* 재선택 장 — 닫힘 / 열림 / 조건. 조건부 시나리오까지가 리포트의 몫이다 */
+.routeGrid {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.routeItem {
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+.routeLabel {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.routeText {
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.deltaBox {
+  margin-top: 12px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+.deltaRow {
+  margin-top: 6px;
+  color: #b0b0b8;
+  font-size: 12.5px;
+}
+
+.bookNav {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 다음 장 버튼 — 라벨 자체가 다음 장 제목(훅)이다. 두 줄이 될 수 있어 높이를 풀어둔다 */
+.nextBtn {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+  text-align: center;
+}
+
+.prevBtn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fullBtn {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 재열람 — 전 장이 세로로 펼쳐진다 */
+.scrollWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.scrollSection {
+  margin: 14px 4px 0;
+  padding: 15px 16px 16px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.scrollTitle {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
