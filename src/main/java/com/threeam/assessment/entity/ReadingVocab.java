@@ -26,14 +26,8 @@ public final class ReadingVocab {
     public static final List<String> RESELECT_STATES = List.of(
             "OPEN", "CONDITIONAL", "NARROW", "CLOSED_CURRENTLY");
 
-    // 증거가 귀속되는 질문. 화면 표기용 라벨 그대로 저장한다.
-    public static final List<String> QUESTIONS = List.of("상대의지금", "결심강도", "남은마음", "재선택");
-
-    // 요인 = 채점된 7슬롯의 재소환 / 추가신호 = 루브릭 밖 발견(확률에 영향 없음)
-    public static final List<String> SOURCES = List.of("요인", "추가신호");
-
-    public static final List<String> DIRECTIONS = List.of("유리", "불리");
-
     // 케이스별 장 제목의 JSON 키(chapter_titles). 화면 책 모드의 장 순서와 짝이다.
-    public static final List<String> CHAPTER_KEYS = List.of("narrative", "now", "resolveRemain", "reselect");
+    // 표지(cover)와 국면(phase)은 고정 제목이라 여기 없다.
+    public static final List<String> CHAPTER_KEYS =
+            List.of("now", "resolve", "remain", "drift", "blocking", "route");
 }
