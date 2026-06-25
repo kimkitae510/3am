@@ -53,80 +53,70 @@ class ReadingLlmTest {
     }
 
     // 유효한 판독 JSON의 뼈대. 테스트마다 일부만 바꿔 쓴다.
-    private static String validJson(String nowState, String nowAnswer, String evidenceRows) {
+    private static String validJson(String nowState, String nowAnswer, String routeTitle) {
         return """
                 {
-                  "overall": "통보는 차가웠지만 판이 닫히진 않았다.",
-                  "narrative": "다툼이 쌓였고 마지막 날 통보가 나왔다.",
-                  "now": {"state": "%s", "answer": "%s", "reading": "무반응은 소진의 신호"},
-                  "resolve": {"state": "MODERATE", "answer": "굳은 결심은 아니다", "reading": "숙고보다 피로가 밀었다"},
-                  "remain": {"state": "PRESENT", "answer": "마음이 정리된 근거는 없다", "reading": "관계를 부정하는 행동이 없다"},
-                  "reselect": {"state": "CONDITIONAL", "answer": "조건이 바뀌면 움직인다", "closed": "정서적 여력", "open": "대화 가능성", "route": "거리두기 이후 재대화"},
-                  "evidence": [%s],
-                  "phase": "설득이 아니라 확인할 단계다.",
-                  "narrativeTitle": "관계가 뒤집힌 순간은 언제였나",
-                  "nowTitle": "상대는 지금 어떤 상태인가",
-                  "resolveRemainTitle": "결심은 진짜였을까",
-                  "reselectTitle": "다시 움직일 조건은"
+                  "overall": "마음이 끝나 정리한 상태보다, 상처 뒤에 다시 판단하는 상태에 가깝다.",
+                  "coverRaise": "직전까지 관계를 붙잡는 표현이 있었다.",
+                  "coverBlock": "마지막 대화의 상처가 크고 현실 문제가 남아 있다.",
+                  "now": {"state": "%s", "answer": "%s", "reading": "무슨 말을 해야 할지 모르겠다는 말이 울음보다 정보 가치가 높다"},
+                  "resolve": {"state": "UNSTABLE", "answer": "끝내기로 한 결심이라 보기 어렵다", "reading": "갈등 직후의 요청이고 명확한 통보가 아니다"},
+                  "remain": {"state": "PRESENT", "answer": "애정 잔존의 근거는 꽤 강하다", "reading": "다만 마음이 남은 것과 재선택은 다르다"},
+                  "drift": "확인과 거리두기에 가까운 상호작용이 한 번 강하게 나타났다. 반복 근거는 없어 고정 패턴이라 단정할 단계는 아니다.",
+                  "blocking": "가장 큰 장애물은 마음의 유무보다 다시 안전하게 이야기할 수 있느냐다. 현실 문제도 남아 있다.",
+                  "reselect": {"state": "CONDITIONAL", "answer": "여지가 남아 있고, 거리두기 이후의 선택에서 갈린다", "open": "직전까지 회복 표현이 있었다", "route": "거리두기 이후 상대가 관계 대화를 다시 선택하는 경우"},
+                  "phase": "설득할 시점이 아니라 상대의 선택을 확인할 구간이다.",
+                  "nowTitle": "상대는 지금 무슨 생각일까",
+                  "resolveTitle": "2주는 정말 이별 준비였을까",
+                  "remainTitle": "마음은 남아 있을까",
+                  "driftTitle": "마음이 있는데 왜 멀어졌을까",
+                  "blockingTitle": "지금 재회를 막는 건 뭘까",
+                  "routeTitle": "%s"
                 }
-                """.formatted(nowState, nowAnswer, evidenceRows);
+                """.formatted(nowState, nowAnswer, routeTitle);
     }
 
-    private static final String VALID_EVIDENCE = """
-            {"question": "상대의지금", "source": "요인", "name": "상대신호", "direction": "불리", "fact": "두 달째 무반응", "interpretation": "소진 후 거리두기"},
-            {"question": "남은마음", "source": "추가신호", "name": "기록보존", "direction": "유리", "fact": "사진을 지우지 않음", "interpretation": "단독으로는 약한 신호"}
-            """;
-
     @Test
-    @DisplayName("정상 JSON을 판독으로 파싱한다 (네 질문, 증거, 장 제목)")
+    @DisplayName("정상 JSON을 판독으로 파싱한다 (표지, 여섯 장, 장 제목)")
     void parse_success() {
-        ReadingDraft draft = read(validJson("DETACHED", "거리를 두는 중", VALID_EVIDENCE));
+        ReadingDraft draft = read(validJson("RELATIONSHIP_RECONSIDERATION",
+                "다시 판단하기 위해 물러난 상태에 가깝다", "무엇이 바뀌면 다시 움직일까"));
 
-        assertThat(draft.overall()).contains("닫히진 않았다");
-        assertThat(draft.now().state()).isEqualTo("DETACHED");
-        assertThat(draft.resolve().state()).isEqualTo("MODERATE");
-        assertThat(draft.remain().state()).isEqualTo("PRESENT");
-        assertThat(draft.reselect().route()).isEqualTo("거리두기 이후 재대화");
-        assertThat(draft.evidence()).hasSize(2);
-        assertThat(draft.evidence().get(1).source()).isEqualTo("추가신호");
-        assertThat(draft.phase()).contains("확인할 단계");
+        assertThat(draft.overall()).contains("다시 판단하는 상태");
+        assertThat(draft.coverRaise()).contains("붙잡는 표현");
+        assertThat(draft.coverBlock()).contains("상처");
+        assertThat(draft.now().state()).isEqualTo("RELATIONSHIP_RECONSIDERATION");
+        assertThat(draft.resolve().state()).isEqualTo("UNSTABLE");
+        assertThat(draft.remain().reading()).contains("재선택은 다르다");
+        assertThat(draft.drift()).contains("단정할 단계는 아니다");
+        assertThat(draft.blocking()).contains("장애물");
+        assertThat(draft.reselect().route()).contains("다시 선택하는 경우");
+        assertThat(draft.phase()).contains("확인할 구간");
         assertThat(draft.chapterTitles())
-                .containsEntry("narrative", "관계가 뒤집힌 순간은 언제였나")
-                .containsKeys("now", "resolveRemain", "reselect");
+                .containsEntry("route", "무엇이 바뀌면 다시 움직일까")
+                .containsKeys("now", "resolve", "remain", "drift", "blocking");
     }
 
     @Test
     @DisplayName("사전 밖 state는 버리고 대체값으로 채운다 (salvage 경로 방어)")
     void parse_unknownState_fallsBack() {
-        ReadingDraft draft = read(validJson("WEIRD_STATE", "거리를 두는 중", VALID_EVIDENCE));
+        ReadingDraft draft = read(validJson("WEIRD_STATE", "답", "훅"));
 
         assertThat(draft.now().state()).isEqualTo("MIXED");
     }
 
     @Test
-    @DisplayName("증거 검증 — 어휘 밖 질문과 가짜 요인 이름은 폐기, 추가신호는 이름 기준 3개까지")
-    void parse_evidence_filtered() {
-        ReadingDraft draft = read(validJson("DETACHED", "거리를 두는 중", """
-                {"question": "엉뚱한질문", "source": "요인", "name": "상대신호", "direction": "불리", "fact": "사실", "interpretation": "해석"},
-                {"question": "상대의지금", "source": "요인", "name": "숨은죄책감", "direction": "불리", "fact": "사실", "interpretation": "해석"},
-                {"question": "상대의지금", "source": "추가신호", "name": "신호1", "direction": "유리", "fact": "사실", "interpretation": "해석"},
-                {"question": "상대의지금", "source": "추가신호", "name": "신호2", "direction": "유리", "fact": "사실", "interpretation": "해석"},
-                {"question": "상대의지금", "source": "추가신호", "name": "신호3", "direction": "유리", "fact": "사실", "interpretation": "해석"},
-                {"question": "상대의지금", "source": "추가신호", "name": "신호4", "direction": "유리", "fact": "사실", "interpretation": "해석"},
-                {"question": "결심강도", "source": "요인", "name": "통보온도", "direction": "불리", "fact": "다신 보지 말자", "interpretation": "격앙이 민 통보"}
-                """));
+    @DisplayName("장 제목이 비면 고정 제목으로 폴백한다")
+    void parse_blankTitle_fallsBack() {
+        ReadingDraft draft = read(validJson("DETACHED", "답", ""));
 
-        // 남는 것: 추가신호 1~3 + 통보온도. 어휘 밖 질문, 가짜 요인, 4번째 추가신호는 폐기.
-        assertThat(draft.evidence()).hasSize(4);
-        assertThat(draft.evidence().stream()
-                .filter(e -> "추가신호".equals(e.source())).map(ReadingDraft.Evidence::name))
-                .containsExactly("신호1", "신호2", "신호3");
+        assertThat(draft.chapterTitles().get("route")).isEqualTo("무엇이 바뀌면 다시 움직일까");
     }
 
     @Test
     @DisplayName("답이 비어 있으면 판독으로 성립하지 않는다 — LlmException")
     void parse_blankAnswer_throws() {
-        assertThatThrownBy(() -> read(validJson("DETACHED", "", VALID_EVIDENCE)))
+        assertThatThrownBy(() -> read(validJson("DETACHED", "", "훅")))
                 .isInstanceOf(CompletionException.class)
                 .hasCauseInstanceOf(LlmException.class);
     }

@@ -7,9 +7,7 @@ import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.AssessmentReading;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
-import com.threeam.assessment.entity.ReadingEvidence;
 import com.threeam.assessment.entity.ReunionVerdict;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,17 +31,18 @@ class AssessmentReadingViewTest {
         return AssessmentReading.builder()
                 .assessmentId(2L)
                 .baseAssessmentId(1L)
-                .overall("총평")
-                .narrative("재구성")
+                .overall("표지 판정")
+                .coverRaise("여는 이유")
+                .coverBlock("막는 이유")
+                .narrative("왜 멀어졌나")
                 .nowState("DETACHED").nowAnswer("답").nowReading("서술")
                 .resolveState("MODERATE").resolveAnswer("답").resolveReading("서술")
                 .remainState("PRESENT").remainAnswer("답").remainReading("서술")
+                .blocking("막는 것")
                 .reselectState("CONDITIONAL").reselectAnswer("답")
-                .reselectClosed("닫힘").reselectOpen("열림").reselectRoute("경로")
+                .reselectOpen("열림").reselectRoute("경로")
                 .phase("국면")
-                .chapterTitles(Map.of("narrative", "제목"))
-                .evidence(List.of(ReadingEvidence.of("상대의지금", "요인", "상대신호", "불리",
-                        "사실", "해석")))
+                .chapterTitles(Map.of("now", "제목"))
                 .build();
     }
 
@@ -72,8 +71,9 @@ class AssessmentReadingViewTest {
         AssessmentResponse.Reading view = AssessmentResponse.Reading.from(reading(), current, null);
 
         assertThat(view.delta()).isNull();
-        assertThat(view.overall()).isEqualTo("총평");
-        assertThat(view.evidence()).hasSize(1);
+        assertThat(view.overall()).isEqualTo("표지 판정");
+        assertThat(view.coverRaise()).isEqualTo("여는 이유");
+        assertThat(view.blocking()).isEqualTo("막는 것");
         assertThat(view.reselect().route()).isEqualTo("경로");
     }
 

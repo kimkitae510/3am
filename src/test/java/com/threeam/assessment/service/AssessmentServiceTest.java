@@ -119,16 +119,17 @@ class AssessmentServiceTest {
 
     // 판독 스텁 재료 — 내용은 뷰 조립 테스트(AssessmentReadingViewTest)에서 검증하고
     // 여기선 흐름(부착 여부)만 본다.
-    private static final ReadingDraft DRAFT = new ReadingDraft("총평", "재구성",
+    private static final ReadingDraft DRAFT = new ReadingDraft("표지 판정", "여는 이유", "막는 이유",
             new ReadingDraft.Section("DETACHED", "답", "서술"),
             new ReadingDraft.Section("MODERATE", "답", "서술"),
             new ReadingDraft.Section("PRESENT", "답", "서술"),
-            new ReadingDraft.Reselect("CONDITIONAL", "답", "닫힘", "열림", "경로"),
-            List.of(), "국면", java.util.Map.of("narrative", "제목"));
+            "왜 멀어졌나", "막는 것",
+            new ReadingDraft.Reselect("CONDITIONAL", "답", "열림", "경로"),
+            "국면", java.util.Map.of("now", "제목"));
 
     private static final AssessmentResponse.Reading READING_VIEW =
-            new AssessmentResponse.Reading("총평", "재구성", null, null, null, null,
-                    List.of(), "국면", java.util.Map.of(), null, null);
+            new AssessmentResponse.Reading("표지 판정", "여는 이유", "막는 이유", null, null, null,
+                    "왜 멀어졌나", "막는 것", null, "국면", java.util.Map.of(), null, null);
 
     @Test
     @DisplayName("진단 - POSSIBLE이면 대역 계산으로 확률을 내고, 정밀 판독(2호출)을 붙여 돌려준다")
