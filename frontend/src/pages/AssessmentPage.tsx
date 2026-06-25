@@ -856,10 +856,13 @@ export function AssessmentPage() {
                 헤어진 뒤에 다시 열려요.
               </div>
             </div>
-          ) : (
+          ) : reading ? null : (
             <>
               <div className={styles.gaugeWrap}>
-                {/* 선을 가늘게(14→11) — 두꺼운 아크는 계기판 티가 난다. 수치는 숫자가 말하고 아크는 거든다 */}
+                {/* 선을 가늘게(14→11) — 두꺼운 아크는 계기판 티가 난다. 수치는 숫자가 말하고 아크는 거든다
+                    판독이 있으면 이 게이지 히어로는 통째로 안 그린다 — 표지의 판정 문장이 주인공이고
+                    확률은 그 아래 보조 숫자로 붙는다(숫자를 먼저 크게 걸면 나머지 글이 전부
+                    그 숫자의 정당화로 읽힌다) */}
                 <svg width="280" height="150" viewBox="0 0 280 150">
                   <path d="M20,138 A120,120 0 0 1 260,138" fill="none" stroke="#2a2a2e" strokeWidth="11" strokeLinecap="round" />
                   <path
@@ -954,7 +957,7 @@ export function AssessmentPage() {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : reading ? null : (
             <div className={styles.gaugeSub}>{bandLabel(prob)}</div>
           )}
 
@@ -1009,9 +1012,10 @@ export function AssessmentPage() {
             <ReadingBook
               key={result.createdAt ?? 'reading'}
               reading={reading}
+              probability={result.probability}
               book={bookFocus}
               onExitBook={() => setBookOpen(false)}
-              onToChat={toChat}
+              onAskChat={(prefill) => navigate(`/stories/${storyId}`, { state: { prefill } })}
             />
           )}
 
@@ -1027,7 +1031,10 @@ export function AssessmentPage() {
           {/* 요인 카드: 제목 / 사실 / 판독 이유(어두운 박스). 무게는 내려온 순서가 말한다.
               제안 확정(100%)일 땐 숨긴다 — 수락만 남은 상태에 판정 셈이 떠 있으면 어색하다
               (재회 성공 화면과 같은 원칙, 판정은 번복 대비로 저장만 유지) */}
-          {!locked && !bookFocus && prob < 100 && unfavorable.length > 0 && (
+          {/* 요인 카드(낮춘/올린 신호)는 판독이 있으면 안 그린다 — 요인은 엔진의 채점 언어지
+              유저의 목차가 아니고, 스토리 중간에 검사 결과표가 끼면 독서가 깨진다.
+              판독이 없는 옛 결과에서만 기존 문법을 유지한다 */}
+          {!locked && !reading && prob < 100 && unfavorable.length > 0 && (
             <>
               <SectionHead title="가능성을 낮춘 신호" count={unfavorable.length} countClass={styles.weightMinus} />
               <div className={styles.dedList}>
@@ -1047,7 +1054,7 @@ export function AssessmentPage() {
             </>
           )}
 
-          {!locked && !bookFocus && prob < 100 && favorable.length > 0 && (
+          {!locked && !reading && prob < 100 && favorable.length > 0 && (
             <>
               <SectionHead title="가능성을 올린 신호" count={favorable.length} countClass={styles.weightPlus} />
               <div className={styles.dedList}>
@@ -1070,7 +1077,9 @@ export function AssessmentPage() {
           {/* 관계 심리 — 확률과 무관한 이해용 층. 잠금 판정(사귀는 중, 재회 성공)에도
               보여준다: 확률이 아니라 관계 구조의 설명이라 어느 판에서도 유효하다.
               어느 행을 그릴지(보류값 걸러내기)는 공유 화면과 공용 헬퍼가 정한다 */}
-          {!bookFocus && psych.length > 0 && (
+          {/* 애착 유형 표는 판독이 있으면 안 그린다 — 한 번의 갈등으로 유형을 확정하는 건
+              근거 부족이고, 관계 상호작용은 판독의 "왜 멀어졌을까" 장이 사건으로 서술한다 */}
+          {!reading && psych.length > 0 && (
             <>
               <SectionHead title="우리 관계는 왜 힘들었을까" />
               <div className={styles.dedList}>
@@ -1093,7 +1102,7 @@ export function AssessmentPage() {
 
           {/* 유지 전망 — 성사와 별개 축. 관계 심리 다음 자리라 "구조가 안 바뀌면 반복된다"로
               서사가 이어진다. 데이터만 내려오고 화면에 없던 값을 이제 그린다 */}
-          {!locked && !bookFocus && prob < 100 && result.relapseRisk && (
+          {!locked && !reading && prob < 100 && result.relapseRisk && (
             <>
               <SectionHead title="다시 만나면 같은 문제가 반복될까" />
               <div className={styles.dedList}>
@@ -1125,7 +1134,8 @@ export function AssessmentPage() {
               그대로다: 초록은 좋음, 회색은 나쁨으로 읽혀 남의 결말에 등급이 붙는다 */}
           {!bookFocus && result && picked && (
             <>
-              <SectionHead title="비슷한 사례" />
+              {/* 판독 뒤에 붙는 에필로그 — 판독의 질문 문법으로 제목을 잇는다 */}
+              <SectionHead title={reading ? '나와 비슷한 관계는 어떻게 됐을까' : '비슷한 사례'} />
 
               {picked.locked && (
                 <div className={styles.caseRunWrap}>
