@@ -37,21 +37,11 @@ export interface RelationshipPsychology {
   needConflict: { left: string | null; right: string | null; description: string | null } | null;
 }
 
-// 정밀 판독(2호출)의 한 질문 답. state는 내부 값이라 화면에 그리지 않는다(answer가 문장 담당).
+// 정밀 판독(2호출)의 한 질문 답. state는 내부 값 — 국면의 "현재 판독" 소계에만 번역해 쓴다.
 export interface ReadingSection {
   state: string;
   answer: string;
   reading: string;
-}
-
-// 판독 증거 한 줄. source '요인'은 채점된 7슬롯의 재소환, '추가신호'는 채점 틀 밖 발견(확률 무관).
-export interface ReadingEvidence {
-  question: '상대의지금' | '결심강도' | '남은마음' | '재선택';
-  source: '요인' | '추가신호';
-  name: string;
-  direction: '유리' | '불리';
-  fact: string;
-  interpretation: string;
 }
 
 // 문진(사실 보강) 재판정의 변동내역 — 직전 확률 판정 대비 결정론 diff. 첫 판정은 null.
@@ -61,17 +51,20 @@ export interface ReadingDelta {
   factors: { name: string; from: string; to: string }[];
 }
 
-// 정밀 판독 — 책 모드(총평 → 사건 재구성 → 네 질문 → 국면)의 재료 전부.
+// 정밀 판독 — 표지(판정이 주인공, 확률은 보조)와 여섯 장, 국면.
+// 요인 어휘는 안 내려온다: 채점 내부 용어라 유저 지면에 꺼내지 않는다.
 export interface ReadingView {
-  overall: string;
-  narrative: string;
+  overall: string; // 표지 판정 — 확률보다 크게 걸리는 문장
+  coverRaise: string; // 가능성을 열어두는 가장 큰 이유 한 줄
+  coverBlock: string; // 지금 막는 가장 큰 이유 한 줄
   now: ReadingSection;
   resolve: ReadingSection;
   remain: ReadingSection;
-  reselect: ReadingSection & { closed: string; open: string; route: string };
-  evidence: ReadingEvidence[];
+  drift: string; // 왜 멀어졌는가 — 장면 해석 + 이번 갈등의 상호작용 방식
+  blocking: string; // 지금 재회를 막는 것 — 감정/현실 구분
+  reselect: ReadingSection & { open: string; route: string };
   phase: string;
-  // 케이스별 장 제목(narrative/now/resolveRemain/reselect). 없는 키는 고정 제목으로 폴백.
+  // 케이스별 장 제목(now/resolve/remain/drift/blocking/route). 없는 키는 고정 제목으로 폴백.
   chapterTitles: Record<string, string> | null;
   delta: ReadingDelta | null;
   createdAt: string | null;

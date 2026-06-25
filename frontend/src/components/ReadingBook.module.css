@@ -1,5 +1,5 @@
-/* 정밀 판독 책 뷰어. 진단 화면의 카드 문법(var(--card), var(--border))을 그대로 쓴다 —
-   판독만 다른 앱처럼 보이면 안 된다. 장식은 진행도 숫자와 제목 크기뿐. */
+/* 정밀 판독 뷰어. 진단 화면의 카드 문법(var(--card), var(--border))을 그대로 쓴다 —
+   판독만 다른 앱처럼 보이면 안 된다. 장식은 진행도 숫자와 타이포 크기뿐. */
 
 .bookWrap {
   margin: 14px 4px 0;
@@ -50,11 +50,54 @@
   overflow-y: auto;
 }
 
-/* 총평 — 판결문 서두. 본문보다 반 단계 크게, 읽는 속도를 늦춘다 */
-.overall {
+/* 표지 판정 — 이 화면의 주인공. 숫자보다 크고 진하다 */
+.coverVerdict {
   color: var(--text);
-  font-size: 14.5px;
-  line-height: 1.75;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.65;
+  letter-spacing: -0.2px;
+}
+
+/* 확률은 판정의 보조 숫자 — 표지판이지 주인공이 아니다 */
+.coverProb {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.coverProbNum {
+  color: #b89dd1;
+  font-size: 17px;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.coverReasons {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.coverReason {
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+.coverReasonLabel {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.coverReasonText {
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 /* 답 한 줄 — 이 장의 결론. 먼저 오고, 굵다 */
@@ -69,96 +112,11 @@
   margin-top: 9px;
   color: #b0b0b8;
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.75;
+  white-space: pre-line;
 }
 
-/* 한 장 안의 두 질문(결심/남은 마음)을 가르는 소제목 */
-.subHead {
-  margin-top: 16px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.subHead:first-child {
-  margin-top: 0;
-}
-
-.subHead + .answer {
-  margin-top: 6px;
-}
-
-/* 증거 목록 — 요인 카드보다 한 단계 얇게(장 안의 부속이지 주인공이 아니다) */
-.evList {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.evItem {
-  padding: 11px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-}
-
-.evTop {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.evName {
-  color: var(--text);
-  font-size: 12.5px;
-  font-weight: 600;
-  flex: 1;
-  min-width: 0;
-}
-
-/* 추가신호 — 채점 틀 밖 발견 표시. 색이 아니라 글자로 말한다 */
-.evExtra {
-  flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: 10.5px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 7px;
-}
-
-.evPlus {
-  flex-shrink: 0;
-  color: #b89dd1;
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.evMinus {
-  flex-shrink: 0;
-  color: #d88b9f;
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.evFact {
-  margin-top: 7px;
-  color: #b0b0b8;
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.evReading {
-  margin-top: 6px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #b0b0b8;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-/* 재선택 장 — 닫힘 / 열림 / 조건. 조건부 시나리오까지가 리포트의 몫이다 */
+/* 재선택 장 — 열린 것 / 다시 움직이는 경우. 조건부 시나리오까지가 리포트의 몫이다 */
 .routeGrid {
   margin-top: 12px;
   display: flex;
@@ -188,16 +146,37 @@
 
 .deltaBox {
   margin-top: 12px;
-  padding: 11px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
 }
 
 .deltaRow {
   margin-top: 6px;
   color: #b0b0b8;
   font-size: 12.5px;
+}
+
+/* 국면 장의 "현재 판독" 소계 — 아주 작게. 검사표가 아니라 도장 한 줄이다 */
+.stateLine {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+/* 이어지는 궁금증 칩 — 구체 행동 상담은 채팅의 몫이라 칩이 그 문을 연다 */
+.chipRow {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 9px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
 }
 
 .bookNav {
