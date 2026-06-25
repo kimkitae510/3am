@@ -9,7 +9,6 @@ import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.AssessmentReading;
 import com.threeam.assessment.entity.JumpRule;
-import com.threeam.assessment.entity.ReadingEvidence;
 import com.threeam.assessment.entity.ReunionVerdict;
 import com.threeam.assessment.repository.AssessmentReadingRepository;
 import com.threeam.assessment.repository.AssessmentRepository;
@@ -312,15 +311,13 @@ public class AssessmentTxService {
                 .findFirstByStoryIdAndIdLessThanAndProbabilityIsNotNullOrderByIdDesc(
                         storyId, assessmentId)
                 .orElse(null);
-        List<ReadingEvidence> evidence = draft.evidence().stream()
-                .map(e -> ReadingEvidence.of(e.question(), e.source(), e.name(), e.direction(),
-                        e.fact(), e.interpretation()))
-                .toList();
         AssessmentReading reading = readingRepository.save(AssessmentReading.builder()
                 .assessmentId(assessmentId)
                 .baseAssessmentId(base != null ? base.getId() : null)
                 .overall(draft.overall())
-                .narrative(draft.narrative())
+                .coverRaise(draft.coverRaise())
+                .coverBlock(draft.coverBlock())
+                .narrative(draft.drift())
                 .nowState(draft.now().state())
                 .nowAnswer(draft.now().answer())
                 .nowReading(draft.now().reading())
@@ -330,14 +327,13 @@ public class AssessmentTxService {
                 .remainState(draft.remain().state())
                 .remainAnswer(draft.remain().answer())
                 .remainReading(draft.remain().reading())
+                .blocking(draft.blocking())
                 .reselectState(draft.reselect().state())
                 .reselectAnswer(draft.reselect().answer())
-                .reselectClosed(draft.reselect().closed())
                 .reselectOpen(draft.reselect().open())
                 .reselectRoute(draft.reselect().route())
                 .phase(draft.phase())
                 .chapterTitles(draft.chapterTitles())
-                .evidence(evidence)
                 .build());
         return AssessmentResponse.Reading.from(reading, current, base);
     }

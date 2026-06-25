@@ -4,7 +4,6 @@ import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.AssessmentReading;
 import com.threeam.assessment.entity.FactorName;
-import com.threeam.assessment.entity.ReadingEvidence;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -137,16 +136,19 @@ public class AssessmentResponse {
         }
     }
 
-    // 정밀 판독 뷰. 책 모드(0 총평 → 1 사건 재구성 → 2 상대의 지금 → 3 결심과 남은 마음 →
-    // 4 재선택 → 5 국면)의 재료 전부. state는 내부 값이지만 함께 내린다(화면 비노출, 디버깅용).
+    // 정밀 판독 뷰. 표지(판정 + 올린/막는 이유)와 여섯 장(상대의 지금 / 결심 / 남은 마음 /
+    // 왜 멀어졌나 / 막는 것 / 다시 움직일 조건), 국면. 요인 어휘는 안 내린다(채점 내부 용어).
+    // state는 내부 값이지만 함께 내린다(화면은 국면의 "현재 판독" 소계에만 번역해 쓴다).
     public record Reading(
             String overall,
-            String narrative,
+            String coverRaise,
+            String coverBlock,
             Section now,
             Section resolve,
             Section remain,
+            String drift,
+            String blocking,
             Reselect reselect,
-            List<Evidence> evidence,
             String phase,
             Map<String, String> chapterTitles,
             Delta delta,
@@ -155,12 +157,7 @@ public class AssessmentResponse {
         public record Section(String state, String answer, String reading) {
         }
 
-        public record Reselect(String state, String answer, String closed, String open,
-                               String route) {
-        }
-
-        public record Evidence(String question, String source, String name, String direction,
-                               String fact, String interpretation) {
+        public record Reselect(String state, String answer, String open, String route) {
         }
 
         // 문진(사실 보강) 재판정의 변동내역. LLM 서술이 아니라 두 판정의 결정론 diff다 —
@@ -173,23 +170,20 @@ public class AssessmentResponse {
         }
 
         public static Reading from(AssessmentReading reading, Assessment current, Assessment base) {
-            List<Evidence> evidence = reading.getEvidence().stream()
-                    .map(e -> new Evidence(e.getQuestion(), e.getSource(), e.getName(),
-                            e.getDirection(), e.getFact(), e.getInterpretation()))
-                    .toList();
             return new Reading(
                     reading.getOverall(),
-                    reading.getNarrative(),
+                    reading.getCoverRaise(),
+                    reading.getCoverBlock(),
                     new Section(reading.getNowState(), reading.getNowAnswer(),
                             reading.getNowReading()),
                     new Section(reading.getResolveState(), reading.getResolveAnswer(),
                             reading.getResolveReading()),
                     new Section(reading.getRemainState(), reading.getRemainAnswer(),
                             reading.getRemainReading()),
+                    reading.getNarrative(),
+                    reading.getBlocking(),
                     new Reselect(reading.getReselectState(), reading.getReselectAnswer(),
-                            reading.getReselectClosed(), reading.getReselectOpen(),
-                            reading.getReselectRoute()),
-                    evidence,
+                            reading.getReselectOpen(), reading.getReselectRoute()),
                     reading.getPhase(),
                     reading.getChapterTitles(),
                     delta(current, base),
