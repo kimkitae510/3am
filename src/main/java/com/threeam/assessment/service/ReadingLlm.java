@@ -7,7 +7,6 @@ import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.ReadingDraft;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
-import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.ReadingVocab;
 import com.threeam.llm.ChatMessage;
@@ -16,18 +15,17 @@ import com.threeam.llm.LlmException;
 import com.threeam.llm.LlmJson;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-// 정밀 판독(2호출) 담당. 확정된 판정 JSON을 입력으로 받아 "왜 이 판정인지"를 네 질문
-// (상대의 지금 / 결심 강도 / 남은 마음 / 재선택)의 답과 증거로 서술한다.
-// 숫자와 요인 방향은 여기서 만들지도 바꾸지도 않는다 — 채점은 rubric(1호출) + TypeBandScorer 소관.
+// 정밀 판독(2호출) 담당. 확정된 판정 JSON을 입력으로 받아 상대의 현재 상태를 이야기로 푼다 —
+// 표지(판정 + 올린/막는 이유)와 여섯 장(상대의 지금 / 결심 / 남은 마음 / 왜 멀어졌나 /
+// 막는 것 / 다시 움직일 조건), 국면. 숫자와 요인 방향은 여기서 만들지도 바꾸지도 않고,
+// 요인 어휘는 유저 지면에 꺼내지 않는다(채점 내부 용어).
 // 판독 지시 전문은 서비스 자산이라 소스에 두지 않고 ReadingProperties(로컬 reading.yml)로 주입받는다.
 @Slf4j
 @Component
@@ -109,26 +107,10 @@ public class ReadingLlm {
                 "properties", Map.of(
                         "state", Map.of("type", "STRING", "enum", ReadingVocab.RESELECT_STATES),
                         "answer", Map.of("type", "STRING"),
-                        "closed", Map.of("type", "STRING"),
                         "open", Map.of("type", "STRING"),
                         "route", Map.of("type", "STRING")),
-                "required", List.of("state", "answer", "closed", "open", "route"),
-                "propertyOrdering", List.of("state", "answer", "closed", "open", "route"));
-    }
-
-    private static Map<String, Object> evidenceSchema() {
-        return Map.of(
-                "type", "OBJECT",
-                "properties", Map.of(
-                        "question", Map.of("type", "STRING", "enum", ReadingVocab.QUESTIONS),
-                        "source", Map.of("type", "STRING", "enum", ReadingVocab.SOURCES),
-                        "name", Map.of("type", "STRING"),
-                        "direction", Map.of("type", "STRING", "enum", ReadingVocab.DIRECTIONS),
-                        "fact", Map.of("type", "STRING"),
-                        "interpretation", Map.of("type", "STRING")),
-                "required", List.of("question", "source", "name", "direction", "fact", "interpretation"),
-                "propertyOrdering", List.of("question", "source", "name", "direction", "fact",
-                        "interpretation"));
+                "required", List.of("state", "answer", "open", "route"),
+                "propertyOrdering", List.of("state", "answer", "open", "route"));
     }
 
     // 판독 응답의 문법. reading.yml의 JSON 지시와 짝 — 지시를 고쳐 필드가 바뀌면 여기도 같이.
@@ -138,52 +120,67 @@ public class ReadingLlm {
             Map.entry("type", "OBJECT"),
             Map.entry("properties", Map.ofEntries(
                     Map.entry("overall", Map.of("type", "STRING")),
-                    Map.entry("narrative", Map.of("type", "STRING")),
+                    Map.entry("coverRaise", Map.of("type", "STRING")),
+                    Map.entry("coverBlock", Map.of("type", "STRING")),
                     Map.entry("now", sectionSchema(ReadingVocab.NOW_STATES)),
                     Map.entry("resolve", sectionSchema(ReadingVocab.RESOLVE_STATES)),
                     Map.entry("remain", sectionSchema(ReadingVocab.REMAIN_STATES)),
+                    Map.entry("drift", Map.of("type", "STRING")),
+                    Map.entry("blocking", Map.of("type", "STRING")),
                     Map.entry("reselect", reselectSchema()),
-                    Map.entry("evidence", Map.of("type", "ARRAY", "items", evidenceSchema())),
                     Map.entry("phase", Map.of("type", "STRING")),
-                    Map.entry("narrativeTitle", Map.of("type", "STRING")),
                     Map.entry("nowTitle", Map.of("type", "STRING")),
-                    Map.entry("resolveRemainTitle", Map.of("type", "STRING")),
-                    Map.entry("reselectTitle", Map.of("type", "STRING")))),
-            Map.entry("required", List.of("overall", "narrative", "now", "resolve", "remain",
-                    "reselect", "evidence", "phase", "narrativeTitle", "nowTitle",
-                    "resolveRemainTitle", "reselectTitle")),
-            Map.entry("propertyOrdering", List.of("overall", "narrative", "now", "resolve",
-                    "remain", "reselect", "evidence", "phase", "narrativeTitle", "nowTitle",
-                    "resolveRemainTitle", "reselectTitle")));
+                    Map.entry("resolveTitle", Map.of("type", "STRING")),
+                    Map.entry("remainTitle", Map.of("type", "STRING")),
+                    Map.entry("driftTitle", Map.of("type", "STRING")),
+                    Map.entry("blockingTitle", Map.of("type", "STRING")),
+                    Map.entry("routeTitle", Map.of("type", "STRING")))),
+            Map.entry("required", List.of("overall", "coverRaise", "coverBlock", "now", "resolve",
+                    "remain", "drift", "blocking", "reselect", "phase", "nowTitle", "resolveTitle",
+                    "remainTitle", "driftTitle", "blockingTitle", "routeTitle")),
+            Map.entry("propertyOrdering", List.of("overall", "coverRaise", "coverBlock", "now",
+                    "resolve", "remain", "drift", "blocking", "reselect", "phase", "nowTitle",
+                    "resolveTitle", "remainTitle", "driftTitle", "blockingTitle", "routeTitle")));
 
     // 화면 폴백과 동일한 고정 장 제목 — 모델이 제목을 비워 보내도 판독을 살린다.
     private static final Map<String, String> DEFAULT_TITLES = Map.of(
-            "narrative", "관계가 뒤집힌 순간",
-            "now", "상대는 지금 어떤 상태인가",
-            "resolveRemain", "결심은 진짜인가, 마음은 남았는가",
-            "reselect", "다시 선택할 가능성은");
+            "now", "상대는 지금 무슨 생각일까",
+            "resolve", "정말 끝낼 결심이었을까",
+            "remain", "마음은 남아 있을까",
+            "drift", "왜 멀어졌을까",
+            "blocking", "지금 막고 있는 것은",
+            "route", "무엇이 바뀌면 다시 움직일까");
 
     private ReadingDraft parse(String json) {
         try {
             JsonNode root = objectMapper.readTree(LlmJson.salvage(json));
-            String overall = requireText(root, "overall");
-            String narrative = requireText(root, "narrative");
             ReadingDraft.Section now = section(root.path("now"), ReadingVocab.NOW_STATES, "MIXED");
             ReadingDraft.Section resolve =
                     section(root.path("resolve"), ReadingVocab.RESOLVE_STATES, "UNSTABLE");
             ReadingDraft.Section remain =
                     section(root.path("remain"), ReadingVocab.REMAIN_STATES, "LITTLE_EVIDENCE");
-            ReadingDraft.Reselect reselect = reselect(root.path("reselect"));
-            String phase = clip(requireText(root, "phase"), ANSWER_MAX);
+            JsonNode reselectNode = root.path("reselect");
+            ReadingDraft.Reselect reselect = new ReadingDraft.Reselect(
+                    state(reselectNode, ReadingVocab.RESELECT_STATES, "CONDITIONAL"),
+                    clip(requireText(reselectNode, "answer"), ANSWER_MAX),
+                    requireText(reselectNode, "open"),
+                    requireText(reselectNode, "route"));
 
             Map<String, String> titles = new LinkedHashMap<>();
-            titles.put("narrative", title(root, "narrativeTitle", "narrative"));
-            titles.put("now", title(root, "nowTitle", "now"));
-            titles.put("resolveRemain", title(root, "resolveRemainTitle", "resolveRemain"));
-            titles.put("reselect", title(root, "reselectTitle", "reselect"));
+            for (String key : ReadingVocab.CHAPTER_KEYS) {
+                titles.put(key, title(root, key + "Title", key));
+            }
 
-            return new ReadingDraft(overall, narrative, now, resolve, remain, reselect,
-                    parseEvidence(root), phase, titles);
+            return new ReadingDraft(
+                    requireText(root, "overall"),
+                    clip(requireText(root, "coverRaise"), ANSWER_MAX),
+                    clip(requireText(root, "coverBlock"), ANSWER_MAX),
+                    now, resolve, remain,
+                    requireText(root, "drift"),
+                    requireText(root, "blocking"),
+                    reselect,
+                    clip(requireText(root, "phase"), ANSWER_MAX),
+                    titles);
         } catch (LlmException e) {
             throw e;
         } catch (Exception e) {
@@ -198,15 +195,6 @@ public class ReadingLlm {
                 state(node, states, fallbackState),
                 clip(requireText(node, "answer"), ANSWER_MAX),
                 requireText(node, "reading"));
-    }
-
-    private ReadingDraft.Reselect reselect(JsonNode node) {
-        return new ReadingDraft.Reselect(
-                state(node, ReadingVocab.RESELECT_STATES, "CONDITIONAL"),
-                clip(requireText(node, "answer"), ANSWER_MAX),
-                requireText(node, "closed"),
-                requireText(node, "open"),
-                requireText(node, "route"));
     }
 
     // 스키마가 enum을 강제하지만 salvage 경로(잘린 응답 복구)는 뚫릴 수 있어 한 번 더 거른다.
@@ -234,56 +222,8 @@ public class ReadingLlm {
         return value.isEmpty() ? DEFAULT_TITLES.get(key) : clip(value, TITLE_MAX);
     }
 
-    // 증거 폭주 안전핀. 질문 4개에 요인 7 + 추가신호 3이 전부 걸려도 넉넉한 값이다.
-    private static final int EVIDENCE_MAX = 28;
-
-    // 추가신호 상한 — 다다익선으로 풀면 잡음 카드가 판독을 희석한다(설계 확정값).
-    private static final int EXTRA_SIGNAL_MAX = 3;
-
-    private List<ReadingDraft.Evidence> parseEvidence(JsonNode root) {
-        List<ReadingDraft.Evidence> out = new ArrayList<>();
-        Set<String> extraNames = new LinkedHashSet<>();
-        for (JsonNode node : root.path("evidence")) {
-            if (out.size() >= EVIDENCE_MAX) {
-                break;
-            }
-            String question = node.path("question").asText("").trim();
-            String source = node.path("source").asText("").trim();
-            String direction = node.path("direction").asText("").trim();
-            String name = clip(node.path("name").asText("").trim(), NAME_MAX);
-            String fact = clip(node.path("fact").asText("").trim(), EVIDENCE_TEXT_MAX);
-            String interpretation =
-                    clip(node.path("interpretation").asText("").trim(), EVIDENCE_TEXT_MAX);
-            if (!ReadingVocab.QUESTIONS.contains(question) || !ReadingVocab.SOURCES.contains(source)
-                    || !ReadingVocab.DIRECTIONS.contains(direction)
-                    || name.isBlank() || fact.isBlank() || interpretation.isBlank()) {
-                log.warn("판독 증거 폐기(어휘 밖 또는 빈 값): question={} source={}", question, source);
-                continue;
-            }
-            if ("요인".equals(source)) {
-                // 요인 증거는 채점된 7슬롯의 재소환이어야 한다 — 가짜 요인 이름 차단.
-                if (FactorName.fromLabel(name) == null) {
-                    log.warn("판독 증거 폐기(요인 사전에 없음): {}", name);
-                    continue;
-                }
-            } else {
-                // 추가신호는 이름 기준 최대 3개 — 단일 행동에 새 이름을 붙여 늘리는 걸 막는다.
-                if (!extraNames.contains(name) && extraNames.size() >= EXTRA_SIGNAL_MAX) {
-                    log.warn("판독 추가신호 폐기(상한 초과): {}", name);
-                    continue;
-                }
-                extraNames.add(name);
-            }
-            out.add(new ReadingDraft.Evidence(question, source, name, direction, fact,
-                    interpretation));
-        }
-        return out;
-    }
-
     private static final int ANSWER_MAX = 300;
     private static final int TITLE_MAX = 100;
-    private static final int NAME_MAX = 30;
-    private static final int EVIDENCE_TEXT_MAX = 500;
 
     private String clip(String value, int max) {
         if (value == null) {
