@@ -16,11 +16,7 @@ import java.util.List;
 public record ReunionDiagnosis(
         ReunionVerdict verdict,
         boolean activeReunionOffer,         // 상대가 먼저 만남/재회를 제안했고 철회되지 않음
-        BreakupType breakupType,            // 잠금 판정(DATING 등)이면 null
-        // 경계 유형. 두 유형 사이에서 결정적 근거가 없을 때만 채워지고, 백엔드가 두 대역의
-        // 중간을 잡는다. 하나를 강제로 고르면 충동형(60~75)과 소진형(18~30)처럼 45점이
-        // 갈리는 자리에서 경계 오판 한 번의 낙차가 그대로 유저에게 간다.
-        BreakupType breakupTypeSecondary,
+        BreakupType breakupType,            // 잠금 판정(DATING 등)이면 null. 언제나 하나다
         String typeEvidence,                // 유형 판정 근거 한 줄
         JumpRule jumpRule,                  // 유형 대역을 교체하는 점프 규칙(없으면 NONE)
         List<FactorItem> factors,           // 고정 5슬롯 판정

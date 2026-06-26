@@ -410,7 +410,7 @@ class AssessmentTxServiceTest {
         givenOwnedStory();
         given(assessmentRepository.findFirstByStoryIdOrderByCreatedAtDesc(STORY_ID))
                 .willReturn(Optional.of(offerAssessment()));
-        given(scorer.apply(any(), any(), any(), org.mockito.ArgumentMatchers.anyList())).willReturn(40);
+        given(scorer.apply(any(), any(), org.mockito.ArgumentMatchers.anyList())).willReturn(40);
 
         var response = txService.retractOffer(1L, STORY_ID);
 

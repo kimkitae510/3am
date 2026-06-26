@@ -87,17 +87,14 @@ public class TypeBandScorer {
     // 상한 관통은 그 손실을 특수 규칙으로 때우던 것이라 여기에 흡수하고 지웠다).
     private static final int HEADROOM = 10;
 
+    // 유형은 하나다. 두 유형의 중간을 잡아주던 경계 유형(secondary)은 지웠다 — 경계 오판의
+    // 낙차를 완충하려던 장치인데, 실측에서 발동 조건이 오판과 무관했다(발동 4건 중 절반이
+    // primary 정답). 맞은 판을 가운데로 끌어내리는 대가가 틀린 판을 구해주는 값보다 컸고,
+    // 무엇보다 오판의 티를 지워 루브릭을 고칠 단서를 가렸다. 경계는 완충이 아니라 유형별
+    // 판별 관측으로 가른다.
     public int apply(BreakupType type, JumpRule jumpRule, List<AssessmentFactor> factors) {
-        return apply(type, null, jumpRule, factors);
-    }
-
-    // secondary는 두 유형 사이에서 결정적 근거가 없을 때만 온다. 하나를 강제로 고르게 하면
-    // 충동형(52~68)과 소진형(20~33)처럼 30점이 갈리는 자리에서 경계 오판의 낙차가 그대로
-    // 유저에게 간다. 두 대역의 중간을 잡아 "모르겠으면 가운데"를 값으로 표현한다.
-    public int apply(BreakupType type, BreakupType secondary, JumpRule jumpRule,
-                     List<AssessmentFactor> factors) {
         Jump jump = JUMPS.get(jumpRule == null ? JumpRule.NONE : jumpRule);
-        Band base = blend(type, secondary);
+        Band base = BANDS.get(type);
         Band band = base == null ? jump.band() : pull(base, jump);
         int score = (band.lo() + band.hi()) / 2;
         boolean settled = false;
@@ -119,15 +116,6 @@ public class TypeBandScorer {
         int lo = settled ? ABS_MIN : band.lo() - floorRoom;
         score = Math.max(lo, Math.min(band.hi() + headroom, score));
         return Math.max(ABS_MIN, Math.min(ABS_MAX, score));
-    }
-
-    private Band blend(BreakupType type, BreakupType secondary) {
-        Band primary = BANDS.get(type);
-        Band other = secondary == null ? null : BANDS.get(secondary);
-        if (primary == null || other == null) {
-            return primary;
-        }
-        return new Band((primary.lo() + other.lo()) / 2, (primary.hi() + other.hi()) / 2);
     }
 
     private Band pull(Band base, Jump jump) {

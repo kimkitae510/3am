@@ -167,39 +167,16 @@ class TypeBandScorerTest {
         assertThat(score).isEqualTo(87);
     }
 
-    // 충동형(52~68)과 소진형(20~33)은 34점이 갈리는 자리다. 하나를 강제로 고르게 하면
-    // 경계 오판 한 번의 낙차가 그대로 유저에게 간다.
+    // 경계 유형(두 대역의 중간)을 지운 자리. 유형이 대역을 혼자 정하므로 충동형은 언제나
+    // 자기 대역 중앙에서 출발한다 — 소진형 쪽으로 절반 끌려가던 완충이 없다.
     @Test
-    @DisplayName("경계 유형 - 두 유형을 함께 내면 두 대역의 중간에서 시작한다")
-    void secondaryTypeBlendsBands() {
+    @DisplayName("유형 - 대역 중앙에서 출발하고 다른 유형이 끌어당기지 않는다")
+    void typeAloneSetsBand() {
         int impulsive = scorer.apply(BreakupType.IMPULSIVE, JumpRule.NONE, List.of());
         int burnout = scorer.apply(BreakupType.BURNOUT, JumpRule.NONE, List.of());
-        int blended = scorer.apply(BreakupType.IMPULSIVE, BreakupType.BURNOUT,
-                JumpRule.NONE, List.of());
 
-        assertThat(blended).isBetween(burnout, impulsive);
-        assertThat(blended).isEqualTo((impulsive + burnout) / 2);
-    }
-
-    @Test
-    @DisplayName("경계 유형 - 같은 유형을 두 번 주면 대역이 그대로다")
-    void sameTypeTwiceKeepsBand() {
-        int single = scorer.apply(BreakupType.BURNOUT, JumpRule.NONE, List.of());
-        int doubled = scorer.apply(BreakupType.BURNOUT, BreakupType.BURNOUT,
-                JumpRule.NONE, List.of());
-
-        assertThat(doubled).isEqualTo(single);
-    }
-
-    // 점프가 대역을 통째로 교체하던 시절엔 경계 유형이 무시됐다. 이제 사유가 출발점이라 남는다.
-    @Test
-    @DisplayName("경계 유형 - 점프가 걸린 판에서도 살아남는다")
-    void jumpKeepsSecondaryType() {
-        int withSecondary = scorer.apply(BreakupType.IMPULSIVE, BreakupType.TRUST_BROKEN,
-                JumpRule.PARTNER_CLOSED, List.of());
-        int without = scorer.apply(BreakupType.IMPULSIVE, JumpRule.PARTNER_CLOSED, List.of());
-
-        assertThat(withSecondary).isLessThan(without);
+        assertThat(impulsive).isEqualTo(60);
+        assertThat(burnout).isEqualTo(26);
     }
 
     // 재회를 막던 조건이 사라진 판. 요인으로는 못 담는다 — 대체자 폭이 4점이라

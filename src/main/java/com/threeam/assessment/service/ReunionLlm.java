@@ -220,8 +220,6 @@ public class ReunionLlm {
                     Map.entry("activeReunionOffer", Map.of("type", "BOOLEAN")),
                     Map.entry("breakupType", Map.of("type", "STRING", "nullable", true,
                             "enum", BreakupType.labels())),
-                    Map.entry("breakupTypeSecondary", Map.of("type", "STRING", "nullable", true,
-                            "enum", BreakupType.labels())),
                     Map.entry("typeEvidence", Map.of("type", "STRING", "nullable", true)),
                     // 구조화 출력의 enum은 모델이 낼 수 있는 값을 강제한다 — 여기 빠진 점프는
                     // 루브릭이 아무리 시켜도 못 나오고, 모델은 목록에 있는 엉뚱한 값으로 밀려난다
@@ -244,7 +242,7 @@ public class ReunionLlm {
             Map.entry("required", List.of("verdict", "activeReunionOffer",
                     "jumpRule", "matchProfile", "relationshipPsychology", "reason")),
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
-                    "breakupTypeSecondary", "typeEvidence", "jumpRule", "factors", "relapseRisk",
+                    "typeEvidence", "jumpRule", "factors", "relapseRisk",
                     "relationshipPsychology", "watchFor", "unansweredQuestions",
                     "matchProfile", "reason", "newFacts")));
 
@@ -257,12 +255,6 @@ public class ReunionLlm {
             boolean activeReunionOffer = root.path("activeReunionOffer").asBoolean(false);
 
             BreakupType breakupType = BreakupType.fromLabel(root.path("breakupType").asText(null));
-            BreakupType secondary = BreakupType.fromLabel(
-                    root.path("breakupTypeSecondary").asText(null));
-            // 같은 유형을 두 번 적으면 경계가 아니다 — 무시해야 대역이 그대로 유지된다.
-            if (secondary == breakupType) {
-                secondary = null;
-            }
             JumpRule jumpRule = JumpRule.fromLabel(root.path("jumpRule").asText(null));
             List<FactorItem> factors = parseFactors(root);
 
@@ -291,7 +283,7 @@ public class ReunionLlm {
                         : fact);
             }
 
-            return new ReunionDiagnosis(verdict, activeReunionOffer, breakupType, secondary,
+            return new ReunionDiagnosis(verdict, activeReunionOffer, breakupType,
                     clip(root.path("typeEvidence").asText(""), TEXT_MAX),
                     jumpRule,
                     factors, relapseRisk, relapseReason, parseWatch(root),

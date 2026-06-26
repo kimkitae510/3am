@@ -58,14 +58,6 @@ public class Assessment {
     @Column(length = 20)
     private BreakupType breakupType;
 
-    // 경계 유형 — 두 유형 사이에서 결정적 근거가 없을 때만 채워진다. 대역 중간을 잡는 재료라
-    // 재계산(제안 번복) 때 필요해서 저장한다. 화면에는 배지로 내보내지 않는다(유형이 둘로 보이면
-    // "왜 두 개냐"가 생긴다) — 그 사정은 typeEvidence 문장이 말한다.
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(length = 20)
-    private BreakupType breakupTypeSecondary;
-
     // 유형 판정 근거 한 줄 — 화면의 유형 배지가 "왜 이 유형?"에 답하는 재료.
     @Column(length = 300)
     private String typeEvidence;
@@ -121,7 +113,7 @@ public class Assessment {
 
     @Builder
     private Assessment(Long storyId, ReunionVerdict verdict, Integer probability,
-                       BreakupType breakupType, BreakupType breakupTypeSecondary,
+                       BreakupType breakupType,
                        String typeEvidence, JumpRule jumpRule,
                        RelapseRisk relapseRisk, String relapseReason,
                        RelationshipPsychology relationshipPsychology, String reason,
@@ -132,7 +124,6 @@ public class Assessment {
         this.verdict = verdict;
         this.probability = probability;
         this.breakupType = breakupType;
-        this.breakupTypeSecondary = breakupTypeSecondary;
         this.typeEvidence = typeEvidence;
         this.jumpRule = jumpRule;
         this.relapseRisk = relapseRisk;
