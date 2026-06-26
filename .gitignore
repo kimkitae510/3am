@@ -73,3 +73,4 @@ __MACOSX/
 # 작업 원본 이미지 — 실제로 쓰는 것은 frontend/src/assets 로 복사해 둔다
 frontend/public/character(수정).png
 kakaotalk_sharing_btn_small_ov.png
+reading_*.md

@@ -31,11 +31,27 @@ public record ReunionDiagnosis(
         // verdict와 무관하게 채워질 수 있고, 읽을 재료가 없으면 null.
         RelationshipPsychology relationshipPsychology,
         String reason,
-        List<String> newFacts) {            // 새로 드러난 사실 → StoryFact 원장에 append
+        List<String> newFacts,              // 새로 드러난 사실 → StoryFact 원장에 append
+        // 아래 셋은 정밀 판독(2호출)의 재료 — 2호출이 원문을 다시 읽지 않는 설계라,
+        // 채점에 안 쓰였어도 사람에게 중요한 장면을 여기 보존한다. DB에는 안 남는다(같은
+        // 요청 안에서 소비되고, 판독 본문이 저장되므로 재료까지 남길 이유가 없다).
+        List<ReadingFact> readingFacts,     // 관찰 사실 6~15개(해석 없이)
+        List<String> directQuestions,       // 유저가 실제로 물은 질문
+        List<FocusItem> userFocus) {        // 유저가 사건에 붙인 해석(과대해석 교정 재료)
 
     // 한 요인의 판정. stage는 대체자 불리의 세분(정황/정착) — 다른 요인은 null.
     public record FactorItem(FactorName name, FactorLevel level, String evidence,
                              String rationale, ReplacementStage stage) {
+    }
+
+    // 판독용 관찰 사실 한 줄. id는 백엔드가 순서대로 붙인다(F01..) — 판독 본문의
+    // evidenceIds가 이 id를 참조한다.
+    public record ReadingFact(String id, String actor, String kind, String fact,
+                              String quote, String timing) {
+    }
+
+    // 유저가 특정 사실에 붙인 해석. 사실이 아니라 해석임을 구조로 명시한다.
+    public record FocusItem(String factId, String interpretation) {
     }
 
     // "이게 확인되면 판이 바뀐다" — 행동 지시가 아니라 판독의 연장.

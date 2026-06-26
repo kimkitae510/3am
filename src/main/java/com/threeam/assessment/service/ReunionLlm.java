@@ -236,7 +236,13 @@ public class ReunionLlm {
                             "items", Map.of("type", "STRING"))),
                     Map.entry("matchProfile", matchProfileSchema()),
                     Map.entry("reason", Map.of("type", "STRING")),
-                    Map.entry("newFacts", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))))),
+                    Map.entry("newFacts", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))),
+                    // 정밀 판독(2호출) 재료 — 2호출은 원문을 다시 읽지 않으므로 채점과 무관하게
+                    // 사람에게 중요한 장면을 여기 보존한다. 지시 전문은 rubric.yml에 있다.
+                    Map.entry("readingFacts", Map.of("type", "ARRAY", "items", readingFactSchema())),
+                    Map.entry("directQuestions", Map.of("type", "ARRAY",
+                            "items", Map.of("type", "STRING"))),
+                    Map.entry("userFocus", Map.of("type", "ARRAY", "items", userFocusSchema())))),
             // 배열류와 유형은 필수에서 뺀다 — 잠금 판정(DATING 등)은 루브릭이 비우라고 지시하는데
             // 필수로 걸면 억지로 채우게 된다.
             Map.entry("required", List.of("verdict", "activeReunionOffer",
@@ -244,7 +250,35 @@ public class ReunionLlm {
             Map.entry("propertyOrdering", List.of("verdict", "activeReunionOffer", "breakupType",
                     "typeEvidence", "jumpRule", "factors", "relapseRisk",
                     "relationshipPsychology", "watchFor", "unansweredQuestions",
-                    "matchProfile", "reason", "newFacts")));
+                    "matchProfile", "reason", "newFacts",
+                    "readingFacts", "directQuestions", "userFocus")));
+
+    // 판독용 관찰 사실 한 줄. id는 여기 없다 — 모델이 붙이면 중복/누락이 나서 백엔드가
+    // 순서대로 붙인다(F01..). userFocus는 그래서 id 대신 순번(factIndex, 1부터)으로 가리킨다.
+    private static Map<String, Object> readingFactSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "actor", Map.of("type", "STRING",
+                                "enum", List.of("PARTNER", "USER", "BOTH", "CONTEXT")),
+                        "kind", Map.of("type", "STRING",
+                                "enum", List.of("QUOTE", "ACTION", "CHANGE", "CONTEXT", "INTAKE_ANSWER")),
+                        "fact", Map.of("type", "STRING"),
+                        "quote", Map.of("type", "STRING", "nullable", true),
+                        "timing", Map.of("type", "STRING", "nullable", true)),
+                "required", List.of("actor", "kind", "fact"),
+                "propertyOrdering", List.of("actor", "kind", "fact", "quote", "timing"));
+    }
+
+    private static Map<String, Object> userFocusSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "factIndex", Map.of("type", "INTEGER"),
+                        "interpretation", Map.of("type", "STRING")),
+                "required", List.of("factIndex", "interpretation"),
+                "propertyOrdering", List.of("factIndex", "interpretation"));
+    }
 
     private ReunionDiagnosis parse(String json) {
         try {
@@ -283,6 +317,7 @@ public class ReunionLlm {
                         : fact);
             }
 
+            List<ReunionDiagnosis.ReadingFact> readingFacts = parseReadingFacts(root);
             return new ReunionDiagnosis(verdict, activeReunionOffer, breakupType,
                     clip(root.path("typeEvidence").asText(""), TEXT_MAX),
                     jumpRule,
@@ -290,7 +325,9 @@ public class ReunionLlm {
                     parseUnanswered(root),
                     matchProfile(root),
                     relationshipPsychology(root),
-                    root.path("reason").asText(""), newFacts);
+                    root.path("reason").asText(""), newFacts,
+                    readingFacts, parseDirectQuestions(root),
+                    parseUserFocus(root, readingFacts.size()));
         } catch (Exception e) {
             // 응답 본문(json)에는 사연 기반 분석 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
             boolean truncated = json != null && !json.trim().endsWith("}");
@@ -350,6 +387,70 @@ public class ReunionLlm {
                 continue;
             }
             out.add(clip(q, TEXT_MAX));
+        }
+        return out;
+    }
+
+    // 판독용 관찰 사실. 상한 15(비용, 잡음 캡). fact가 비면 줄 자체가 무의미해 버린다.
+    // actor/kind가 사전 밖이면(salvage 경로) CONTEXT로 접는다 — 사실 자체는 살린다.
+    private static final int READING_FACT_MAX = 15;
+
+    private List<ReunionDiagnosis.ReadingFact> parseReadingFacts(JsonNode root) {
+        List<ReunionDiagnosis.ReadingFact> out = new ArrayList<>();
+        for (JsonNode node : root.path("readingFacts")) {
+            if (out.size() >= READING_FACT_MAX) {
+                break;
+            }
+            String fact = clip(node.path("fact").asText("").trim(), TEXT_MAX);
+            if (fact.isBlank()) {
+                continue;
+            }
+            String actor = node.path("actor").asText("").trim();
+            String kind = node.path("kind").asText("").trim();
+            String quote = clip(node.path("quote").asText("").trim(), TEXT_MAX);
+            String timing = clip(node.path("timing").asText("").trim(), TEXT_MAX);
+            out.add(new ReunionDiagnosis.ReadingFact(
+                    String.format("F%02d", out.size() + 1),
+                    List.of("PARTNER", "USER", "BOTH", "CONTEXT").contains(actor) ? actor : "CONTEXT",
+                    List.of("QUOTE", "ACTION", "CHANGE", "CONTEXT", "INTAKE_ANSWER").contains(kind)
+                            ? kind : "CONTEXT",
+                    fact,
+                    quote.isBlank() ? null : quote,
+                    timing.isBlank() ? null : timing));
+        }
+        return out;
+    }
+
+    private static final int DIRECT_QUESTION_MAX = 5;
+
+    private List<String> parseDirectQuestions(JsonNode root) {
+        List<String> out = new ArrayList<>();
+        for (JsonNode node : root.path("directQuestions")) {
+            String q = node.asText("").trim();
+            if (q.isBlank() || out.size() >= DIRECT_QUESTION_MAX) {
+                continue;
+            }
+            out.add(clip(q, TEXT_MAX));
+        }
+        return out;
+    }
+
+    // 유저 해석. factIndex(1부터)가 실제 사실 범위를 벗어나면 사실 연결 없이 해석만 살린다.
+    private static final int USER_FOCUS_MAX = 5;
+
+    private List<ReunionDiagnosis.FocusItem> parseUserFocus(JsonNode root, int factCount) {
+        List<ReunionDiagnosis.FocusItem> out = new ArrayList<>();
+        for (JsonNode node : root.path("userFocus")) {
+            if (out.size() >= USER_FOCUS_MAX) {
+                break;
+            }
+            String interpretation = clip(node.path("interpretation").asText("").trim(), TEXT_MAX);
+            if (interpretation.isBlank()) {
+                continue;
+            }
+            int index = node.path("factIndex").asInt(0);
+            String factId = index >= 1 && index <= factCount ? String.format("F%02d", index) : null;
+            out.add(new ReunionDiagnosis.FocusItem(factId, interpretation));
         }
         return out;
     }
