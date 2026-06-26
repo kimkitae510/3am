@@ -1,5 +1,6 @@
 package com.threeam.assessment.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
 import com.threeam.assessment.dto.ReadingDraft;
@@ -63,6 +64,7 @@ public class AssessmentTxService {
     private final AssessmentReadingRepository readingRepository;
     private final MatchProfileService matchProfileService;
     private final TypeBandScorer scorer;
+    private final ObjectMapper objectMapper;
 
     // INSUFFICIENT 재시도 가드: 지난 근거부족 시점 이후 새 대화가 없으면 막는다(같은 재료 = 같은 답).
     // 표시는 stories.last_insufficient_at(DB)에 있어 재시작, 멀티인스턴스에서도 유지된다.
@@ -299,6 +301,7 @@ public class AssessmentTxService {
 
     // tx3: 정밀 판독 저장 + 뷰 조립. 판정과 별도 트랜잭션 — 판독 2호출이 실패해도
     // 판정은 이미 커밋돼 있고, 화면은 판정만으로도 성립한다.
+    // 본문은 스토리북 산출물 JSON 통짜, state 4개만 컬럼(골든셋 회귀용).
     // base(직전 확률 판정)는 변동내역의 비교 기준 — 저장은 참조 id만 하고 델타는 조회 때 계산한다.
     @Transactional
     public AssessmentResponse.Reading saveReading(Long storyId, Long assessmentId,
@@ -311,31 +314,22 @@ public class AssessmentTxService {
                 .findFirstByStoryIdAndIdLessThanAndProbabilityIsNotNullOrderByIdDesc(
                         storyId, assessmentId)
                 .orElse(null);
+        String body;
+        try {
+            body = objectMapper.writeValueAsString(draft);
+        } catch (Exception e) {
+            throw new IllegalStateException("판독 본문 직렬화 실패 assessmentId=" + assessmentId, e);
+        }
         AssessmentReading reading = readingRepository.save(AssessmentReading.builder()
                 .assessmentId(assessmentId)
                 .baseAssessmentId(base != null ? base.getId() : null)
-                .overall(draft.overall())
-                .coverRaise(draft.coverRaise())
-                .coverBlock(draft.coverBlock())
-                .narrative(draft.drift())
-                .nowState(draft.now().state())
-                .nowAnswer(draft.now().answer())
-                .nowReading(draft.now().reading())
-                .resolveState(draft.resolve().state())
-                .resolveAnswer(draft.resolve().answer())
-                .resolveReading(draft.resolve().reading())
-                .remainState(draft.remain().state())
-                .remainAnswer(draft.remain().answer())
-                .remainReading(draft.remain().reading())
-                .blocking(draft.blocking())
-                .reselectState(draft.reselect().state())
-                .reselectAnswer(draft.reselect().answer())
-                .reselectOpen(draft.reselect().open())
-                .reselectRoute(draft.reselect().route())
-                .phase(draft.phase())
-                .chapterTitles(draft.chapterTitles())
+                .body(body)
+                .nowState(draft.internal().nowState())
+                .resolveState(draft.internal().resolveState())
+                .remainState(draft.internal().remainState())
+                .reselectState(draft.internal().reselectState())
                 .build());
-        return AssessmentResponse.Reading.from(reading, current, base);
+        return AssessmentResponse.Reading.of(draft, current, base, reading.getCreatedAt());
     }
 
     // 유저가 "사귀는 중" 판정을 번복할 때 원장에 남기는 문장.

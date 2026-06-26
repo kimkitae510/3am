@@ -26,8 +26,11 @@ public final class ReadingVocab {
     public static final List<String> RESELECT_STATES = List.of(
             "OPEN", "CONDITIONAL", "NARROW", "CLOSED_CURRENTLY");
 
-    // 케이스별 장 제목의 JSON 키(chapter_titles). 화면 책 모드의 장 순서와 짝이다.
-    // 표지(cover)와 국면(phase)은 고정 제목이라 여기 없다.
-    public static final List<String> CHAPTER_KEYS =
-            List.of("now", "resolve", "remain", "drift", "blocking", "route");
+    // 미스터리의 내부 태그 — 네 축(NOW/RESOLVE/REMAIN/CHOICE)이 mysteries 전체에서
+    // 다뤄졌는지 점검하는 용도. 유저 비노출.
+    public static final List<String> MYSTERY_COVERS = List.of(
+            "NOW", "RESOLVE", "REMAIN", "CHOICE", "SIGNAL_CORRECTION", "INTERACTION");
+
+    // 유저 질문의 출처 — DIRECT(직접 물음), LIKELY(사연상 궁금해할 질문).
+    public static final List<String> QUESTION_SOURCES = List.of("DIRECT", "LIKELY");
 }

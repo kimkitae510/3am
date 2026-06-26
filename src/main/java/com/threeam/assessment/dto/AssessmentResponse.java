@@ -2,7 +2,6 @@ package com.threeam.assessment.dto;
 
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
-import com.threeam.assessment.entity.AssessmentReading;
 import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.ReunionVerdict;
 import java.time.LocalDateTime;
@@ -136,29 +135,9 @@ public class AssessmentResponse {
         }
     }
 
-    // 정밀 판독 뷰. 표지(판정 + 올린/막는 이유)와 여섯 장(상대의 지금 / 결심 / 남은 마음 /
-    // 왜 멀어졌나 / 막는 것 / 다시 움직일 조건), 국면. 요인 어휘는 안 내린다(채점 내부 용어).
-    // state는 내부 값이지만 함께 내린다(화면은 국면의 "현재 판독" 소계에만 번역해 쓴다).
-    public record Reading(
-            String overall,
-            String coverRaise,
-            String coverBlock,
-            Section now,
-            Section resolve,
-            Section remain,
-            String drift,
-            String blocking,
-            Reselect reselect,
-            String phase,
-            Map<String, String> chapterTitles,
-            Delta delta,
-            LocalDateTime createdAt) {
-
-        public record Section(String state, String answer, String reading) {
-        }
-
-        public record Reselect(String state, String answer, String open, String route) {
-        }
+    // 정밀 판독 뷰 — 스토리북 리포트(report) 통짜 + 변동내역(delta).
+    // report는 저장된 본문(JSON)을 그대로 되살린 것이라 구조는 ReadingDraft가 정의한다.
+    public record Reading(ReadingDraft report, Delta delta, LocalDateTime createdAt) {
 
         // 문진(사실 보강) 재판정의 변동내역. LLM 서술이 아니라 두 판정의 결정론 diff다 —
         // 같은 재료면 같은 델타라 저장하지 않고 조회 때 계산한다.
@@ -169,25 +148,9 @@ public class AssessmentResponse {
         public record FactorDelta(String name, String from, String to) {
         }
 
-        public static Reading from(AssessmentReading reading, Assessment current, Assessment base) {
-            return new Reading(
-                    reading.getOverall(),
-                    reading.getCoverRaise(),
-                    reading.getCoverBlock(),
-                    new Section(reading.getNowState(), reading.getNowAnswer(),
-                            reading.getNowReading()),
-                    new Section(reading.getResolveState(), reading.getResolveAnswer(),
-                            reading.getResolveReading()),
-                    new Section(reading.getRemainState(), reading.getRemainAnswer(),
-                            reading.getRemainReading()),
-                    reading.getNarrative(),
-                    reading.getBlocking(),
-                    new Reselect(reading.getReselectState(), reading.getReselectAnswer(),
-                            reading.getReselectOpen(), reading.getReselectRoute()),
-                    reading.getPhase(),
-                    reading.getChapterTitles(),
-                    delta(current, base),
-                    reading.getCreatedAt());
+        public static Reading of(ReadingDraft report, Assessment current, Assessment base,
+                                 LocalDateTime createdAt) {
+            return new Reading(report, delta(current, base), createdAt);
         }
 
         // 변동내역 — 직전 판정(base) 대비 확률과 요인 레벨의 변화만 추린다.

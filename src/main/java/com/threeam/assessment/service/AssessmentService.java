@@ -1,7 +1,9 @@
 package com.threeam.assessment.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.AssessmentResponse;
+import com.threeam.assessment.dto.ReadingDraft;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
@@ -41,6 +43,7 @@ public class AssessmentService {
     private final AssessmentRepository assessmentRepository;
     private final AssessmentReadingRepository readingRepository;
     private final UsageLimiter usageLimiter;
+    private final ObjectMapper objectMapper;
     // 분석 저장을 HttpClient 스레드가 아니라 우리 풀에서 돌린다(LlmCallbackConfig 참고).
     private final Executor llmCallbackExecutor;
 
@@ -173,7 +176,13 @@ public class AssessmentService {
         if (!eligible) {
             return CompletableFuture.completedFuture(result.response());
         }
-        return readingLlm.read(context, saved)
+        // 확률을 움직인 것의 서열(scoreDrivers)과 표시 대역은 숫자를 계산한 쪽(백엔드)이 확정한다 —
+        // 2호출은 번역만 하고 다시 고르지 않는다.
+        List<TypeBandScorer.Driver> drivers = scorer.drivers(saved.getBreakupType(),
+                saved.getJumpRule(), saved.getTypeEvidence(), saved.getFactors());
+        String band = scorer.displayBand(saved.getProbability());
+        String coverDriverId = scorer.coverDriverId(band, drivers);
+        return readingLlm.read(saved, diagnosis, context.intakeBlock(), drivers, band, coverDriverId)
                 .thenApplyAsync(draft -> {
                     try {
                         return result.response()
@@ -211,7 +220,16 @@ public class AssessmentService {
                     if (reading != null) {
                         Assessment base = reading.getBaseAssessmentId() != null
                                 ? byId.get(reading.getBaseAssessmentId()) : null;
-                        response.withReading(AssessmentResponse.Reading.from(reading, a, base));
+                        // 본문 역직렬화 실패(구조 개편 전 행 등)는 판독 없음으로 접는다 —
+                        // 옛 행 하나 때문에 이력 조회 전체가 500이 되면 안 된다.
+                        try {
+                            ReadingDraft report =
+                                    objectMapper.readValue(reading.getBody(), ReadingDraft.class);
+                            response.withReading(AssessmentResponse.Reading.of(
+                                    report, a, base, reading.getCreatedAt()));
+                        } catch (Exception e) {
+                            log.warn("판독 본문 역직렬화 실패 assessmentId={} — 판정만 표시", a.getId());
+                        }
                     }
                     return response;
                 })
