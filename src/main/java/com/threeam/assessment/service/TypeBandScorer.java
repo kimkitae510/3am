@@ -6,6 +6,8 @@ import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.ReplacementStage;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -150,6 +152,83 @@ public class TypeBandScorer {
         return factor.getName() == FactorName.REPLACEMENT
                 && factor.getLevel().unfavorableSide()
                 && factor.getStage() == ReplacementStage.SETTLED;
+    }
+
+    // ── 판독(2호출) payload용 — 확률을 실제로 움직인 것의 서열 ──────────────────
+    // "가능성을 높인/낮춘 신호"를 LLM에게 다시 고르게 하지 않는다. 숫자를 계산한 쪽이
+    // 기여도를 제일 정확히 안다. delta는 내부 선별용이고 payload에는 싣지 않는다.
+
+    public record Driver(String id, String direction, int rank, String source,
+                         String evidence, String rationale, int magnitude) {
+    }
+
+    // 표시 대역. 화면 밴드 라벨(assessmentScale)과 경계를 맞춘다 — 45 미만 낮음 계열,
+    // 65 이상 높음 계열. 2호출이 대역 기준을 자체 발명하지 않게 백엔드가 확정한다.
+    public String displayBand(int probability) {
+        if (probability >= 65) {
+            return "HIGH";
+        }
+        return probability >= 45 ? "MID" : "LOW";
+    }
+
+    // 방향별 상위 2개씩. 유형과 점프도 드라이버다 — 하단 유형(권태 등)은 그 자체가
+    // 가장 큰 하락 요인인데 요인만 세면 "왜 낮은지"의 본체가 빠진다.
+    public List<Driver> drivers(BreakupType type, JumpRule jumpRule, String typeEvidence,
+                                List<AssessmentFactor> factors) {
+        List<Driver> all = new ArrayList<>();
+        if (type != null) {
+            Band band = BANDS.get(type);
+            int mid = (band.lo() + band.hi()) / 2;
+            // 대역 중심이 50에서 먼 만큼 유형이 판을 움직인 크기로 본다.
+            all.add(new Driver(null, mid >= 50 ? "UP" : "DOWN", 0, "TYPE",
+                    typeEvidence == null ? "" : typeEvidence,
+                    "이별 사유의 성격이 기본 가능성 구간을 정함", Math.abs(mid - 50)));
+        }
+        Jump jump = JUMPS.get(jumpRule == null ? JumpRule.NONE : jumpRule);
+        if (jump != null) {
+            // 점프는 사유보다 무겁다(설계) — 끌어당기는 힘(pull)을 크기로 환산한다.
+            all.add(new Driver(null, jump.up() ? "UP" : "DOWN", 0, "JUMP", "",
+                    "이별 후 상황이 기본 구간을 끌어당김", (int) Math.round(10 + jump.pull() * 10)));
+        }
+        for (AssessmentFactor factor : factors) {
+            int delta = delta(factor);
+            if (delta == 0) {
+                continue;
+            }
+            all.add(new Driver(null, delta > 0 ? "UP" : "DOWN", 0, "FACTOR",
+                    factor.getEvidence() == null ? "" : factor.getEvidence(),
+                    factor.getRationale() == null ? "" : factor.getRationale(),
+                    Math.abs(delta)));
+        }
+        List<Driver> ranked = new ArrayList<>();
+        for (String direction : List.of("UP", "DOWN")) {
+            List<Driver> side = all.stream()
+                    .filter(d -> d.direction().equals(direction))
+                    .sorted(Comparator.comparingInt(Driver::magnitude).reversed())
+                    .limit(2)
+                    .toList();
+            for (int i = 0; i < side.size(); i++) {
+                Driver d = side.get(i);
+                ranked.add(new Driver("D" + String.format("%02d", ranked.size() + 1),
+                        d.direction(), i + 1, d.source(), d.evidence(), d.rationale(),
+                        d.magnitude()));
+            }
+        }
+        return ranked;
+    }
+
+    // 표지에서 쓸 드라이버 하나 — HIGH면 상승 1순위, LOW면 하락 1순위,
+    // MID면 크기가 가장 큰 것(판을 가장 잘 설명하는 충돌 축).
+    public String coverDriverId(String displayBand, List<Driver> drivers) {
+        if (drivers.isEmpty()) {
+            return null;
+        }
+        String want = "HIGH".equals(displayBand) ? "UP" : "LOW".equals(displayBand) ? "DOWN" : null;
+        return drivers.stream()
+                .filter(d -> want == null || d.direction().equals(want))
+                .max(Comparator.comparingInt(Driver::magnitude))
+                .map(Driver::id)
+                .orElse(drivers.get(0).id());
     }
 
     private record Band(int lo, int hi) {
