@@ -37,13 +37,6 @@ export interface RelationshipPsychology {
   needConflict: { left: string | null; right: string | null; description: string | null } | null;
 }
 
-// 정밀 판독(2호출)의 한 질문 답. state는 내부 값 — 국면의 "현재 판독" 소계에만 번역해 쓴다.
-export interface ReadingSection {
-  state: string;
-  answer: string;
-  reading: string;
-}
-
 // 문진(사실 보강) 재판정의 변동내역 — 직전 확률 판정 대비 결정론 diff. 첫 판정은 null.
 export interface ReadingDelta {
   probabilityFrom: number;
@@ -51,21 +44,68 @@ export interface ReadingDelta {
   factors: { name: string; from: string; to: string }[];
 }
 
-// 정밀 판독 — 표지(판정이 주인공, 확률은 보조)와 여섯 장, 국면.
+// ── 정밀 판독(스토리북 리포트) ──────────────────────────────────────────────
+// 사연별 미스터리 장이 본문이다 — 장 개수와 제목이 사연마다 다르다.
 // 요인 어휘는 안 내려온다: 채점 내부 용어라 유저 지면에 꺼내지 않는다.
+
+export interface ReadingMystery {
+  title: string; // 질문형 훅 — 그 사연에만 있는 장면에서 나온다
+  answer: string; // 답부터
+  reading: string;
+  evidenceIds: string[];
+  covers: string[]; // 내부 태그(NOW 등). 화면 비노출
+}
+
+export interface ReadingQuestion {
+  source: 'DIRECT' | 'LIKELY'; // 직접 물음 / 사연상 궁금해할 질문
+  question: string;
+  answer: string;
+  reading: string;
+  evidenceIds: string[];
+}
+
+export interface ReadingBlocker {
+  rank: number;
+  title: string;
+  answer: string;
+  reading: string;
+  evidenceIds: string[];
+}
+
+export interface ReadingRepair {
+  title: string;
+  answer: string;
+  concept: string | null; // 관계심리 개념 0~1개
+  reading: string;
+  repairPrinciple: string; // 복구 원리까지 — 실행 시점과 문구는 채팅 몫
+}
+
+export interface StoryReport {
+  coverVerdict: string; // 표지 한 문장 판정 — 확률보다 크게 걸리는 주인공
+  coverReason: string; // 이 숫자를 지지하는 가장 큰 이유 하나
+  mysteries: ReadingMystery[];
+  questions: ReadingQuestion[];
+  blockers: ReadingBlocker[];
+  relationshipRepair: ReadingRepair | null;
+  reselect: {
+    title: string;
+    answer: string;
+    open: string[];
+    conditions: string[];
+    watchFor: string[];
+  };
+  phase: { label: string; reading: string; chipSeeds: string[] };
+  followUp: { question: string; whyItMatters: string } | null;
+  internal: {
+    nowState: string;
+    resolveState: string;
+    remainState: string;
+    reselectState: string;
+  };
+}
+
 export interface ReadingView {
-  overall: string; // 표지 판정 — 확률보다 크게 걸리는 문장
-  coverRaise: string; // 가능성을 열어두는 가장 큰 이유 한 줄
-  coverBlock: string; // 지금 막는 가장 큰 이유 한 줄
-  now: ReadingSection;
-  resolve: ReadingSection;
-  remain: ReadingSection;
-  drift: string; // 왜 멀어졌는가 — 장면 해석 + 이번 갈등의 상호작용 방식
-  blocking: string; // 지금 재회를 막는 것 — 감정/현실 구분
-  reselect: ReadingSection & { open: string; route: string };
-  phase: string;
-  // 케이스별 장 제목(now/resolve/remain/drift/blocking/route). 없는 키는 고정 제목으로 폴백.
-  chapterTitles: Record<string, string> | null;
+  report: StoryReport;
   delta: ReadingDelta | null;
   createdAt: string | null;
 }

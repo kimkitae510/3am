@@ -1,14 +1,14 @@
-/* 정밀 판독 뷰어. 진단 화면의 카드 문법(var(--card), var(--border))을 그대로 쓴다 —
-   판독만 다른 앱처럼 보이면 안 된다. 장식은 진행도 숫자와 타이포 크기뿐. */
+/* 정밀 판독(스토리북 리포트) 뷰어 — 텍스트 중심 에디토리얼.
+   카드 안에 카드를 쌓는 검사지 문법 대신, 장 번호와 타이포 위계로만 구획한다
+   (운세/소비 리포트류가 쓰는 문법 — 상자가 아니라 여백과 크기가 층을 만든다).
+   색은 앱 공용 변수만 쓴다: 판독만 다른 앱처럼 보이면 안 된다. */
 
 .bookWrap {
-  margin: 14px 4px 0;
-  padding: 18px 16px 16px;
-  border-radius: 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  margin: 10px 4px 0;
+  padding: 8px 6px 0;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .bookBar {
@@ -21,7 +21,8 @@
   color: var(--text-muted);
   font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.4px;
+  font-variant-numeric: tabular-nums;
 }
 
 .skipLink {
@@ -35,152 +36,257 @@
   cursor: pointer;
 }
 
+/* 장 번호 — 배지나 선 장식 없이 숫자 하나로 위치를 말한다 */
+.chapterNum {
+  margin-top: 22px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  font-variant-numeric: tabular-nums;
+}
+
 .bookTitle {
-  margin-top: 12px;
+  margin-top: 8px;
   color: var(--text);
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: -0.3px;
-  line-height: 1.4;
+  letter-spacing: -0.4px;
+  line-height: 1.38;
+  word-break: keep-all;
 }
 
 .bookBody {
-  margin-top: 12px;
-  /* 장 안은 짧은 세로 스크롤 — 문단마다 버튼을 두면 다음 다음 다음이 된다 */
+  margin-top: 16px;
   overflow-y: auto;
 }
 
-/* 표지 판정 — 이 화면의 주인공. 숫자보다 크고 진하다 */
+/* ── 표지 ─────────────────────────────────────────── */
+
+/* 판정 한 문장 — 이 화면의 주인공. 숫자보다 크고 진하다 */
 .coverVerdict {
+  margin-top: 26px;
   color: var(--text);
-  font-size: 16px;
+  font-size: 21px;
   font-weight: 700;
-  line-height: 1.65;
-  letter-spacing: -0.2px;
+  line-height: 1.5;
+  letter-spacing: -0.4px;
+  word-break: keep-all;
 }
 
 /* 확률은 판정의 보조 숫자 — 표지판이지 주인공이 아니다 */
 .coverProb {
-  margin-top: 12px;
+  margin-top: 18px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 .coverProbNum {
   color: #b89dd1;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
-  margin-left: 2px;
+  margin-left: 3px;
+  font-variant-numeric: tabular-nums;
 }
 
-.coverReasons {
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
+/* 이 숫자를 지지하는 가장 큰 이유 하나 — 올린/막는 이유를 동시에 늘어놓지 않는다 */
 .coverReason {
-  padding: 11px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: #b0b0b8;
+  font-size: 13.5px;
+  line-height: 1.75;
 }
 
-.coverReasonLabel {
-  color: var(--text-muted);
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.coverReasonText {
-  margin-top: 5px;
-  color: var(--text);
-  font-size: 13px;
-  line-height: 1.6;
-}
+/* ── 본문 공통 ────────────────────────────────────── */
 
 /* 답 한 줄 — 이 장의 결론. 먼저 오고, 굵다 */
 .answer {
   color: var(--text);
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 700;
-  line-height: 1.6;
+  line-height: 1.62;
+  word-break: keep-all;
 }
 
 .reading {
-  margin-top: 9px;
+  margin-top: 12px;
   color: #b0b0b8;
-  font-size: 13px;
-  line-height: 1.75;
+  font-size: 13.5px;
+  line-height: 1.85;
   white-space: pre-line;
 }
 
-/* 재선택 장 — 열린 것 / 다시 움직이는 경우. 조건부 시나리오까지가 리포트의 몫이다 */
-.routeGrid {
-  margin-top: 12px;
+/* ── 유저 질문 장 ─────────────────────────────────── */
+
+.qaList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 22px;
 }
 
-.routeItem {
-  padding: 11px 12px;
+.qaItem + .qaItem {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.qaQuestion {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* ── 장애물 순위 장 ───────────────────────────────── */
+
+.blockerList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.blockerItem {
+  display: flex;
+  gap: 14px;
+}
+
+/* 순위 숫자 — 큰 활자 하나가 순서를 말한다(배지 금지) */
+.blockerRank {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.blockerBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.blockerTitle {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.blockerBody .answer {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.blockerBody .reading {
+  margin-top: 7px;
+}
+
+/* ── 복구 원리 장 ─────────────────────────────────── */
+
+.concept {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.principle {
+  margin-top: 16px;
+  padding: 13px 14px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
 }
 
-.routeLabel {
+.principleLabel {
   color: var(--text-muted);
   font-size: 11.5px;
   font-weight: 600;
 }
 
-.routeText {
-  margin-top: 5px;
-  color: var(--text);
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-
-.deltaBox {
-  margin-top: 12px;
-}
-
-.deltaRow {
+.principleText {
   margin-top: 6px;
-  color: #b0b0b8;
-  font-size: 12.5px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.7;
 }
 
-/* 국면 장의 "현재 판독" 소계 — 아주 작게. 검사표가 아니라 도장 한 줄이다 */
+/* ── 조건/목록 블록 (재선택, 변동내역, 후속 질문) ───── */
+
+.listBlock {
+  margin-top: 16px;
+}
+
+.listLabel {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+
+.listLine {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.65;
+  padding-left: 12px;
+  position: relative;
+}
+
+.listLine + .listLine {
+  margin-top: 6px;
+}
+
+/* 나열 표식 — 가는 세로선(불릿 기호는 앱 전체 금지) */
+.listLine::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.followWhy {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  padding-left: 12px;
+}
+
+/* ── 국면 장 ──────────────────────────────────────── */
+
 .stateLine {
-  margin-top: 12px;
+  margin-top: 14px;
   color: var(--text-muted);
   font-size: 11.5px;
 }
 
-/* 이어지는 궁금증 칩 — 구체 행동 상담은 채팅의 몫이라 칩이 그 문을 연다 */
 .chipRow {
-  margin-top: 14px;
+  margin-top: 16px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .chip {
-  padding: 9px 13px;
+  padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   font-size: 12.5px;
   cursor: pointer;
+  text-align: left;
 }
 
+/* ── 넘김 ─────────────────────────────────────────── */
+
 .bookNav {
-  margin-top: 16px;
+  margin-top: 22px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -189,8 +295,8 @@
 /* 다음 장 버튼 — 라벨 자체가 다음 장 제목(훅)이다. 두 줄이 될 수 있어 높이를 풀어둔다 */
 .nextBtn {
   width: 100%;
-  min-height: 46px;
-  padding: 12px 14px;
+  min-height: 48px;
+  padding: 13px 14px;
   border-radius: 13px;
   border: none;
   background: var(--accent);
@@ -200,6 +306,7 @@
   line-height: 1.4;
   cursor: pointer;
   text-align: center;
+  word-break: keep-all;
 }
 
 .prevBtn {
@@ -214,7 +321,7 @@
 
 .fullBtn {
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   border-radius: 13px;
   border: 1px solid var(--border);
   background: none;
@@ -224,25 +331,42 @@
   cursor: pointer;
 }
 
-/* 재열람 — 전 장이 세로로 펼쳐진다 */
+/* ── 재열람(전체 펼침) ────────────────────────────── */
+
 .scrollWrap {
   display: flex;
   flex-direction: column;
+  padding: 0 6px;
 }
 
 .scrollSection {
-  margin: 14px 4px 0;
-  padding: 15px 16px 16px;
-  border-radius: 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  padding: 22px 0;
+}
+
+.scrollSection + .scrollSection {
+  border-top: 1px solid var(--border);
+}
+
+.scrollHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.scrollNum {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
 }
 
 .scrollTitle {
   color: var(--text);
-  font-size: 15px;
+  font-size: 16.5px;
   font-weight: 700;
-  letter-spacing: -0.2px;
-  margin-bottom: 10px;
+  letter-spacing: -0.3px;
   line-height: 1.4;
+  word-break: keep-all;
 }

@@ -1,20 +1,12 @@
 import { useState } from 'react';
-import type { ReadingView } from '../api/assessment';
+import type { ReadingDelta, ReadingView, StoryReport } from '../api/assessment';
 import styles from './ReadingBook.module.css';
 
-// 정밀 판독 뷰어. 표지(판정이 주인공, 확률은 보조 숫자)에서 시작해 여섯 장을 넘기며
-// 상대의 진실이 하나씩 밝혀지는 구성. 요인 카드나 점수표는 여기 없다 — 요인은 엔진의
-// 채점 언어고, 유저가 읽는 목차는 실제 궁금증(지금 무슨 생각일까, 마음은 남았을까)이어야 한다.
+// 정밀 판독(스토리북 리포트) 뷰어. 표지(한 문장 판정 + 확률 + 이유 하나)에서 시작해
+// 사연별 미스터리 장을 하나씩 넘긴다 — 장 개수와 제목이 사연마다 다르다(고정 목차는
+// 템플릿으로 읽힌다). 요인 카드나 점수표는 여기 없다.
 // 첫 독서는 장 넘김, 완독이나 전체 보기 후엔 세로 스크롤. 완독 여부는 저장하지 않는다.
-
-const FIXED_TITLES: Record<string, string> = {
-  now: '상대는 지금 무슨 생각일까',
-  resolve: '정말 끝낼 결심이었을까',
-  remain: '마음은 남아 있을까',
-  drift: '왜 멀어졌을까',
-  blocking: '지금 재회를 막고 있는 건 뭘까',
-  route: '무엇이 바뀌면 다시 움직일까',
-};
+// 디자인은 카드 상자 대신 텍스트 중심 에디토리얼 — 장 번호, 큰 제목, 본문 위계로만 구획한다.
 
 // state는 내부 값이지만, 국면 장의 "현재 판독" 소계 한 줄에만 번역해 쓴다.
 const NOW_LABEL: Record<string, string> = {
@@ -32,112 +24,169 @@ const RESELECT_LABEL: Record<string, string> = {
   CLOSED_CURRENTLY: '지금은 재선택이 닫혀 있음',
 };
 
-// 국면 장의 후속 칩 — 눌러서 이어지는 궁금증. 구체 행동 상담은 리포트가 아니라 채팅의 몫이라,
-// 칩이 그 문을 연다(입력창 프리필).
-const PHASE_CHIPS = ['그래서 지금 어떻게 해야 할까?', '먼저 연락해도 될까?', '상대 마음을 더 깊게 보고 싶어'];
+// 장 목록은 리포트 내용에서 조립된다 — 미스터리 개수, 질문/복구 장 유무가 사연마다 다르다.
+type Chapter =
+  | { kind: 'cover' }
+  | { kind: 'mystery'; index: number }
+  | { kind: 'questions' }
+  | { kind: 'blockers' }
+  | { kind: 'repair' }
+  | { kind: 'reselect' }
+  | { kind: 'phase' };
 
-type ChapterKey = 'cover' | 'now' | 'resolve' | 'remain' | 'drift' | 'blocking' | 'route' | 'phase';
-
-const CHAPTER_KEYS: ChapterKey[] = [
-  'cover',
-  'now',
-  'resolve',
-  'remain',
-  'drift',
-  'blocking',
-  'route',
-  'phase',
-];
-
-function chapterTitle(key: ChapterKey, reading: ReadingView): string {
-  if (key === 'cover') return '현재 두 사람을 먼저 판단하면';
-  if (key === 'phase') return '지금은 어떤 국면인가';
-  return reading.chapterTitles?.[key] || FIXED_TITLES[key];
+function buildChapters(report: StoryReport): Chapter[] {
+  const chapters: Chapter[] = [{ kind: 'cover' }];
+  report.mysteries.forEach((_, index) => chapters.push({ kind: 'mystery', index }));
+  if (report.questions.length > 0) chapters.push({ kind: 'questions' });
+  if (report.blockers.length > 0) chapters.push({ kind: 'blockers' });
+  if (report.relationshipRepair) chapters.push({ kind: 'repair' });
+  chapters.push({ kind: 'reselect' });
+  chapters.push({ kind: 'phase' });
+  return chapters;
 }
 
-// 한 질문 장의 본문 — 답 한 줄(굵게)이 먼저, 서술이 뒤를 받친다.
-function QuestionBlock({ answer, reading }: { answer: string; reading: string }) {
-  return (
-    <>
-      <div className={styles.answer}>{answer}</div>
-      <div className={styles.reading}>{reading}</div>
-    </>
-  );
+function chapterTitle(chapter: Chapter, report: StoryReport, probability: number | null): string {
+  switch (chapter.kind) {
+    case 'cover':
+      return '';
+    case 'mystery':
+      return report.mysteries[chapter.index].title;
+    case 'questions':
+      return '직접 궁금했던 것들';
+    case 'blockers':
+      return probability != null ? `지금 ${probability}%를 막고 있는 것` : '지금 가능성을 막고 있는 것';
+    case 'repair':
+      return report.relationshipRepair?.title ?? '다시 만나면 반복될까';
+    case 'reselect':
+      return report.reselect.title;
+    case 'phase':
+      return report.phase.label;
+  }
 }
 
 function ChapterBody({
   chapter,
-  reading,
+  report,
+  delta,
   probability,
   onAskChat,
 }: {
-  chapter: ChapterKey;
-  reading: ReadingView;
+  chapter: Chapter;
+  report: StoryReport;
+  delta: ReadingDelta | null;
   probability: number | null;
   onAskChat: (prefill: string) => void;
 }) {
-  if (chapter === 'cover') {
-    // 판정 문장이 주인공, 숫자는 보조 — 숫자를 먼저 크게 걸면 나머지 글 전부가
-    // "그 숫자의 정당화"로 읽히고, 끝까지 숨기면 숫자 생각에 분석이 안 들어온다.
+  if (chapter.kind === 'cover') {
+    // 판정 한 문장이 주인공, 숫자는 보조 — 숫자를 먼저 크게 걸면 나머지 글 전부가
+    // 그 숫자의 정당화로 읽히고, 끝까지 숨기면 숫자 생각에 분석이 안 들어온다.
     return (
       <>
-        <div className={styles.coverVerdict}>{reading.overall}</div>
+        <div className={styles.coverVerdict}>{report.coverVerdict}</div>
         {probability != null && (
           <div className={styles.coverProb}>
             재회 가능성 <span className={styles.coverProbNum}>{probability}%</span>
           </div>
         )}
-        <div className={styles.coverReasons}>
-          <div className={styles.coverReason}>
-            <div className={styles.coverReasonLabel}>가능성을 열어두는 가장 큰 이유</div>
-            <div className={styles.coverReasonText}>{reading.coverRaise}</div>
+        <div className={styles.coverReason}>{report.coverReason}</div>
+      </>
+    );
+  }
+  if (chapter.kind === 'mystery') {
+    const mystery = report.mysteries[chapter.index];
+    return (
+      <>
+        <div className={styles.answer}>{mystery.answer}</div>
+        <div className={styles.reading}>{mystery.reading}</div>
+      </>
+    );
+  }
+  if (chapter.kind === 'questions') {
+    return (
+      <div className={styles.qaList}>
+        {report.questions.map((q) => (
+          <div className={styles.qaItem} key={q.question}>
+            <div className={styles.qaQuestion}>{q.question}</div>
+            <div className={styles.answer}>{q.answer}</div>
+            {q.reading && <div className={styles.reading}>{q.reading}</div>}
           </div>
-          <div className={styles.coverReason}>
-            <div className={styles.coverReasonLabel}>지금 가능성을 막는 가장 큰 이유</div>
-            <div className={styles.coverReasonText}>{reading.coverBlock}</div>
+        ))}
+      </div>
+    );
+  }
+  if (chapter.kind === 'blockers') {
+    return (
+      <div className={styles.blockerList}>
+        {report.blockers.map((b) => (
+          <div className={styles.blockerItem} key={b.rank}>
+            <div className={styles.blockerRank}>{b.rank}</div>
+            <div className={styles.blockerBody}>
+              <div className={styles.blockerTitle}>{b.title}</div>
+              <div className={styles.answer}>{b.answer}</div>
+              {b.reading && <div className={styles.reading}>{b.reading}</div>}
+            </div>
           </div>
+        ))}
+      </div>
+    );
+  }
+  if (chapter.kind === 'repair') {
+    const repair = report.relationshipRepair!;
+    return (
+      <>
+        <div className={styles.answer}>{repair.answer}</div>
+        {repair.concept && <div className={styles.concept}>{repair.concept}</div>}
+        <div className={styles.reading}>{repair.reading}</div>
+        <div className={styles.principle}>
+          <div className={styles.principleLabel}>이런 충돌이 덜 반복되려면</div>
+          <div className={styles.principleText}>{repair.repairPrinciple}</div>
         </div>
       </>
     );
   }
-  if (chapter === 'now') {
-    return <QuestionBlock answer={reading.now.answer} reading={reading.now.reading} />;
-  }
-  if (chapter === 'resolve') {
-    return <QuestionBlock answer={reading.resolve.answer} reading={reading.resolve.reading} />;
-  }
-  if (chapter === 'remain') {
-    return <QuestionBlock answer={reading.remain.answer} reading={reading.remain.reading} />;
-  }
-  if (chapter === 'drift') {
-    return <div className={styles.reading}>{reading.drift}</div>;
-  }
-  if (chapter === 'blocking') {
-    return <div className={styles.reading}>{reading.blocking}</div>;
-  }
-  if (chapter === 'route') {
-    const delta = reading.delta;
+  if (chapter.kind === 'reselect') {
+    const reselect = report.reselect;
     return (
       <>
-        <div className={styles.answer}>{reading.reselect.answer}</div>
-        <div className={styles.routeGrid}>
-          <div className={styles.routeItem}>
-            <div className={styles.routeLabel}>아직 열려 있는 것</div>
-            <div className={styles.routeText}>{reading.reselect.open}</div>
+        <div className={styles.answer}>{reselect.answer}</div>
+        {reselect.open.length > 0 && (
+          <div className={styles.listBlock}>
+            <div className={styles.listLabel}>아직 열려 있는 것</div>
+            {reselect.open.map((line) => (
+              <div className={styles.listLine} key={line}>
+                {line}
+              </div>
+            ))}
           </div>
-          <div className={styles.routeItem}>
-            <div className={styles.routeLabel}>다시 움직이는 경우</div>
-            <div className={styles.routeText}>{reading.reselect.route}</div>
+        )}
+        {reselect.conditions.length > 0 && (
+          <div className={styles.listBlock}>
+            <div className={styles.listLabel}>다시 움직이는 조건</div>
+            {reselect.conditions.map((line) => (
+              <div className={styles.listLine} key={line}>
+                {line}
+              </div>
+            ))}
           </div>
-        </div>
+        )}
+        {reselect.watchFor.length > 0 && (
+          <div className={styles.listBlock}>
+            <div className={styles.listLabel}>판단을 바꿀 신호</div>
+            {reselect.watchFor.map((line) => (
+              <div className={styles.listLine} key={line}>
+                {line}
+              </div>
+            ))}
+          </div>
+        )}
         {/* 변동내역 — 새 사실이 반영돼 지난 판정에서 달라진 것. 결정론 diff라 서술과 어긋나지 않는다 */}
         {delta && delta.factors.length > 0 && (
-          <div className={styles.routeItem + ' ' + styles.deltaBox}>
-            <div className={styles.routeLabel}>
+          <div className={styles.listBlock}>
+            <div className={styles.listLabel}>
               지난 판정에서 달라진 것 ({delta.probabilityFrom}% → {delta.probabilityTo}%)
             </div>
             {delta.factors.map((f) => (
-              <div className={styles.deltaRow} key={f.name}>
+              <div className={styles.listLine} key={f.name}>
                 {f.name} {f.from} → {f.to}
               </div>
             ))}
@@ -146,24 +195,33 @@ function ChapterBody({
       </>
     );
   }
-  // phase — 국면 판정 + 작은 현재 판독 소계 + 이어지는 궁금증 칩(채팅 프리필)
-  const nowLabel = NOW_LABEL[reading.now.state];
-  const reselectLabel = RESELECT_LABEL[reading.reselect.state];
+  // phase — 국면 판정 + 현재 판독 소계 + 이어지는 궁금증 칩(채팅 프리필) + 후속 질문
+  const nowLabel = NOW_LABEL[report.internal.nowState];
+  const reselectLabel = RESELECT_LABEL[report.internal.reselectState];
   return (
     <>
-      <div className={styles.answer}>{reading.phase}</div>
+      <div className={styles.answer}>{report.phase.reading}</div>
       {(nowLabel || reselectLabel) && (
         <div className={styles.stateLine}>
           현재 판독 {[nowLabel, reselectLabel].filter(Boolean).join(', ')}
         </div>
       )}
-      <div className={styles.chipRow}>
-        {PHASE_CHIPS.map((chip) => (
-          <button className={styles.chip} key={chip} onClick={() => onAskChat(chip)}>
-            {chip}
-          </button>
-        ))}
-      </div>
+      {report.phase.chipSeeds.length > 0 && (
+        <div className={styles.chipRow}>
+          {report.phase.chipSeeds.map((chip) => (
+            <button className={styles.chip} key={chip} onClick={() => onAskChat(chip)}>
+              {chip}
+            </button>
+          ))}
+        </div>
+      )}
+      {report.followUp && (
+        <div className={styles.listBlock}>
+          <div className={styles.listLabel}>다음 분석 전에 알려주면 좋은 것</div>
+          <div className={styles.listLine}>{report.followUp.question}</div>
+          <div className={styles.followWhy}>{report.followUp.whyItMatters}</div>
+        </div>
+      )}
     </>
   );
 }
@@ -185,17 +243,27 @@ export function ReadingBook({
   onAskChat: (prefill: string) => void;
 }) {
   const [page, setPage] = useState(0);
+  const report = reading.report;
+  const chapters = buildChapters(report);
 
   if (!book) {
     // 재열람 — 전체가 세로로 펼쳐진다. "그때 그 얘기 어디 있었지"에 다음 다음 다음이 없게.
     return (
       <div className={styles.scrollWrap}>
-        {CHAPTER_KEYS.map((key) => (
-          <section className={styles.scrollSection} key={key}>
-            <div className={styles.scrollTitle}>{chapterTitle(key, reading)}</div>
+        {chapters.map((chapter, i) => (
+          <section className={styles.scrollSection} key={i}>
+            {chapter.kind !== 'cover' && (
+              <div className={styles.scrollHead}>
+                <span className={styles.scrollNum}>{String(i).padStart(2, '0')}</span>
+                <span className={styles.scrollTitle}>
+                  {chapterTitle(chapter, report, probability)}
+                </span>
+              </div>
+            )}
             <ChapterBody
-              chapter={key}
-              reading={reading}
+              chapter={chapter}
+              report={report}
+              delta={reading.delta}
               probability={probability}
               onAskChat={onAskChat}
             />
@@ -205,24 +273,35 @@ export function ReadingBook({
     );
   }
 
-  const key = CHAPTER_KEYS[page];
-  const last = page === CHAPTER_KEYS.length - 1;
-  const nextTitle = last ? null : chapterTitle(CHAPTER_KEYS[page + 1], reading);
+  const chapter = chapters[page];
+  const last = page === chapters.length - 1;
+  const nextTitle = last ? null : chapterTitle(chapters[page + 1], report, probability);
 
   return (
     <div className={styles.bookWrap}>
       <div className={styles.bookBar}>
         <span className={styles.progress}>
-          {page + 1} / {CHAPTER_KEYS.length}
+          {page + 1} / {chapters.length}
         </span>
         {/* 순서대로 읽기를 권하지만 강제하진 않는다 — 건너뛰고 싶은 사람의 출구 */}
         <button className={styles.skipLink} onClick={onExitBook}>
           전체 보기
         </button>
       </div>
-      <div className={styles.bookTitle}>{chapterTitle(key, reading)}</div>
+      {chapter.kind !== 'cover' && (
+        <>
+          <div className={styles.chapterNum}>{String(page).padStart(2, '0')}</div>
+          <div className={styles.bookTitle}>{chapterTitle(chapter, report, probability)}</div>
+        </>
+      )}
       <div className={styles.bookBody}>
-        <ChapterBody chapter={key} reading={reading} probability={probability} onAskChat={onAskChat} />
+        <ChapterBody
+          chapter={chapter}
+          report={report}
+          delta={reading.delta}
+          probability={probability}
+          onAskChat={onAskChat}
+        />
       </div>
       <div className={styles.bookNav}>
         {page > 0 && (
@@ -236,7 +315,7 @@ export function ReadingBook({
           </button>
         ) : (
           <button className={styles.nextBtn} onClick={() => setPage(page + 1)}>
-            {page === 0 ? '왜 이 판정인지 하나씩 풀어보기' : `다음 — ${nextTitle}`}
+            {page === 0 ? '왜 이 숫자인지 하나씩 풀어보기' : `다음 — ${nextTitle}`}
           </button>
         )}
       </div>
