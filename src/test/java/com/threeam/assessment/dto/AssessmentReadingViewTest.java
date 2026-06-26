@@ -4,11 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
-import com.threeam.assessment.entity.AssessmentReading;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.ReunionVerdict;
-import java.util.Map;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -27,23 +26,14 @@ class AssessmentReadingViewTest {
                 .build();
     }
 
-    private AssessmentReading reading() {
-        return AssessmentReading.builder()
-                .assessmentId(2L)
-                .baseAssessmentId(1L)
-                .overall("표지 판정")
-                .coverRaise("여는 이유")
-                .coverBlock("막는 이유")
-                .narrative("왜 멀어졌나")
-                .nowState("DETACHED").nowAnswer("답").nowReading("서술")
-                .resolveState("MODERATE").resolveAnswer("답").resolveReading("서술")
-                .remainState("PRESENT").remainAnswer("답").remainReading("서술")
-                .blocking("막는 것")
-                .reselectState("CONDITIONAL").reselectAnswer("답")
-                .reselectOpen("열림").reselectRoute("경로")
-                .phase("국면")
-                .chapterTitles(Map.of("now", "제목"))
-                .build();
+    private ReadingDraft report() {
+        return new ReadingDraft("표지 판정", "표지 이유",
+                List.of(new ReadingDraft.Mystery("제목", "답", "서술", List.of("F01"), List.of("NOW"))),
+                List.of(), List.of(), null,
+                new ReadingDraft.Reselect("제목", "답", List.of(), List.of(), List.of()),
+                new ReadingDraft.Phase("국면", "서술", List.of()),
+                null,
+                new ReadingDraft.Internal("MIXED", "UNSTABLE", "PRESENT", "CONDITIONAL"));
     }
 
     @Test
@@ -52,7 +42,7 @@ class AssessmentReadingViewTest {
         Assessment base = assessment(40, FactorLevel.UNFAVORABLE, FactorLevel.NEUTRAL);
         Assessment current = assessment(55, FactorLevel.FAVORABLE, FactorLevel.NEUTRAL);
 
-        AssessmentResponse.Reading view = AssessmentResponse.Reading.from(reading(), current, base);
+        AssessmentResponse.Reading view = AssessmentResponse.Reading.of(report(), current, base, null);
 
         assertThat(view.delta()).isNotNull();
         assertThat(view.delta().probabilityFrom()).isEqualTo(40);
@@ -64,17 +54,15 @@ class AssessmentReadingViewTest {
     }
 
     @Test
-    @DisplayName("base가 없으면(첫 판정) 델타 없이 판독만 내린다")
+    @DisplayName("base가 없으면(첫 판정) 델타 없이 리포트만 내린다")
     void delta_nullWithoutBase() {
         Assessment current = assessment(55, FactorLevel.FAVORABLE, FactorLevel.NEUTRAL);
 
-        AssessmentResponse.Reading view = AssessmentResponse.Reading.from(reading(), current, null);
+        AssessmentResponse.Reading view = AssessmentResponse.Reading.of(report(), current, null, null);
 
         assertThat(view.delta()).isNull();
-        assertThat(view.overall()).isEqualTo("표지 판정");
-        assertThat(view.coverRaise()).isEqualTo("여는 이유");
-        assertThat(view.blocking()).isEqualTo("막는 것");
-        assertThat(view.reselect().route()).isEqualTo("경로");
+        assertThat(view.report().coverVerdict()).isEqualTo("표지 판정");
+        assertThat(view.report().mysteries()).hasSize(1);
     }
 
     @Test
@@ -83,7 +71,7 @@ class AssessmentReadingViewTest {
         Assessment base = assessment(55, FactorLevel.FAVORABLE, FactorLevel.NEUTRAL);
         Assessment current = assessment(55, FactorLevel.FAVORABLE, FactorLevel.NEUTRAL);
 
-        AssessmentResponse.Reading view = AssessmentResponse.Reading.from(reading(), current, base);
+        AssessmentResponse.Reading view = AssessmentResponse.Reading.of(report(), current, base, null);
 
         assertThat(view.delta()).isNotNull();
         assertThat(view.delta().factors()).isEmpty();

@@ -8,22 +8,21 @@ import static org.mockito.BDDMockito.given;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.ReadingProperties;
-import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.ReadingDraft;
+import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
+import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.ReunionVerdict;
-import com.threeam.llm.ChatMessage;
-import com.threeam.llm.LlmClient;
-import com.threeam.llm.LlmException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,93 +30,108 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ReadingLlmTest {
 
     @Mock
-    private LlmClient llmClient;
+    private com.threeam.llm.LlmClient llmClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private ReadingDraft read(String json) {
-        given(llmClient.generateJsonDeep(anyList(), any()))
-                .willReturn(CompletableFuture.completedFuture(json));
-        Assessment saved = Assessment.builder()
+    private Assessment saved() {
+        return Assessment.builder()
                 .storyId(1L)
                 .verdict(ReunionVerdict.POSSIBLE)
-                .probability(40)
+                .probability(62)
                 .reason("판정 총평")
                 .factor(AssessmentFactor.of(FactorName.PARTNER_SIGNAL, FactorLevel.UNFAVORABLE,
                         "두 달째 무반응", "무반응이 굳어지는 방향", null))
                 .build();
-        AssessmentContext context = new AssessmentContext(List.of(),
-                List.of(ChatMessage.user("사연")), null, null, null);
-        return new ReadingLlm(llmClient, objectMapper, new ReadingProperties())
-                .read(context, saved).join();
     }
 
-    // 유효한 판독 JSON의 뼈대. 테스트마다 일부만 바꿔 쓴다.
-    private static String validJson(String nowState, String nowAnswer, String routeTitle) {
+    private ReunionDiagnosis diagnosis(List<ReunionDiagnosis.ReadingFact> facts) {
+        return new ReunionDiagnosis(ReunionVerdict.POSSIBLE, false, null, null, JumpRule.NONE,
+                List.of(), null, null, List.of(), List.of(), null, null, "총평", List.of(),
+                facts, List.of("다시 연락이 올까요?"), List.of());
+    }
+
+    private ReadingDraft read(String json, List<ReunionDiagnosis.ReadingFact> facts) {
+        given(llmClient.generateJsonDeep(anyList(), any()))
+                .willReturn(CompletableFuture.completedFuture(json));
+        return new ReadingLlm(llmClient, objectMapper, new ReadingProperties())
+                .read(saved(), diagnosis(facts), null, List.of(), "MID", null).join();
+    }
+
+    // 유효한 스토리북 JSON 뼈대. 테스트마다 일부만 바꿔 쓴다.
+    private static String validJson(String mysteries, String nowState) {
         return """
                 {
-                  "overall": "마음이 끝나 정리한 상태보다, 상처 뒤에 다시 판단하는 상태에 가깝다.",
-                  "coverRaise": "직전까지 관계를 붙잡는 표현이 있었다.",
-                  "coverBlock": "마지막 대화의 상처가 크고 현실 문제가 남아 있다.",
-                  "now": {"state": "%s", "answer": "%s", "reading": "무슨 말을 해야 할지 모르겠다는 말이 울음보다 정보 가치가 높다"},
-                  "resolve": {"state": "UNSTABLE", "answer": "끝내기로 한 결심이라 보기 어렵다", "reading": "갈등 직후의 요청이고 명확한 통보가 아니다"},
-                  "remain": {"state": "PRESENT", "answer": "애정 잔존의 근거는 꽤 강하다", "reading": "다만 마음이 남은 것과 재선택은 다르다"},
-                  "drift": "확인과 거리두기에 가까운 상호작용이 한 번 강하게 나타났다. 반복 근거는 없어 고정 패턴이라 단정할 단계는 아니다.",
-                  "blocking": "가장 큰 장애물은 마음의 유무보다 다시 안전하게 이야기할 수 있느냐다. 현실 문제도 남아 있다.",
-                  "reselect": {"state": "CONDITIONAL", "answer": "여지가 남아 있고, 거리두기 이후의 선택에서 갈린다", "open": "직전까지 회복 표현이 있었다", "route": "거리두기 이후 상대가 관계 대화를 다시 선택하는 경우"},
-                  "phase": "설득할 시점이 아니라 상대의 선택을 확인할 구간이다.",
-                  "nowTitle": "상대는 지금 무슨 생각일까",
-                  "resolveTitle": "2주는 정말 이별 준비였을까",
-                  "remainTitle": "마음은 남아 있을까",
-                  "driftTitle": "마음이 있는데 왜 멀어졌을까",
-                  "blockingTitle": "지금 재회를 막는 건 뭘까",
-                  "routeTitle": "%s"
+                  "coverVerdict": "다시 판단하는 상태에 가깝습니다.",
+                  "coverReason": "직전까지 관계를 붙잡는 표현이 있었기 때문입니다.",
+                  "mysteries": [%s],
+                  "questions": [
+                    {"source": "DIRECT", "question": "다시 연락이 올까요?", "answer": "기간이 끝난 뒤의 선택이 신호입니다.", "reading": "요청된 기간의 무연락은 거절이 아닙니다.", "evidenceIds": ["F01"]}
+                  ],
+                  "blockers": [
+                    {"rank": 7, "title": "마지막 대화의 상처", "answer": "재선택을 막고 있습니다.", "reading": "감정 문제입니다.", "evidenceIds": ["F01"]},
+                    {"rank": 7, "title": "현실 문제", "answer": "그대로 남아 있습니다.", "reading": "현실 문제입니다.", "evidenceIds": []}
+                  ],
+                  "relationshipRepair": null,
+                  "reselect": {"title": "무엇이 달라지면 움직일까", "answer": "관계 대화의 재선택이 첫 조건입니다.", "open": ["회복 표현이 있었다"], "conditions": ["안전한 대화 경험"], "watchFor": ["기간 후 먼저 관계 얘기를 꺼내는지"]},
+                  "phase": {"label": "확인의 구간", "reading": "설득이 아니라 확인할 구간입니다.", "chipSeeds": ["먼저 연락해도 될까?"]},
+                  "followUp": null,
+                  "internal": {"nowState": "%s", "resolveState": "UNSTABLE", "remainState": "PRESENT", "reselectState": "CONDITIONAL"}
                 }
-                """.formatted(nowState, nowAnswer, routeTitle);
+                """.formatted(mysteries, nowState);
+    }
+
+    private static final String MYSTERY = """
+            {"title": "미래를 말한 다음날 왜 물러났을까?", "answer": "상처 때문에 가깝습니다.", "reading": "방향이 하루 만에 꺾인 것은 충격의 크기를 말합니다.", "evidenceIds": ["F01"], "covers": ["NOW", "RESOLVE"]}
+            """;
+
+    @Test
+    @DisplayName("정상 JSON을 스토리북으로 파싱한다 (표지, 미스터리, 질문, 장애물 순위 재부여)")
+    void parse_success() {
+        ReadingDraft draft = read(validJson(MYSTERY, "RELATIONSHIP_RECONSIDERATION"), List.of());
+
+        assertThat(draft.coverVerdict()).contains("다시 판단하는 상태");
+        assertThat(draft.mysteries()).hasSize(1);
+        assertThat(draft.mysteries().get(0).covers()).containsExactly("NOW", "RESOLVE");
+        assertThat(draft.questions()).hasSize(1);
+        assertThat(draft.questions().get(0).source()).isEqualTo("DIRECT");
+        // 모델이 보낸 rank(7,7)는 버리고 배열 순서로 1,2를 다시 매긴다
+        assertThat(draft.blockers()).extracting(ReadingDraft.Blocker::rank).containsExactly(1, 2);
+        assertThat(draft.relationshipRepair()).isNull();
+        assertThat(draft.reselect().conditions()).containsExactly("안전한 대화 경험");
+        assertThat(draft.phase().chipSeeds()).containsExactly("먼저 연락해도 될까?");
+        assertThat(draft.internal().nowState()).isEqualTo("RELATIONSHIP_RECONSIDERATION");
     }
 
     @Test
-    @DisplayName("정상 JSON을 판독으로 파싱한다 (표지, 여섯 장, 장 제목)")
-    void parse_success() {
-        ReadingDraft draft = read(validJson("RELATIONSHIP_RECONSIDERATION",
-                "다시 판단하기 위해 물러난 상태에 가깝다", "무엇이 바뀌면 다시 움직일까"));
-
-        assertThat(draft.overall()).contains("다시 판단하는 상태");
-        assertThat(draft.coverRaise()).contains("붙잡는 표현");
-        assertThat(draft.coverBlock()).contains("상처");
-        assertThat(draft.now().state()).isEqualTo("RELATIONSHIP_RECONSIDERATION");
-        assertThat(draft.resolve().state()).isEqualTo("UNSTABLE");
-        assertThat(draft.remain().reading()).contains("재선택은 다르다");
-        assertThat(draft.drift()).contains("단정할 단계는 아니다");
-        assertThat(draft.blocking()).contains("장애물");
-        assertThat(draft.reselect().route()).contains("다시 선택하는 경우");
-        assertThat(draft.phase()).contains("확인할 구간");
-        assertThat(draft.chapterTitles())
-                .containsEntry("route", "무엇이 바뀌면 다시 움직일까")
-                .containsKeys("now", "resolve", "remain", "drift", "blocking");
+    @DisplayName("미스터리가 하나도 없으면 스토리 리포트가 아니다 — 판독 실패(판정은 유지)")
+    void parse_noMysteries_throws() {
+        assertThatThrownBy(() -> read(validJson("", "MIXED"), List.of()))
+                .isInstanceOf(CompletionException.class)
+                .hasCauseInstanceOf(com.threeam.llm.LlmException.class);
     }
 
     @Test
     @DisplayName("사전 밖 state는 버리고 대체값으로 채운다 (salvage 경로 방어)")
     void parse_unknownState_fallsBack() {
-        ReadingDraft draft = read(validJson("WEIRD_STATE", "답", "훅"));
+        ReadingDraft draft = read(validJson(MYSTERY, "WEIRD"), List.of());
 
-        assertThat(draft.now().state()).isEqualTo("MIXED");
+        assertThat(draft.internal().nowState()).isEqualTo("MIXED");
     }
 
     @Test
-    @DisplayName("장 제목이 비면 고정 제목으로 폴백한다")
-    void parse_blankTitle_fallsBack() {
-        ReadingDraft draft = read(validJson("DETACHED", "답", ""));
+    @DisplayName("readingFacts가 비면 요인 근거를 관찰 사실로 승격해 payload에 싣는다(안전망)")
+    void payload_fallbackFactsFromFactors() {
+        given(llmClient.generateJsonDeep(anyList(), any()))
+                .willReturn(CompletableFuture.completedFuture(validJson(MYSTERY, "MIXED")));
+        new ReadingLlm(llmClient, objectMapper, new ReadingProperties())
+                .read(saved(), diagnosis(List.of()), null, List.of(), "MID", null).join();
 
-        assertThat(draft.chapterTitles().get("route")).isEqualTo("무엇이 바뀌면 다시 움직일까");
-    }
-
-    @Test
-    @DisplayName("답이 비어 있으면 판독으로 성립하지 않는다 — LlmException")
-    void parse_blankAnswer_throws() {
-        assertThatThrownBy(() -> read(validJson("DETACHED", "", "훅")))
-                .isInstanceOf(CompletionException.class)
-                .hasCauseInstanceOf(LlmException.class);
+        ArgumentCaptor<List<com.threeam.llm.ChatMessage>> captor =
+                ArgumentCaptor.forClass(List.class);
+        org.mockito.Mockito.verify(llmClient).generateJsonDeep(captor.capture(), any());
+        String payload = captor.getValue().get(1).content();
+        assertThat(payload).contains("\"F01\"").contains("두 달째 무반응");
+        assertThat(payload).contains("다시 연락이 올까요?"); // directQuestions 전달
     }
 }

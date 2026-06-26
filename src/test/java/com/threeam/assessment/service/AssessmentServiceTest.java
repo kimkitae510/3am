@@ -104,12 +104,14 @@ class AssessmentServiceTest {
         return new ReunionDiagnosis(ReunionVerdict.POSSIBLE, offer, BreakupType.BURNOUT,
                 "반복 다툼 끝에 지쳐 통보", JumpRule.NONE, FACTORS, RelapseRisk.HIGH, "교정 미확인",
                 List.of(new WatchItem("상대의 선연락 여부", "오면 상대신호가 유리로 바뀜")),
-                List.of(), null, null, "총평", List.of("상대가 먼저 통보함"));
+                List.of(), null, null, "총평", List.of("상대가 먼저 통보함"),
+                List.of(), List.of(), List.of());
     }
 
     private static ReunionDiagnosis locked(ReunionVerdict verdict, String reason, List<String> newFacts) {
         return new ReunionDiagnosis(verdict, false, null, null, JumpRule.NONE, List.of(),
-                null, null, List.of(), List.of(), null, null, reason, newFacts);
+                null, null, List.of(), List.of(), null, null, reason, newFacts,
+                List.of(), List.of(), List.of());
     }
 
     private static ReunionDiagnosis insufficient() {
@@ -118,17 +120,16 @@ class AssessmentServiceTest {
 
     // 판독 스텁 재료 — 내용은 뷰 조립 테스트(AssessmentReadingViewTest)에서 검증하고
     // 여기선 흐름(부착 여부)만 본다.
-    private static final ReadingDraft DRAFT = new ReadingDraft("표지 판정", "여는 이유", "막는 이유",
-            new ReadingDraft.Section("DETACHED", "답", "서술"),
-            new ReadingDraft.Section("MODERATE", "답", "서술"),
-            new ReadingDraft.Section("PRESENT", "답", "서술"),
-            "왜 멀어졌나", "막는 것",
-            new ReadingDraft.Reselect("CONDITIONAL", "답", "열림", "경로"),
-            "국면", java.util.Map.of("now", "제목"));
+    private static final ReadingDraft DRAFT = new ReadingDraft("표지 판정", "표지 이유",
+            List.of(new ReadingDraft.Mystery("제목", "답", "서술", List.of(), List.of("NOW"))),
+            List.of(), List.of(), null,
+            new ReadingDraft.Reselect("제목", "답", List.of(), List.of(), List.of()),
+            new ReadingDraft.Phase("국면", "서술", List.of()),
+            null,
+            new ReadingDraft.Internal("MIXED", "UNSTABLE", "PRESENT", "CONDITIONAL"));
 
     private static final AssessmentResponse.Reading READING_VIEW =
-            new AssessmentResponse.Reading("표지 판정", "여는 이유", "막는 이유", null, null, null,
-                    "왜 멀어졌나", "막는 것", null, "국면", java.util.Map.of(), null, null);
+            new AssessmentResponse.Reading(DRAFT, null, null);
 
     @Test
     @DisplayName("진단 - POSSIBLE이면 대역 계산으로 확률을 내고, 정밀 판독(2호출)을 붙여 돌려준다")
@@ -139,7 +140,7 @@ class AssessmentServiceTest {
         given(scorer.apply(eq(BreakupType.BURNOUT), eq(JumpRule.NONE), anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
                 .willAnswer(inv -> inv.getArgument(1));
-        given(readingLlm.read(any(), any(Assessment.class)))
+        given(readingLlm.read(any(Assessment.class), any(), any(), anyList(), any(), any()))
                 .willReturn(CompletableFuture.completedFuture(DRAFT));
         given(txService.saveReading(eq(10L), any(), eq(DRAFT))).willReturn(READING_VIEW);
 
@@ -165,7 +166,7 @@ class AssessmentServiceTest {
         given(scorer.apply(eq(BreakupType.BURNOUT), eq(JumpRule.NONE), anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
                 .willAnswer(inv -> inv.getArgument(1));
-        given(readingLlm.read(any(), any(Assessment.class)))
+        given(readingLlm.read(any(Assessment.class), any(), any(), anyList(), any(), any()))
                 .willReturn(CompletableFuture.failedFuture(new LlmException()));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
@@ -207,7 +208,8 @@ class AssessmentServiceTest {
                         FACTORS, RelapseRisk.LOW, null, List.of(), List.of(),
                         null, null,
                         "아직 헤어진 상태가 아니면 재회 확률은 의미가 없습니다",
-                        List.of("유저와 상대는 아직 사귀는 중"))));
+                        List.of("유저와 상대는 아직 사귀는 중"),
+                        List.of(), List.of(), List.of())));
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
                 .willAnswer(inv -> inv.getArgument(1));
 
