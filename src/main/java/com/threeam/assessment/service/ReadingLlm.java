@@ -3,8 +3,8 @@ package com.threeam.assessment.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threeam.assessment.ReadingProperties;
-import com.threeam.assessment.dto.AssessmentContext;
 import com.threeam.assessment.dto.ReadingDraft;
+import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.JumpRule;
@@ -22,66 +22,127 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-// 정밀 판독(2호출) 담당. 확정된 판정 JSON을 입력으로 받아 상대의 현재 상태를 이야기로 푼다 —
-// 표지(판정 + 올린/막는 이유)와 여섯 장(상대의 지금 / 결심 / 남은 마음 / 왜 멀어졌나 /
-// 막는 것 / 다시 움직일 조건), 국면. 숫자와 요인 방향은 여기서 만들지도 바꾸지도 않고,
-// 요인 어휘는 유저 지면에 꺼내지 않는다(채점 내부 용어).
+// 정밀 판독(2호출) 담당 — 스토리형 리포트(스토리북 v2) 생성.
+// 2호출은 원문 사연을 다시 읽지 않는다. 입력은 확정 판정 payload 하나다:
+// 판정(확률, 유형, 요인) + 관찰 사실(readingFacts) + 유저 질문/해석 + scoreDrivers(백엔드 산출).
+// 확률과 방향은 여기서 만들지도 바꾸지도 않고, 요인 어휘는 유저 지면에 꺼내지 않는다.
 // 판독 지시 전문은 서비스 자산이라 소스에 두지 않고 ReadingProperties(로컬 reading.yml)로 주입받는다.
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ReadingLlm {
 
-    // 판정 블록의 머리 문구. MockLlmClient가 이 문구로 판독 호출을 식별한다(개발 스텁 분기).
-    public static final String VERDICT_BLOCK_HEADER =
-            "판정 결과(확정 — 숫자와 요인 방향은 바꿀 수 없다. 이 판정이 왜 나왔는지를 서술하라):";
+    // payload 블록의 머리 문구. MockLlmClient가 이 문구로 판독 호출을 식별한다(개발 스텁 분기).
+    public static final String PAYLOAD_HEADER =
+            "확정 판정 payload(이번 리포트의 유일한 사례 데이터 — 여기 없는 사실을 만들지 마라):";
 
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
     private final ReadingProperties readingProperties;
 
-    public CompletableFuture<ReadingDraft> read(AssessmentContext context, Assessment saved) {
+    public CompletableFuture<ReadingDraft> read(Assessment saved, ReunionDiagnosis diagnosis,
+                                                String intakeBlock,
+                                                List<TypeBandScorer.Driver> drivers,
+                                                String displayBand, String coverDriverId) {
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(readingProperties.getGuide()));
-        if (context.knownFactLines() != null && !context.knownFactLines().isEmpty()) {
-            prompt.add(ChatMessage.system("이미 기록된 사실(괄호는 기록일):\n- "
-                    + String.join("\n- ", context.knownFactLines())));
-        }
-        if (context.intakeBlock() != null && !context.intakeBlock().isBlank()) {
-            prompt.add(ChatMessage.system(context.intakeBlock()));
-        }
-        prompt.addAll(context.conversation());
-        // 판정 블록은 맨 끝 — 출력 직전에 확정 사실이 다시 보여야 서술이 판정을 벗어나지 않는다.
-        prompt.add(ChatMessage.system(VERDICT_BLOCK_HEADER + "\n" + verdictJson(saved)));
+        prompt.add(ChatMessage.system(PAYLOAD_HEADER + "\n"
+                + payloadJson(saved, diagnosis, intakeBlock, drivers, displayBand, coverDriverId)));
         return llmClient.generateJsonDeep(prompt, RESPONSE_SCHEMA).thenApply(this::parse);
     }
 
-    // 판정을 판독의 입력으로 직렬화한다. 요인 근거(evidence)까지 싣는 게 핵심 —
-    // 판독은 이 증거들에 대해서만 서술해야 새 증거를 지어내지 않는다.
-    private String verdictJson(Assessment saved) {
+    // 확정 판정 payload. readingFacts가 비면(루브릭 미갱신 등) 요인 근거로 폴백한다 —
+    // 사실이 하나도 없으면 리포트가 공중에 뜬다.
+    private String payloadJson(Assessment saved, ReunionDiagnosis diagnosis, String intakeBlock,
+                               List<TypeBandScorer.Driver> drivers,
+                               String displayBand, String coverDriverId) {
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("확률", saved.getProbability());
-        out.put("유형", saved.getBreakupType() != null ? saved.getBreakupType().label() : null);
-        out.put("유형근거", saved.getTypeEvidence());
+        out.put("probability", saved.getProbability());
+        out.put("displayBand", displayBand);
+        out.put("verdict", saved.getVerdict() != null ? saved.getVerdict().name() : null);
+        out.put("breakupType", saved.getBreakupType() != null ? saved.getBreakupType().label() : null);
+        out.put("typeEvidence", saved.getTypeEvidence());
         if (saved.getJumpRule() != null && saved.getJumpRule() != JumpRule.NONE) {
-            out.put("점프", saved.getJumpRule().label());
+            out.put("jumpRule", saved.getJumpRule().label());
         }
         List<Map<String, Object>> factors = new ArrayList<>();
         for (AssessmentFactor factor : saved.getFactors()) {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("요인", factor.getName().label());
-            item.put("판정", factor.getLevel().label());
-            item.put("근거", factor.getEvidence());
+            item.put("name", factor.getName().label());
+            item.put("level", factor.getLevel().label());
+            item.put("evidence", factor.getEvidence());
             if (factor.getRationale() != null) {
-                item.put("사유", factor.getRationale());
+                item.put("rationale", factor.getRationale());
             }
             factors.add(item);
         }
-        out.put("요인", factors);
+        out.put("factors", factors);
         if (saved.getRelapseRisk() != null) {
-            out.put("유지전망", saved.getRelapseRisk().label());
+            Map<String, Object> relapse = new LinkedHashMap<>();
+            relapse.put("level", saved.getRelapseRisk().label());
+            relapse.put("reason", saved.getRelapseReason());
+            out.put("relapseRisk", relapse);
         }
-        out.put("판정총평", saved.getReason());
+        out.put("relationshipPsychology", saved.getRelationshipPsychology());
+        List<Map<String, String>> watch = new ArrayList<>();
+        saved.getWatchPoints().forEach(w -> watch.add(Map.of(
+                "point", w.getPoint(), "effect", w.getEffect())));
+        out.put("watchFor", watch);
+        out.put("unansweredQuestions", saved.getUnansweredQuestions());
+        out.put("reason", saved.getReason());
+        if (intakeBlock != null && !intakeBlock.isBlank()) {
+            out.put("intake", intakeBlock);
+        }
+
+        List<ReunionDiagnosis.ReadingFact> facts = diagnosis.readingFacts();
+        if (facts == null || facts.isEmpty()) {
+            facts = fallbackFacts(saved);
+        }
+        List<Map<String, Object>> factRows = new ArrayList<>();
+        for (ReunionDiagnosis.ReadingFact fact : facts) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", fact.id());
+            row.put("actor", fact.actor());
+            row.put("kind", fact.kind());
+            row.put("fact", fact.fact());
+            if (fact.quote() != null) {
+                row.put("quote", fact.quote());
+            }
+            if (fact.timing() != null) {
+                row.put("timing", fact.timing());
+            }
+            factRows.add(row);
+        }
+        out.put("readingFacts", factRows);
+        out.put("directQuestions",
+                diagnosis.directQuestions() == null ? List.of() : diagnosis.directQuestions());
+        List<Map<String, String>> focus = new ArrayList<>();
+        if (diagnosis.userFocus() != null) {
+            for (ReunionDiagnosis.FocusItem item : diagnosis.userFocus()) {
+                Map<String, String> row = new LinkedHashMap<>();
+                if (item.factId() != null) {
+                    row.put("factId", item.factId());
+                }
+                row.put("interpretation", item.interpretation());
+                focus.add(row);
+            }
+        }
+        out.put("userFocus", focus);
+
+        // scoreDrivers — 내부 선별용 delta와 sourceKey는 싣지 않는다(payload 권장안).
+        List<Map<String, Object>> driverRows = new ArrayList<>();
+        for (TypeBandScorer.Driver driver : drivers) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", driver.id());
+            row.put("direction", driver.direction());
+            row.put("rank", driver.rank());
+            row.put("source", driver.source());
+            row.put("evidence", driver.evidence());
+            row.put("rationale", driver.rationale());
+            driverRows.add(row);
+        }
+        out.put("scoreDrivers", driverRows);
+        out.put("coverDriverId", coverDriverId);
         try {
             return objectMapper.writeValueAsString(out);
         } catch (Exception e) {
@@ -90,97 +151,262 @@ public class ReadingLlm {
         }
     }
 
-    private static Map<String, Object> sectionSchema(List<String> states) {
+    // 루브릭이 readingFacts를 아직 안 내는 동안의 안전망 — 요인 근거를 관찰 사실로 승격한다.
+    private List<ReunionDiagnosis.ReadingFact> fallbackFacts(Assessment saved) {
+        List<ReunionDiagnosis.ReadingFact> out = new ArrayList<>();
+        for (AssessmentFactor factor : saved.getFactors()) {
+            String evidence = factor.getEvidence();
+            if (evidence == null || evidence.isBlank() || ReunionLlm.NO_EVIDENCE.equals(evidence)) {
+                continue;
+            }
+            out.add(new ReunionDiagnosis.ReadingFact(
+                    String.format("F%02d", out.size() + 1), "CONTEXT", "ACTION",
+                    evidence, null, null));
+        }
+        return out;
+    }
+
+    private static Map<String, Object> mysterySchema() {
         return Map.of(
                 "type", "OBJECT",
                 "properties", Map.of(
-                        "state", Map.of("type", "STRING", "enum", states),
+                        "title", Map.of("type", "STRING"),
                         "answer", Map.of("type", "STRING"),
-                        "reading", Map.of("type", "STRING")),
-                "required", List.of("state", "answer", "reading"),
-                "propertyOrdering", List.of("state", "answer", "reading"));
+                        "reading", Map.of("type", "STRING"),
+                        "evidenceIds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
+                        "covers", Map.of("type", "ARRAY", "items",
+                                Map.of("type", "STRING", "enum", ReadingVocab.MYSTERY_COVERS))),
+                "required", List.of("title", "answer", "reading", "evidenceIds", "covers"),
+                "propertyOrdering", List.of("title", "answer", "reading", "evidenceIds", "covers"));
+    }
+
+    private static Map<String, Object> questionSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "source", Map.of("type", "STRING", "enum", ReadingVocab.QUESTION_SOURCES),
+                        "question", Map.of("type", "STRING"),
+                        "answer", Map.of("type", "STRING"),
+                        "reading", Map.of("type", "STRING"),
+                        "evidenceIds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))),
+                "required", List.of("source", "question", "answer", "reading"),
+                "propertyOrdering", List.of("source", "question", "answer", "reading", "evidenceIds"));
+    }
+
+    private static Map<String, Object> blockerSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "rank", Map.of("type", "INTEGER"),
+                        "title", Map.of("type", "STRING"),
+                        "answer", Map.of("type", "STRING"),
+                        "reading", Map.of("type", "STRING"),
+                        "evidenceIds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))),
+                "required", List.of("rank", "title", "answer", "reading"),
+                "propertyOrdering", List.of("rank", "title", "answer", "reading", "evidenceIds"));
+    }
+
+    private static Map<String, Object> repairSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "nullable", true,
+                "properties", Map.of(
+                        "title", Map.of("type", "STRING"),
+                        "answer", Map.of("type", "STRING"),
+                        "concept", Map.of("type", "STRING", "nullable", true),
+                        "reading", Map.of("type", "STRING"),
+                        "repairPrinciple", Map.of("type", "STRING")),
+                "required", List.of("title", "answer", "reading", "repairPrinciple"),
+                "propertyOrdering", List.of("title", "answer", "concept", "reading", "repairPrinciple"));
     }
 
     private static Map<String, Object> reselectSchema() {
         return Map.of(
                 "type", "OBJECT",
                 "properties", Map.of(
-                        "state", Map.of("type", "STRING", "enum", ReadingVocab.RESELECT_STATES),
+                        "title", Map.of("type", "STRING"),
                         "answer", Map.of("type", "STRING"),
-                        "open", Map.of("type", "STRING"),
-                        "route", Map.of("type", "STRING")),
-                "required", List.of("state", "answer", "open", "route"),
-                "propertyOrdering", List.of("state", "answer", "open", "route"));
+                        "open", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
+                        "conditions", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
+                        "watchFor", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))),
+                "required", List.of("title", "answer", "open", "conditions"),
+                "propertyOrdering", List.of("title", "answer", "open", "conditions", "watchFor"));
     }
 
-    // 판독 응답의 문법. reading.yml의 JSON 지시와 짝 — 지시를 고쳐 필드가 바뀌면 여기도 같이.
-    // 전 필드 required — nullable 필드는 모델이 절차에서 빠지면 조용히 생략하는 게 실측된 자리다
-    // (ReunionLlm의 matchProfile 사건과 같은 원리).
+    private static Map<String, Object> phaseSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "label", Map.of("type", "STRING"),
+                        "reading", Map.of("type", "STRING"),
+                        "chipSeeds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))),
+                "required", List.of("label", "reading", "chipSeeds"),
+                "propertyOrdering", List.of("label", "reading", "chipSeeds"));
+    }
+
+    private static Map<String, Object> followUpSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "nullable", true,
+                "properties", Map.of(
+                        "question", Map.of("type", "STRING"),
+                        "whyItMatters", Map.of("type", "STRING")),
+                "required", List.of("question", "whyItMatters"),
+                "propertyOrdering", List.of("question", "whyItMatters"));
+    }
+
+    private static Map<String, Object> internalSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "nowState", Map.of("type", "STRING", "enum", ReadingVocab.NOW_STATES),
+                        "resolveState", Map.of("type", "STRING", "enum", ReadingVocab.RESOLVE_STATES),
+                        "remainState", Map.of("type", "STRING", "enum", ReadingVocab.REMAIN_STATES),
+                        "reselectState", Map.of("type", "STRING", "enum", ReadingVocab.RESELECT_STATES)),
+                "required", List.of("nowState", "resolveState", "remainState", "reselectState"),
+                "propertyOrdering", List.of("nowState", "resolveState", "remainState", "reselectState"));
+    }
+
+    // 판독 응답의 문법. reading.yml(스토리북 v2)의 출력 필드와 짝 — 지시를 고쳐 필드가
+    // 바뀌면 여기도 같이. relationshipRepair와 followUp만 nullable(정말 없을 수 있는 값 —
+    // 탈출구 없는 nullable은 조용한 생략 사고가 나서 나머지는 전부 required).
     private static final Map<String, Object> RESPONSE_SCHEMA = Map.ofEntries(
             Map.entry("type", "OBJECT"),
             Map.entry("properties", Map.ofEntries(
-                    Map.entry("overall", Map.of("type", "STRING")),
-                    Map.entry("coverRaise", Map.of("type", "STRING")),
-                    Map.entry("coverBlock", Map.of("type", "STRING")),
-                    Map.entry("now", sectionSchema(ReadingVocab.NOW_STATES)),
-                    Map.entry("resolve", sectionSchema(ReadingVocab.RESOLVE_STATES)),
-                    Map.entry("remain", sectionSchema(ReadingVocab.REMAIN_STATES)),
-                    Map.entry("drift", Map.of("type", "STRING")),
-                    Map.entry("blocking", Map.of("type", "STRING")),
+                    Map.entry("coverVerdict", Map.of("type", "STRING")),
+                    Map.entry("coverReason", Map.of("type", "STRING")),
+                    Map.entry("mysteries", Map.of("type", "ARRAY", "items", mysterySchema())),
+                    Map.entry("questions", Map.of("type", "ARRAY", "items", questionSchema())),
+                    Map.entry("blockers", Map.of("type", "ARRAY", "items", blockerSchema())),
+                    Map.entry("relationshipRepair", repairSchema()),
                     Map.entry("reselect", reselectSchema()),
-                    Map.entry("phase", Map.of("type", "STRING")),
-                    Map.entry("nowTitle", Map.of("type", "STRING")),
-                    Map.entry("resolveTitle", Map.of("type", "STRING")),
-                    Map.entry("remainTitle", Map.of("type", "STRING")),
-                    Map.entry("driftTitle", Map.of("type", "STRING")),
-                    Map.entry("blockingTitle", Map.of("type", "STRING")),
-                    Map.entry("routeTitle", Map.of("type", "STRING")))),
-            Map.entry("required", List.of("overall", "coverRaise", "coverBlock", "now", "resolve",
-                    "remain", "drift", "blocking", "reselect", "phase", "nowTitle", "resolveTitle",
-                    "remainTitle", "driftTitle", "blockingTitle", "routeTitle")),
-            Map.entry("propertyOrdering", List.of("overall", "coverRaise", "coverBlock", "now",
-                    "resolve", "remain", "drift", "blocking", "reselect", "phase", "nowTitle",
-                    "resolveTitle", "remainTitle", "driftTitle", "blockingTitle", "routeTitle")));
+                    Map.entry("phase", phaseSchema()),
+                    Map.entry("followUp", followUpSchema()),
+                    Map.entry("internal", internalSchema()))),
+            Map.entry("required", List.of("coverVerdict", "coverReason", "mysteries", "questions",
+                    "blockers", "reselect", "phase", "internal")),
+            Map.entry("propertyOrdering", List.of("coverVerdict", "coverReason", "mysteries",
+                    "questions", "blockers", "relationshipRepair", "reselect", "phase",
+                    "followUp", "internal")));
 
-    // 화면 폴백과 동일한 고정 장 제목 — 모델이 제목을 비워 보내도 판독을 살린다.
-    private static final Map<String, String> DEFAULT_TITLES = Map.of(
-            "now", "상대는 지금 무슨 생각일까",
-            "resolve", "정말 끝낼 결심이었을까",
-            "remain", "마음은 남아 있을까",
-            "drift", "왜 멀어졌을까",
-            "blocking", "지금 막고 있는 것은",
-            "route", "무엇이 바뀌면 다시 움직일까");
+    // 개수 상한 — 스토리북 지시(미스터리 2~5, 질문 3, 장애물 3, 칩 4)의 안전핀.
+    private static final int MYSTERY_MAX = 5;
+    private static final int QUESTION_MAX = 3;
+    private static final int BLOCKER_MAX = 3;
+    private static final int CHIP_MAX = 4;
+    private static final int LIST_TEXT_MAX = 300;
 
     private ReadingDraft parse(String json) {
         try {
             JsonNode root = objectMapper.readTree(LlmJson.salvage(json));
-            ReadingDraft.Section now = section(root.path("now"), ReadingVocab.NOW_STATES, "MIXED");
-            ReadingDraft.Section resolve =
-                    section(root.path("resolve"), ReadingVocab.RESOLVE_STATES, "UNSTABLE");
-            ReadingDraft.Section remain =
-                    section(root.path("remain"), ReadingVocab.REMAIN_STATES, "LITTLE_EVIDENCE");
-            JsonNode reselectNode = root.path("reselect");
-            ReadingDraft.Reselect reselect = new ReadingDraft.Reselect(
-                    state(reselectNode, ReadingVocab.RESELECT_STATES, "CONDITIONAL"),
-                    clip(requireText(reselectNode, "answer"), ANSWER_MAX),
-                    requireText(reselectNode, "open"),
-                    requireText(reselectNode, "route"));
 
-            Map<String, String> titles = new LinkedHashMap<>();
-            for (String key : ReadingVocab.CHAPTER_KEYS) {
-                titles.put(key, title(root, key + "Title", key));
+            List<ReadingDraft.Mystery> mysteries = new ArrayList<>();
+            for (JsonNode node : root.path("mysteries")) {
+                if (mysteries.size() >= MYSTERY_MAX) {
+                    break;
+                }
+                String title = node.path("title").asText("").trim();
+                String answer = node.path("answer").asText("").trim();
+                String reading = node.path("reading").asText("").trim();
+                if (title.isBlank() || answer.isBlank() || reading.isBlank()) {
+                    continue;
+                }
+                mysteries.add(new ReadingDraft.Mystery(clip(title, LIST_TEXT_MAX),
+                        clip(answer, 500), reading,
+                        strings(node.path("evidenceIds"), 10),
+                        strings(node.path("covers"), 6)));
+            }
+            // 미스터리가 하나도 없으면 스토리 리포트가 아니다 — 판독 실패로 처리한다(판정은 유지).
+            if (mysteries.isEmpty()) {
+                log.warn("정밀 판독에 미스터리 장이 없음 — 판독 실패 처리");
+                throw new LlmException();
             }
 
+            List<ReadingDraft.Question> questions = new ArrayList<>();
+            for (JsonNode node : root.path("questions")) {
+                if (questions.size() >= QUESTION_MAX) {
+                    break;
+                }
+                String question = node.path("question").asText("").trim();
+                String answer = node.path("answer").asText("").trim();
+                if (question.isBlank() || answer.isBlank()) {
+                    continue;
+                }
+                String source = node.path("source").asText("").trim();
+                questions.add(new ReadingDraft.Question(
+                        ReadingVocab.QUESTION_SOURCES.contains(source) ? source : "LIKELY",
+                        clip(question, LIST_TEXT_MAX), clip(answer, 500),
+                        node.path("reading").asText("").trim(),
+                        strings(node.path("evidenceIds"), 10)));
+            }
+
+            List<ReadingDraft.Blocker> blockers = new ArrayList<>();
+            for (JsonNode node : root.path("blockers")) {
+                if (blockers.size() >= BLOCKER_MAX) {
+                    break;
+                }
+                String title = node.path("title").asText("").trim();
+                String answer = node.path("answer").asText("").trim();
+                if (title.isBlank() || answer.isBlank()) {
+                    continue;
+                }
+                // rank는 모델 값 대신 배열 순서로 다시 매긴다 — 1,1,3 같은 값이 화면에 그대로 뜬다.
+                blockers.add(new ReadingDraft.Blocker(blockers.size() + 1,
+                        clip(title, LIST_TEXT_MAX), clip(answer, 500),
+                        node.path("reading").asText("").trim(),
+                        strings(node.path("evidenceIds"), 10)));
+            }
+
+            ReadingDraft.Repair repair = null;
+            JsonNode repairNode = root.path("relationshipRepair");
+            if (repairNode.isObject()) {
+                String title = repairNode.path("title").asText("").trim();
+                String answer = repairNode.path("answer").asText("").trim();
+                String principle = repairNode.path("repairPrinciple").asText("").trim();
+                if (!title.isBlank() && !answer.isBlank() && !principle.isBlank()) {
+                    String concept = repairNode.path("concept").asText("").trim();
+                    repair = new ReadingDraft.Repair(clip(title, LIST_TEXT_MAX), clip(answer, 500),
+                            concept.isBlank() ? null : clip(concept, 100),
+                            repairNode.path("reading").asText("").trim(), clip(principle, 500));
+                }
+            }
+
+            JsonNode reselectNode = root.path("reselect");
+            ReadingDraft.Reselect reselect = new ReadingDraft.Reselect(
+                    clip(requireText(reselectNode, "title"), LIST_TEXT_MAX),
+                    clip(requireText(reselectNode, "answer"), 500),
+                    strings(reselectNode.path("open"), 2),
+                    strings(reselectNode.path("conditions"), 3),
+                    strings(reselectNode.path("watchFor"), 2));
+
+            JsonNode phaseNode = root.path("phase");
+            ReadingDraft.Phase phase = new ReadingDraft.Phase(
+                    clip(requireText(phaseNode, "label"), LIST_TEXT_MAX),
+                    clip(requireText(phaseNode, "reading"), 500),
+                    strings(phaseNode.path("chipSeeds"), CHIP_MAX));
+
+            ReadingDraft.FollowUp followUp = null;
+            JsonNode followNode = root.path("followUp");
+            if (followNode.isObject()) {
+                String question = followNode.path("question").asText("").trim();
+                String why = followNode.path("whyItMatters").asText("").trim();
+                if (!question.isBlank() && !why.isBlank()) {
+                    followUp = new ReadingDraft.FollowUp(clip(question, LIST_TEXT_MAX),
+                            clip(why, LIST_TEXT_MAX));
+                }
+            }
+
+            JsonNode internal = root.path("internal");
+            ReadingDraft.Internal states = new ReadingDraft.Internal(
+                    state(internal, "nowState", ReadingVocab.NOW_STATES, "MIXED"),
+                    state(internal, "resolveState", ReadingVocab.RESOLVE_STATES, "UNSTABLE"),
+                    state(internal, "remainState", ReadingVocab.REMAIN_STATES, "LITTLE_EVIDENCE"),
+                    state(internal, "reselectState", ReadingVocab.RESELECT_STATES, "CONDITIONAL"));
+
             return new ReadingDraft(
-                    requireText(root, "overall"),
-                    clip(requireText(root, "coverRaise"), ANSWER_MAX),
-                    clip(requireText(root, "coverBlock"), ANSWER_MAX),
-                    now, resolve, remain,
-                    requireText(root, "drift"),
-                    requireText(root, "blocking"),
-                    reselect,
-                    clip(requireText(root, "phase"), ANSWER_MAX),
-                    titles);
+                    clip(requireText(root, "coverVerdict"), LIST_TEXT_MAX),
+                    clip(requireText(root, "coverReason"), 500),
+                    mysteries, questions, blockers, repair, reselect, phase, followUp, states);
         } catch (LlmException e) {
             throw e;
         } catch (Exception e) {
@@ -190,24 +416,29 @@ public class ReadingLlm {
         }
     }
 
-    private ReadingDraft.Section section(JsonNode node, List<String> states, String fallbackState) {
-        return new ReadingDraft.Section(
-                state(node, states, fallbackState),
-                clip(requireText(node, "answer"), ANSWER_MAX),
-                requireText(node, "reading"));
+    private List<String> strings(JsonNode array, int max) {
+        List<String> out = new ArrayList<>();
+        for (JsonNode node : array) {
+            String value = node.asText("").trim();
+            if (value.isBlank() || out.size() >= max) {
+                continue;
+            }
+            out.add(clip(value, LIST_TEXT_MAX));
+        }
+        return out;
     }
 
     // 스키마가 enum을 강제하지만 salvage 경로(잘린 응답 복구)는 뚫릴 수 있어 한 번 더 거른다.
-    private String state(JsonNode node, List<String> states, String fallback) {
-        String value = node.path("state").asText("").trim();
-        if (states.contains(value)) {
+    private String state(JsonNode node, String field, List<String> allowed, String fallback) {
+        String value = node.path(field).asText("").trim();
+        if (allowed.contains(value)) {
             return value;
         }
-        log.warn("판독 state 폐기(사전에 없음): {} — {}로 대체", value, fallback);
+        log.warn("판독 state 폐기(사전에 없음): {}={} — {}로 대체", field, value, fallback);
         return fallback;
     }
 
-    // 답과 서술이 비면 판독으로서 성립하지 않는다 — 판정은 이미 저장됐으니 판독만 실패시킨다.
+    // 표지와 마무리가 비면 리포트로 성립하지 않는다 — 판정은 이미 저장됐으니 판독만 실패시킨다.
     private String requireText(JsonNode node, String field) {
         String value = node.path(field).asText("").trim();
         if (value.isEmpty()) {
@@ -216,14 +447,6 @@ public class ReadingLlm {
         }
         return value;
     }
-
-    private String title(JsonNode root, String field, String key) {
-        String value = root.path(field).asText("").trim();
-        return value.isEmpty() ? DEFAULT_TITLES.get(key) : clip(value, TITLE_MAX);
-    }
-
-    private static final int ANSWER_MAX = 300;
-    private static final int TITLE_MAX = 100;
 
     private String clip(String value, int max) {
         if (value == null) {
