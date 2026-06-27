@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ReadingDelta, ReadingView, StoryReport } from '../api/assessment';
+import { bandLabel } from '../utils/assessmentScale';
 import styles from './ReadingBook.module.css';
 
 // 정밀 판독(스토리북 리포트) 뷰어. 표지(한 문장 판정 + 확률 + 이유 하나)에서 시작해
@@ -28,18 +29,14 @@ const RESELECT_LABEL: Record<string, string> = {
 type Chapter =
   | { kind: 'cover' }
   | { kind: 'mystery'; index: number }
-  | { kind: 'questions' }
   | { kind: 'blockers' }
-  | { kind: 'repair' }
   | { kind: 'reselect' }
   | { kind: 'phase' };
 
 function buildChapters(report: StoryReport): Chapter[] {
   const chapters: Chapter[] = [{ kind: 'cover' }];
   report.mysteries.forEach((_, index) => chapters.push({ kind: 'mystery', index }));
-  if (report.questions.length > 0) chapters.push({ kind: 'questions' });
   if (report.blockers.length > 0) chapters.push({ kind: 'blockers' });
-  if (report.relationshipRepair) chapters.push({ kind: 'repair' });
   chapters.push({ kind: 'reselect' });
   chapters.push({ kind: 'phase' });
   return chapters;
@@ -51,12 +48,8 @@ function chapterTitle(chapter: Chapter, report: StoryReport, probability: number
       return '';
     case 'mystery':
       return report.mysteries[chapter.index].title;
-    case 'questions':
-      return '직접 궁금했던 것들';
     case 'blockers':
       return probability != null ? `지금 ${probability}%를 막고 있는 것` : '지금 가능성을 막고 있는 것';
-    case 'repair':
-      return report.relationshipRepair?.title ?? '다시 만나면 반복될까';
     case 'reselect':
       return report.reselect.title;
     case 'phase':
@@ -78,16 +71,20 @@ function ChapterBody({
   onAskChat: (prefill: string) => void;
 }) {
   if (chapter.kind === 'cover') {
-    // 판정 한 문장이 주인공, 숫자는 보조 — 숫자를 먼저 크게 걸면 나머지 글 전부가
-    // 그 숫자의 정당화로 읽히고, 끝까지 숨기면 숫자 생각에 분석이 안 들어온다.
+    // 표지는 직관이 먼저다: 숫자와 대역 라벨 → 한 문장 판정 → "N%로 본 가장 큰 이유".
+    // 예전 요인표의 장점("대체자가 있어서 낮구나"가 3초 안에 성립)을 표지가 이어받는다.
     return (
       <>
-        <div className={styles.coverVerdict}>{report.coverVerdict}</div>
         {probability != null && (
           <div className={styles.coverProb}>
             재회 가능성 <span className={styles.coverProbNum}>{probability}%</span>
+            <span className={styles.coverBand}>{bandLabel(probability)}</span>
           </div>
         )}
+        <div className={styles.coverVerdict}>{report.coverVerdict}</div>
+        <div className={styles.coverReasonLabel}>
+          {probability != null ? `${probability}%로 본 가장 큰 이유` : '이렇게 본 가장 큰 이유'}
+        </div>
         <div className={styles.coverReason}>{report.coverReason}</div>
       </>
     );
@@ -98,20 +95,13 @@ function ChapterBody({
       <>
         <div className={styles.answer}>{mystery.answer}</div>
         <div className={styles.reading}>{mystery.reading}</div>
-      </>
-    );
-  }
-  if (chapter.kind === 'questions') {
-    return (
-      <div className={styles.qaList}>
-        {report.questions.map((q) => (
-          <div className={styles.qaItem} key={q.question}>
-            <div className={styles.qaQuestion}>{q.question}</div>
-            <div className={styles.answer}>{q.answer}</div>
-            {q.reading && <div className={styles.reading}>{q.reading}</div>}
+        {mystery.principle && (
+          <div className={styles.principle}>
+            <div className={styles.principleLabel}>이런 충돌을 줄이려면</div>
+            <div className={styles.principleText}>{mystery.principle}</div>
           </div>
-        ))}
-      </div>
+        )}
+      </>
     );
   }
   if (chapter.kind === 'blockers') {
@@ -128,20 +118,6 @@ function ChapterBody({
           </div>
         ))}
       </div>
-    );
-  }
-  if (chapter.kind === 'repair') {
-    const repair = report.relationshipRepair!;
-    return (
-      <>
-        <div className={styles.answer}>{repair.answer}</div>
-        {repair.concept && <div className={styles.concept}>{repair.concept}</div>}
-        <div className={styles.reading}>{repair.reading}</div>
-        <div className={styles.principle}>
-          <div className={styles.principleLabel}>이런 충돌이 덜 반복되려면</div>
-          <div className={styles.principleText}>{repair.repairPrinciple}</div>
-        </div>
-      </>
     );
   }
   if (chapter.kind === 'reselect') {

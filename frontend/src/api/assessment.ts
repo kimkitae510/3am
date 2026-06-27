@@ -52,16 +52,11 @@ export interface ReadingMystery {
   title: string; // 질문형 훅 — 그 사연에만 있는 장면에서 나온다
   answer: string; // 답부터
   reading: string;
+  // 상호작용 충돌을 다룬 장에만 붙는 복구 원리("이런 충돌을 줄이려면"). 그 외 null.
+  // 독립 심리 페이지 대신 장 안에 붙어야 검사지 티가 안 난다.
+  principle: string | null;
   evidenceIds: string[];
   covers: string[]; // 내부 태그(NOW 등). 화면 비노출
-}
-
-export interface ReadingQuestion {
-  source: 'DIRECT' | 'LIKELY'; // 직접 물음 / 사연상 궁금해할 질문
-  question: string;
-  answer: string;
-  reading: string;
-  evidenceIds: string[];
 }
 
 export interface ReadingBlocker {
@@ -72,21 +67,11 @@ export interface ReadingBlocker {
   evidenceIds: string[];
 }
 
-export interface ReadingRepair {
-  title: string;
-  answer: string;
-  concept: string | null; // 관계심리 개념 0~1개
-  reading: string;
-  repairPrinciple: string; // 복구 원리까지 — 실행 시점과 문구는 채팅 몫
-}
-
 export interface StoryReport {
-  coverVerdict: string; // 표지 한 문장 판정 — 확률보다 크게 걸리는 주인공
+  coverVerdict: string; // 표지 한 문장 판정
   coverReason: string; // 이 숫자를 지지하는 가장 큰 이유 하나
-  mysteries: ReadingMystery[];
-  questions: ReadingQuestion[];
-  blockers: ReadingBlocker[];
-  relationshipRepair: ReadingRepair | null;
+  mysteries: ReadingMystery[]; // 유저의 직접 질문도 중요하면 미스터리로 승격돼 여기 온다
+  blockers: ReadingBlocker[]; // 1~2개 — 가장 큰 것 하나에 무게, 나머지는 부속
   reselect: {
     title: string;
     answer: string;

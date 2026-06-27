@@ -63,37 +63,51 @@
 
 /* ── 표지 ─────────────────────────────────────────── */
 
-/* 판정 한 문장 — 이 화면의 주인공. 숫자보다 크고 진하다 */
-.coverVerdict {
-  margin-top: 26px;
-  color: var(--text);
-  font-size: 21px;
-  font-weight: 700;
-  line-height: 1.5;
-  letter-spacing: -0.4px;
-  word-break: keep-all;
-}
-
-/* 확률은 판정의 보조 숫자 — 표지판이지 주인공이 아니다 */
+/* 숫자와 대역이 먼저 — 68%가 어느 정도인지 3초 안에 성립해야 한다 */
 .coverProb {
-  margin-top: 18px;
+  margin-top: 22px;
   color: var(--text-muted);
-  font-size: 13.5px;
+  font-size: 14px;
 }
 
 .coverProbNum {
   color: #b89dd1;
-  font-size: 19px;
+  font-size: 26px;
   font-weight: 700;
-  margin-left: 3px;
+  margin-left: 4px;
   font-variant-numeric: tabular-nums;
 }
 
-/* 이 숫자를 지지하는 가장 큰 이유 하나 — 올린/막는 이유를 동시에 늘어놓지 않는다 */
-.coverReason {
+.coverBand {
+  margin-left: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 한 문장 판정 — 숫자 바로 아래에서 판을 말한다 */
+.coverVerdict {
   margin-top: 14px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.55;
+  letter-spacing: -0.3px;
+  word-break: keep-all;
+}
+
+/* 이유 라벨 — 이 문단이 무엇의 이유인지 화면이 말해준다 */
+.coverReasonLabel {
+  margin-top: 18px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.coverReason {
+  margin-top: 7px;
   color: #b0b0b8;
   font-size: 13.5px;
   line-height: 1.75;
@@ -116,26 +130,6 @@
   font-size: 13.5px;
   line-height: 1.85;
   white-space: pre-line;
-}
-
-/* ── 유저 질문 장 ─────────────────────────────────── */
-
-.qaList {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
-.qaItem + .qaItem {
-  border-top: 1px solid var(--border);
-  padding-top: 20px;
-}
-
-.qaQuestion {
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 8px;
 }
 
 /* ── 장애물 순위 장 ───────────────────────────────── */
@@ -182,14 +176,7 @@
   margin-top: 7px;
 }
 
-/* ── 복구 원리 장 ─────────────────────────────────── */
-
-.concept {
-  margin-top: 10px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
+/* ── 복구 원리(미스터리 장 안) ────────────────────── */
 
 .principle {
   margin-top: 16px;
