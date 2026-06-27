@@ -176,24 +176,15 @@ public class ReadingLlm {
                         "title", Map.of("type", "STRING"),
                         "answer", Map.of("type", "STRING"),
                         "reading", Map.of("type", "STRING"),
+                        // 상호작용 충돌을 다룬 장에만 붙는 복구 원리 — 독립 심리 페이지 대신
+                        // 장 안에서 설명과 원리가 붙어야 검사지 티가 안 난다.
+                        "principle", Map.of("type", "STRING", "nullable", true),
                         "evidenceIds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
                         "covers", Map.of("type", "ARRAY", "items",
                                 Map.of("type", "STRING", "enum", ReadingVocab.MYSTERY_COVERS))),
                 "required", List.of("title", "answer", "reading", "evidenceIds", "covers"),
-                "propertyOrdering", List.of("title", "answer", "reading", "evidenceIds", "covers"));
-    }
-
-    private static Map<String, Object> questionSchema() {
-        return Map.of(
-                "type", "OBJECT",
-                "properties", Map.of(
-                        "source", Map.of("type", "STRING", "enum", ReadingVocab.QUESTION_SOURCES),
-                        "question", Map.of("type", "STRING"),
-                        "answer", Map.of("type", "STRING"),
-                        "reading", Map.of("type", "STRING"),
-                        "evidenceIds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))),
-                "required", List.of("source", "question", "answer", "reading"),
-                "propertyOrdering", List.of("source", "question", "answer", "reading", "evidenceIds"));
+                "propertyOrdering",
+                List.of("title", "answer", "reading", "principle", "evidenceIds", "covers"));
     }
 
     private static Map<String, Object> blockerSchema() {
@@ -207,20 +198,6 @@ public class ReadingLlm {
                         "evidenceIds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))),
                 "required", List.of("rank", "title", "answer", "reading"),
                 "propertyOrdering", List.of("rank", "title", "answer", "reading", "evidenceIds"));
-    }
-
-    private static Map<String, Object> repairSchema() {
-        return Map.of(
-                "type", "OBJECT",
-                "nullable", true,
-                "properties", Map.of(
-                        "title", Map.of("type", "STRING"),
-                        "answer", Map.of("type", "STRING"),
-                        "concept", Map.of("type", "STRING", "nullable", true),
-                        "reading", Map.of("type", "STRING"),
-                        "repairPrinciple", Map.of("type", "STRING")),
-                "required", List.of("title", "answer", "reading", "repairPrinciple"),
-                "propertyOrdering", List.of("title", "answer", "concept", "reading", "repairPrinciple"));
     }
 
     private static Map<String, Object> reselectSchema() {
@@ -279,23 +256,21 @@ public class ReadingLlm {
                     Map.entry("coverVerdict", Map.of("type", "STRING")),
                     Map.entry("coverReason", Map.of("type", "STRING")),
                     Map.entry("mysteries", Map.of("type", "ARRAY", "items", mysterySchema())),
-                    Map.entry("questions", Map.of("type", "ARRAY", "items", questionSchema())),
                     Map.entry("blockers", Map.of("type", "ARRAY", "items", blockerSchema())),
-                    Map.entry("relationshipRepair", repairSchema()),
                     Map.entry("reselect", reselectSchema()),
                     Map.entry("phase", phaseSchema()),
                     Map.entry("followUp", followUpSchema()),
                     Map.entry("internal", internalSchema()))),
-            Map.entry("required", List.of("coverVerdict", "coverReason", "mysteries", "questions",
+            Map.entry("required", List.of("coverVerdict", "coverReason", "mysteries",
                     "blockers", "reselect", "phase", "internal")),
             Map.entry("propertyOrdering", List.of("coverVerdict", "coverReason", "mysteries",
-                    "questions", "blockers", "relationshipRepair", "reselect", "phase",
-                    "followUp", "internal")));
+                    "blockers", "reselect", "phase", "followUp", "internal")));
 
-    // 개수 상한 — 스토리북 지시(미스터리 2~5, 질문 3, 장애물 3, 칩 4)의 안전핀.
+    // 개수 상한 — 스토리북 지시(미스터리 3~5, 장애물 1~2, 칩 4)의 안전핀.
+    // 장애물 2 상한은 설계값이다: 3순위 보고서는 다시 검사지가 된다 — 가장 큰 것 하나에
+    // 무게가 실리고 나머지는 부속이어야 한다.
     private static final int MYSTERY_MAX = 5;
-    private static final int QUESTION_MAX = 3;
-    private static final int BLOCKER_MAX = 3;
+    private static final int BLOCKER_MAX = 2;
     private static final int CHIP_MAX = 4;
     private static final int LIST_TEXT_MAX = 300;
 
@@ -314,8 +289,10 @@ public class ReadingLlm {
                 if (title.isBlank() || answer.isBlank() || reading.isBlank()) {
                     continue;
                 }
+                String principle = node.path("principle").asText("").trim();
                 mysteries.add(new ReadingDraft.Mystery(clip(title, LIST_TEXT_MAX),
                         clip(answer, 500), reading,
+                        principle.isBlank() ? null : clip(principle, 500),
                         strings(node.path("evidenceIds"), 10),
                         strings(node.path("covers"), 6)));
             }
@@ -323,24 +300,6 @@ public class ReadingLlm {
             if (mysteries.isEmpty()) {
                 log.warn("정밀 판독에 미스터리 장이 없음 — 판독 실패 처리");
                 throw new LlmException();
-            }
-
-            List<ReadingDraft.Question> questions = new ArrayList<>();
-            for (JsonNode node : root.path("questions")) {
-                if (questions.size() >= QUESTION_MAX) {
-                    break;
-                }
-                String question = node.path("question").asText("").trim();
-                String answer = node.path("answer").asText("").trim();
-                if (question.isBlank() || answer.isBlank()) {
-                    continue;
-                }
-                String source = node.path("source").asText("").trim();
-                questions.add(new ReadingDraft.Question(
-                        ReadingVocab.QUESTION_SOURCES.contains(source) ? source : "LIKELY",
-                        clip(question, LIST_TEXT_MAX), clip(answer, 500),
-                        node.path("reading").asText("").trim(),
-                        strings(node.path("evidenceIds"), 10)));
             }
 
             List<ReadingDraft.Blocker> blockers = new ArrayList<>();
@@ -358,20 +317,6 @@ public class ReadingLlm {
                         clip(title, LIST_TEXT_MAX), clip(answer, 500),
                         node.path("reading").asText("").trim(),
                         strings(node.path("evidenceIds"), 10)));
-            }
-
-            ReadingDraft.Repair repair = null;
-            JsonNode repairNode = root.path("relationshipRepair");
-            if (repairNode.isObject()) {
-                String title = repairNode.path("title").asText("").trim();
-                String answer = repairNode.path("answer").asText("").trim();
-                String principle = repairNode.path("repairPrinciple").asText("").trim();
-                if (!title.isBlank() && !answer.isBlank() && !principle.isBlank()) {
-                    String concept = repairNode.path("concept").asText("").trim();
-                    repair = new ReadingDraft.Repair(clip(title, LIST_TEXT_MAX), clip(answer, 500),
-                            concept.isBlank() ? null : clip(concept, 100),
-                            repairNode.path("reading").asText("").trim(), clip(principle, 500));
-                }
             }
 
             JsonNode reselectNode = root.path("reselect");
@@ -409,7 +354,7 @@ public class ReadingLlm {
             return new ReadingDraft(
                     clip(requireText(root, "coverVerdict"), LIST_TEXT_MAX),
                     clip(requireText(root, "coverReason"), 500),
-                    mysteries, questions, blockers, repair, reselect, phase, followUp, states);
+                    mysteries, blockers, reselect, phase, followUp, states);
         } catch (LlmException e) {
             throw e;
         } catch (Exception e) {

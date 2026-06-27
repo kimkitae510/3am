@@ -65,14 +65,10 @@ class ReadingLlmTest {
                   "coverVerdict": "다시 판단하는 상태에 가깝습니다.",
                   "coverReason": "직전까지 관계를 붙잡는 표현이 있었기 때문입니다.",
                   "mysteries": [%s],
-                  "questions": [
-                    {"source": "DIRECT", "question": "다시 연락이 올까요?", "answer": "기간이 끝난 뒤의 선택이 신호입니다.", "reading": "요청된 기간의 무연락은 거절이 아닙니다.", "evidenceIds": ["F01"]}
-                  ],
                   "blockers": [
                     {"rank": 7, "title": "마지막 대화의 상처", "answer": "재선택을 막고 있습니다.", "reading": "감정 문제입니다.", "evidenceIds": ["F01"]},
                     {"rank": 7, "title": "현실 문제", "answer": "그대로 남아 있습니다.", "reading": "현실 문제입니다.", "evidenceIds": []}
                   ],
-                  "relationshipRepair": null,
                   "reselect": {"title": "무엇이 달라지면 움직일까", "answer": "관계 대화의 재선택이 첫 조건입니다.", "open": ["회복 표현이 있었다"], "conditions": ["안전한 대화 경험"], "watchFor": ["기간 후 먼저 관계 얘기를 꺼내는지"]},
                   "phase": {"label": "확인의 구간", "reading": "설득이 아니라 확인할 구간입니다.", "chipSeeds": ["먼저 연락해도 될까?"]},
                   "followUp": null,
@@ -82,7 +78,7 @@ class ReadingLlmTest {
     }
 
     private static final String MYSTERY = """
-            {"title": "미래를 말한 다음날 왜 물러났을까?", "answer": "상처 때문에 가깝습니다.", "reading": "방향이 하루 만에 꺾인 것은 충격의 크기를 말합니다.", "evidenceIds": ["F01"], "covers": ["NOW", "RESOLVE"]}
+            {"title": "미래를 말한 다음날 왜 물러났을까?", "answer": "상처 때문에 가깝습니다.", "reading": "방향이 하루 만에 꺾인 것은 충격의 크기를 말합니다.", "principle": "감정의 존재와 이유를 먼저 알리는 방식이 필요합니다.", "evidenceIds": ["F01"], "covers": ["NOW", "RESOLVE"]}
             """;
 
     @Test
@@ -93,11 +89,9 @@ class ReadingLlmTest {
         assertThat(draft.coverVerdict()).contains("다시 판단하는 상태");
         assertThat(draft.mysteries()).hasSize(1);
         assertThat(draft.mysteries().get(0).covers()).containsExactly("NOW", "RESOLVE");
-        assertThat(draft.questions()).hasSize(1);
-        assertThat(draft.questions().get(0).source()).isEqualTo("DIRECT");
+        assertThat(draft.mysteries().get(0).principle()).contains("먼저 알리는 방식");
         // 모델이 보낸 rank(7,7)는 버리고 배열 순서로 1,2를 다시 매긴다
         assertThat(draft.blockers()).extracting(ReadingDraft.Blocker::rank).containsExactly(1, 2);
-        assertThat(draft.relationshipRepair()).isNull();
         assertThat(draft.reselect().conditions()).containsExactly("안전한 대화 경험");
         assertThat(draft.phase().chipSeeds()).containsExactly("먼저 연락해도 될까?");
         assertThat(draft.internal().nowState()).isEqualTo("RELATIONSHIP_RECONSIDERATION");

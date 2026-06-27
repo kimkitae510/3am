@@ -121,8 +121,8 @@ class AssessmentServiceTest {
     // 판독 스텁 재료 — 내용은 뷰 조립 테스트(AssessmentReadingViewTest)에서 검증하고
     // 여기선 흐름(부착 여부)만 본다.
     private static final ReadingDraft DRAFT = new ReadingDraft("표지 판정", "표지 이유",
-            List.of(new ReadingDraft.Mystery("제목", "답", "서술", List.of(), List.of("NOW"))),
-            List.of(), List.of(), null,
+            List.of(new ReadingDraft.Mystery("제목", "답", "서술", null, List.of(), List.of("NOW"))),
+            List.of(),
             new ReadingDraft.Reselect("제목", "답", List.of(), List.of(), List.of()),
             new ReadingDraft.Phase("국면", "서술", List.of()),
             null,

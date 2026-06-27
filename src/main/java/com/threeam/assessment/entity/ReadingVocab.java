@@ -30,7 +30,4 @@ public final class ReadingVocab {
     // 다뤄졌는지 점검하는 용도. 유저 비노출.
     public static final List<String> MYSTERY_COVERS = List.of(
             "NOW", "RESOLVE", "REMAIN", "CHOICE", "SIGNAL_CORRECTION", "INTERACTION");
-
-    // 유저 질문의 출처 — DIRECT(직접 물음), LIKELY(사연상 궁금해할 질문).
-    public static final List<String> QUESTION_SOURCES = List.of("DIRECT", "LIKELY");
 }
