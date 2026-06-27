@@ -219,14 +219,21 @@ public class TypeBandScorer {
 
     // 표지에서 쓸 드라이버 하나 — HIGH면 상승 1순위, LOW면 하락 1순위,
     // MID면 크기가 가장 큰 것(판을 가장 잘 설명하는 충돌 축).
+    // 같은 방향에서는 요인(FACTOR)을 유형/점프보다 우선한다 — 유형은 "구간"의 설명이지
+    // 장면이 아니라서, 표지 이유로 번역되면 "충동적이라서 68%" 같은 밋밋한 문장이 된다.
+    // 관찰된 장면(직전까지 관계를 붙잡던 발화 등)이 있으면 그쪽이 표지의 힘이다.
     public String coverDriverId(String displayBand, List<Driver> drivers) {
         if (drivers.isEmpty()) {
             return null;
         }
         String want = "HIGH".equals(displayBand) ? "UP" : "LOW".equals(displayBand) ? "DOWN" : null;
-        return drivers.stream()
+        List<Driver> side = drivers.stream()
                 .filter(d -> want == null || d.direction().equals(want))
+                .toList();
+        return side.stream()
+                .filter(d -> "FACTOR".equals(d.source()))
                 .max(Comparator.comparingInt(Driver::magnitude))
+                .or(() -> side.stream().max(Comparator.comparingInt(Driver::magnitude)))
                 .map(Driver::id)
                 .orElse(drivers.get(0).id());
     }
