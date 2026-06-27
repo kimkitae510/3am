@@ -46,7 +46,10 @@ public class ReadingLlm {
                                                 String displayBand, String coverDriverId) {
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(readingProperties.getGuide()));
-        prompt.add(ChatMessage.system(PAYLOAD_HEADER + "\n"
+        // payload는 user 턴으로 보낸다 — system만 보내면 전부 systemInstruction으로 빠져
+        // contents가 비고, Gemini가 400(contents field is required)으로 거절한다(실측).
+        // 의미로도 payload는 지시가 아니라 이번 호출의 입력 데이터라 user 자리가 맞다.
+        prompt.add(ChatMessage.user(PAYLOAD_HEADER + "\n"
                 + payloadJson(saved, diagnosis, intakeBlock, drivers, displayBand, coverDriverId)));
         return llmClient.generateJsonDeep(prompt, RESPONSE_SCHEMA).thenApply(this::parse);
     }

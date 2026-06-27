@@ -26,8 +26,7 @@ public class MockLlmClient implements LlmClient {
     public CompletableFuture<String> generateJsonDeep(List<ChatMessage> messages,
                                                       Map<String, Object> responseSchema) {
         boolean readingCall = messages.stream()
-                .anyMatch(m -> m.role() == LlmRole.SYSTEM
-                        && m.content().startsWith(ReadingLlm.PAYLOAD_HEADER));
+                .anyMatch(m -> m.content().startsWith(ReadingLlm.PAYLOAD_HEADER));
         if (readingCall) {
             return CompletableFuture.completedFuture("""
                     {
