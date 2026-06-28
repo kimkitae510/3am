@@ -48,39 +48,44 @@ export interface ReadingDelta {
 // 사연별 미스터리 장이 본문이다 — 장 개수와 제목이 사연마다 다르다.
 // 요인 어휘는 안 내려온다: 채점 내부 용어라 유저 지면에 꺼내지 않는다.
 
-export interface ReadingMystery {
-  title: string; // 질문형 훅 — 그 사연에만 있는 장면에서 나온다
-  answer: string; // 답부터
+export interface ChapterPsychology {
+  concept: string; // 관계심리 개념 — 장 안에서 실제 행동 순서로 풀린다
   reading: string;
-  // 상호작용 충돌을 다룬 장에만 붙는 복구 원리("이런 충돌을 줄이려면"). 그 외 null.
-  // 독립 심리 페이지 대신 장 안에 붙어야 검사지 티가 안 난다.
-  principle: string | null;
-  evidenceIds: string[];
-  covers: string[]; // 내부 태그(NOW 등). 화면 비노출
 }
 
-export interface ReadingBlocker {
-  rank: number;
-  title: string;
+export interface ReadingChapter {
+  eyebrow: string; // 왜 이 장을 읽는지 먼저 알려주는 짧은 문구
+  title: string; // 사연 고유의 질문형 제목
+  chapterRole: string; // 내부 값(CORE_CONTRADICTION 등). 화면 비노출
+  answer: string; // 답부터
+  reading: string;
+  psychology: ChapterPsychology | null;
+  repairPrinciple: string | null; // "이런 충돌을 줄이려면" — 상호작용 장에만
+  evidenceIds: string[];
+}
+
+export interface ReadingBarrier {
   answer: string;
   reading: string;
   evidenceIds: string[];
 }
 
+// 스토리북 v4 — 표지 총평 없음: 화면이 확률과 등급을 먼저 보여주고
+// probabilityReading이 "왜 이 숫자인지"의 미니 판독(3~5문장)을 단다.
 export interface StoryReport {
-  coverVerdict: string; // 표지 한 문장 판정
-  coverReason: string; // 이 숫자를 지지하는 가장 큰 이유 하나
-  mysteries: ReadingMystery[]; // 유저의 직접 질문도 중요하면 미스터리로 승격돼 여기 온다
-  blockers: ReadingBlocker[]; // 1~2개 — 가장 큰 것 하나에 무게, 나머지는 부속
-  reselect: {
+  probabilityReading: { reading: string; evidenceIds: string[] };
+  chapters: ReadingChapter[]; // 3~5개, 사연별. 유저의 직접 질문도 중요하면 장으로 승격
+  currentBarrier: ReadingBarrier | null; // 지금 재선택을 막는 직접 장애물
+  secondaryBarrier: ReadingBarrier | null; // 정말 독립적인 두 번째 현실 장벽일 때만
+  maintenanceInsight: {
     title: string;
     answer: string;
-    open: string[];
-    conditions: string[];
-    watchFor: string[];
-  };
-  phase: { label: string; reading: string; chipSeeds: string[] };
-  followUp: { question: string; whyItMatters: string } | null;
+    psychology: ChapterPsychology | null;
+    reading: string;
+    repairPrinciple: string;
+  } | null;
+  reselect: { title: string; answer: string; reading: string; turningPoints: string[] };
+  final: { stateLabel: string; chipSeeds: string[] };
   internal: {
     nowState: string;
     resolveState: string;

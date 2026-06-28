@@ -46,6 +46,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* eyebrow — 왜 이 장을 읽는지. 장 번호 옆에 작게 */
+.eyebrow {
+  margin-left: 10px;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: #b89dd1;
+}
+
 .bookTitle {
   margin-top: 8px;
   color: var(--text);
