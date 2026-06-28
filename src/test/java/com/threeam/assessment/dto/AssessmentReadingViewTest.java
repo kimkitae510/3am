@@ -27,12 +27,13 @@ class AssessmentReadingViewTest {
     }
 
     private ReadingDraft report() {
-        return new ReadingDraft("표지 판정", "표지 이유",
-                List.of(new ReadingDraft.Mystery("제목", "답", "서술", null, List.of("F01"), List.of("NOW"))),
-                List.of(),
-                new ReadingDraft.Reselect("제목", "답", List.of(), List.of(), List.of()),
-                new ReadingDraft.Phase("국면", "서술", List.of()),
-                null,
+        return new ReadingDraft(
+                new ReadingDraft.ProbabilityReading("확률 판독", List.of("F01")),
+                List.of(new ReadingDraft.Chapter("아이브로", "제목", "CORE_CONTRADICTION", "답",
+                        "서술", null, null, List.of("F01"))),
+                null, null, null,
+                new ReadingDraft.Reselect("제목", "답", "서술", List.of()),
+                new ReadingDraft.Fin("관계 재평가 중", List.of()),
                 new ReadingDraft.Internal("MIXED", "UNSTABLE", "PRESENT", "CONDITIONAL"));
     }
 
@@ -61,8 +62,8 @@ class AssessmentReadingViewTest {
         AssessmentResponse.Reading view = AssessmentResponse.Reading.of(report(), current, null, null);
 
         assertThat(view.delta()).isNull();
-        assertThat(view.report().coverVerdict()).isEqualTo("표지 판정");
-        assertThat(view.report().mysteries()).hasSize(1);
+        assertThat(view.report().probabilityReading().reading()).isEqualTo("확률 판독");
+        assertThat(view.report().chapters()).hasSize(1);
     }
 
     @Test
