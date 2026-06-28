@@ -26,8 +26,8 @@ public final class ReadingVocab {
     public static final List<String> RESELECT_STATES = List.of(
             "OPEN", "CONDITIONAL", "NARROW", "CLOSED_CURRENTLY");
 
-    // 미스터리의 내부 태그 — 네 축(NOW/RESOLVE/REMAIN/CHOICE)이 mysteries 전체에서
-    // 다뤄졌는지 점검하는 용도. 유저 비노출.
-    public static final List<String> MYSTERY_COVERS = List.of(
-            "NOW", "RESOLVE", "REMAIN", "CHOICE", "SIGNAL_CORRECTION", "INTERACTION");
+    // 장의 내부 역할 태그 — 장들이 서로 다른 판단축을 다뤘는지 점검하는 용도. 유저 비노출.
+    public static final List<String> CHAPTER_ROLES = List.of(
+            "CORE_CONTRADICTION", "SIGNAL_CORRECTION", "HIDDEN_SIGNAL", "DISTANCE_MEANING",
+            "FEELING_VS_CHOICE", "RESPONSIBILITY", "INTERACTION");
 }
