@@ -162,13 +162,19 @@ public class TypeBandScorer {
                          String evidence, String rationale, int magnitude) {
     }
 
-    // 표시 대역. 화면 밴드 라벨(assessmentScale)과 경계를 맞춘다 — 45 미만 낮음 계열,
-    // 65 이상 높음 계열. 2호출이 대역 기준을 자체 발명하지 않게 백엔드가 확정한다.
-    public String displayBand(int probability) {
+    // 표시 등급 5단계. 화면 밴드 라벨(assessmentScale의 매우낮음~매우높음)과 같은 경계 —
+    // 2호출이 등급 기준을 자체 발명하지 않게 백엔드가 확정한다.
+    public String level(int probability) {
+        if (probability >= 82) {
+            return "VERY_HIGH";
+        }
         if (probability >= 65) {
             return "HIGH";
         }
-        return probability >= 45 ? "MID" : "LOW";
+        if (probability >= 45) {
+            return "MID";
+        }
+        return probability >= 25 ? "LOW" : "VERY_LOW";
     }
 
     // 방향별 상위 2개씩. 유형과 점프도 드라이버다 — 하단 유형(권태 등)은 그 자체가
@@ -217,16 +223,17 @@ public class TypeBandScorer {
         return ranked;
     }
 
-    // 표지에서 쓸 드라이버 하나 — HIGH면 상승 1순위, LOW면 하락 1순위,
-    // MID면 크기가 가장 큰 것(판을 가장 잘 설명하는 충돌 축).
+    // 표지(확률 판독)에서 쓸 대표 드라이버 하나 — 높음 계열이면 상승 1순위, 낮음 계열이면
+    // 하락 1순위, MID면 크기가 가장 큰 것(판을 가장 잘 설명하는 축).
     // 같은 방향에서는 요인(FACTOR)을 유형/점프보다 우선한다 — 유형은 "구간"의 설명이지
     // 장면이 아니라서, 표지 이유로 번역되면 "충동적이라서 68%" 같은 밋밋한 문장이 된다.
     // 관찰된 장면(직전까지 관계를 붙잡던 발화 등)이 있으면 그쪽이 표지의 힘이다.
-    public String coverDriverId(String displayBand, List<Driver> drivers) {
+    public Driver primaryDriver(String level, List<Driver> drivers) {
         if (drivers.isEmpty()) {
             return null;
         }
-        String want = "HIGH".equals(displayBand) ? "UP" : "LOW".equals(displayBand) ? "DOWN" : null;
+        String want = level != null && level.endsWith("HIGH") ? "UP"
+                : level != null && level.endsWith("LOW") ? "DOWN" : null;
         List<Driver> side = drivers.stream()
                 .filter(d -> want == null || d.direction().equals(want))
                 .toList();
@@ -234,8 +241,7 @@ public class TypeBandScorer {
                 .filter(d -> "FACTOR".equals(d.source()))
                 .max(Comparator.comparingInt(Driver::magnitude))
                 .or(() -> side.stream().max(Comparator.comparingInt(Driver::magnitude)))
-                .map(Driver::id)
-                .orElse(drivers.get(0).id());
+                .orElse(drivers.get(0));
     }
 
     private record Band(int lo, int hi) {

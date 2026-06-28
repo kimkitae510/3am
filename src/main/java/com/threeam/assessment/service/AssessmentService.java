@@ -176,13 +176,13 @@ public class AssessmentService {
         if (!eligible) {
             return CompletableFuture.completedFuture(result.response());
         }
-        // 확률을 움직인 것의 서열(scoreDrivers)과 표시 대역은 숫자를 계산한 쪽(백엔드)이 확정한다 —
-        // 2호출은 번역만 하고 다시 고르지 않는다.
+        // 표시 등급과 대표 근거(primaryDriver)는 숫자를 계산한 쪽(백엔드)이 확정한다 —
+        // 2호출은 그걸 사람 말로 풀 뿐 표지 이유를 새로 고르지 않는다.
         List<TypeBandScorer.Driver> drivers = scorer.drivers(saved.getBreakupType(),
                 saved.getJumpRule(), saved.getTypeEvidence(), saved.getFactors());
-        String band = scorer.displayBand(saved.getProbability());
-        String coverDriverId = scorer.coverDriverId(band, drivers);
-        return readingLlm.read(saved, diagnosis, context.intakeBlock(), drivers, band, coverDriverId)
+        String level = scorer.level(saved.getProbability());
+        TypeBandScorer.Driver primary = scorer.primaryDriver(level, drivers);
+        return readingLlm.read(saved, diagnosis, context.intakeBlock(), level, primary)
                 .thenApplyAsync(draft -> {
                     try {
                         return result.response()
