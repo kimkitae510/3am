@@ -198,6 +198,15 @@ public class AssessmentService {
                 });
     }
 
+    // 화면이 그릴 수 있는 판독인지 — 확률 판독과 챕터가 본체다. 둘 중 하나라도 비면
+    // 리포트로 성립하지 않으므로 내려보내지 않는다(구조 개편 전 본문이 여기서 걸러진다).
+    private boolean isRenderable(ReadingDraft report) {
+        return report != null
+                && report.probabilityReading() != null
+                && report.chapters() != null && !report.chapters().isEmpty()
+                && report.reselect() != null && report.fin() != null;
+    }
+
     // 감점 목록(@ElementCollection, LAZY)을 매핑에서 읽으므로 트랜잭션 안이어야 한다.
     // (open-in-view: false — 트랜잭션 밖에서 접근하면 LazyInitializationException → 500)
     @Transactional(readOnly = true)
@@ -222,11 +231,19 @@ public class AssessmentService {
                                 ? byId.get(reading.getBaseAssessmentId()) : null;
                         // 본문 역직렬화 실패(구조 개편 전 행 등)는 판독 없음으로 접는다 —
                         // 옛 행 하나 때문에 이력 조회 전체가 500이 되면 안 된다.
+                        // 성공해도 내용을 확인한다: 스프링의 ObjectMapper는 모르는 필드를 에러 없이
+                        // 무시하므로, 구조 개편 전 본문이 전 필드 null인 껍데기로 조용히 통과한다.
+                        // 그 껍데기가 화면에 내려가면 뷰어가 렌더 중에 터진다(실측: 빈 화면).
                         try {
                             ReadingDraft report =
                                     objectMapper.readValue(reading.getBody(), ReadingDraft.class);
-                            response.withReading(AssessmentResponse.Reading.of(
-                                    report, a, base, reading.getCreatedAt()));
+                            if (isRenderable(report)) {
+                                response.withReading(AssessmentResponse.Reading.of(
+                                        report, a, base, reading.getCreatedAt()));
+                            } else {
+                                log.warn("판독 본문이 현재 구조와 맞지 않음 assessmentId={} — 판정만 표시",
+                                        a.getId());
+                            }
                         } catch (Exception e) {
                             log.warn("판독 본문 역직렬화 실패 assessmentId={} — 판정만 표시", a.getId());
                         }

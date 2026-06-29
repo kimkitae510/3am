@@ -805,7 +805,13 @@ export function AssessmentPage() {
     : missing.map((f) => FACTOR_ASK[f.name] ?? FACTOR_LABEL[f.name] ?? f.name);
   const psych = psychRows(result.relationshipPsychology);
   // 정밀 판독 — 확률 있는 일반 판정에만 붙는다(백엔드가 그렇게만 생성).
-  const reading = !locked && prob < 100 ? (result.reading ?? null) : null;
+  // 판독 구조가 아직 바뀌는 중이라, 서버가 옛 형식의 본문을 내려보낼 수 있다. 리포트 하나가
+  // 화면 전체를 날리지 않게(실측: 빈 화면) 그릴 수 있는 모양인지 확인하고 통과시킨다.
+  const candidate = !locked && prob < 100 ? (result.reading ?? null) : null;
+  const reading =
+    candidate?.report?.probabilityReading && candidate.report.chapters?.length
+      ? candidate
+      : null;
   // 책 모드 동안엔 아래 판정부(요인 카드, 심리, 사례 등)를 감춰 독서에 집중시킨다.
   // 나가면(전체 보기, 완독) 판독 전문이 펼쳐지고 판정부도 되살아난다.
   const bookFocus = bookOpen && reading != null;
