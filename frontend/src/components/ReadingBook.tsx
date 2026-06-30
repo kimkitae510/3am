@@ -229,6 +229,11 @@ export function ReadingBook({
             {chapter.kind !== 'cover' && (
               <div className={styles.scrollHead}>
                 <span className={styles.scrollNum}>{String(i).padStart(2, '0')}</span>
+                {/* eyebrow는 재열람에서도 그린다 — "조금 과하게 해석하고 있을 수 있는 부분"처럼
+                    왜 이 장을 읽는지가 제목만으로는 안 읽히고, 빠지면 책 모드와 내용이 달라 보인다 */}
+                {chapterEyebrow(chapter, report) && (
+                  <span className={styles.scrollEyebrow}>{chapterEyebrow(chapter, report)}</span>
+                )}
                 <span className={styles.scrollTitle}>{chapterTitle(chapter, report)}</span>
               </div>
             )}
