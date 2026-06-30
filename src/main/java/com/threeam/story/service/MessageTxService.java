@@ -294,13 +294,27 @@ public class MessageTxService {
     // 어휘 규칙이라 어떤 턴이든 빠지면 용어 남용을 막을 것이 없다(sectionsFor 주석과 같은 이유).
     private List<String> sectionsFor(List<Message> recent, int answerNo) {
         ChipDefinition chip = clickedChip(recent);
-        if (chip == null) {
-            return personaProperties.sectionsFor(answerNo);
+        List<String> base = chip == null
+                ? personaProperties.sectionsFor(answerNo)
+                : List.of(personaProperties.getRelationshipPsychology(),
+                        chipStore.commonPrompt(),
+                        chipStore.modulePrompt(chip),
+                        chipStore.microPrompt(chip));
+        // 자책 규칙은 회차와 무관하게, 유저가 "내 탓인가"를 물어온 턴에만 얹는다.
+        // 매 턴 실으면 묻지도 않은 자리에서 책임을 가르기 시작한다.
+        if (!selfBlamed(recent)) {
+            return base;
         }
-        return List.of(personaProperties.getRelationshipPsychology(),
-                chipStore.commonPrompt(),
-                chipStore.modulePrompt(chip),
-                chipStore.microPrompt(chip));
+        List<String> sections = new ArrayList<>(base);
+        sections.add(personaProperties.getSelfBlame());
+        return sections;
+    }
+
+    private boolean selfBlamed(List<Message> recent) {
+        if (recent.isEmpty() || recent.get(0).getRole() != MessageRole.USER) {
+            return false;
+        }
+        return SelfBlameMention.referenced(recent.get(0).getContent());
     }
 
     // 이번 호출에 진단 데이터를 얼마나 실을지.

@@ -43,6 +43,10 @@ public class ChatPersonaProperties {
     // 개념을 어떻게 쓰고 어떻게 쓰지 않을지의 공용 어휘라 회차를 가리지 않는다.
     private String relationshipPsychology = "";
 
+    // 자책 질문을 받은 턴에만 싣는다(SelfBlameMention 판정). 회차와 무관하게,
+    // 유저가 "내 탓인가"를 물어온 자리에서만 내 책임, 상대 책임, 상황을 갈라 답하게 한다.
+    private String selfBlame = "";
+
     // 답변 회차(1부터)에 해당하는 지시. 고정 회차는 2회차까지고, 3회차부터는 자유 대화 블록이다.
     public String turnGuide(int answerNo) {
         return switch (answerNo) {
