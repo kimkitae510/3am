@@ -176,13 +176,12 @@ public class AssessmentService {
         if (!eligible) {
             return CompletableFuture.completedFuture(result.response());
         }
-        // 표시 등급과 대표 근거(primaryDriver)는 숫자를 계산한 쪽(백엔드)이 확정한다 —
-        // 2호출은 그걸 사람 말로 풀 뿐 표지 이유를 새로 고르지 않는다.
-        List<TypeBandScorer.Driver> drivers = scorer.drivers(saved.getBreakupType(),
-                saved.getJumpRule(), saved.getTypeEvidence(), saved.getFactors());
+        // 표시 등급과 진단 항목(방향, 순위)은 숫자를 계산한 쪽(백엔드)이 확정한다 —
+        // 2호출은 그걸 유저 언어로 풀 뿐 순위를 다시 고르지 않는다(화면 순서와 확률이 어긋난다).
         String level = scorer.level(saved.getProbability());
-        TypeBandScorer.Driver primary = scorer.primaryDriver(level, drivers);
-        return readingLlm.read(saved, diagnosis, context.intakeBlock(), level, primary)
+        List<TypeBandScorer.DiagnosisItem> items = scorer.diagnosisItems(saved.getBreakupType(),
+                saved.getJumpRule(), saved.getFactors());
+        return readingLlm.read(saved, diagnosis, context.intakeBlock(), level, items)
                 .thenApplyAsync(draft -> {
                     try {
                         return result.response()
@@ -198,12 +197,12 @@ public class AssessmentService {
                 });
     }
 
-    // 화면이 그릴 수 있는 판독인지 — 확률 판독과 챕터가 본체다. 둘 중 하나라도 비면
-    // 리포트로 성립하지 않으므로 내려보내지 않는다(구조 개편 전 본문이 여기서 걸러진다).
+    // 화면이 그릴 수 있는 판독인지 — 진단 요약과 진단 항목이 본체다(v7). 비면 리포트로
+    // 성립하지 않으므로 내려보내지 않는다(구조 개편 전 본문이 여기서 걸러진다).
     private boolean isRenderable(ReadingDraft report) {
         return report != null
-                && report.probabilityReading() != null
-                && report.chapters() != null && !report.chapters().isEmpty()
+                && report.diagnosisSummary() != null && !report.diagnosisSummary().isBlank()
+                && report.diagnosis() != null && !report.diagnosis().isEmpty()
                 && report.reselect() != null && report.fin() != null;
     }
 

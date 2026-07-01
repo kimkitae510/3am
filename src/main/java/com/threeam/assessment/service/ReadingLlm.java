@@ -21,11 +21,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-// 정밀 판독(2호출) 담당 — 스토리북 v4 계약.
-// 입력(ReadingPacket)은 일부러 얇다: 확률, 등급, 유형(내부 앵커), 대표 근거(primaryDriver),
-// 관찰 사실(readingFacts), 유저 질문/해석, 관찰 포인트. 요인표, 점프, 관계심리, 유지전망
-// 판정값은 싣지 않는다 — 전부 넘기면 2호출이 요인표를 자연어로 복창하는 경향이 실측됐고,
-// 관계심리는 2호출이 사실을 보고 직접 고르는 것이 계약이다(reading.yml).
+// 정밀 판독(2호출) 담당 — v7(진단 우선) 계약.
+// 입력(ReadingPacket)은 일부러 얇다: 확률, 등급, 백엔드가 확정한 진단 항목(방향과 순위),
+// 관찰 사실, 유저 질문/해석, 관찰 포인트. 요인표, 점프, 관계심리, 유지전망 판정값은 싣지
+// 않는다 — 전부 넘기면 2호출이 요인표를 자연어로 복창하는 경향이 실측됐고, 관계심리는
+// 2호출이 사실을 보고 직접 고르는 것이 계약이다(reading.yml).
 // 판독 지시 전문은 서비스 자산이라 소스에 두지 않고 ReadingProperties(로컬 reading.yml)로 주입받는다.
 @Slf4j
 @Component
@@ -42,18 +42,18 @@ public class ReadingLlm {
 
     public CompletableFuture<ReadingDraft> read(Assessment saved, ReunionDiagnosis diagnosis,
                                                 String intakeBlock, String level,
-                                                TypeBandScorer.Driver primaryDriver) {
+                                                List<TypeBandScorer.DiagnosisItem> items) {
         List<ChatMessage> prompt = new ArrayList<>();
         prompt.add(ChatMessage.system(readingProperties.getGuide()));
         // packet은 user 턴으로 보낸다 — system만 보내면 전부 systemInstruction으로 빠져
         // contents가 비고, Gemini가 400(contents field is required)으로 거절한다(실측).
         prompt.add(ChatMessage.user(PAYLOAD_HEADER + "\n"
-                + packetJson(saved, diagnosis, intakeBlock, level, primaryDriver)));
+                + packetJson(saved, diagnosis, intakeBlock, level, items)));
         return llmClient.generateJsonDeep(prompt, RESPONSE_SCHEMA).thenApply(this::parse);
     }
 
     private String packetJson(Assessment saved, ReunionDiagnosis diagnosis, String intakeBlock,
-                              String level, TypeBandScorer.Driver primaryDriver) {
+                              String level, List<TypeBandScorer.DiagnosisItem> items) {
         List<ReunionDiagnosis.ReadingFact> facts = diagnosis.readingFacts();
         if (facts == null || facts.isEmpty()) {
             // 루브릭이 관찰 사실을 아직 안 내는 동안의 안전망 — 요인 근거를 사실로 승격한다.
@@ -63,20 +63,24 @@ public class ReadingLlm {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("probability", saved.getProbability());
         out.put("level", level);
-        out.put("breakupType", saved.getBreakupType() != null ? saved.getBreakupType().label() : null);
-        if (primaryDriver != null) {
-            Map<String, Object> primary = new LinkedHashMap<>();
-            primary.put("direction", primaryDriver.direction());
-            primary.put("factIds", matchFactIds(primaryDriver, facts));
-            primary.put("meaning", primaryDriver.rationale() == null || primaryDriver.rationale().isBlank()
-                    ? primaryDriver.evidence() : primaryDriver.rationale());
-            out.put("primaryDriver", primary);
-        }
         // 인테이크(나이, 기간, 경과)는 판정값이 아니라 사실이라 복창 위험이 없다 —
         // 루브릭 추출이 INTAKE_ANSWER를 빠뜨려도 기간 없는 리포트가 되지 않게 싣는다.
         if (intakeBlock != null && !intakeBlock.isBlank()) {
             out.put("intake", intakeBlock);
         }
+
+        List<Map<String, Object>> diagnosisRows = new ArrayList<>();
+        for (TypeBandScorer.DiagnosisItem item : items) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("key", item.key());
+            row.put("label", item.label());
+            row.put("rank", item.rank());
+            row.put("impact", item.impact());
+            row.put("factIds", matchFactIds(item, facts));
+            row.put("meaning", item.meaning());
+            diagnosisRows.add(row);
+        }
+        out.put("diagnosisItems", diagnosisRows);
 
         List<Map<String, Object>> factRows = new ArrayList<>();
         int order = 1;
@@ -96,12 +100,22 @@ public class ReadingLlm {
             factRows.add(row);
         }
         out.put("readingFacts", factRows);
-        out.put("directQuestions",
-                diagnosis.directQuestions() == null ? List.of() : diagnosis.directQuestions());
+
+        List<Map<String, String>> questions = new ArrayList<>();
+        if (diagnosis.directQuestions() != null) {
+            int qNo = 1;
+            for (String question : diagnosis.directQuestions()) {
+                questions.add(Map.of("id", String.format("Q%02d", qNo++), "question", question));
+            }
+        }
+        out.put("directQuestions", questions);
+
         List<Map<String, String>> interpretations = new ArrayList<>();
         if (diagnosis.userFocus() != null) {
+            int uNo = 1;
             for (ReunionDiagnosis.FocusItem item : diagnosis.userFocus()) {
                 Map<String, String> row = new LinkedHashMap<>();
+                row.put("id", String.format("U%02d", uNo++));
                 if (item.factId() != null) {
                     row.put("factId", item.factId());
                 }
@@ -110,6 +124,7 @@ public class ReadingLlm {
             }
         }
         out.put("userInterpretations", interpretations);
+
         List<String> watch = new ArrayList<>();
         saved.getWatchPoints().forEach(w -> watch.add(w.getPoint() + " — " + w.getEffect()));
         out.put("watchFor", watch);
@@ -121,12 +136,12 @@ public class ReadingLlm {
         }
     }
 
-    // primaryDriver의 근거 문장과 겹치는 관찰 사실을 잇는다(최선 노력) — 못 찾으면 빈 목록.
-    // 프롬프트가 meaning으로도 풀 수 있어 연결 실패가 치명적이지 않다.
-    private List<String> matchFactIds(TypeBandScorer.Driver driver,
+    // 진단 항목의 내부 요약과 겹치는 관찰 사실을 잇는다(최선 노력) — 못 찾으면 빈 목록.
+    // 판독이 meaning으로도 풀 수 있어 연결 실패가 치명적이지 않다.
+    private List<String> matchFactIds(TypeBandScorer.DiagnosisItem item,
                                       List<ReunionDiagnosis.ReadingFact> facts) {
-        String evidence = driver.evidence();
-        if (evidence == null || evidence.isBlank()) {
+        String meaning = item.meaning();
+        if (meaning == null || meaning.isBlank()) {
             return List.of();
         }
         List<String> ids = new ArrayList<>();
@@ -134,8 +149,8 @@ public class ReadingLlm {
             if (ids.size() >= 2) {
                 break;
             }
-            if (fact.fact().contains(evidence) || evidence.contains(fact.fact())
-                    || (fact.quote() != null && evidence.contains(fact.quote()))) {
+            if (fact.fact().contains(meaning) || meaning.contains(fact.fact())
+                    || (fact.quote() != null && meaning.contains(fact.quote()))) {
                 ids.add(fact.id());
             }
         }
@@ -154,6 +169,25 @@ public class ReadingLlm {
                     evidence, null, null));
         }
         return out;
+    }
+
+    private static Map<String, Object> diagnosisSchema() {
+        return Map.ofEntries(
+                Map.entry("type", "OBJECT"),
+                Map.entry("properties", Map.ofEntries(
+                        Map.entry("key", Map.of("type", "STRING",
+                                "enum", ReadingVocab.DIAGNOSIS_KEYS)),
+                        Map.entry("label", Map.of("type", "STRING")),
+                        Map.entry("rank", Map.of("type", "INTEGER")),
+                        Map.entry("impact", Map.of("type", "STRING",
+                                "enum", ReadingVocab.IMPACTS)),
+                        Map.entry("verdict", Map.of("type", "STRING")),
+                        Map.entry("reading", Map.of("type", "STRING")),
+                        Map.entry("evidenceIds", Map.of("type", "ARRAY",
+                                "items", Map.of("type", "STRING"))))),
+                Map.entry("required", List.of("key", "label", "rank", "impact", "verdict", "reading")),
+                Map.entry("propertyOrdering", List.of("key", "label", "rank", "impact", "verdict",
+                        "reading", "evidenceIds")));
     }
 
     private static Map<String, Object> psychologySchema() {
@@ -175,6 +209,7 @@ public class ReadingLlm {
                         Map.entry("title", Map.of("type", "STRING")),
                         Map.entry("chapterRole", Map.of("type", "STRING",
                                 "enum", ReadingVocab.CHAPTER_ROLES)),
+                        Map.entry("interpretationId", Map.of("type", "STRING", "nullable", true)),
                         Map.entry("answer", Map.of("type", "STRING")),
                         Map.entry("reading", Map.of("type", "STRING")),
                         Map.entry("psychology", psychologySchema()),
@@ -183,20 +218,9 @@ public class ReadingLlm {
                                 "items", Map.of("type", "STRING"))))),
                 Map.entry("required", List.of("eyebrow", "title", "chapterRole", "answer",
                         "reading", "evidenceIds")),
-                Map.entry("propertyOrdering", List.of("eyebrow", "title", "chapterRole", "answer",
-                        "reading", "psychology", "repairPrinciple", "evidenceIds")));
-    }
-
-    private static Map<String, Object> barrierSchema() {
-        return Map.of(
-                "type", "OBJECT",
-                "nullable", true,
-                "properties", Map.of(
-                        "answer", Map.of("type", "STRING"),
-                        "reading", Map.of("type", "STRING"),
-                        "evidenceIds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))),
-                "required", List.of("answer", "reading"),
-                "propertyOrdering", List.of("answer", "reading", "evidenceIds"));
+                Map.entry("propertyOrdering", List.of("eyebrow", "title", "chapterRole",
+                        "interpretationId", "answer", "reading", "psychology", "repairPrinciple",
+                        "evidenceIds")));
     }
 
     private static Map<String, Object> maintenanceSchema() {
@@ -248,38 +272,27 @@ public class ReadingLlm {
                 "propertyOrdering", List.of("nowState", "resolveState", "remainState", "reselectState"));
     }
 
-    private static Map<String, Object> probabilityReadingSchema() {
-        return Map.of(
-                "type", "OBJECT",
-                "properties", Map.of(
-                        "reading", Map.of("type", "STRING"),
-                        "evidenceIds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))),
-                "required", List.of("reading", "evidenceIds"),
-                "propertyOrdering", List.of("reading", "evidenceIds"));
-    }
-
-    // 판독 응답의 문법. reading.yml(v4)의 출력 형식과 짝 — 지시를 고쳐 필드가 바뀌면 여기도 같이.
-    // nullable은 정말 없을 수 있는 것만(장벽, 유지 인사이트, 장 안의 심리/원리) — 탈출구 없는
+    // 판독 응답의 문법. reading.yml(v7)의 출력 형식과 짝 — 지시를 고쳐 필드가 바뀌면 여기도 같이.
+    // nullable은 정말 없을 수 있는 것만(유지 인사이트, 장 안의 심리/원리) — 탈출구 없는
     // nullable은 조용한 생략 사고가 나서 나머지는 전부 required다.
     private static final Map<String, Object> RESPONSE_SCHEMA = Map.ofEntries(
             Map.entry("type", "OBJECT"),
             Map.entry("properties", Map.ofEntries(
-                    Map.entry("probabilityReading", probabilityReadingSchema()),
-                    Map.entry("chapters", Map.of("type", "ARRAY", "items", chapterSchema())),
-                    Map.entry("currentBarrier", barrierSchema()),
-                    Map.entry("secondaryBarrier", barrierSchema()),
+                    Map.entry("diagnosisSummary", Map.of("type", "STRING")),
+                    Map.entry("diagnosis", Map.of("type", "ARRAY", "items", diagnosisSchema())),
+                    Map.entry("analysisChapters", Map.of("type", "ARRAY", "items", chapterSchema())),
                     Map.entry("maintenanceInsight", maintenanceSchema()),
                     Map.entry("reselect", reselectSchema()),
                     Map.entry("final", finalSchema()),
                     Map.entry("internal", internalSchema()))),
-            Map.entry("required", List.of("probabilityReading", "chapters", "currentBarrier",
+            Map.entry("required", List.of("diagnosisSummary", "diagnosis", "analysisChapters",
                     "reselect", "final", "internal")),
-            Map.entry("propertyOrdering", List.of("probabilityReading", "chapters",
-                    "currentBarrier", "secondaryBarrier", "maintenanceInsight", "reselect",
-                    "final", "internal")));
+            Map.entry("propertyOrdering", List.of("diagnosisSummary", "diagnosis",
+                    "analysisChapters", "maintenanceInsight", "reselect", "final", "internal")));
 
-    // 개수 상한 — 지시(장 3~5, 칩 2~4, 분기점 1~3)의 안전핀.
-    private static final int CHAPTER_MAX = 5;
+    // 개수 상한 — 지시(진단 5~7, 심층 장 2~3, 칩 2~4, 분기점 1~3)의 안전핀.
+    private static final int DIAGNOSIS_MAX = 7;
+    private static final int CHAPTER_MAX = 4;
     private static final int CHIP_MAX = 4;
     private static final int TURNING_MAX = 3;
     private static final int LIST_TEXT_MAX = 300;
@@ -288,12 +301,36 @@ public class ReadingLlm {
         try {
             JsonNode root = objectMapper.readTree(LlmJson.salvage(json));
 
-            JsonNode probNode = root.path("probabilityReading");
-            ReadingDraft.ProbabilityReading probabilityReading = new ReadingDraft.ProbabilityReading(
-                    requireText(probNode, "reading"), strings(probNode.path("evidenceIds"), 10));
+            List<ReadingDraft.Diagnosis> diagnosis = new ArrayList<>();
+            for (JsonNode node : root.path("diagnosis")) {
+                if (diagnosis.size() >= DIAGNOSIS_MAX) {
+                    break;
+                }
+                String key = node.path("key").asText("").trim();
+                String verdict = node.path("verdict").asText("").trim();
+                if (!ReadingVocab.DIAGNOSIS_LABELS.containsKey(key) || verdict.isBlank()) {
+                    log.warn("판독 진단 항목 폐기(어휘 밖이거나 빈 판정): key={}", key);
+                    continue;
+                }
+                String impact = node.path("impact").asText("").trim();
+                String label = node.path("label").asText("").trim();
+                // 순위는 배열 순서로 다시 매긴다 — 모델이 보낸 rank가 1,1,3으로 오면
+                // 화면에 그대로 뜬다. 순서 자체는 백엔드가 준 것을 판독이 지킨 결과다.
+                diagnosis.add(new ReadingDraft.Diagnosis(key,
+                        label.isBlank() ? ReadingVocab.DIAGNOSIS_LABELS.get(key) : clip(label, 20),
+                        diagnosis.size() + 1,
+                        ReadingVocab.IMPACTS.contains(impact) ? impact : "NEUTRAL",
+                        clip(verdict, 500), node.path("reading").asText("").trim(),
+                        strings(node.path("evidenceIds"), 10)));
+            }
+            // 진단이 하나도 없으면 v7 리포트가 아니다 — 판독 실패로 처리한다(판정은 유지).
+            if (diagnosis.isEmpty()) {
+                log.warn("정밀 판독에 진단 항목이 없음 — 판독 실패 처리");
+                throw new LlmException();
+            }
 
             List<ReadingDraft.Chapter> chapters = new ArrayList<>();
-            for (JsonNode node : root.path("chapters")) {
+            for (JsonNode node : root.path("analysisChapters")) {
                 if (chapters.size() >= CHAPTER_MAX) {
                     break;
                 }
@@ -305,19 +342,16 @@ public class ReadingLlm {
                 }
                 String role = node.path("chapterRole").asText("").trim();
                 String principle = node.path("repairPrinciple").asText("").trim();
+                String interpretationId = node.path("interpretationId").asText("").trim();
                 chapters.add(new ReadingDraft.Chapter(
                         clip(node.path("eyebrow").asText("").trim(), LIST_TEXT_MAX),
                         clip(title, LIST_TEXT_MAX),
                         ReadingVocab.CHAPTER_ROLES.contains(role) ? role : "CORE_CONTRADICTION",
+                        interpretationId.isBlank() ? null : clip(interpretationId, 10),
                         clip(answer, 500), reading,
                         psychology(node.path("psychology")),
                         principle.isBlank() ? null : clip(principle, 500),
                         strings(node.path("evidenceIds"), 10)));
-            }
-            // 장이 하나도 없으면 스토리 리포트가 아니다 — 판독 실패로 처리한다(판정은 유지).
-            if (chapters.isEmpty()) {
-                log.warn("정밀 판독에 챕터가 없음 — 판독 실패 처리");
-                throw new LlmException();
             }
 
             JsonNode reselectNode = root.path("reselect");
@@ -339,9 +373,9 @@ public class ReadingLlm {
                     state(internal, "remainState", ReadingVocab.REMAIN_STATES, "LITTLE_EVIDENCE"),
                     state(internal, "reselectState", ReadingVocab.RESELECT_STATES, "CONDITIONAL"));
 
-            return new ReadingDraft(probabilityReading, chapters,
-                    barrier(root.path("currentBarrier")),
-                    barrier(root.path("secondaryBarrier")),
+            return new ReadingDraft(
+                    clip(requireText(root, "diagnosisSummary"), 500),
+                    diagnosis, chapters,
                     maintenance(root.path("maintenanceInsight")),
                     reselect, fin, states);
         } catch (LlmException e) {
@@ -363,19 +397,6 @@ public class ReadingLlm {
             return null;
         }
         return new ReadingDraft.Psychology(clip(concept, 100), reading);
-    }
-
-    private ReadingDraft.Barrier barrier(JsonNode node) {
-        if (!node.isObject()) {
-            return null;
-        }
-        String answer = node.path("answer").asText("").trim();
-        String reading = node.path("reading").asText("").trim();
-        if (answer.isBlank()) {
-            return null;
-        }
-        return new ReadingDraft.Barrier(clip(answer, 500), reading,
-                strings(node.path("evidenceIds"), 10));
     }
 
     private ReadingDraft.Maintenance maintenance(JsonNode node) {
@@ -415,7 +436,7 @@ public class ReadingLlm {
         return fallback;
     }
 
-    // 확률 판독과 마무리가 비면 리포트로 성립하지 않는다 — 판독만 실패시킨다(판정은 유지).
+    // 요약과 마무리가 비면 리포트로 성립하지 않는다 — 판독만 실패시킨다(판정은 유지).
     private String requireText(JsonNode node, String field) {
         String value = node.path(field).asText("").trim();
         if (value.isEmpty()) {
