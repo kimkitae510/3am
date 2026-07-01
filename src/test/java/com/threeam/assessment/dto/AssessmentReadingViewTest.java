@@ -27,11 +27,12 @@ class AssessmentReadingViewTest {
     }
 
     private ReadingDraft report() {
-        return new ReadingDraft(
-                new ReadingDraft.ProbabilityReading("확률 판독", List.of("F01")),
-                List.of(new ReadingDraft.Chapter("아이브로", "제목", "CORE_CONTRADICTION", "답",
-                        "서술", null, null, List.of("F01"))),
-                null, null, null,
+        return new ReadingDraft("진단 요약",
+                List.of(new ReadingDraft.Diagnosis("partnerSignal", "상대신호", 1, "UP", "판정",
+                        "서술", List.of("F01"))),
+                List.of(new ReadingDraft.Chapter("아이브로", "제목", "CORE_CONTRADICTION", null,
+                        "답", "서술", null, null, List.of("F01"))),
+                null,
                 new ReadingDraft.Reselect("제목", "답", "서술", List.of()),
                 new ReadingDraft.Fin("관계 재평가 중", List.of()),
                 new ReadingDraft.Internal("MIXED", "UNSTABLE", "PRESENT", "CONDITIONAL"));
@@ -62,8 +63,8 @@ class AssessmentReadingViewTest {
         AssessmentResponse.Reading view = AssessmentResponse.Reading.of(report(), current, null, null);
 
         assertThat(view.delta()).isNull();
-        assertThat(view.report().probabilityReading().reading()).isEqualTo("확률 판독");
-        assertThat(view.report().chapters()).hasSize(1);
+        assertThat(view.report().diagnosisSummary()).isEqualTo("진단 요약");
+        assertThat(view.report().diagnosis()).hasSize(1);
     }
 
     @Test

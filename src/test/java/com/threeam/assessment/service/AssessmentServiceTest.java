@@ -120,11 +120,12 @@ class AssessmentServiceTest {
 
     // 판독 스텁 재료 — 내용은 뷰 조립 테스트(AssessmentReadingViewTest)에서 검증하고
     // 여기선 흐름(부착 여부)만 본다.
-    private static final ReadingDraft DRAFT = new ReadingDraft(
-            new ReadingDraft.ProbabilityReading("확률 판독", List.of()),
-            List.of(new ReadingDraft.Chapter("아이브로", "제목", "CORE_CONTRADICTION", "답", "서술",
-                    null, null, List.of())),
-            null, null, null,
+    private static final ReadingDraft DRAFT = new ReadingDraft("진단 요약",
+            List.of(new ReadingDraft.Diagnosis("partnerSignal", "상대신호", 1, "UP", "판정",
+                    "서술", List.of())),
+            List.of(new ReadingDraft.Chapter("아이브로", "제목", "CORE_CONTRADICTION", null, "답",
+                    "서술", null, null, List.of())),
+            null,
             new ReadingDraft.Reselect("제목", "답", "서술", List.of()),
             new ReadingDraft.Fin("관계 재평가 중", List.of()),
             new ReadingDraft.Internal("MIXED", "UNSTABLE", "PRESENT", "CONDITIONAL"));
@@ -141,7 +142,7 @@ class AssessmentServiceTest {
         given(scorer.apply(eq(BreakupType.BURNOUT), eq(JumpRule.NONE), anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
                 .willAnswer(inv -> inv.getArgument(1));
-        given(readingLlm.read(any(Assessment.class), any(), any(), any(), any()))
+        given(readingLlm.read(any(Assessment.class), any(), any(), any(), anyList()))
                 .willReturn(CompletableFuture.completedFuture(DRAFT));
         given(txService.saveReading(eq(10L), any(), eq(DRAFT))).willReturn(READING_VIEW);
 
@@ -167,7 +168,7 @@ class AssessmentServiceTest {
         given(scorer.apply(eq(BreakupType.BURNOUT), eq(JumpRule.NONE), anyList())).willReturn(20);
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
                 .willAnswer(inv -> inv.getArgument(1));
-        given(readingLlm.read(any(Assessment.class), any(), any(), any(), any()))
+        given(readingLlm.read(any(Assessment.class), any(), any(), any(), anyList()))
                 .willReturn(CompletableFuture.failedFuture(new LlmException()));
 
         AssessmentResponse response = assessmentService.assess(1L, 10L).join();
