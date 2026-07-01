@@ -69,56 +69,180 @@
   overflow-y: auto;
 }
 
-/* ── 표지 ─────────────────────────────────────────── */
+/* ── 확률 게이지 ─────────────────────────────────── */
+/* 그래프는 메인이 아니라 "내 위치를 한눈에 읽는 장치"다 — 한 줄로만 그린다.
+   도넛이나 큰 차트는 66이라는 숫자를 측정값처럼 정밀해 보이게 만든다 */
 
-/* 숫자와 대역이 먼저 — 68%가 어느 정도인지 3초 안에 성립해야 한다 */
-.coverProb {
-  margin-top: 22px;
-  color: var(--text-muted);
-  font-size: 14px;
+.gauge {
+  margin-top: 4px;
 }
 
-.coverProbNum {
+.gaugeHead {
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+.gaugeNum {
   color: #b89dd1;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   margin-left: 4px;
   font-variant-numeric: tabular-nums;
 }
 
-.coverBand {
+.gaugeBand {
   margin-left: 8px;
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
 }
 
-/* 한 문장 판정 — 숫자 바로 아래에서 판을 말한다 */
-.coverVerdict {
-  margin-top: 14px;
-  color: var(--text);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.55;
-  letter-spacing: -0.3px;
-  word-break: keep-all;
+.gaugeTrack {
+  position: relative;
+  height: 3px;
+  margin: 16px 0 8px;
+  border-radius: 2px;
+  background: var(--border);
 }
 
-/* 이유 라벨 — 이 문단이 무엇의 이유인지 화면이 말해준다 */
-.coverReasonLabel {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
+.gaugeDot {
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  border-radius: 50%;
+  background: #b89dd1;
+  transform: translateY(-50%);
+}
+
+.gaugeScale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* 재진단이 쌓였을 때만 — 실제 변화가 있을 때 값이 있다 */
+.trend {
+  margin-top: 16px;
+}
+
+.trendLabel {
   color: var(--text-muted);
   font-size: 11.5px;
   font-weight: 600;
 }
 
-.coverReason {
-  margin-top: 7px;
+.trendRow {
+  margin-top: 6px;
   color: #b0b0b8;
-  font-size: 13.5px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trendArrow {
+  margin: 0 6px;
+  color: var(--text-muted);
+}
+
+.trendNow {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* 확률과 상위 진단을 잇는 한두 문장 */
+.summary {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
   line-height: 1.75;
+  word-break: keep-all;
+}
+
+/* ── 진단 목록 ───────────────────────────────────── */
+
+.diagList {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.diagItem {
+  padding: 14px 0;
+}
+
+.diagItem + .diagItem {
+  border-top: 1px solid var(--border);
+}
+
+.diagTop {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.diagRank {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.diagLabel {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+/* 영향은 색이 아니라 말이 먼저다 — 색은 방향만 거든다 */
+.diagImpact {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.impactUp {
+  color: #b89dd1;
+}
+
+.impactDown {
+  color: #d88b9f;
+}
+
+.impactNeutral {
+  color: var(--text-muted);
+}
+
+.diagVerdict {
+  margin-top: 7px;
+  padding-left: 22px;
+  color: #b0b0b8;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.diagReading {
+  margin-top: 9px;
+  margin-left: 22px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #b0b0b8;
+  font-size: 12.5px;
+  line-height: 1.75;
+  white-space: pre-line;
 }
 
 /* ── 본문 공통 ────────────────────────────────────── */

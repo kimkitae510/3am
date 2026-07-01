@@ -3,34 +3,32 @@ import type { ReadingDelta, ReadingView, StoryReport } from '../api/assessment';
 import { bandLabel } from '../utils/assessmentScale';
 import styles from './ReadingBook.module.css';
 
-// 정밀 판독(스토리북 v4) 뷰어. 표지(확률 + 등급 + "왜 이 숫자인지" 미니 판독)에서 시작해
-// 사연별 챕터를 하나씩 넘긴다 — 장 개수와 제목이 사연마다 다르다(고정 목차는 템플릿으로
-// 읽힌다). 각 장은 eyebrow(왜 이 장을 읽는지)가 제목 위에 서고, 관계심리와 복구 원리는
-// 독립 페이지가 아니라 장 안에 붙는다. 요인 카드나 점수표는 여기 없다.
+// 정밀 판독(v7) 뷰어. 진단이 먼저다: 확률 게이지 → "재회 가능성을 만든 진단"(펼치면 근거) →
+// 사연별 심층 장면 → 현재 위치 → 무엇이 바뀌면 → 칩.
+// 게이지는 메인 콘텐츠가 아니라 "내가 어느 위치인지"를 한눈에 읽는 장치라 한 줄로만 그린다
+// (도넛, 대형 차트는 66이라는 숫자를 측정값처럼 정밀해 보이게 만든다).
 // 첫 독서는 장 넘김, 완독이나 전체 보기 후엔 세로 스크롤. 완독 여부는 저장하지 않는다.
 
-// 표지 제목 규칙 — 등급별 문구는 reading.yml의 프론트 제목 규칙과 짝이다.
-function coverTitle(prob: number): string {
-  if (prob >= 82) return `${prob}%로 재회 가능성을 매우 높게 본 가장 큰 이유`;
-  if (prob >= 65) return `${prob}%로 재회 가능성을 높게 본 가장 큰 이유`;
-  if (prob >= 45) return `${prob}%로 본 핵심 이유`;
-  if (prob >= 25) return `${prob}%로 재회 가능성을 낮게 본 가장 큰 이유`;
-  return `${prob}%로 재회 가능성을 매우 낮게 본 가장 큰 이유`;
-}
+// 확률이 준 영향 — 내부 채점어(매우유리 등) 대신 화면은 이 말을 쓴다.
+const IMPACT_LABEL: Record<string, string> = {
+  STRONG_UP: '크게 높임',
+  UP: '높임',
+  NEUTRAL: '영향 적음',
+  DOWN: '낮춤',
+  STRONG_DOWN: '크게 낮춤',
+};
 
-// 장 목록은 리포트 내용에서 조립된다 — 챕터 수, 장벽/유지 장 유무가 사연마다 다르다.
+// 장 목록은 리포트 내용에서 조립된다 — 심층 장 수, 유지 인사이트 유무가 사연마다 다르다.
 type Chapter =
-  | { kind: 'cover' }
+  | { kind: 'diagnosis' }
   | { kind: 'chapter'; index: number }
-  | { kind: 'barrier' }
   | { kind: 'maintenance' }
   | { kind: 'reselect' }
   | { kind: 'final' };
 
 function buildChapters(report: StoryReport): Chapter[] {
-  const chapters: Chapter[] = [{ kind: 'cover' }];
-  report.chapters.forEach((_, index) => chapters.push({ kind: 'chapter', index }));
-  if (report.currentBarrier) chapters.push({ kind: 'barrier' });
+  const chapters: Chapter[] = [{ kind: 'diagnosis' }];
+  report.analysisChapters.forEach((_, index) => chapters.push({ kind: 'chapter', index }));
   if (report.maintenanceInsight) chapters.push({ kind: 'maintenance' });
   chapters.push({ kind: 'reselect' });
   chapters.push({ kind: 'final' });
@@ -39,13 +37,10 @@ function buildChapters(report: StoryReport): Chapter[] {
 
 function chapterTitle(chapter: Chapter, report: StoryReport): string {
   switch (chapter.kind) {
-    case 'cover':
-      return '';
+    case 'diagnosis':
+      return '재회 가능성을 만든 진단';
     case 'chapter':
-      return report.chapters[chapter.index].title;
-    case 'barrier':
-      // 엔진 언어("N%를 막는 것") 금지 — 항상 이 제목(reading.yml 계약)
-      return '지금 재회를 막고 있는 것';
+      return report.analysisChapters[chapter.index].title;
     case 'maintenance':
       return report.maintenanceInsight?.title ?? '다시 만나면 같은 문제가 반복될까?';
     case 'reselect':
@@ -56,17 +51,76 @@ function chapterTitle(chapter: Chapter, report: StoryReport): string {
 }
 
 function chapterEyebrow(chapter: Chapter, report: StoryReport): string | null {
-  if (chapter.kind === 'chapter') return report.chapters[chapter.index].eyebrow || null;
-  if (chapter.kind === 'final') return '현재 국면';
+  if (chapter.kind === 'chapter') return report.analysisChapters[chapter.index].eyebrow || null;
+  if (chapter.kind === 'final') return '현재 관계 위치';
   return null;
 }
 
-// 관계심리 블록 — 개념 이름표 + 이 사연에서 어떻게 작동했는지. 장 안에 붙는다.
-function PsychologyBlock({ psychology }: { psychology: { concept: string; reading: string } }) {
+// 한 줄 게이지 — 낮음에서 높음까지의 눈금 위에 지금 위치를 점 하나로 찍는다.
+function Gauge({ probability }: { probability: number }) {
+  const left = Math.max(2, Math.min(98, probability));
   return (
-    <div className={styles.principle}>
-      <div className={styles.principleLabel}>{psychology.concept}</div>
-      <div className={styles.principleText}>{psychology.reading}</div>
+    <div className={styles.gauge}>
+      <div className={styles.gaugeHead}>
+        재회 가능성 <span className={styles.gaugeNum}>{probability}%</span>
+        <span className={styles.gaugeBand}>{bandLabel(probability)}</span>
+      </div>
+      <div className={styles.gaugeTrack}>
+        <div className={styles.gaugeDot} style={{ left: `${left}%` }} />
+      </div>
+      <div className={styles.gaugeScale}>
+        <span>낮음</span>
+        <span>보통</span>
+        <span>높음</span>
+      </div>
+    </div>
+  );
+}
+
+// 재진단이 쌓였을 때만 그리는 추세 — 실제 변화가 있을 때 값이 있다.
+function Trend({ history }: { history: number[] }) {
+  return (
+    <div className={styles.trend}>
+      <div className={styles.trendLabel}>지난 분석에서 지금까지</div>
+      <div className={styles.trendRow}>
+        {history.map((p, i) => (
+          <span key={i} className={styles.trendItem}>
+            {i > 0 && <span className={styles.trendArrow}>→</span>}
+            <span className={i === history.length - 1 ? styles.trendNow : undefined}>{p}%</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// 진단 한 줄. 접혀 있고, 누르면 왜 그렇게 봤는지가 펼쳐진다.
+function DiagnosisRow({
+  item,
+  open,
+  onToggle,
+}: {
+  item: StoryReport['diagnosis'][number];
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const tone =
+    item.impact === 'STRONG_UP' || item.impact === 'UP'
+      ? styles.impactUp
+      : item.impact === 'NEUTRAL'
+        ? styles.impactNeutral
+        : styles.impactDown;
+  return (
+    <div className={styles.diagItem}>
+      <button className={styles.diagTop} onClick={onToggle} aria-expanded={open}>
+        <span className={styles.diagRank}>{item.rank}</span>
+        <span className={styles.diagLabel}>{item.label}</span>
+        <span className={`${styles.diagImpact} ${tone}`}>
+          {IMPACT_LABEL[item.impact] ?? item.impact}
+        </span>
+      </button>
+      <div className={styles.diagVerdict}>{item.verdict}</div>
+      {open && item.reading && <div className={styles.diagReading}>{item.reading}</div>}
     </div>
   );
 }
@@ -76,60 +130,66 @@ function ChapterBody({
   report,
   delta,
   probability,
+  history,
   onAskChat,
 }: {
   chapter: Chapter;
   report: StoryReport;
   delta: ReadingDelta | null;
   probability: number | null;
+  history: number[];
   onAskChat: (prefill: string) => void;
 }) {
-  if (chapter.kind === 'cover') {
-    // 확률과 등급이 먼저(3초 안에 성립), 그 아래 등급별 제목과 미니 판독 3~5문장.
+  const [openKey, setOpenKey] = useState<string | null>(null);
+
+  if (chapter.kind === 'diagnosis') {
     return (
       <>
-        {probability != null && (
-          <div className={styles.coverProb}>
-            재회 가능성 <span className={styles.coverProbNum}>{probability}%</span>
-            <span className={styles.coverBand}>{bandLabel(probability)}</span>
+        {probability != null && <Gauge probability={probability} />}
+        {history.length >= 2 && <Trend history={history} />}
+        <div className={styles.summary}>{report.diagnosisSummary}</div>
+        <div className={styles.diagList}>
+          {report.diagnosis.map((item) => (
+            <DiagnosisRow
+              key={item.key}
+              item={item}
+              open={openKey === item.key}
+              onToggle={() => setOpenKey(openKey === item.key ? null : item.key)}
+            />
+          ))}
+        </div>
+        {/* 변동내역 — 새 사실이 반영돼 지난 판정에서 달라진 것. 결정론 diff라 서술과 어긋나지 않는다 */}
+        {delta && delta.factors.length > 0 && (
+          <div className={styles.listBlock}>
+            <div className={styles.listLabel}>
+              지난 분석에서 달라진 것 ({delta.probabilityFrom}% → {delta.probabilityTo}%)
+            </div>
+            {delta.factors.map((f) => (
+              <div className={styles.listLine} key={f.name}>
+                {f.name} {f.from} → {f.to}
+              </div>
+            ))}
           </div>
         )}
-        <div className={styles.coverVerdict}>
-          {probability != null ? coverTitle(probability) : '이렇게 본 가장 큰 이유'}
-        </div>
-        <div className={styles.coverReason}>{report.probabilityReading.reading}</div>
       </>
     );
   }
   if (chapter.kind === 'chapter') {
-    const item = report.chapters[chapter.index];
+    const item = report.analysisChapters[chapter.index];
     return (
       <>
         <div className={styles.answer}>{item.answer}</div>
         <div className={styles.reading}>{item.reading}</div>
-        {item.psychology && <PsychologyBlock psychology={item.psychology} />}
+        {item.psychology && (
+          <div className={styles.principle}>
+            <div className={styles.principleLabel}>{item.psychology.concept}</div>
+            <div className={styles.principleText}>{item.psychology.reading}</div>
+          </div>
+        )}
         {item.repairPrinciple && (
           <div className={styles.principle}>
             <div className={styles.principleLabel}>이런 충돌을 줄이려면</div>
             <div className={styles.principleText}>{item.repairPrinciple}</div>
-          </div>
-        )}
-      </>
-    );
-  }
-  if (chapter.kind === 'barrier') {
-    const barrier = report.currentBarrier!;
-    return (
-      <>
-        <div className={styles.answer}>{barrier.answer}</div>
-        <div className={styles.reading}>{barrier.reading}</div>
-        {report.secondaryBarrier && (
-          <div className={styles.listBlock}>
-            <div className={styles.listLabel}>그 아래 남아 있는 문제</div>
-            <div className={styles.listLine}>{report.secondaryBarrier.answer}</div>
-            {report.secondaryBarrier.reading && (
-              <div className={styles.followWhy}>{report.secondaryBarrier.reading}</div>
-            )}
           </div>
         )}
       </>
@@ -141,7 +201,12 @@ function ChapterBody({
       <>
         <div className={styles.answer}>{insight.answer}</div>
         <div className={styles.reading}>{insight.reading}</div>
-        {insight.psychology && <PsychologyBlock psychology={insight.psychology} />}
+        {insight.psychology && (
+          <div className={styles.principle}>
+            <div className={styles.principleLabel}>{insight.psychology.concept}</div>
+            <div className={styles.principleText}>{insight.psychology.reading}</div>
+          </div>
+        )}
         <div className={styles.principle}>
           <div className={styles.principleLabel}>이런 충돌이 덜 반복되려면</div>
           <div className={styles.principleText}>{insight.repairPrinciple}</div>
@@ -157,7 +222,7 @@ function ChapterBody({
         <div className={styles.reading}>{reselect.reading}</div>
         {reselect.turningPoints.length > 0 && (
           <div className={styles.listBlock}>
-            <div className={styles.listLabel}>판을 바꿀 다음 행동</div>
+            <div className={styles.listLabel}>판단을 바꿀 다음 행동</div>
             {reselect.turningPoints.map((line) => (
               <div className={styles.listLine} key={line}>
                 {line}
@@ -165,23 +230,10 @@ function ChapterBody({
             ))}
           </div>
         )}
-        {/* 변동내역 — 새 사실이 반영돼 지난 판정에서 달라진 것. 결정론 diff라 서술과 어긋나지 않는다 */}
-        {delta && delta.factors.length > 0 && (
-          <div className={styles.listBlock}>
-            <div className={styles.listLabel}>
-              지난 판정에서 달라진 것 ({delta.probabilityFrom}% → {delta.probabilityTo}%)
-            </div>
-            {delta.factors.map((f) => (
-              <div className={styles.listLine} key={f.name}>
-                {f.name} {f.from} → {f.to}
-              </div>
-            ))}
-          </div>
-        )}
       </>
     );
   }
-  // final — 국면 한 줄은 제목이 말했고, 여기는 다음으로 이어지는 칩만.
+  // final — 위치는 제목이 말했고, 여기는 다음으로 이어지는 칩만.
   return (
     <>
       {report.final.chipSeeds.length > 0 && (
@@ -203,12 +255,15 @@ function ChapterBody({
 export function ReadingBook({
   reading,
   probability,
+  history,
   book,
   onExitBook,
   onAskChat,
 }: {
   reading: ReadingView;
   probability: number | null;
+  // 재진단 확률 이력(과거→현재). 2개 이상일 때만 추세로 그린다.
+  history: number[];
   // 책 모드 여부는 부모가 쥔다 — 부모가 책 모드 동안 화면의 다른 요소를 감춰 독서에
   // 집중시키고, 나가는 순간 되살려야 하기 때문. 새 판독(첫 독서)만 책으로 열린다.
   book: boolean;
@@ -226,22 +281,21 @@ export function ReadingBook({
       <div className={styles.scrollWrap}>
         {chapters.map((chapter, i) => (
           <section className={styles.scrollSection} key={i}>
-            {chapter.kind !== 'cover' && (
-              <div className={styles.scrollHead}>
-                <span className={styles.scrollNum}>{String(i).padStart(2, '0')}</span>
-                {/* eyebrow는 재열람에서도 그린다 — "조금 과하게 해석하고 있을 수 있는 부분"처럼
-                    왜 이 장을 읽는지가 제목만으로는 안 읽히고, 빠지면 책 모드와 내용이 달라 보인다 */}
-                {chapterEyebrow(chapter, report) && (
-                  <span className={styles.scrollEyebrow}>{chapterEyebrow(chapter, report)}</span>
-                )}
-                <span className={styles.scrollTitle}>{chapterTitle(chapter, report)}</span>
-              </div>
-            )}
+            <div className={styles.scrollHead}>
+              <span className={styles.scrollNum}>{String(i + 1).padStart(2, '0')}</span>
+              {/* eyebrow는 재열람에서도 그린다 — 왜 이 장을 읽는지가 제목만으로는 안 읽히고,
+                  빠지면 책 모드와 내용이 달라 보인다 */}
+              {chapterEyebrow(chapter, report) && (
+                <span className={styles.scrollEyebrow}>{chapterEyebrow(chapter, report)}</span>
+              )}
+              <span className={styles.scrollTitle}>{chapterTitle(chapter, report)}</span>
+            </div>
             <ChapterBody
               chapter={chapter}
               report={report}
               delta={reading.delta}
               probability={probability}
+              history={history}
               onAskChat={onAskChat}
             />
           </section>
@@ -266,21 +320,18 @@ export function ReadingBook({
           전체 보기
         </button>
       </div>
-      {chapter.kind !== 'cover' && (
-        <>
-          <div className={styles.chapterNum}>
-            {String(page).padStart(2, '0')}
-            {eyebrow && <span className={styles.eyebrow}>{eyebrow}</span>}
-          </div>
-          <div className={styles.bookTitle}>{chapterTitle(chapter, report)}</div>
-        </>
-      )}
+      <div className={styles.chapterNum}>
+        {String(page + 1).padStart(2, '0')}
+        {eyebrow && <span className={styles.eyebrow}>{eyebrow}</span>}
+      </div>
+      <div className={styles.bookTitle}>{chapterTitle(chapter, report)}</div>
       <div className={styles.bookBody}>
         <ChapterBody
           chapter={chapter}
           report={report}
           delta={reading.delta}
           probability={probability}
+          history={history}
           onAskChat={onAskChat}
         />
       </div>
@@ -296,7 +347,7 @@ export function ReadingBook({
           </button>
         ) : (
           <button className={styles.nextBtn} onClick={() => setPage(page + 1)}>
-            {page === 0 ? '한 장씩 풀어보기' : `다음 — ${nextTitle}`}
+            {page === 0 ? '더 깊게 봐야 할 장면으로' : `다음 — ${nextTitle}`}
           </button>
         )}
       </div>

@@ -157,6 +157,9 @@ export function AssessmentPage() {
   // 직전 분석의 확률 — 게이지 옆 "지난 분석보다 ±N" 표시용. 번복(잠금 해제, 제안 철회) 뒤에는
   // 비교 기준이 흐려져서 null로 지운다(엉뚱한 증감이 뜨는 것보다 안 뜨는 게 낫다).
   const [prevProb, setPrevProb] = useState<number | null>(null);
+  // 재진단 확률 이력(과거→현재). 2개 이상일 때만 판독 첫 장에 추세로 그린다 —
+  // 실제 변화가 있을 때만 그래프가 값을 가진다.
+  const [probHistory, setProbHistory] = useState<number[]>([]);
   const [loading, setLoading] = useState(true); // 진입 시 저장된 기록 조회(공짜 GET)
   const [diagnosing, setDiagnosing] = useState(false); // 새 분석(LLM 호출, 쿼터 차감) 실행 중
   const [error, setError] = useState('');
@@ -405,6 +408,10 @@ export function AssessmentPage() {
           // 새 결과로 갈아끼우기 전, 화면에 있던 확률이 이번 결과의 비교 기준이 된다.
           setPrevProb(result?.probability ?? null);
           setResult(res);
+          // 방금 나온 확률도 추세에 잇는다 — 재진입해야 반영되면 "왜 안 늘지"가 된다.
+          if (res.probability != null) {
+            setProbHistory((prev) => [...prev, res.probability as number].slice(-5));
+          }
           // 새 판독의 첫 독서만 책 모드 — 순서대로 읽는 경험은 갓 나온 판독에만 의미가 있다.
           setBookOpen(!!res.reading);
           // 새 진단이라 매칭도 새로 돌려야 한다 — 저장은 진단 1건에 한 벌씩 묶인다.
@@ -478,6 +485,15 @@ export function AssessmentPage() {
         setResult(all[0] ?? null);
         // 비교 기준은 "직전의 확률 있는 분석" — 사이에 낀 잠금 판정(DATING 등)은 건너뛴다.
         setPrevProb(all.slice(1).find((a) => a.probability != null)?.probability ?? null);
+        // 추세는 재진단이 쌓였을 때만 값이 있다 — 확률 있는 분석을 과거순으로.
+        // 마지막 다섯 개만 본다: 그보다 길면 화면에서 한 줄로 안 읽힌다.
+        setProbHistory(
+          all
+            .filter((a) => a.probability != null)
+            .map((a) => a.probability as number)
+            .reverse()
+            .slice(-5),
+        );
       })
       .catch((e) => aliveRef.current && setError(extractErrorMessage(e, '분석 기록을 불러오지 못했습니다.')))
       .finally(() => aliveRef.current && setLoading(false));
@@ -809,7 +825,7 @@ export function AssessmentPage() {
   // 화면 전체를 날리지 않게(실측: 빈 화면) 그릴 수 있는 모양인지 확인하고 통과시킨다.
   const candidate = !locked && prob < 100 ? (result.reading ?? null) : null;
   const reading =
-    candidate?.report?.probabilityReading && candidate.report.chapters?.length
+    candidate?.report?.diagnosisSummary && candidate.report.diagnosis?.length
       ? candidate
       : null;
   // 책 모드 동안엔 아래 판정부(요인 카드, 심리, 사례 등)를 감춰 독서에 집중시킨다.
@@ -1019,6 +1035,7 @@ export function AssessmentPage() {
               key={result.createdAt ?? 'reading'}
               reading={reading}
               probability={result.probability}
+              history={probHistory}
               book={bookFocus}
               onExitBook={() => setBookOpen(false)}
               onAskChat={(prefill) => navigate(`/stories/${storyId}`, { state: { prefill } })}
