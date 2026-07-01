@@ -5,6 +5,7 @@ import com.threeam.assessment.entity.BreakupType;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.JumpRule;
+import com.threeam.assessment.entity.ReadingVocab;
 import com.threeam.assessment.entity.ReplacementStage;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -154,12 +155,14 @@ public class TypeBandScorer {
                 && factor.getStage() == ReplacementStage.SETTLED;
     }
 
-    // ── 판독(2호출) payload용 — 확률을 실제로 움직인 것의 서열 ──────────────────
-    // "가능성을 높인/낮춘 신호"를 LLM에게 다시 고르게 하지 않는다. 숫자를 계산한 쪽이
-    // 기여도를 제일 정확히 안다. delta는 내부 선별용이고 payload에는 싣지 않는다.
+    // ── 판독(2호출) payload용 — 확률을 만든 진단 ─────────────────────────────
+    // 진단 항목의 방향과 순위는 숫자를 계산한 쪽이 확정한다. 판독 LLM은 그걸 유저 언어로
+    // 다시 쓸 뿐 순서를 바꾸지 않는다 — 다시 고르게 하면 화면의 순위와 확률이 어긋난다.
 
-    public record Driver(String id, String direction, int rank, String source,
-                         String evidence, String rationale, int magnitude) {
+    // key는 화면 지면의 어휘(ReadingVocab.DIAGNOSIS_LABELS), impact는 확률에 준 영향.
+    // factIds는 판독이 근거를 잇게 하는 관찰 사실 참조, meaning은 왜 이 방향인지의 내부 요약.
+    public record DiagnosisItem(String key, String label, int rank, String impact,
+                                List<String> factIds, String meaning, int magnitude) {
     }
 
     // 표시 등급 5단계. 화면 밴드 라벨(assessmentScale의 매우낮음~매우높음)과 같은 경계 —
@@ -177,71 +180,93 @@ public class TypeBandScorer {
         return probability >= 25 ? "LOW" : "VERY_LOW";
     }
 
-    // 방향별 상위 2개씩. 유형과 점프도 드라이버다 — 하단 유형(권태 등)은 그 자체가
-    // 가장 큰 하락 요인인데 요인만 세면 "왜 낮은지"의 본체가 빠진다.
-    public List<Driver> drivers(BreakupType type, JumpRule jumpRule, String typeEvidence,
-                                List<AssessmentFactor> factors) {
-        List<Driver> all = new ArrayList<>();
+    // 요인 슬롯 → 진단 키. 통보온도는 "이별결심"으로 옮긴다 — 통보의 온도가 곧 그 결심이
+    // 얼마나 굳은 것이었나의 관측이고, 유저 지면에서는 채점 슬롯 이름보다 이 질문이 읽힌다.
+    private static final Map<FactorName, String> FACTOR_KEYS = new EnumMap<>(Map.of(
+            FactorName.PARTNER_SIGNAL, "partnerSignal",
+            FactorName.REPLACEMENT, "replacement",
+            FactorName.USER_CONDUCT, "userResponse",
+            FactorName.NOTICE_TONE, "resolve",
+            FactorName.PARTNER_PATTERN, "partnerPattern",
+            FactorName.RELATIONSHIP_ASSET, "relationshipAsset",
+            FactorName.CONTACT_PATH, "contact"));
+
+    // 화면에 올릴 진단 개수 상한. 전 항목을 강제로 보여주지 않는다(v7) — 근거 없는 중립이
+    // 줄줄이 서면 "판단 못 한 목록"이 된다.
+    private static final int DIAGNOSIS_MAX = 7;
+
+    // 유형은 대역을, 점프는 그 대역의 끌어당김을 만든다. 요인은 대역 안의 조정이다.
+    // 셋을 같은 저울(magnitude)에 올려 확률을 실제로 많이 움직인 순서로 세운다.
+    public List<DiagnosisItem> diagnosisItems(BreakupType type, JumpRule jumpRule,
+                                              List<AssessmentFactor> factors) {
+        List<DiagnosisItem> all = new ArrayList<>();
         if (type != null) {
             Band band = BANDS.get(type);
             int mid = (band.lo() + band.hi()) / 2;
-            // 대역 중심이 50에서 먼 만큼 유형이 판을 움직인 크기로 본다.
-            all.add(new Driver(null, mid >= 50 ? "UP" : "DOWN", 0, "TYPE",
-                    typeEvidence == null ? "" : typeEvidence,
-                    "이별 사유의 성격이 기본 가능성 구간을 정함", Math.abs(mid - 50)));
+            int size = Math.abs(mid - 50);
+            all.add(item("breakupReason", impact(mid >= 50 ? size : -size, size >= 12),
+                    size, "이별 사유의 성격이 기본 가능성 구간을 정함"));
         }
         Jump jump = JUMPS.get(jumpRule == null ? JumpRule.NONE : jumpRule);
         if (jump != null) {
-            // 점프는 사유보다 무겁다(설계) — 끌어당기는 힘(pull)을 크기로 환산한다.
-            all.add(new Driver(null, jump.up() ? "UP" : "DOWN", 0, "JUMP", "",
-                    "이별 후 상황이 기본 구간을 끌어당김", (int) Math.round(10 + jump.pull() * 10)));
+            // 점프(이별 후 상대의 태도)는 상대신호와 같은 질문에 답한다 — 따로 세우면
+            // 같은 사실이 두 항목에 나뉘어 화면에서 중복으로 읽힌다.
+            int size = (int) Math.round(10 + jump.pull() * 10);
+            all.add(item("partnerSignal", impact(jump.up() ? size : -size, true),
+                    size + JUMP_PRIORITY, "이별 후 상대의 태도가 기본 구간을 끌어당김"));
         }
         for (AssessmentFactor factor : factors) {
+            String key = FACTOR_KEYS.get(factor.getName());
+            if (key == null || (jump != null && "partnerSignal".equals(key))) {
+                continue;   // 점프가 이미 상대신호 자리를 쓴 판
+            }
             int delta = delta(factor);
-            if (delta == 0) {
-                continue;
-            }
-            all.add(new Driver(null, delta > 0 ? "UP" : "DOWN", 0, "FACTOR",
-                    factor.getEvidence() == null ? "" : factor.getEvidence(),
-                    factor.getRationale() == null ? "" : factor.getRationale(),
-                    Math.abs(delta)));
+            boolean strong = factor.getLevel() == FactorLevel.STRONG_FAVORABLE
+                    || factor.getLevel() == FactorLevel.STRONG_UNFAVORABLE
+                    || isSettled(factor);
+            all.add(item(key, impact(delta, strong), Math.abs(delta),
+                    meaning(factor)));
         }
-        List<Driver> ranked = new ArrayList<>();
-        for (String direction : List.of("UP", "DOWN")) {
-            List<Driver> side = all.stream()
-                    .filter(d -> d.direction().equals(direction))
-                    .sorted(Comparator.comparingInt(Driver::magnitude).reversed())
-                    .limit(2)
-                    .toList();
-            for (int i = 0; i < side.size(); i++) {
-                Driver d = side.get(i);
-                ranked.add(new Driver("D" + String.format("%02d", ranked.size() + 1),
-                        d.direction(), i + 1, d.source(), d.evidence(), d.rationale(),
-                        d.magnitude()));
-            }
+        // 순위는 "좋은 것부터"가 아니라 확률을 많이 움직인 것부터. 근거가 없어 중립인 항목은
+        // 뒤로 민다 — 판단한 것보다 위에 서면 안 된다.
+        List<DiagnosisItem> ranked = new ArrayList<>(all.stream()
+                .sorted(Comparator.<DiagnosisItem>comparingInt(
+                                d -> "NEUTRAL".equals(d.impact()) ? 1 : 0)
+                        .thenComparing(Comparator.comparingInt(DiagnosisItem::magnitude).reversed()))
+                .limit(DIAGNOSIS_MAX)
+                .toList());
+        for (int i = 0; i < ranked.size(); i++) {
+            DiagnosisItem d = ranked.get(i);
+            ranked.set(i, new DiagnosisItem(d.key(), d.label(), i + 1, d.impact(),
+                    d.factIds(), d.meaning(), d.magnitude()));
         }
         return ranked;
     }
 
-    // 표지(확률 판독)에서 쓸 대표 드라이버 하나 — 높음 계열이면 상승 1순위, 낮음 계열이면
-    // 하락 1순위, MID면 크기가 가장 큰 것(판을 가장 잘 설명하는 축).
-    // 같은 방향에서는 요인(FACTOR)을 유형/점프보다 우선한다 — 유형은 "구간"의 설명이지
-    // 장면이 아니라서, 표지 이유로 번역되면 "충동적이라서 68%" 같은 밋밋한 문장이 된다.
-    // 관찰된 장면(직전까지 관계를 붙잡던 발화 등)이 있으면 그쪽이 표지의 힘이다.
-    public Driver primaryDriver(String level, List<Driver> drivers) {
-        if (drivers.isEmpty()) {
-            return null;
+    // 점프를 요인보다 위에 세우는 가산점. 이별 후 관측이 사유보다 무겁다는 설계와 같은 서열이다.
+    private static final int JUMP_PRIORITY = 2;
+
+    private DiagnosisItem item(String key, String impact, int magnitude, String meaning) {
+        return new DiagnosisItem(key, ReadingVocab.DIAGNOSIS_LABELS.get(key), 0, impact,
+                List.of(), meaning, magnitude);
+    }
+
+    private String impact(int delta, boolean strong) {
+        if (delta == 0) {
+            return "NEUTRAL";
         }
-        String want = level != null && level.endsWith("HIGH") ? "UP"
-                : level != null && level.endsWith("LOW") ? "DOWN" : null;
-        List<Driver> side = drivers.stream()
-                .filter(d -> want == null || d.direction().equals(want))
-                .toList();
-        return side.stream()
-                .filter(d -> "FACTOR".equals(d.source()))
-                .max(Comparator.comparingInt(Driver::magnitude))
-                .or(() -> side.stream().max(Comparator.comparingInt(Driver::magnitude)))
-                .orElse(drivers.get(0));
+        if (delta > 0) {
+            return strong ? "STRONG_UP" : "UP";
+        }
+        return strong ? "STRONG_DOWN" : "DOWN";
+    }
+
+    private String meaning(AssessmentFactor factor) {
+        String rationale = factor.getRationale();
+        if (rationale != null && !rationale.isBlank()) {
+            return rationale;
+        }
+        return factor.getEvidence() == null ? "" : factor.getEvidence();
     }
 
     private record Band(int lo, int hi) {
