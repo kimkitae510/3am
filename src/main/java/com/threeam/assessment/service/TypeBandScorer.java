@@ -208,7 +208,11 @@ public class TypeBandScorer {
             Band band = BANDS.get(type);
             int mid = (band.lo() + band.hi()) / 2;
             int size = Math.abs(mid - 50);
-            all.add(item("breakupReason", impact(mid >= 50 ? size : -size, size >= 12),
+            // "매우"는 50에서 얼마나 먼가가 아니라 대역이 어디에 있는가로 가른다.
+            // 대역이 아래로 넓게 퍼져 있어(상단 폭이 좁다) 같은 거리 잣대를 쓰면 제일 높은
+            // 유형(충동형 중심 60)조차 매우유리가 못 나온다 — 상단에서 매우가 영원히 안 뜬다.
+            boolean strongType = mid >= STRONG_UP_MID || mid <= STRONG_DOWN_MID;
+            all.add(item("breakupReason", impact(mid >= 50 ? size : -size, strongType),
                     size, typeEvidence, "이별 사유의 성격이 기본 가능성 구간을 정함"));
         }
         Jump jump = JUMPS.get(jumpRule == null ? JumpRule.NONE : jumpRule);
@@ -249,6 +253,11 @@ public class TypeBandScorer {
         }
         return ranked;
     }
+
+    // 유형이 "매우"로 읽히는 대역 위치. 상단은 충동형(중심 60)만, 하단은 환승형(21) 아래.
+    // 소진, 권태(26)는 상한이 33이라 불리로 두고, 되돌릴 통로 자체가 좁은 유형만 매우불리로 본다.
+    private static final int STRONG_UP_MID = 58;
+    private static final int STRONG_DOWN_MID = 22;
 
     // 점프를 요인보다 위에 세우는 가산점. 이별 후 관측이 사유보다 무겁다는 설계와 같은 서열이다.
     private static final int JUMP_PRIORITY = 2;
