@@ -160,9 +160,12 @@ public class TypeBandScorer {
     // 다시 쓸 뿐 순서를 바꾸지 않는다 — 다시 고르게 하면 화면의 순위와 확률이 어긋난다.
 
     // key는 화면 지면의 어휘(ReadingVocab.DIAGNOSIS_LABELS), impact는 확률에 준 영향.
-    // factIds는 판독이 근거를 잇게 하는 관찰 사실 참조, meaning은 왜 이 방향인지의 내부 요약.
+    // observed는 이 항목이 실제로 무엇을 보고 판정됐는지(1호출이 확정한 관찰),
+    // meaning은 왜 그 방향인지의 내부 요약이다. 둘을 같이 줘야 판독이 관찰에 붙은 문장을
+    // 쓴다 — 사유만 주면 항목 판정과 어긋나는 그럴듯한 말을 지어낸다(실측).
     public record DiagnosisItem(String key, String label, int rank, String impact,
-                                List<String> factIds, String meaning, int magnitude) {
+                                List<String> factIds, String observed, String meaning,
+                                int magnitude) {
     }
 
     // 표시 등급 5단계. 화면 밴드 라벨(assessmentScale의 매우낮음~매우높음)과 같은 경계 —
@@ -198,6 +201,7 @@ public class TypeBandScorer {
     // 유형은 대역을, 점프는 그 대역의 끌어당김을 만든다. 요인은 대역 안의 조정이다.
     // 셋을 같은 저울(magnitude)에 올려 확률을 실제로 많이 움직인 순서로 세운다.
     public List<DiagnosisItem> diagnosisItems(BreakupType type, JumpRule jumpRule,
+                                              String typeEvidence,
                                               List<AssessmentFactor> factors) {
         List<DiagnosisItem> all = new ArrayList<>();
         if (type != null) {
@@ -205,15 +209,18 @@ public class TypeBandScorer {
             int mid = (band.lo() + band.hi()) / 2;
             int size = Math.abs(mid - 50);
             all.add(item("breakupReason", impact(mid >= 50 ? size : -size, size >= 12),
-                    size, "이별 사유의 성격이 기본 가능성 구간을 정함"));
+                    size, typeEvidence, "이별 사유의 성격이 기본 가능성 구간을 정함"));
         }
         Jump jump = JUMPS.get(jumpRule == null ? JumpRule.NONE : jumpRule);
         if (jump != null) {
             // 점프(이별 후 상대의 태도)는 상대신호와 같은 질문에 답한다 — 따로 세우면
             // 같은 사실이 두 항목에 나뉘어 화면에서 중복으로 읽힌다.
+            // 자리를 뺏긴 상대신호 요인의 관찰은 그대로 가져온다 — 안 그러면 이 항목만
+            // 관찰 없이 일반 문장으로 남아 판독이 근거 없이 쓴다.
             int size = (int) Math.round(10 + jump.pull() * 10);
             all.add(item("partnerSignal", impact(jump.up() ? size : -size, true),
-                    size + JUMP_PRIORITY, "이별 후 상대의 태도가 기본 구간을 끌어당김"));
+                    size + JUMP_PRIORITY, observedOf(factors, FactorName.PARTNER_SIGNAL),
+                    "이별 후 상대의 태도가 기본 구간을 끌어당김"));
         }
         for (AssessmentFactor factor : factors) {
             String key = FACTOR_KEYS.get(factor.getName());
@@ -225,7 +232,7 @@ public class TypeBandScorer {
                     || factor.getLevel() == FactorLevel.STRONG_UNFAVORABLE
                     || isSettled(factor);
             all.add(item(key, impact(delta, strong), Math.abs(delta),
-                    meaning(factor)));
+                    evidence(factor), meaning(factor)));
         }
         // 순위는 "좋은 것부터"가 아니라 확률을 많이 움직인 것부터. 근거가 없어 중립인 항목은
         // 뒤로 민다 — 판단한 것보다 위에 서면 안 된다.
@@ -238,7 +245,7 @@ public class TypeBandScorer {
         for (int i = 0; i < ranked.size(); i++) {
             DiagnosisItem d = ranked.get(i);
             ranked.set(i, new DiagnosisItem(d.key(), d.label(), i + 1, d.impact(),
-                    d.factIds(), d.meaning(), d.magnitude()));
+                    d.factIds(), d.observed(), d.meaning(), d.magnitude()));
         }
         return ranked;
     }
@@ -246,9 +253,25 @@ public class TypeBandScorer {
     // 점프를 요인보다 위에 세우는 가산점. 이별 후 관측이 사유보다 무겁다는 설계와 같은 서열이다.
     private static final int JUMP_PRIORITY = 2;
 
-    private DiagnosisItem item(String key, String impact, int magnitude, String meaning) {
+    private DiagnosisItem item(String key, String impact, int magnitude, String observed,
+                               String meaning) {
         return new DiagnosisItem(key, ReadingVocab.DIAGNOSIS_LABELS.get(key), 0, impact,
-                List.of(), meaning, magnitude);
+                List.of(), observed == null ? "" : observed, meaning, magnitude);
+    }
+
+    private String observedOf(List<AssessmentFactor> factors, FactorName name) {
+        return factors.stream()
+                .filter(f -> f.getName() == name)
+                .map(this::evidence)
+                .findFirst()
+                .orElse("");
+    }
+
+    // 관찰이 없는 슬롯("근거 없음")은 빈 값으로 넘긴다 — 그 문구가 판독 본문에 새면
+    // 유저는 채점표의 빈칸을 읽게 된다.
+    private String evidence(AssessmentFactor factor) {
+        String evidence = factor.getEvidence();
+        return evidence == null || "근거 없음".equals(evidence) ? "" : evidence;
     }
 
     private String impact(int delta, boolean strong) {

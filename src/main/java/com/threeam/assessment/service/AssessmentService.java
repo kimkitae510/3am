@@ -180,7 +180,7 @@ public class AssessmentService {
         // 2호출은 그걸 유저 언어로 풀 뿐 순위를 다시 고르지 않는다(화면 순서와 확률이 어긋난다).
         String level = scorer.level(saved.getProbability());
         List<TypeBandScorer.DiagnosisItem> items = scorer.diagnosisItems(saved.getBreakupType(),
-                saved.getJumpRule(), saved.getFactors());
+                saved.getJumpRule(), saved.getTypeEvidence(), saved.getFactors());
         return readingLlm.read(saved, diagnosis, context.intakeBlock(), level, items)
                 .thenApplyAsync(draft -> {
                     try {

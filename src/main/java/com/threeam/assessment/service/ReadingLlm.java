@@ -77,6 +77,9 @@ public class ReadingLlm {
             row.put("rank", item.rank());
             row.put("impact", item.impact());
             row.put("factIds", matchFactIds(item, facts));
+            if (item.observed() != null && !item.observed().isBlank()) {
+                row.put("observed", item.observed());
+            }
             row.put("meaning", item.meaning());
             diagnosisRows.add(row);
         }
@@ -140,8 +143,9 @@ public class ReadingLlm {
     // 판독이 meaning으로도 풀 수 있어 연결 실패가 치명적이지 않다.
     private List<String> matchFactIds(TypeBandScorer.DiagnosisItem item,
                                       List<ReunionDiagnosis.ReadingFact> facts) {
-        String meaning = item.meaning();
-        if (meaning == null || meaning.isBlank()) {
+        // 사유(meaning)가 아니라 관찰(observed)로 잇는다 — 사유는 판정 언어라 사실과 안 겹친다.
+        String observed = item.observed();
+        if (observed == null || observed.isBlank()) {
             return List.of();
         }
         List<String> ids = new ArrayList<>();
@@ -149,8 +153,8 @@ public class ReadingLlm {
             if (ids.size() >= 2) {
                 break;
             }
-            if (fact.fact().contains(meaning) || meaning.contains(fact.fact())
-                    || (fact.quote() != null && meaning.contains(fact.quote()))) {
+            if (fact.fact().contains(observed) || observed.contains(fact.fact())
+                    || (fact.quote() != null && observed.contains(fact.quote()))) {
                 ids.add(fact.id());
             }
         }
