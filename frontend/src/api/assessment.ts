@@ -49,7 +49,7 @@ export interface ReadingDelta {
 // 요인 어휘는 안 내려온다: 채점 내부 용어라 유저 지면에 꺼내지 않는다.
 
 // 확률을 만든 진단 한 줄. 방향과 순위는 백엔드가 확정하고, 판독이 유저 언어로 다시 쓴다.
-// impact는 화면에서 "크게 높임 / 높임 / 영향 적음 / 낮춤 / 크게 낮춤"으로 번역된다.
+// impact는 화면에서 "매우유리 / 유리 / 중립 / 불리 / 매우불리"로 번역된다.
 export interface ReadingDiagnosis {
   key: string;
   label: string; // 상대신호, 이별사유, 이별결심 등
