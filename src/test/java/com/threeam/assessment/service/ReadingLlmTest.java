@@ -51,11 +51,23 @@ class ReadingLlmTest {
                 facts, List.of("다시 연락이 올까요?"), List.of());
     }
 
+    // 방향과 순위의 원천은 백엔드다 — 판독은 문장만 쓴다. 테스트도 그 계약대로 항목을 준다.
+    private static final List<TypeBandScorer.DiagnosisItem> ITEMS = List.of(
+            new TypeBandScorer.DiagnosisItem("partnerSignal", "상대신호", 1, "UP",
+                    List.of(), "두 달째 무반응", "무반응이 굳어지는 방향", 10),
+            new TypeBandScorer.DiagnosisItem("breakupReason", "이별사유", 2, "STRONG_DOWN",
+                    List.of(), "지쳐서 끝난 이별", "이별 사유의 성격이 기본 구간을 정함", 24));
+
     private ReadingDraft read(String json, List<ReunionDiagnosis.ReadingFact> facts) {
+        return read(json, facts, ITEMS);
+    }
+
+    private ReadingDraft read(String json, List<ReunionDiagnosis.ReadingFact> facts,
+                              List<TypeBandScorer.DiagnosisItem> items) {
         given(llmClient.generateJsonDeep(anyList(), any()))
                 .willReturn(CompletableFuture.completedFuture(json));
         return new ReadingLlm(llmClient, objectMapper, new ReadingProperties())
-                .read(saved(), diagnosis(facts), null, "MID", List.of()).join();
+                .read(saved(), diagnosis(facts), null, "MID", items).join();
     }
 
     // 유효한 v7(진단 우선) JSON 뼈대. 테스트마다 일부만 바꿔 쓴다.
@@ -75,10 +87,11 @@ class ReadingLlmTest {
                 """.formatted(diagnosis, nowState);
     }
 
-    // rank를 일부러 어긋나게(7, 7) 보내 배열 순서로 다시 매기는지 본다.
+    // rank와 impact를 일부러 어긋나게 보낸다 — 순위는 배열 순서로, 방향은 백엔드 값으로
+    // 덮이는지 본다(모델이 방향을 스스로 정하면 화면과 확률이 어긋난다).
     private static final String DIAGNOSIS = """
-            {"key": "partnerSignal", "label": "상대신호", "rank": 7, "impact": "UP", "verdict": "문을 완전히 닫지는 않았습니다.", "reading": "종료 의사를 직접 밝힌 적은 없습니다.", "evidenceIds": ["F01"]},
-            {"key": "breakupReason", "label": "이별사유", "rank": 7, "impact": "STRONG_DOWN", "verdict": "지쳐서 끝난 이별입니다.", "reading": "누적된 피로가 크게 작용했습니다.", "evidenceIds": []}
+            {"key": "breakupReason", "label": "이별사유", "rank": 7, "impact": "STRONG_UP", "verdict": "지쳐서 끝난 이별입니다.", "reading": "누적된 피로가 크게 작용했습니다.", "evidenceIds": []},
+            {"key": "partnerSignal", "label": "상대신호", "rank": 7, "impact": "STRONG_DOWN", "verdict": "문을 완전히 닫지는 않았습니다.", "reading": "종료 의사를 직접 밝힌 적은 없습니다.", "evidenceIds": ["F01"]}
             """;
 
     @Test
@@ -88,12 +101,15 @@ class ReadingLlmTest {
 
         assertThat(draft.diagnosisSummary()).contains("다시 판단 중");
         assertThat(draft.diagnosis()).hasSize(2);
+        // 순서와 방향은 백엔드 항목을 따른다 — 모델이 순서를 뒤집고 방향을 반대로 보냈다
         assertThat(draft.diagnosis().get(0).key()).isEqualTo("partnerSignal");
         assertThat(draft.diagnosis().get(0).impact()).isEqualTo("UP");
+        assertThat(draft.diagnosis().get(1).key()).isEqualTo("breakupReason");
         assertThat(draft.diagnosis().get(1).impact()).isEqualTo("STRONG_DOWN");
-        // 모델이 보낸 rank(7,7)는 버리고 배열 순서로 1,2를 다시 매긴다
         assertThat(draft.diagnosis()).extracting(ReadingDraft.Diagnosis::rank)
                 .containsExactly(1, 2);
+        // 문장은 모델이 쓴 것을 그대로 쓴다
+        assertThat(draft.diagnosis().get(1).verdict()).isEqualTo("지쳐서 끝난 이별입니다.");
         assertThat(draft.analysisChapters()).hasSize(1);
         assertThat(draft.analysisChapters().get(0).eyebrow()).isEqualTo("먼저 풀어야 할 모순");
         assertThat(draft.analysisChapters().get(0).interpretationId()).isEqualTo("U01");
@@ -107,22 +123,24 @@ class ReadingLlmTest {
     @Test
     @DisplayName("진단 항목이 하나도 없으면 v7 리포트가 아니다 — 판독 실패(판정은 유지)")
     void parse_noDiagnosis_throws() {
-        assertThatThrownBy(() -> read(validJson("", "MIXED"), List.of()))
+        assertThatThrownBy(() -> read(validJson("", "MIXED"), List.of(), List.of()))
                 .isInstanceOf(CompletionException.class)
                 .hasCauseInstanceOf(com.threeam.llm.LlmException.class);
     }
 
     @Test
-    @DisplayName("사전 밖 진단 키와 영향값은 걸러낸다 (salvage 경로 방어)")
-    void parse_unknownDiagnosisVocab_filtered() {
+    @DisplayName("판독이 더한 항목(백엔드가 채점하지 않는 것)은 살리되 뒤에 붙인다")
+    void parse_addedDiagnosis_keptAtEnd() {
         ReadingDraft draft = read(validJson("""
-                {"key": "엉뚱한키", "label": "엉뚱", "rank": 1, "impact": "UP", "verdict": "답", "reading": "서술", "evidenceIds": []},
-                {"key": "replacement", "label": "대체자", "rank": 2, "impact": "WEIRD", "verdict": "답", "reading": "서술", "evidenceIds": []}
+                {"key": "currentBarrier", "label": "현재장벽", "rank": 1, "impact": "DOWN", "verdict": "관계 대화 자체에 부담을 느낍니다.", "reading": "서술", "evidenceIds": []},
+                {"key": "partnerSignal", "label": "상대신호", "rank": 2, "impact": "STRONG_DOWN", "verdict": "문을 닫지 않았습니다.", "reading": "서술", "evidenceIds": []}
                 """, "MIXED"), List.of());
 
-        assertThat(draft.diagnosis()).hasSize(1);
-        assertThat(draft.diagnosis().get(0).key()).isEqualTo("replacement");
-        assertThat(draft.diagnosis().get(0).impact()).isEqualTo("NEUTRAL"); // 어휘 밖은 중립으로
+        // 채점된 상대신호가 먼저(방향은 백엔드 UP), 판독이 더한 현재장벽은 뒤에 그 방향 그대로
+        assertThat(draft.diagnosis()).extracting(ReadingDraft.Diagnosis::key)
+                .containsExactly("partnerSignal", "currentBarrier");
+        assertThat(draft.diagnosis().get(0).impact()).isEqualTo("UP");
+        assertThat(draft.diagnosis().get(1).impact()).isEqualTo("DOWN");
     }
 
     @Test
@@ -139,7 +157,7 @@ class ReadingLlmTest {
         given(llmClient.generateJsonDeep(anyList(), any()))
                 .willReturn(CompletableFuture.completedFuture(validJson(DIAGNOSIS, "MIXED")));
         new ReadingLlm(llmClient, objectMapper, new ReadingProperties())
-                .read(saved(), diagnosis(List.of()), null, "MID", List.of()).join();
+                .read(saved(), diagnosis(List.of()), null, "MID", ITEMS).join();
 
         ArgumentCaptor<List<com.threeam.llm.ChatMessage>> captor =
                 ArgumentCaptor.forClass(List.class);

@@ -49,7 +49,8 @@ public class ReadingLlm {
         // contents가 비고, Gemini가 400(contents field is required)으로 거절한다(실측).
         prompt.add(ChatMessage.user(PAYLOAD_HEADER + "\n"
                 + packetJson(saved, diagnosis, intakeBlock, level, items)));
-        return llmClient.generateJsonDeep(prompt, RESPONSE_SCHEMA).thenApply(this::parse);
+        return llmClient.generateJsonDeep(prompt, RESPONSE_SCHEMA)
+                .thenApply(json -> parse(json, items));
     }
 
     private String packetJson(Assessment saved, ReunionDiagnosis diagnosis, String intakeBlock,
@@ -301,30 +302,62 @@ public class ReadingLlm {
     private static final int TURNING_MAX = 3;
     private static final int LIST_TEXT_MAX = 300;
 
-    private ReadingDraft parse(String json) {
+    private ReadingDraft parse(String json, List<TypeBandScorer.DiagnosisItem> items) {
         try {
             JsonNode root = objectMapper.readTree(LlmJson.salvage(json));
 
-            List<ReadingDraft.Diagnosis> diagnosis = new ArrayList<>();
+            // 판독이 쓴 문장(verdict, reading)만 받고 방향과 순위는 백엔드 값으로 덮는다.
+            // 모델이 impact를 스스로 정하게 두면 화면의 방향과 확률 계산이 어긋난다 —
+            // 같은 리포트 안에서 "높임"인데 확률은 내려간 판이 나온다.
+            Map<String, TypeBandScorer.DiagnosisItem> byKey = new LinkedHashMap<>();
+            for (TypeBandScorer.DiagnosisItem item : items) {
+                byKey.put(item.key(), item);
+            }
+            Map<String, JsonNode> written = new LinkedHashMap<>();
             for (JsonNode node : root.path("diagnosis")) {
+                String key = node.path("key").asText("").trim();
+                if (!node.path("verdict").asText("").trim().isBlank()) {
+                    written.putIfAbsent(key, node);
+                }
+            }
+            List<ReadingDraft.Diagnosis> diagnosis = new ArrayList<>();
+            for (TypeBandScorer.DiagnosisItem item : items) {
                 if (diagnosis.size() >= DIAGNOSIS_MAX) {
                     break;
                 }
-                String key = node.path("key").asText("").trim();
-                String verdict = node.path("verdict").asText("").trim();
-                if (!ReadingVocab.DIAGNOSIS_LABELS.containsKey(key) || verdict.isBlank()) {
-                    log.warn("판독 진단 항목 폐기(어휘 밖이거나 빈 판정): key={}", key);
+                JsonNode node = written.get(item.key());
+                if (node == null) {
+                    // 판독이 이 항목의 문장을 안 썼다 — 방향만 있는 줄을 화면에 올리지 않는다.
+                    log.warn("판독이 진단 항목을 비움: key={}", item.key());
                     continue;
                 }
+                diagnosis.add(new ReadingDraft.Diagnosis(item.key(), item.label(),
+                        diagnosis.size() + 1, item.impact(),
+                        clip(node.path("verdict").asText("").trim(), 500),
+                        node.path("reading").asText("").trim(),
+                        strings(node.path("evidenceIds"), 10)));
+            }
+            // 백엔드가 채점하지 않는 항목(현재장벽처럼 확률 기여가 아니라 지금 상태인 것)은
+            // 판독이 직접 세울 수 있다 — 그건 막지 않고 방향도 판독 값을 쓴다.
+            // 다만 뒤에 붙인다: 측정된 기여도가 없어 채점된 항목과 같은 줄에 세울 수 없다.
+            for (Map.Entry<String, JsonNode> entry : written.entrySet()) {
+                if (diagnosis.size() >= DIAGNOSIS_MAX || byKey.containsKey(entry.getKey())) {
+                    continue;
+                }
+                String key = entry.getKey();
+                if (!ReadingVocab.DIAGNOSIS_LABELS.containsKey(key)) {
+                    log.warn("판독 진단 항목 폐기(어휘 밖): key={}", key);
+                    continue;
+                }
+                JsonNode node = entry.getValue();
                 String impact = node.path("impact").asText("").trim();
                 String label = node.path("label").asText("").trim();
-                // 순위는 배열 순서로 다시 매긴다 — 모델이 보낸 rank가 1,1,3으로 오면
-                // 화면에 그대로 뜬다. 순서 자체는 백엔드가 준 것을 판독이 지킨 결과다.
                 diagnosis.add(new ReadingDraft.Diagnosis(key,
                         label.isBlank() ? ReadingVocab.DIAGNOSIS_LABELS.get(key) : clip(label, 20),
                         diagnosis.size() + 1,
                         ReadingVocab.IMPACTS.contains(impact) ? impact : "NEUTRAL",
-                        clip(verdict, 500), node.path("reading").asText("").trim(),
+                        clip(node.path("verdict").asText("").trim(), 500),
+                        node.path("reading").asText("").trim(),
                         strings(node.path("evidenceIds"), 10)));
             }
             // 진단이 하나도 없으면 v7 리포트가 아니다 — 판독 실패로 처리한다(판정은 유지).
