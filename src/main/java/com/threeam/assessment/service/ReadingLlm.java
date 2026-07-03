@@ -7,6 +7,7 @@ import com.threeam.assessment.dto.ReadingDraft;
 import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.entity.Assessment;
 import com.threeam.assessment.entity.AssessmentFactor;
+import com.threeam.assessment.entity.JumpRule;
 import com.threeam.assessment.entity.ReadingVocab;
 import com.threeam.llm.ChatMessage;
 import com.threeam.llm.LlmClient;
@@ -64,6 +65,13 @@ public class ReadingLlm {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("probability", saved.getProbability());
         out.put("level", level);
+        // 누가 이별을 통보했는가. 이게 빠지면 판독이 관찰 사실에서 역할을 역추정하다
+        // 두 사람을 뒤집는다(실측: 유저가 통보한 판을 "상대가 이별을 결심한 이유"로 씀).
+        // 판정값이 아니라 사실이라 요인표 복창 위험도 없다.
+        String declaredBy = declaredBy(saved, diagnosis);
+        if (declaredBy != null) {
+            out.put("breakupDeclaredBy", declaredBy);
+        }
         // 인테이크(나이, 기간, 경과)는 판정값이 아니라 사실이라 복창 위험이 없다 —
         // 루브릭 추출이 INTAKE_ANSWER를 빠뜨려도 기간 없는 리포트가 되지 않게 싣는다.
         if (intakeBlock != null && !intakeBlock.isBlank()) {
@@ -138,6 +146,20 @@ public class ReadingLlm {
             // 직렬화 실패는 코드 결함 — 판독 없이 진행하게 위로 던진다(판정은 이미 저장됨).
             throw new LlmException();
         }
+    }
+
+    // 통보자는 매칭 분류(1호출)가 이미 가려둔 값이다. 없으면 점프 규칙에서 읽는다 —
+    // 유저 통보 계열 점프는 이름 자체가 "유저가 통보했다"를 전제로 발동한다.
+    private String declaredBy(Assessment saved, ReunionDiagnosis diagnosis) {
+        if (diagnosis.matchProfile() != null && diagnosis.matchProfile().dumper() != null
+                && !"미상".equals(diagnosis.matchProfile().dumper())) {
+            return diagnosis.matchProfile().dumper();
+        }
+        JumpRule jump = saved.getJumpRule();
+        if (jump != null && jump.label().startsWith("유저통보")) {
+            return "나";
+        }
+        return null;
     }
 
     // 진단 항목의 내부 요약과 겹치는 관찰 사실을 잇는다(최선 노력) — 못 찾으면 빈 목록.

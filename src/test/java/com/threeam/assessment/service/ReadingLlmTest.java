@@ -46,8 +46,10 @@ class ReadingLlmTest {
     }
 
     private ReunionDiagnosis diagnosis(List<ReunionDiagnosis.ReadingFact> facts) {
+        ReunionDiagnosis.MatchProfileItem profile = new ReunionDiagnosis.MatchProfileItem(
+                null, List.of(), "상대", null, null, null, null, null, null, null, null);
         return new ReunionDiagnosis(ReunionVerdict.POSSIBLE, false, null, null, JumpRule.NONE,
-                List.of(), null, null, List.of(), List.of(), null, null, "총평", List.of(),
+                List.of(), null, null, List.of(), List.of(), profile, null, "총평", List.of(),
                 facts, List.of("다시 연락이 올까요?"), List.of());
     }
 
@@ -165,6 +167,8 @@ class ReadingLlmTest {
         String packet = captor.getValue().get(1).content();
         assertThat(packet).contains("\"F01\"").contains("두 달째 무반응");
         assertThat(packet).contains("다시 연락이 올까요?"); // directQuestions 전달
+        // 통보자가 실려야 판독이 두 사람의 역할을 뒤집지 않는다
+        assertThat(packet).contains("breakupDeclaredBy").contains("상대");
         // 요인표와 관계심리 판정값은 안 실린다 — 실리면 2호출이 요인표를 복창한다
         assertThat(packet).doesNotContain("factors").doesNotContain("relationshipPsychology");
     }
