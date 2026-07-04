@@ -1,5 +1,6 @@
 package com.threeam.assessment.service;
 
+import com.threeam.assessment.dto.ReunionDiagnosis;
 import com.threeam.assessment.entity.AssessmentFactor;
 import com.threeam.assessment.entity.BreakupType;
 import com.threeam.assessment.entity.FactorLevel;
@@ -155,18 +156,10 @@ public class TypeBandScorer {
                 && factor.getStage() == ReplacementStage.SETTLED;
     }
 
-    // ── 판독(2호출) payload용 — 확률을 만든 진단 ─────────────────────────────
-    // 진단 항목의 방향과 순위는 숫자를 계산한 쪽이 확정한다. 판독 LLM은 그걸 유저 언어로
-    // 다시 쓸 뿐 순서를 바꾸지 않는다 — 다시 고르게 하면 화면의 순위와 확률이 어긋난다.
-
-    // key는 화면 지면의 어휘(ReadingVocab.DIAGNOSIS_LABELS), impact는 확률에 준 영향.
-    // observed는 이 항목이 실제로 무엇을 보고 판정됐는지(1호출이 확정한 관찰),
-    // meaning은 왜 그 방향인지의 내부 요약이다. 둘을 같이 줘야 판독이 관찰에 붙은 문장을
-    // 쓴다 — 사유만 주면 항목 판정과 어긋나는 그럴듯한 말을 지어낸다(실측).
-    public record DiagnosisItem(String key, String label, int rank, String impact,
-                                List<String> factIds, String observed, String meaning,
-                                int magnitude) {
-    }
+    // ── 판독(2호출) payload용 — 화면 진단 카드에 순위와 등급 붙이기 ────────────
+    // 문장(headline, reading)은 1호출이 쓴다. 백엔드는 그 문장이 어느 채점에서 나온
+    // 것인지(source)를 보고 순위, 등급, 묶음, 근거 상태를 붙인다.
+    // 순위는 "좋은 것부터"가 아니라 확률을 실제로 많이 움직인 것부터다.
 
     // 표시 등급 5단계. 화면 밴드 라벨(assessmentScale의 매우낮음~매우높음)과 같은 경계 —
     // 2호출이 등급 기준을 자체 발명하지 않게 백엔드가 확정한다.
@@ -183,122 +176,115 @@ public class TypeBandScorer {
         return probability >= 25 ? "LOW" : "VERY_LOW";
     }
 
-    // 요인 슬롯 → 진단 키. 통보온도는 "이별결심"으로 옮긴다 — 통보의 온도가 곧 그 결심이
-    // 얼마나 굳은 것이었나의 관측이고, 유저 지면에서는 채점 슬롯 이름보다 이 질문이 읽힌다.
-    private static final Map<FactorName, String> FACTOR_KEYS = new EnumMap<>(Map.of(
-            FactorName.PARTNER_SIGNAL, "partnerSignal",
-            FactorName.REPLACEMENT, "replacement",
-            FactorName.USER_CONDUCT, "userResponse",
-            FactorName.NOTICE_TONE, "resolve",
-            FactorName.PARTNER_PATTERN, "partnerPattern",
-            FactorName.RELATIONSHIP_ASSET, "relationshipAsset",
-            FactorName.CONTACT_PATH, "contact"));
-
-    // 화면에 올릴 진단 개수 상한. 전 항목을 강제로 보여주지 않는다(v7) — 근거 없는 중립이
-    // 줄줄이 서면 "판단 못 한 목록"이 된다.
-    private static final int DIAGNOSIS_MAX = 7;
-
-    // 유형은 대역을, 점프는 그 대역의 끌어당김을 만든다. 요인은 대역 안의 조정이다.
-    // 셋을 같은 저울(magnitude)에 올려 확률을 실제로 많이 움직인 순서로 세운다.
-    public List<DiagnosisItem> diagnosisItems(BreakupType type, JumpRule jumpRule,
-                                              String typeEvidence,
-                                              List<AssessmentFactor> factors) {
-        List<DiagnosisItem> all = new ArrayList<>();
-        if (type != null) {
-            Band band = BANDS.get(type);
-            int mid = (band.lo() + band.hi()) / 2;
-            int size = Math.abs(mid - 50);
-            // "매우"는 50에서 얼마나 먼가가 아니라 대역이 어디에 있는가로 가른다.
-            // 대역이 아래로 넓게 퍼져 있어(상단 폭이 좁다) 같은 거리 잣대를 쓰면 제일 높은
-            // 유형(충동형 중심 60)조차 매우유리가 못 나온다 — 상단에서 매우가 영원히 안 뜬다.
-            boolean strongType = mid >= STRONG_UP_MID || mid <= STRONG_DOWN_MID;
-            all.add(item("breakupReason", impact(mid >= 50 ? size : -size, strongType),
-                    size, typeEvidence, "이별 사유의 성격이 기본 가능성 구간을 정함"));
-        }
-        Jump jump = JUMPS.get(jumpRule == null ? JumpRule.NONE : jumpRule);
-        if (jump != null) {
-            // 점프(이별 후 상대의 태도)는 상대신호와 같은 질문에 답한다 — 따로 세우면
-            // 같은 사실이 두 항목에 나뉘어 화면에서 중복으로 읽힌다.
-            // 자리를 뺏긴 상대신호 요인의 관찰은 그대로 가져온다 — 안 그러면 이 항목만
-            // 관찰 없이 일반 문장으로 남아 판독이 근거 없이 쓴다.
-            int size = (int) Math.round(10 + jump.pull() * 10);
-            all.add(item("partnerSignal", impact(jump.up() ? size : -size, true),
-                    size + JUMP_PRIORITY, observedOf(factors, FactorName.PARTNER_SIGNAL),
-                    "이별 후 상대의 태도가 기본 구간을 끌어당김"));
-        }
-        for (AssessmentFactor factor : factors) {
-            String key = FACTOR_KEYS.get(factor.getName());
-            if (key == null || (jump != null && "partnerSignal".equals(key))) {
-                continue;   // 점프가 이미 상대신호 자리를 쓴 판
-            }
-            int delta = delta(factor);
-            boolean strong = factor.getLevel() == FactorLevel.STRONG_FAVORABLE
-                    || factor.getLevel() == FactorLevel.STRONG_UNFAVORABLE
-                    || isSettled(factor);
-            all.add(item(key, impact(delta, strong), Math.abs(delta),
-                    evidence(factor), meaning(factor)));
-        }
-        // 순위는 "좋은 것부터"가 아니라 확률을 많이 움직인 것부터. 근거가 없어 중립인 항목은
-        // 뒤로 민다 — 판단한 것보다 위에 서면 안 된다.
-        List<DiagnosisItem> ranked = new ArrayList<>(all.stream()
-                .sorted(Comparator.<DiagnosisItem>comparingInt(
-                                d -> "NEUTRAL".equals(d.impact()) ? 1 : 0)
-                        .thenComparing(Comparator.comparingInt(DiagnosisItem::magnitude).reversed()))
-                .limit(DIAGNOSIS_MAX)
-                .toList());
-        for (int i = 0; i < ranked.size(); i++) {
-            DiagnosisItem d = ranked.get(i);
-            ranked.set(i, new DiagnosisItem(d.key(), d.label(), i + 1, d.impact(),
-                    d.factIds(), d.observed(), d.meaning(), d.magnitude()));
-        }
-        return ranked;
-    }
-
     // 유형이 "매우"로 읽히는 대역 위치. 상단은 충동형(중심 60)만, 하단은 환승형(21) 아래.
     // 소진, 권태(26)는 상한이 33이라 불리로 두고, 되돌릴 통로 자체가 좁은 유형만 매우불리로 본다.
     private static final int STRONG_UP_MID = 58;
     private static final int STRONG_DOWN_MID = 22;
 
-    // 점프를 요인보다 위에 세우는 가산점. 이별 후 관측이 사유보다 무겁다는 설계와 같은 서열이다.
-    private static final int JUMP_PRIORITY = 2;
+    // 핵심 진단(거의 항상 검토)과 조건부 진단(근거가 있을 때만)의 구분. 그 밖은 추가 진단이다.
+    private static final List<String> CORE_KEYS =
+            List.of("breakupReason", "resolve", "partnerSignal", "currentBarrier");
+    private static final List<String> CONDITIONAL_KEYS =
+            List.of("replacement", "relationshipAsset", "contact", "userResponse", "partnerPattern");
 
-    private DiagnosisItem item(String key, String impact, int magnitude, String observed,
-                               String meaning) {
-        return new DiagnosisItem(key, ReadingVocab.DIAGNOSIS_LABELS.get(key), 0, impact,
-                List.of(), observed == null ? "" : observed, meaning, magnitude);
+    // 화면에 올릴 카드 상한(v11.1의 최대 8).
+    private static final int CARD_MAX = 8;
+
+    // 1호출이 쓴 화면 진단에 채점 결과를 붙인다. source가 어느 채점을 가리키는지로
+    // 등급과 순위가 정해지고, 채점이 없는 항목(현재장벽, 추가 진단)은 뒤로 간다.
+    public List<ReadingLlm.DiagnosisCard> cards(ReunionDiagnosis diagnosis, BreakupType type,
+                                                JumpRule jumpRule, List<AssessmentFactor> factors) {
+        if (diagnosis.displayDiagnosis() == null) {
+            return List.of();
+        }
+        Map<FactorName, AssessmentFactor> byName = new EnumMap<>(FactorName.class);
+        factors.forEach(f -> byName.put(f.getName(), f));
+        Jump jump = JUMPS.get(jumpRule == null ? JumpRule.NONE : jumpRule);
+
+        List<Scored> scored = new ArrayList<>();
+        for (ReunionDiagnosis.DisplayItem item : diagnosis.displayDiagnosis().items()) {
+            String source = item.source() == null ? "" : item.source();
+            String level = "중립";
+            String evidenceState = "PARTIAL";
+            int magnitude = 0;
+            if (source.startsWith("FACTOR:")) {
+                AssessmentFactor factor = byName.get(FactorName.fromLabel(source.substring(7)));
+                if (factor != null) {
+                    level = factor.getLevel().label();
+                    magnitude = Math.abs(delta(factor));
+                    evidenceState = evidenceState(factor);
+                    // 점프가 걸린 판의 상대신호는 점프가 만든 크기가 실제 기여다.
+                    if (jump != null && factor.getName() == FactorName.PARTNER_SIGNAL) {
+                        magnitude = Math.max(magnitude, (int) Math.round(10 + jump.pull() * 10));
+                        level = jumpLevel(jump, level);
+                    }
+                }
+            } else if ("BREAKUP_TYPE".equals(source) && type != null) {
+                Band band = BANDS.get(type);
+                int mid = (band.lo() + band.hi()) / 2;
+                magnitude = Math.abs(mid - 50);
+                boolean strong = mid >= STRONG_UP_MID || mid <= STRONG_DOWN_MID;
+                level = mid >= 50 ? (strong ? "매우유리" : "유리") : (strong ? "매우불리" : "불리");
+                evidenceState = "CONFIRMED";
+            } else {
+                // 현재장벽, 추가 진단 — 채점에 없는 항목이라 방향은 1호출의 문장에 맡기고
+                // 등급은 중립으로 둔다. 확률 기여가 없으니 순위도 뒤다.
+                evidenceState = "CONFIRMED";
+            }
+            scored.add(new Scored(item, level, evidenceState, magnitude));
+        }
+
+        scored.sort(Comparator.<Scored>comparingInt(x -> "중립".equals(x.level()) ? 1 : 0)
+                .thenComparing(Comparator.comparingInt(Scored::magnitude).reversed()));
+
+        List<ReadingLlm.DiagnosisCard> cards = new ArrayList<>();
+        for (Scored x : scored) {
+            if (cards.size() >= CARD_MAX) {
+                break;
+            }
+            ReunionDiagnosis.DisplayItem item = x.item();
+            List<String> factIds = new ArrayList<>();
+            if (item.factIndexes() != null) {
+                item.factIndexes().forEach(i -> factIds.add(String.format("F%02d", i)));
+            }
+            cards.add(new ReadingLlm.DiagnosisCard(item.key(), item.label(), group(item.key()),
+                    cards.size() + 1, x.level(), x.evidenceState(),
+                    item.headline(), item.reading(), factIds));
+        }
+        return cards;
     }
 
-    private String observedOf(List<AssessmentFactor> factors, FactorName name) {
-        return factors.stream()
-                .filter(f -> f.getName() == name)
-                .map(this::evidence)
-                .findFirst()
-                .orElse("");
+    private record Scored(ReunionDiagnosis.DisplayItem item, String level, String evidenceState,
+                          int magnitude) {
     }
 
-    // 관찰이 없는 슬롯("근거 없음")은 빈 값으로 넘긴다 — 그 문구가 판독 본문에 새면
-    // 유저는 채점표의 빈칸을 읽게 된다.
-    private String evidence(AssessmentFactor factor) {
+    private String group(String key) {
+        if (CORE_KEYS.contains(key)) {
+            return "CORE";
+        }
+        return CONDITIONAL_KEYS.contains(key) ? "CONDITIONAL" : "EXTRA";
+    }
+
+    // 근거 상태. "없다고 확인된 것"과 "아직 모르는 것"은 화면에서 다르게 읽혀야 한다 —
+    // 대체자 유리는 부재가 확인된 판이고, 근거 없는 중립은 아직 못 물어본 판이다.
+    private String evidenceState(AssessmentFactor factor) {
         String evidence = factor.getEvidence();
-        return evidence == null || "근거 없음".equals(evidence) ? "" : evidence;
+        if (evidence == null || evidence.isBlank() || NO_EVIDENCE.equals(evidence)) {
+            return "PARTIAL";
+        }
+        return factor.getName() == FactorName.REPLACEMENT && factor.getLevel().favorableSide()
+                ? "ABSENCE_CONFIRMED" : "CONFIRMED";
     }
 
-    private String impact(int delta, boolean strong) {
-        if (delta == 0) {
-            return "NEUTRAL";
-        }
-        if (delta > 0) {
-            return strong ? "STRONG_UP" : "UP";
-        }
-        return strong ? "STRONG_DOWN" : "DOWN";
-    }
+    private static final String NO_EVIDENCE = "근거 없음";
 
-    private String meaning(AssessmentFactor factor) {
-        String rationale = factor.getRationale();
-        if (rationale != null && !rationale.isBlank()) {
-            return rationale;
+    // 점프가 대역을 끌어당긴 판에서는 상대신호 등급이 그 방향을 따라간다 —
+    // 요인 판정만 쓰면 "문이 열렸다"는 관측이 화면에서 중립으로 보인다.
+    private String jumpLevel(Jump jump, String factorLevel) {
+        if ("중립".equals(factorLevel)) {
+            return jump.up() ? "유리" : "불리";
         }
-        return factor.getEvidence() == null ? "" : factor.getEvidence();
+        return factorLevel;
     }
 
     private record Band(int lo, int hi) {

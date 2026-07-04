@@ -30,22 +30,27 @@ public class MockLlmClient implements LlmClient {
         if (readingCall) {
             return CompletableFuture.completedFuture("""
                     {
-                      "diagnosisSummary": "(개발용 임시) 이별 후 상대의 태도가 아직 닫히지 않았고 관계에 쌓아온 것이 남아 있어, 지금 숫자는 다시 판단 중인 판으로 읽힙니다.",
+                      "diagnosisSummary": "(개발용 임시) 서버가 1호출 값으로 덮으므로 이 문장은 화면에 나가지 않습니다.",
                       "diagnosis": [
-                        {"key": "partnerSignal", "label": "상대신호", "rank": 1, "impact": "UP", "verdict": "(개발용 임시) 상대가 관계의 문을 완전히 닫지는 않았습니다.", "reading": "(개발용 임시) 거리를 두면서도 종료 의사를 직접 밝힌 적은 없습니다.", "evidenceIds": ["F01"]},
-                        {"key": "breakupReason", "label": "이별사유", "rank": 2, "impact": "DOWN", "verdict": "(개발용 임시) 지쳐서 끝난 이별이라 되돌리기 쉬운 판은 아닙니다.", "reading": "(개발용 임시) 한 번의 사건보다 누적된 피로가 크게 작용했습니다.", "evidenceIds": ["F02"]},
-                        {"key": "resolve", "label": "이별결심", "rank": 3, "impact": "UP", "verdict": "(개발용 임시) 통보는 차가웠지만 오래 준비된 결심으로 보기는 어렵습니다.", "reading": "(개발용 임시) 갈등 한복판이 아니라 지친 끝에 나온 말에 가깝습니다.", "evidenceIds": ["F02"]},
-                        {"key": "replacement", "label": "대체자", "rank": 4, "impact": "NEUTRAL", "verdict": "(개발용 임시) 새로 만나는 사람이 있다고 볼 근거는 확인되지 않았습니다.", "reading": "(개발용 임시) 없다는 확인도 아니라 판단을 보류합니다.", "evidenceIds": []},
-                        {"key": "relationshipAsset", "label": "관계자산", "rank": 5, "impact": "UP", "verdict": "(개발용 임시) 함께 쌓아온 시간이 아직 판을 붙들고 있습니다.", "reading": "(개발용 임시) 관계를 부정하는 행동은 관찰되지 않았습니다.", "evidenceIds": ["F03"]}
+                        {"key": "partnerSignal", "label": "상대신호", "group": "CORE", "rank": 1, "level": "유리", "evidenceState": "CONFIRMED", "headline": "(개발용 임시) 복사값", "reading": "(개발용 임시) 복사값", "factIds": ["F01"]}
                       ],
+                      "analysisSection": {"title": "(개발용 임시) 이번 이별, 뭐가 문제였을까?"},
                       "analysisChapters": [
                         {"eyebrow": "(개발용 임시) 먼저 풀어야 할 모순", "title": "(개발용 임시) 미래를 말한 다음날 왜 물러났을까?", "chapterRole": "CORE_CONTRADICTION", "interpretationId": null, "answer": "(개발용 임시) 마음이 식어서가 아니라 마지막 대화의 상처 때문에 가깝습니다.", "reading": "(개발용 임시) 직전까지 관계를 다시 믿어보려는 방향으로 움직이고 있었습니다. 그 방향이 하루 만에 꺾인 것은 감정의 소멸보다 충격의 크기를 말해줍니다.", "psychology": null, "repairPrinciple": null, "evidenceIds": ["F01"]},
-                        {"eyebrow": "(개발용 임시) 조금 과하게 해석하고 있을 수 있는 부분", "title": "(개발용 임시) 그 사건은 마음이 떠났다는 신호였을까?", "chapterRole": "SIGNAL_CORRECTION", "interpretationId": "U01", "answer": "(개발용 임시) 현재 정보로는 그렇게 보기 어렵습니다.", "reading": "(개발용 임시) 이 사건에서 더 강한 정보는 기준의 차이가 만든 서운함입니다. 다만 제3자에게 마음이 갔다고 볼 별도의 행동은 확인되지 않았습니다.", "psychology": null, "repairPrinciple": null, "evidenceIds": ["F02"]},
-                        {"eyebrow": "(개발용 임시) 오히려 더 중요하게 봐야 할 말", "title": "(개발용 임시) 냉랭함 뒤에 왜 사랑 확인이 나왔을까?", "chapterRole": "INTERACTION", "interpretationId": null, "answer": "(개발용 임시) 관계가 흔들린다고 느껴 안전을 확인하려는 행동에 가깝습니다.", "reading": "(개발용 임시) 서로 상대가 했을 때 힘들어하던 방식을 이번 갈등에서는 반대 자리에서 경험했습니다. 반복 근거는 없어 고정 패턴이라 단정할 단계는 아닙니다.", "psychology": {"concept": "정서적 안전감 확인", "reading": "(개발용 임시) 한쪽은 차가워진 분위기에서 사랑을 확인해 안전감을 얻으려 했고, 다른 쪽은 문제를 정리해야 안정된다고 느꼈습니다."}, "repairPrinciple": "(개발용 임시) 불편한 감정의 존재와 이유를 먼저 언어화해 상대가 추측하게 두는 시간을 줄이는 방식이 필요합니다.", "evidenceIds": ["F03"]}
+                        {"eyebrow": "(개발용 임시) 조금 과하게 해석하고 있을 수 있는 부분", "title": "(개발용 임시) 그 사건은 마음이 떠났다는 신호였을까?", "chapterRole": "SIGNAL_CORRECTION", "interpretationId": "U01", "answer": "(개발용 임시) 현재 정보로는 그렇게 보기 어렵습니다.", "reading": "(개발용 임시) 이 사건에서 더 강한 정보는 기준의 차이가 만든 서운함입니다.", "psychology": {"concept": "정서적 안전감 확인", "reading": "(개발용 임시) 차가워진 분위기에서 관계가 안전한지 확인하려는 반응이 나타났습니다."}, "repairPrinciple": null, "evidenceIds": ["F02"]}
                       ],
-                      "maintenanceInsight": null,
-                      "reselect": {"title": "(개발용 임시) 무엇이 일어나면 다시 관계가 움직일까?", "answer": "(개발용 임시) 거리두기 이후 관계 대화가 다시 열리는지가 첫 분기점입니다.", "reading": "(개발용 임시) 먼저 연락의 주체보다 관계 이야기를 다시 나눌 의사가 있는지가 판을 가릅니다.", "turningPoints": ["(개발용 임시) 기간이 끝난 뒤 관계 이야기를 다시 꺼내는지", "(개발용 임시) 마지막 갈등을 다시 다뤄보려 하는지"]},
-                      "final": {"stateLabel": "(개발용 임시) 관계 재평가 중", "chipSeeds": ["(개발용 임시) 기간이 끝나면 먼저 연락해도 될까?", "(개발용 임시) 다시 대화할 때 무슨 말부터 해야 할까?"]},
+                      "actionPlan": {
+                        "title": "(개발용 임시) 지금은 어떻게 움직이는 게 나을까?",
+                        "stance": "USE_EXISTING_EVENT",
+                        "answer": "(개발용 임시) 이미 잡혀 있는 만남을 그대로 쓰는 것이 지금 할 수 있는 가장 자연스러운 접촉입니다.",
+                        "timing": "(개발용 임시) 2주 뒤 예정된 만남",
+                        "whyThisTiming": "(개발용 임시) 새 명분을 만들지 않아도 되고, 그 전에 연락을 밀면 지친 자리를 다시 건드립니다.",
+                        "goal": "(개발용 임시) 관계 이야기를 다시 꺼낼 여지가 있는지 확인",
+                        "do": ["(개발용 임시) 만나는 자리에서는 사과나 설득보다 근황과 태도로 보여준다"],
+                        "stopCondition": "(개발용 임시) 상대가 관계 이야기를 피하면 그 자리에서 더 밀지 않는다",
+                        "avoid": ["(개발용 임시) 만남 전 장문 메시지", "(개발용 임시) 반복적인 연락 시도"]
+                      },
+                      "chipSeeds": ["(개발용 임시) 만나면 무슨 말부터 해야 할까?", "(개발용 임시) 그날 반응이 애매하면 어떻게 해?"],
                       "internal": {"nowState": "RELATIONSHIP_RECONSIDERATION", "resolveState": "UNSTABLE", "remainState": "PRESENT", "reselectState": "CONDITIONAL"}
                     }
                     """);

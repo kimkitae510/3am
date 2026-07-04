@@ -176,12 +176,12 @@ public class AssessmentService {
         if (!eligible) {
             return CompletableFuture.completedFuture(result.response());
         }
-        // 표시 등급과 진단 항목(방향, 순위)은 숫자를 계산한 쪽(백엔드)이 확정한다 —
-        // 2호출은 그걸 유저 언어로 풀 뿐 순위를 다시 고르지 않는다(화면 순서와 확률이 어긋난다).
+        // 진단 문장은 1호출이 쓰고, 백엔드는 거기에 순위와 등급을 붙인다 —
+        // 2호출은 그 카드를 읽기만 하고 고쳐 쓰지 못한다(화면과 확률이 어긋난다).
         String level = scorer.level(saved.getProbability());
-        List<TypeBandScorer.DiagnosisItem> items = scorer.diagnosisItems(saved.getBreakupType(),
-                saved.getJumpRule(), saved.getTypeEvidence(), saved.getFactors());
-        return readingLlm.read(saved, diagnosis, context.intakeBlock(), level, items)
+        List<ReadingLlm.DiagnosisCard> cards = scorer.cards(diagnosis, saved.getBreakupType(),
+                saved.getJumpRule(), saved.getFactors());
+        return readingLlm.read(saved, diagnosis, context.intakeBlock(), level, cards)
                 .thenApplyAsync(draft -> {
                     try {
                         return result.response()
@@ -203,7 +203,7 @@ public class AssessmentService {
         return report != null
                 && report.diagnosisSummary() != null && !report.diagnosisSummary().isBlank()
                 && report.diagnosis() != null && !report.diagnosis().isEmpty()
-                && report.reselect() != null && report.fin() != null;
+                && report.actionPlan() != null;
     }
 
     // 감점 목록(@ElementCollection, LAZY)을 매핑에서 읽으므로 트랜잭션 안이어야 한다.
