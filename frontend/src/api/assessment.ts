@@ -48,16 +48,19 @@ export interface ReadingDelta {
 // 사연별 미스터리 장이 본문이다 — 장 개수와 제목이 사연마다 다르다.
 // 요인 어휘는 안 내려온다: 채점 내부 용어라 유저 지면에 꺼내지 않는다.
 
-// 확률을 만든 진단 한 줄. 방향과 순위는 백엔드가 확정하고, 판독이 유저 언어로 다시 쓴다.
-// impact는 화면에서 "매우유리 / 유리 / 중립 / 불리 / 매우불리"로 번역된다.
+// 확률을 만든 진단 한 줄. 문장은 1호출이 쓰고, 순위와 등급은 백엔드가 붙인다 —
+// 판독은 이 카드를 읽기만 하고 고쳐 쓰지 못한다.
 export interface ReadingDiagnosis {
   key: string;
   label: string; // 상대신호, 이별사유, 이별결심 등
+  group: 'CORE' | 'CONDITIONAL' | 'EXTRA';
   rank: number;
-  impact: 'STRONG_UP' | 'UP' | 'NEUTRAL' | 'DOWN' | 'STRONG_DOWN';
-  verdict: string; // 한 문장 진단
+  level: '매우유리' | '유리' | '중립' | '불리' | '매우불리';
+  // 확인됨 / 없다는 것이 확인됨 / 아직 부분만 — "아직 모르는 것"을 화면이 구분해 그린다
+  evidenceState: 'CONFIRMED' | 'ABSENCE_CONFIRMED' | 'PARTIAL';
+  headline: string; // 핵심 판정 한 문장
   reading: string; // 펼쳤을 때 나오는 근거
-  evidenceIds: string[];
+  factIds: string[];
 }
 
 export interface ChapterPsychology {
@@ -66,32 +69,41 @@ export interface ChapterPsychology {
 }
 
 export interface ReadingChapter {
-  eyebrow: string; // 왜 이 장을 읽는지 먼저 알려주는 짧은 문구
+  eyebrow: string | null; // 왜 이 장을 읽는지. 필요할 때만
   title: string; // 사연 고유의 질문형 제목
-  chapterRole: string; // 내부 값(CORE_CONTRADICTION 등). 화면 비노출
+  chapterRole: string; // 내부 값. 화면 비노출
   interpretationId: string | null; // 유저 해석 교정 장이면 그 해석 참조. 화면 비노출
   answer: string; // 답부터
   reading: string;
   psychology: ChapterPsychology | null;
-  repairPrinciple: string | null; // "이런 충돌을 줄이려면" — 상호작용 장에만
+  repairPrinciple: string | null;
   evidenceIds: string[];
 }
 
-// v7 — 진단이 먼저다: 확률 게이지 아래 "재회 가능성을 만든 진단"이 오고,
-// 심층 장면(analysisChapters)이 그 뒤를 받친다.
+// 지금 어떻게 움직일지. 시점과 그 이유, 멈출 조건까지 한 덩이 —
+// 행동만 있고 멈출 조건이 없으면 반응이 없을 때 계속 밀게 된다.
+export interface ActionPlan {
+  title: string;
+  stance: string; // 내부 값(USE_EXISTING_EVENT 등). 화면 비노출
+  answer: string;
+  timing: string;
+  whyThisTiming: string;
+  goal: string;
+  doList: string[];
+  stopCondition: string;
+  avoid: string[];
+}
+
+// v11.1 — 진단이 먼저다: 확률 게이지 → 진단 카드 → 심층 장 → 행동 계획 → 칩.
 export interface StoryReport {
-  diagnosisSummary: string; // 확률과 상위 진단 방향을 잇는 1~2문장
-  diagnosis: ReadingDiagnosis[]; // 5~7개, 확률을 많이 움직인 것부터
-  analysisChapters: ReadingChapter[]; // 2~4개, 진단만으로 안 보이는 심층 해석
-  maintenanceInsight: {
-    title: string;
-    answer: string;
-    psychology: ChapterPsychology | null;
-    reading: string;
-    repairPrinciple: string;
-  } | null;
-  reselect: { title: string; answer: string; reading: string; turningPoints: string[] };
-  final: { stateLabel: string; chipSeeds: string[] };
+  diagnosisSummary: string;
+  // 시간이 판에 어떻게 작용하는지의 보조 진단. 순위 카드와 섞지 않는다
+  timeInsight: { label: string; headline: string; reading: string } | null;
+  diagnosis: ReadingDiagnosis[];
+  analysisSectionTitle: string; // 심층 장 묶음의 큰 질문
+  analysisChapters: ReadingChapter[];
+  actionPlan: ActionPlan;
+  chipSeeds: string[];
   internal: {
     nowState: string;
     resolveState: string;

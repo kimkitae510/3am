@@ -206,6 +206,16 @@
   font-weight: 700;
 }
 
+/* 근거 상태 — 판단한 것과 아직 못 물어본 것을 화면이 구분해 준다 */
+.diagNote {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
 /* 영향은 색이 아니라 말이 먼저다 — 색은 방향만 거든다 */
 .diagImpact {
   flex-shrink: 0;
@@ -329,6 +339,7 @@
   color: var(--text);
   font-size: 13px;
   line-height: 1.7;
+  white-space: pre-line;
 }
 
 /* ── 조건/목록 블록 (재선택, 변동내역, 후속 질문) ───── */

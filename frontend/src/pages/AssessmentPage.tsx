@@ -825,7 +825,7 @@ export function AssessmentPage() {
   // 화면 전체를 날리지 않게(실측: 빈 화면) 그릴 수 있는 모양인지 확인하고 통과시킨다.
   const candidate = !locked && prob < 100 ? (result.reading ?? null) : null;
   const reading =
-    candidate?.report?.diagnosisSummary && candidate.report.diagnosis?.length
+    candidate?.report?.diagnosis?.length && candidate.report.actionPlan
       ? candidate
       : null;
   // 책 모드 동안엔 아래 판정부(요인 카드, 심리, 사례 등)를 감춰 독서에 집중시킨다.

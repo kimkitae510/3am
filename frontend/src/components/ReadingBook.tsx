@@ -9,30 +9,23 @@ import styles from './ReadingBook.module.css';
 // (도넛, 대형 차트는 66이라는 숫자를 측정값처럼 정밀해 보이게 만든다).
 // 첫 독서는 장 넘김, 완독이나 전체 보기 후엔 세로 스크롤. 완독 여부는 저장하지 않는다.
 
-// 확률이 준 영향. 요인 카드 시절부터 쓰던 어휘를 그대로 쓴다 —
-// 판독 없는 옛 결과와 공유 화면이 아직 이 말을 쓰고 있어, 섞이면 같은 서비스가 두 말을 한다.
-const IMPACT_LABEL: Record<string, string> = {
-  STRONG_UP: '매우유리',
-  UP: '유리',
-  NEUTRAL: '중립',
-  DOWN: '불리',
-  STRONG_DOWN: '매우불리',
+// 등급은 백엔드가 요인 판정과 같은 어휘로 내려준다(매우유리~매우불리) — 화면은 그대로 쓴다.
+// 근거가 아직 부분인 항목은 등급 옆에 그 사실을 밝힌다: 판단한 것과 못 물어본 것은 다르다.
+const EVIDENCE_NOTE: Record<string, string> = {
+  ABSENCE_CONFIRMED: '없음 확인',
+  PARTIAL: '근거 부족',
 };
 
 // 장 목록은 리포트 내용에서 조립된다 — 심층 장 수, 유지 인사이트 유무가 사연마다 다르다.
 type Chapter =
   | { kind: 'diagnosis' }
   | { kind: 'chapter'; index: number }
-  | { kind: 'maintenance' }
-  | { kind: 'reselect' }
-  | { kind: 'final' };
+  | { kind: 'action' };
 
 function buildChapters(report: StoryReport): Chapter[] {
   const chapters: Chapter[] = [{ kind: 'diagnosis' }];
   report.analysisChapters.forEach((_, index) => chapters.push({ kind: 'chapter', index }));
-  if (report.maintenanceInsight) chapters.push({ kind: 'maintenance' });
-  chapters.push({ kind: 'reselect' });
-  chapters.push({ kind: 'final' });
+  chapters.push({ kind: 'action' });
   return chapters;
 }
 
@@ -42,19 +35,16 @@ function chapterTitle(chapter: Chapter, report: StoryReport): string {
       return '재회 가능성을 만든 진단';
     case 'chapter':
       return report.analysisChapters[chapter.index].title;
-    case 'maintenance':
-      return report.maintenanceInsight?.title ?? '다시 만나면 같은 문제가 반복될까?';
-    case 'reselect':
-      return report.reselect.title;
-    case 'final':
-      return report.final.stateLabel;
+    case 'action':
+      return report.actionPlan.title;
   }
 }
 
+// 심층 장 묶음의 큰 질문은 첫 장 위에만 세운다 — 매 장에 반복하면 제목이 두 겹이 된다.
 function chapterEyebrow(chapter: Chapter, report: StoryReport): string | null {
-  if (chapter.kind === 'chapter') return report.analysisChapters[chapter.index].eyebrow || null;
-  if (chapter.kind === 'final') return '현재 관계 위치';
-  return null;
+  if (chapter.kind !== 'chapter') return null;
+  const item = report.analysisChapters[chapter.index];
+  return item.eyebrow || (chapter.index === 0 ? report.analysisSectionTitle : null);
 }
 
 // 한 줄 게이지 — 낮음에서 높음까지의 눈금 위에 지금 위치를 점 하나로 찍는다.
@@ -105,22 +95,21 @@ function DiagnosisRow({
   open: boolean;
   onToggle: () => void;
 }) {
-  const tone =
-    item.impact === 'STRONG_UP' || item.impact === 'UP'
-      ? styles.impactUp
-      : item.impact === 'NEUTRAL'
-        ? styles.impactNeutral
-        : styles.impactDown;
+  const tone = item.level.includes('유리')
+    ? styles.impactUp
+    : item.level === '중립'
+      ? styles.impactNeutral
+      : styles.impactDown;
+  const note = EVIDENCE_NOTE[item.evidenceState];
   return (
     <div className={styles.diagItem}>
       <button className={styles.diagTop} onClick={onToggle} aria-expanded={open}>
         <span className={styles.diagRank}>{item.rank}</span>
         <span className={styles.diagLabel}>{item.label}</span>
-        <span className={`${styles.diagImpact} ${tone}`}>
-          {IMPACT_LABEL[item.impact] ?? item.impact}
-        </span>
+        {note && <span className={styles.diagNote}>{note}</span>}
+        <span className={`${styles.diagImpact} ${tone}`}>{item.level}</span>
       </button>
-      <div className={styles.diagVerdict}>{item.verdict}</div>
+      <div className={styles.diagVerdict}>{item.headline}</div>
       {open && item.reading && <div className={styles.diagReading}>{item.reading}</div>}
     </div>
   );
@@ -149,6 +138,17 @@ function ChapterBody({
         {probability != null && <Gauge probability={probability} />}
         {history.length >= 2 && <Trend history={history} />}
         <div className={styles.summary}>{report.diagnosisSummary}</div>
+        {/* 시간효과 — 확률(지금의 스냅샷)과 다른 축이라 순위 카드와 섞지 않고 따로 세운다 */}
+        {report.timeInsight && (
+          <div className={styles.principle}>
+            <div className={styles.principleLabel}>{report.timeInsight.label}</div>
+            <div className={styles.principleText}>
+              {report.timeInsight.headline}
+              {'\n'}
+              {report.timeInsight.reading}
+            </div>
+          </div>
+        )}
         <div className={styles.diagList}>
           {report.diagnosis.map((item) => (
             <DiagnosisRow
@@ -196,58 +196,56 @@ function ChapterBody({
       </>
     );
   }
-  if (chapter.kind === 'maintenance') {
-    const insight = report.maintenanceInsight!;
-    return (
-      <>
-        <div className={styles.answer}>{insight.answer}</div>
-        <div className={styles.reading}>{insight.reading}</div>
-        {insight.psychology && (
-          <div className={styles.principle}>
-            <div className={styles.principleLabel}>{insight.psychology.concept}</div>
-            <div className={styles.principleText}>{insight.psychology.reading}</div>
-          </div>
-        )}
-        <div className={styles.principle}>
-          <div className={styles.principleLabel}>이런 충돌이 덜 반복되려면</div>
-          <div className={styles.principleText}>{insight.repairPrinciple}</div>
-        </div>
-      </>
-    );
-  }
-  if (chapter.kind === 'reselect') {
-    const reselect = report.reselect;
-    return (
-      <>
-        <div className={styles.answer}>{reselect.answer}</div>
-        <div className={styles.reading}>{reselect.reading}</div>
-        {reselect.turningPoints.length > 0 && (
-          <div className={styles.listBlock}>
-            <div className={styles.listLabel}>판단을 바꿀 다음 행동</div>
-            {reselect.turningPoints.map((line) => (
-              <div className={styles.listLine} key={line}>
-                {line}
-              </div>
-            ))}
-          </div>
-        )}
-      </>
-    );
-  }
-  // final — 위치는 제목이 말했고, 여기는 다음으로 이어지는 칩만.
+  // action — 지금 어떻게 움직일지. 시점과 이유, 멈출 조건, 피할 것, 그리고 후속 칩.
+  const plan = report.actionPlan;
   return (
     <>
-      {report.final.chipSeeds.length > 0 && (
-        <>
-          <div className={styles.reading}>이어지는 고민은 대화에서 같이 정리해요.</div>
-          <div className={styles.chipRow}>
-            {report.final.chipSeeds.map((chip) => (
-              <button className={styles.chip} key={chip} onClick={() => onAskChat(chip)}>
-                {chip}
-              </button>
-            ))}
-          </div>
-        </>
+      <div className={styles.answer}>{plan.answer}</div>
+      <div className={styles.listBlock}>
+        <div className={styles.listLabel}>언제</div>
+        <div className={styles.listLine}>{plan.timing}</div>
+        {plan.whyThisTiming && <div className={styles.followWhy}>{plan.whyThisTiming}</div>}
+      </div>
+      {plan.goal && (
+        <div className={styles.listBlock}>
+          <div className={styles.listLabel}>이번 목표</div>
+          <div className={styles.listLine}>{plan.goal}</div>
+        </div>
+      )}
+      {plan.doList.length > 0 && (
+        <div className={styles.listBlock}>
+          <div className={styles.listLabel}>이렇게</div>
+          {plan.doList.map((line) => (
+            <div className={styles.listLine} key={line}>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+      {plan.stopCondition && (
+        <div className={styles.listBlock}>
+          <div className={styles.listLabel}>여기서 멈춘다</div>
+          <div className={styles.listLine}>{plan.stopCondition}</div>
+        </div>
+      )}
+      {plan.avoid.length > 0 && (
+        <div className={styles.listBlock}>
+          <div className={styles.listLabel}>하지 않는다</div>
+          {plan.avoid.map((line) => (
+            <div className={styles.listLine} key={line}>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+      {report.chipSeeds.length > 0 && (
+        <div className={styles.chipRow}>
+          {report.chipSeeds.map((chip) => (
+            <button className={styles.chip} key={chip} onClick={() => onAskChat(chip)}>
+              {chip}
+            </button>
+          ))}
+        </div>
       )}
     </>
   );
@@ -348,7 +346,7 @@ export function ReadingBook({
           </button>
         ) : (
           <button className={styles.nextBtn} onClick={() => setPage(page + 1)}>
-            {page === 0 ? '더 깊게 봐야 할 장면으로' : `다음 — ${nextTitle}`}
+            {page === 0 ? report.analysisSectionTitle || '더 깊게 봐야 할 장면으로' : `다음 — ${nextTitle}`}
           </button>
         )}
       </div>
