@@ -37,7 +37,13 @@ public record ReunionDiagnosis(
         // 요청 안에서 소비되고, 판독 본문이 저장되므로 재료까지 남길 이유가 없다).
         List<ReadingFact> readingFacts,     // 관찰 사실 6~15개(해석 없이)
         List<String> directQuestions,       // 유저가 실제로 물은 질문
-        List<FocusItem> userFocus) {        // 유저가 사건에 붙인 해석(과대해석 교정 재료)
+        List<FocusItem> userFocus,          // 유저가 사건에 붙인 해석(과대해석 교정 재료)
+        // 시간이 이 판에 어떻게 작용하는지. 확률(스냅샷)과 다른 축이라 점수에 섞지 않는다 —
+        // 행동 타이밍(언제 움직일지)의 근거다.
+        TimeEffect timeEffect,
+        // 사용자 화면에 그대로 나가는 진단 문장. 1호출이 판정과 함께 써서, 2호출이 다시
+        // 해석하거나 고쳐 쓰지 못하게 한다(서버가 입력값으로 되돌려 병합한다).
+        DisplayDiagnosis displayDiagnosis) {
 
     // 한 요인의 판정. stage는 대체자 불리의 세분(정황/정착) — 다른 요인은 null.
     public record FactorItem(FactorName name, FactorLevel level, String evidence,
@@ -52,6 +58,25 @@ public record ReunionDiagnosis(
 
     // 유저가 특정 사실에 붙인 해석. 사실이 아니라 해석임을 구조로 명시한다.
     public record FocusItem(String factId, String interpretation) {
+    }
+
+    // 시간 효과. state는 시간이 작용하는 방식, actionBias는 그래서 어떻게 움직일지의 방향.
+    public record TimeEffect(String state, String horizon, String actionBias, String reason) {
+    }
+
+    // 화면 표시용 진단 층. 확률 계산이 끝난 뒤 만드는 설명이라 점수를 다시 바꾸지 않는다.
+    // timeInsight는 순위 카드와 섞지 않는 보조 진단(시간이 판에 어떻게 작용할지).
+    public record DisplayDiagnosis(String summary, TimeInsight timeInsight,
+                                   List<DisplayItem> items) {
+    }
+
+    public record TimeInsight(String label, String headline, String reading) {
+    }
+
+    // source는 이 항목이 어느 채점에서 왔는지(BREAKUP_TYPE, FACTOR:상대신호, CURRENT_BARRIER, EXTRA) —
+    // 백엔드가 그걸 보고 순위와 등급을 붙인다. factIndexes는 readingFacts의 순번(1부터).
+    public record DisplayItem(String key, String label, String source, String headline,
+                              String reading, List<Integer> factIndexes) {
     }
 
     // "이게 확인되면 판이 바뀐다" — 행동 지시가 아니라 판독의 연장.

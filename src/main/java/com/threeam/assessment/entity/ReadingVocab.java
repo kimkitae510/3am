@@ -44,12 +44,33 @@ public final class ReadingVocab {
             "contact", "접점",
             "userResponse", "현재대응",
             "partnerPattern", "과거패턴",
-            "currentBarrier", "현재장벽");
+            "currentBarrier", "현재장벽",
+            "custom", "추가진단");
 
     public static final List<String> DIAGNOSIS_KEYS = List.copyOf(DIAGNOSIS_LABELS.keySet());
 
-    // 확률에 준 영향. 매우유리/불리 같은 내부 채점어 대신 화면은 이 어휘를 쓴다
-    // (크게 높임, 높임, 영향 적음, 낮춤, 크게 낮춤).
-    public static final List<String> IMPACTS = List.of(
-            "STRONG_UP", "UP", "NEUTRAL", "DOWN", "STRONG_DOWN");
+    // 진단 항목의 등급. 요인 판정과 같은 어휘를 쓴다 — 화면도 이 말을 그대로 보여준다.
+    public static final List<String> LEVELS = List.of(
+            "매우유리", "유리", "중립", "불리", "매우불리");
+
+    // 항목 묶음. 핵심은 거의 항상, 조건부는 근거가 있을 때만, 추가는 1호출이 만든 독립 변수.
+    public static final List<String> GROUPS = List.of("CORE", "CONDITIONAL", "EXTRA");
+
+    // 근거 상태. 없다는 것이 확인된 것(ABSENCE_CONFIRMED)과 아직 모르는 것(PARTIAL)은 다르다.
+    public static final List<String> EVIDENCE_STATES = List.of(
+            "CONFIRMED", "ABSENCE_CONFIRMED", "PARTIAL");
+
+    // 시간이 작용하는 방식과, 그래서 어떻게 움직일지의 방향(1호출이 판정).
+    public static final List<String> TIME_STATES = List.of(
+            "COOLING_HELPFUL", "REPAIR_WINDOW", "PASSIVE_WAITING_HARMFUL",
+            "BOUNDARY_FIRST", "EVENT_BASED", "CLOSED");
+
+    public static final List<String> ACTION_BIASES = List.of(
+            "WAIT_TO_BOUNDARY", "SHORT_COOLING_THEN_RECONTACT", "ONE_REPAIR_ATTEMPT",
+            "DO_NOT_WAIT_PASSIVELY", "USE_EXISTING_EVENT", "NO_FURTHER_CONTACT");
+
+    // 판독이 제안하는 행동 자세(actionPlan.stance).
+    public static final List<String> STANCES = List.of(
+            "WAIT_TO_BOUNDARY", "SHORT_COOLING_THEN_RECONTACT", "ONE_REPAIR_ATTEMPT",
+            "USE_EXISTING_EVENT", "STOP_CONTACT", "HOLD_AND_REASSESS");
 }

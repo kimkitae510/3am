@@ -11,6 +11,7 @@ import com.threeam.assessment.entity.BreakupType;
 import com.threeam.assessment.entity.FactorLevel;
 import com.threeam.assessment.entity.FactorName;
 import com.threeam.assessment.entity.JumpRule;
+import com.threeam.assessment.entity.ReadingVocab;
 import com.threeam.assessment.entity.RelapseRisk;
 import com.threeam.assessment.entity.ReplacementStage;
 import com.threeam.assessment.entity.ReunionVerdict;
@@ -242,7 +243,10 @@ public class ReunionLlm {
                     Map.entry("readingFacts", Map.of("type", "ARRAY", "items", readingFactSchema())),
                     Map.entry("directQuestions", Map.of("type", "ARRAY",
                             "items", Map.of("type", "STRING"))),
-                    Map.entry("userFocus", Map.of("type", "ARRAY", "items", userFocusSchema())))),
+                    Map.entry("userFocus", Map.of("type", "ARRAY", "items", userFocusSchema())),
+                    // 시간 효과와 화면 표시용 진단 — v4에서 1호출이 함께 확정한다.
+                    Map.entry("timeEffect", timeEffectSchema()),
+                    Map.entry("displayDiagnosis", displayDiagnosisSchema()))),
             // 배열류와 유형은 필수에서 뺀다 — 잠금 판정(DATING 등)은 루브릭이 비우라고 지시하는데
             // 필수로 걸면 억지로 채우게 된다.
             Map.entry("required", List.of("verdict", "activeReunionOffer",
@@ -251,7 +255,62 @@ public class ReunionLlm {
                     "typeEvidence", "jumpRule", "factors", "relapseRisk",
                     "relationshipPsychology", "watchFor", "unansweredQuestions",
                     "matchProfile", "reason", "newFacts",
-                    "readingFacts", "directQuestions", "userFocus")));
+                    "readingFacts", "directQuestions", "userFocus",
+                    "timeEffect", "displayDiagnosis")));
+
+    private static Map<String, Object> timeEffectSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "nullable", true,
+                "properties", Map.of(
+                        "state", Map.of("type", "STRING", "enum", ReadingVocab.TIME_STATES),
+                        "horizon", Map.of("type", "STRING"),
+                        "actionBias", Map.of("type", "STRING", "enum", ReadingVocab.ACTION_BIASES),
+                        "reason", Map.of("type", "STRING")),
+                "required", List.of("state", "actionBias", "reason"),
+                "propertyOrdering", List.of("state", "horizon", "actionBias", "reason"));
+    }
+
+    // 화면에 그대로 나가는 문장이라 필드를 못 비우게 required로 묶는다 — 비면 카드가
+    // 제목만 남는다. 순위와 등급은 백엔드가 붙이므로 여기 없다.
+    private static Map<String, Object> displayItemSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "key", Map.of("type", "STRING", "enum", ReadingVocab.DIAGNOSIS_KEYS),
+                        "label", Map.of("type", "STRING"),
+                        "source", Map.of("type", "STRING"),
+                        "headline", Map.of("type", "STRING"),
+                        "reading", Map.of("type", "STRING"),
+                        "factIndexes", Map.of("type", "ARRAY", "items", Map.of("type", "INTEGER"))),
+                "required", List.of("key", "label", "source", "headline", "reading"),
+                "propertyOrdering", List.of("key", "label", "source", "headline", "reading",
+                        "factIndexes"));
+    }
+
+    private static Map<String, Object> timeInsightSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "nullable", true,
+                "properties", Map.of(
+                        "label", Map.of("type", "STRING"),
+                        "headline", Map.of("type", "STRING"),
+                        "reading", Map.of("type", "STRING")),
+                "required", List.of("headline", "reading"),
+                "propertyOrdering", List.of("label", "headline", "reading"));
+    }
+
+    private static Map<String, Object> displayDiagnosisSchema() {
+        return Map.of(
+                "type", "OBJECT",
+                "nullable", true,
+                "properties", Map.of(
+                        "summary", Map.of("type", "STRING"),
+                        "timeInsight", timeInsightSchema(),
+                        "items", Map.of("type", "ARRAY", "items", displayItemSchema())),
+                "required", List.of("summary", "items"),
+                "propertyOrdering", List.of("summary", "timeInsight", "items"));
+    }
 
     // 판독용 관찰 사실 한 줄. id는 여기 없다 — 모델이 붙이면 중복/누락이 나서 백엔드가
     // 순서대로 붙인다(F01..). userFocus는 그래서 id 대신 순번(factIndex, 1부터)으로 가리킨다.
@@ -327,7 +386,8 @@ public class ReunionLlm {
                     relationshipPsychology(root),
                     root.path("reason").asText(""), newFacts,
                     readingFacts, parseDirectQuestions(root),
-                    parseUserFocus(root, readingFacts.size()));
+                    parseUserFocus(root, readingFacts.size()),
+                    parseTimeEffect(root), parseDisplayDiagnosis(root));
         } catch (Exception e) {
             // 응답 본문(json)에는 사연 기반 분석 내용이 들어 있어 개인정보다 — 원문 전체는 남기지 않는다.
             boolean truncated = json != null && !json.trim().endsWith("}");
@@ -453,6 +513,74 @@ public class ReunionLlm {
             out.add(new ReunionDiagnosis.FocusItem(factId, interpretation));
         }
         return out;
+    }
+
+    // 시간 효과. 사전 밖 값은 통째로 버린다 — 화면과 행동 제안이 모르는 상태로 갈리면
+    // "왜 이 타이밍인지"를 설명할 수 없다.
+    private ReunionDiagnosis.TimeEffect parseTimeEffect(JsonNode root) {
+        JsonNode node = root.path("timeEffect");
+        if (!node.isObject()) {
+            return null;
+        }
+        String state = node.path("state").asText("").trim();
+        String bias = node.path("actionBias").asText("").trim();
+        if (!ReadingVocab.TIME_STATES.contains(state)
+                || !ReadingVocab.ACTION_BIASES.contains(bias)) {
+            log.warn("시간 효과 폐기(사전에 없음): state={} bias={}", state, bias);
+            return null;
+        }
+        return new ReunionDiagnosis.TimeEffect(state,
+                clip(node.path("horizon").asText("").trim(), TEXT_MAX), bias,
+                clip(node.path("reason").asText("").trim(), TEXT_MAX));
+    }
+
+    // 화면 표시용 진단 상한. v11.1의 목표는 5~7개, 최대 8개다.
+    private static final int DISPLAY_ITEM_MAX = 8;
+
+    private ReunionDiagnosis.DisplayDiagnosis parseDisplayDiagnosis(JsonNode root) {
+        JsonNode node = root.path("displayDiagnosis");
+        if (!node.isObject()) {
+            return null;
+        }
+        String summary = clip(node.path("summary").asText("").trim(), TEXT_MAX);
+        List<ReunionDiagnosis.DisplayItem> items = new ArrayList<>();
+        for (JsonNode item : node.path("items")) {
+            if (items.size() >= DISPLAY_ITEM_MAX) {
+                break;
+            }
+            String key = item.path("key").asText("").trim();
+            String headline = clip(item.path("headline").asText("").trim(), TEXT_MAX);
+            if (key.isBlank() || headline.isBlank()) {
+                continue;
+            }
+            List<Integer> indexes = new ArrayList<>();
+            for (JsonNode index : item.path("factIndexes")) {
+                if (index.isNumber() && indexes.size() < 3) {
+                    indexes.add(index.asInt());
+                }
+            }
+            items.add(new ReunionDiagnosis.DisplayItem(key,
+                    clip(item.path("label").asText("").trim(), 20),
+                    item.path("source").asText("").trim(),
+                    headline, item.path("reading").asText("").trim(), indexes));
+        }
+        if (summary.isBlank() || items.isEmpty()) {
+            // 요약이나 항목이 없으면 화면 진단 층이 성립하지 않는다 — 없는 것으로 둔다.
+            log.warn("화면 표시용 진단 미추출 — 판독은 진단 없이 진행된다");
+            return null;
+        }
+        JsonNode insight = node.path("timeInsight");
+        ReunionDiagnosis.TimeInsight timeInsight = null;
+        if (insight.isObject()) {
+            String headline = clip(insight.path("headline").asText("").trim(), TEXT_MAX);
+            String reading = clip(insight.path("reading").asText("").trim(), TEXT_MAX);
+            if (!headline.isBlank() && !reading.isBlank()) {
+                String label = insight.path("label").asText("").trim();
+                timeInsight = new ReunionDiagnosis.TimeInsight(
+                        label.isBlank() ? "시간효과" : clip(label, 20), headline, reading);
+            }
+        }
+        return new ReunionDiagnosis.DisplayDiagnosis(summary, timeInsight, items);
     }
 
     private List<WatchItem> parseWatch(JsonNode root) {
