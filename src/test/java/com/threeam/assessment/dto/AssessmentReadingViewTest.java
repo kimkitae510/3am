@@ -27,14 +27,15 @@ class AssessmentReadingViewTest {
     }
 
     private ReadingDraft report() {
-        return new ReadingDraft("진단 요약",
-                List.of(new ReadingDraft.Diagnosis("partnerSignal", "상대신호", 1, "UP", "판정",
-                        "서술", List.of("F01"))),
+        return new ReadingDraft("진단 요약", null,
+                List.of(new ReadingDraft.Diagnosis("partnerSignal", "상대신호", "CORE", 1, "유리",
+                        "CONFIRMED", "판정", "서술", List.of("F01"))),
+                "이번 이별, 뭐가 문제였을까?",
                 List.of(new ReadingDraft.Chapter("아이브로", "제목", "CORE_CONTRADICTION", null,
                         "답", "서술", null, null, List.of("F01"))),
-                null,
-                new ReadingDraft.Reselect("제목", "답", "서술", List.of()),
-                new ReadingDraft.Fin("관계 재평가 중", List.of()),
+                new ReadingDraft.ActionPlan("지금은 어떻게 움직일까?", "HOLD_AND_REASSESS", "답",
+                        "2주 뒤", "이유", "목표", List.of("행동"), "멈출 조건", List.of("피할 것")),
+                List.of("칩"),
                 new ReadingDraft.Internal("MIXED", "UNSTABLE", "PRESENT", "CONDITIONAL"));
     }
 

@@ -105,13 +105,13 @@ class AssessmentServiceTest {
                 "반복 다툼 끝에 지쳐 통보", JumpRule.NONE, FACTORS, RelapseRisk.HIGH, "교정 미확인",
                 List.of(new WatchItem("상대의 선연락 여부", "오면 상대신호가 유리로 바뀜")),
                 List.of(), null, null, "총평", List.of("상대가 먼저 통보함"),
-                List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), null, null);
     }
 
     private static ReunionDiagnosis locked(ReunionVerdict verdict, String reason, List<String> newFacts) {
         return new ReunionDiagnosis(verdict, false, null, null, JumpRule.NONE, List.of(),
                 null, null, List.of(), List.of(), null, null, reason, newFacts,
-                List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), null, null);
     }
 
     private static ReunionDiagnosis insufficient() {
@@ -120,14 +120,15 @@ class AssessmentServiceTest {
 
     // 판독 스텁 재료 — 내용은 뷰 조립 테스트(AssessmentReadingViewTest)에서 검증하고
     // 여기선 흐름(부착 여부)만 본다.
-    private static final ReadingDraft DRAFT = new ReadingDraft("진단 요약",
-            List.of(new ReadingDraft.Diagnosis("partnerSignal", "상대신호", 1, "UP", "판정",
-                    "서술", List.of())),
+    private static final ReadingDraft DRAFT = new ReadingDraft("진단 요약", null,
+            List.of(new ReadingDraft.Diagnosis("partnerSignal", "상대신호", "CORE", 1, "유리",
+                    "CONFIRMED", "판정", "서술", List.of())),
+            "이번 이별, 뭐가 문제였을까?",
             List.of(new ReadingDraft.Chapter("아이브로", "제목", "CORE_CONTRADICTION", null, "답",
                     "서술", null, null, List.of())),
-            null,
-            new ReadingDraft.Reselect("제목", "답", "서술", List.of()),
-            new ReadingDraft.Fin("관계 재평가 중", List.of()),
+            new ReadingDraft.ActionPlan("지금은 어떻게 움직일까?", "HOLD_AND_REASSESS", "답",
+                    "2주 뒤", "이유", "목표", List.of("행동"), "멈출 조건", List.of("피할 것")),
+            List.of("칩"),
             new ReadingDraft.Internal("MIXED", "UNSTABLE", "PRESENT", "CONDITIONAL"));
 
     private static final AssessmentResponse.Reading READING_VIEW =
@@ -211,7 +212,7 @@ class AssessmentServiceTest {
                         null, null,
                         "아직 헤어진 상태가 아니면 재회 확률은 의미가 없습니다",
                         List.of("유저와 상대는 아직 사귀는 중"),
-                        List.of(), List.of(), List.of())));
+                        List.of(), List.of(), List.of(), null, null)));
         given(txService.save(eq(10L), any(Assessment.class), anyList(), any()))
                 .willAnswer(inv -> inv.getArgument(1));
 
